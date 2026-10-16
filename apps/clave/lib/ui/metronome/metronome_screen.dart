@@ -134,7 +134,7 @@ class _MetronomeScreenState extends State<MetronomeScreen> with AutomaticKeepAli
       final Widget tempo = _TempoPanel(
         bpm: c.bpm,
         currentBpm: m.currentBpm,
-        running: b.running,
+        running: m.running,
         onBpm: (double v) => m.setBpm(v),
         onTap: () {
           final double? bpm = m.tap();

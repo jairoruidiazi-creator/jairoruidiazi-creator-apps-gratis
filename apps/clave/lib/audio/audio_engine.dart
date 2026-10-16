@@ -1,5 +1,4 @@
-import 'dart:typed_data';
-
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
 
@@ -224,7 +223,9 @@ class SoLoudEngine implements AudioEngine {
 
 /// Motor mudo para pruebas y para cuando el audio no está disponible.
 class SilentEngine implements AudioEngine {
-  final Stopwatch _clock = Stopwatch();
+  // Usa el reloj de `package:clock`, que las pruebas de widgets pueden
+  // adelantar con el tiempo simulado.
+  DateTime? _started;
   int _pushedBytes = 0;
   int _sampleRate = 44100;
 
@@ -238,9 +239,7 @@ class SilentEngine implements AudioEngine {
   Future<PcmStream?> openPcmStream({int sampleRate = 44100, double bufferingSeconds = 0.05}) async {
     _sampleRate = sampleRate;
     _pushedBytes = 0;
-    _clock
-      ..reset()
-      ..start();
+    _started = clock.now();
     return PcmStream();
   }
 
@@ -252,13 +251,14 @@ class SilentEngine implements AudioEngine {
   @override
   double consumedSeconds(PcmStream stream) {
     final double pushed = _pushedBytes / 2 / _sampleRate;
-    final double elapsed = _clock.elapsedMicroseconds / 1e6;
+    final DateTime? started = _started;
+    final double elapsed = started == null ? 0 : clock.now().difference(started).inMicroseconds / 1e6;
     return elapsed < pushed ? elapsed : pushed;
   }
 
   @override
   Future<void> closePcmStream(PcmStream stream) async {
-    _clock.stop();
+    _started = null;
   }
 
   @override
