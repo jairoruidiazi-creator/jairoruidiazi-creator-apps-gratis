@@ -51,6 +51,8 @@ jobs:
             cd "apps/$app"
             name=$(grep -E '^name:' pubspec.yaml | head -1 | awk '{print $2}')
             flutter create --platforms=android,ios --org co.appsgratis --project-name "$name" .
+            # flutter create deja una prueba de plantilla que no compila con nuestra app.
+            if ! git ls-files --error-unmatch test/widget_test.dart >/dev/null 2>&1; then rm -f test/widget_test.dart; fi
             python3 ../../tools/patch_platforms.py "$app"
             flutter pub get
             if grep -q flutter_launcher_icons pubspec.yaml; then
