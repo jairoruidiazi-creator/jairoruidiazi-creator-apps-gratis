@@ -149,14 +149,14 @@ class _MapScreenState extends State<MapScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   FloatingActionButton.small(
-                    heroTag: 'fit',
+                    heroTag: null,
                     tooltip: t(context, 'Ver todas las fotos', 'Show all photos'),
                     onPressed: () => _fitAll(photos, fix),
                     child: const Icon(Icons.zoom_out_map),
                   ),
                   const SizedBox(height: 8),
                   FloatingActionButton.small(
-                    heroTag: 'me',
+                    heroTag: null,
                     tooltip: t(context, 'Mi posición', 'My position'),
                     onPressed: fix == null ? () => s.location.start() : () => _map.move(LatLng(fix.latitude, fix.longitude), 17),
                     child: Icon(fix == null ? Icons.location_searching : Icons.my_location),

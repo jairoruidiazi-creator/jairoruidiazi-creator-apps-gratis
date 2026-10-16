@@ -168,9 +168,12 @@ void main() {
     await tester.tap(find.text('Franja inferior').first);
     await tester.pump();
     expect(services.state.templateById('default').position, StampPosition.bottomBar);
-    await tester.pageBack();
+    await tester.tap(find.byType(BackButton));
     await settle(tester);
     expect(find.byType(TemplateEditor), findsNothing);
+    // Deja terminar el guardado de la plantilla (E/S real) antes de seguir.
+    await waitFor(tester, () => false, maxTenths: 10);
+    expect(services.state.templateById('default').position, StampPosition.bottomBar);
     expect(errors, isEmpty, reason: 'plantilla: ${report()}');
 
     debugPrint('[prueba] ajustes');
@@ -182,11 +185,13 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Settings'), findsOneWidget);
-    await tester.pageBack();
+    await tester.tap(find.byType(BackButton));
     await settle(tester);
     expect(find.text('Projects'), findsWidgets);
     expect(errors, isEmpty, reason: 'ajustes: ${report()}');
 
+    // Deja terminar cualquier E/S pendiente antes de desmontar y borrar la carpeta temporal.
+    await waitFor(tester, () => false, maxTenths: 10);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 2));
     FlutterError.onError = previous;
@@ -234,9 +239,11 @@ void main() {
     // Buscar filtra.
     await tester.enterText(find.byType(TextField), 'nada');
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     expect(find.textContaining('Ninguna foto coincide'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'columna');
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pump();
     debugPrint('[prueba] galería: desenfocar');
@@ -256,10 +263,11 @@ void main() {
     expect(find.text('18NXL0291020787'), findsOneWidget);
     expect(find.text('67P7PW6H+C5'), findsOneWidget);
     debugPrint('[prueba] galería: volver');
-    await tester.pageBack();
+    await tester.tap(find.byType(BackButton));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(tester.takeException(), isNull);
+    await waitFor(tester, () => false, maxTenths: 10);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 2));
   }, timeout: const Timeout(Duration(minutes: 3)));

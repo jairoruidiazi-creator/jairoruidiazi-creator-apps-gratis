@@ -237,6 +237,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
           floatingActionButton: photos.isEmpty
               ? null
               : FloatingActionButton.extended(
+                  // Sin Hero: el botón aparece y desaparece con el filtro y no
+                  // debe participar en las transiciones de página.
+                  heroTag: null,
                   onPressed: _busy ? null : () => _exportMenu(st, photos),
                   icon: _busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.ios_share_rounded),
                   label: Text(t(context, 'Exportar', 'Export')),
