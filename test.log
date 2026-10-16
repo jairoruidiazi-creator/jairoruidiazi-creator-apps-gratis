@@ -1,0 +1,34 @@
+No Visual Studio installation found with the requested Microsoft.VisualStudio.Component.VC.Tools.x86.x64 component.
+
+File modified during build. Build must be rerun.
+
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: Los preajustes y setlists se guardan, exportan e importan
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: El registro de práctica suma por día y calcula la racha
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: touchPractice abre una sesión y la cierra al terminar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: El metrónomo arranca y para con el motor mudo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Notas La4 = 440 Hz y Do4 = 261,63 Hz en temperamento igual
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Notas Los nombres cambian con la notación y los bemoles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Notas Los temperamentos históricos desvían como manda la teoría
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Notas La referencia La4 se mantiene exacta en cualquier temperamento
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Notas PitchSettings interpreta frecuencias con transposición y capo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Notas Formato de hercios con coma
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Instrumentos Cuerdas de la guitarra y detección de la más cercana
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Instrumentos Indicaciones de tempo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Detector de tono Detecta senos puros de Do1 a La6 (medio cent de error desde 120 Hz)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Detector de tono Con armónicos fuertes sigue encontrando la fundamental
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Detector de tono El silencio y el ruido no producen nota
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Detector de tono pcm16ToFloat convierte extremos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Secuenciador A 120 BPM en 4/4 los pulsos caen cada 22.050 muestras
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Secuenciador Las subdivisiones y el swing reparten el pulso
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Secuenciador Los pulsos silenciosos y los compases mudos no suenan pero existen
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Secuenciador El entrenador sube el tempo por pasos hasta la meta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Secuenciador Cambiar la configuración en caliente aplica desde el siguiente golpe
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Secuenciador El renderizador produce audio audible y alineado
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Secuenciador Todos los sonidos se sintetizan sin NaN y con duración razonable
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Secuenciador RhythmConfig sobrevive al JSON
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: La app abre las cinco pestañas y los ajustes sin excepciones
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: La pantalla de preajustes guarda el ritmo actual
+::endgroup::
+
+🎉 26 tests passed.
