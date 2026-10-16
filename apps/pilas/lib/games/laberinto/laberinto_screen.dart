@@ -166,7 +166,7 @@ class _LaberintoScreenState extends State<LaberintoScreen> {
   @override
   Widget build(BuildContext context) {
     final Maze? m = _maze;
-    final Color areaColor = PilasColors.morado;
+    const Color areaColor = PilasColors.morado;
     return GameFrame(
       launch: widget.launch,
       engine: _engine,

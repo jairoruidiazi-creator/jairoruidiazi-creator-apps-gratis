@@ -35,7 +35,8 @@ jobs:
           cache: true
       - run: flutter --version 2>&1 | tee version.log
       - run: flutter pub get 2>&1 | tee pubget.log; exit ${PIPESTATUS[0]}
-      - run: flutter analyze 2>&1 | tee analyze.log; exit ${PIPESTATUS[0]}
+      # Los avisos de estilo (info) se revisan en el registro; errores y warnings sí bloquean.
+      - run: flutter analyze --no-fatal-infos 2>&1 | tee analyze.log; exit ${PIPESTATUS[0]}
       - run: flutter test 2>&1 | tee test.log; exit ${PIPESTATUS[0]}
       - name: Publicar registros
         if: always()

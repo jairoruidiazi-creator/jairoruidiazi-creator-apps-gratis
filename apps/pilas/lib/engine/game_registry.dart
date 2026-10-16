@@ -4,6 +4,7 @@ import '../games/carrera/carrera_generator.dart';
 import '../games/choice/choice_game_screen.dart';
 import '../games/clasifica/clasifica_generator.dart';
 import '../games/colorear/colorear_screen.dart';
+import '../games/cuentos/cuentos_screen.dart';
 import '../games/emociones/emociones_generator.dart';
 import '../games/intruso/intruso_generator.dart';
 import '../games/laberinto/laberinto_screen.dart';
@@ -12,11 +13,13 @@ import '../games/oracion/oracion_generator.dart';
 import '../games/palabra/palabra_round.dart';
 import '../games/patrones/patrones_generator.dart';
 import '../games/reloj/reloj_generator.dart';
+import '../games/rompecabezas/rompecabezas_screen.dart';
 import '../games/rutinas/rutinas_generator.dart';
 import '../games/shell/order_game_screen.dart';
 import '../games/sonidos/sonidos_generator.dart';
 import '../games/sudoku/sudoku_screen.dart';
 import '../games/tienda/tienda_screen.dart';
+import '../games/trazo/trazo_screen.dart';
 import '../model/age_band.dart';
 import '../model/area.dart';
 import 'game_def.dart';
@@ -96,6 +99,24 @@ class GameRegistry {
       enCasa: 'Dibujen un laberinto en una hoja y pídanle que lo resuelva primero con el dedo y luego con el lápiz.',
       pregunta: '¿Miraste todo el camino antes de empezar o fuiste probando?',
       build: (BuildContext context, GameLaunch launch) => LaberintoScreen(launch: launch),
+    ),
+    GameDef(
+      id: 'rompecabezas',
+      nombre: 'Tangram y rompecabezas',
+      area: Area.logica,
+      emoji: '1f9e9',
+      minBand: AgeBand.b3a4,
+      maxBand: AgeBand.b9a11,
+      skills: const <AgeBand, String>{
+        AgeBand.b3a4: 'logica.3-4.encajar',
+        AgeBand.b5a6: 'logica.5-6.tangram',
+        AgeBand.b7a8: 'logica.7-8.planificar',
+        AgeBand.b9a11: 'logica.9-11.bloques',
+      },
+      descripcion: 'Percepción espacial: encajar figuras en su silueta (por forma y tamaño) y armar imágenes intercambiando fichas.',
+      enCasa: 'Recorten una foto o un dibujo en seis pedazos y pídanle que lo arme; después, en nueve.',
+      pregunta: '¿Cómo sabías dónde iba cada pedazo? ¿Qué miraste: los bordes, los colores?',
+      build: (BuildContext context, GameLaunch launch) => RompecabezasScreen(launch: launch),
     ),
     GameDef(
       id: 'sudoku',
@@ -181,6 +202,40 @@ class GameRegistry {
       enCasa: 'Jueguen a "veo veo" con sonidos: "veo algo que empieza con mmm".',
       pregunta: '¿Con qué sonido empieza tu nombre? ¿Y el de tu mejor amigo?',
       build: (BuildContext context, GameLaunch launch) => ChoiceGameScreen(launch: launch, generator: SonidosGenerator()),
+    ),
+    GameDef(
+      id: 'trazo',
+      nombre: 'Trazo de letras',
+      area: Area.lenguaje,
+      emoji: '270f',
+      minBand: AgeBand.b3a4,
+      maxBand: AgeBand.b5a6,
+      skills: const <AgeBand, String>{
+        AgeBand.b3a4: 'lengua.3-4.trazos',
+        AgeBand.b5a6: 'lengua.5-6.trazo',
+      },
+      descripcion: 'Grafomotricidad: trazos de pre-escritura, vocales, letras mayúsculas y minúsculas y números, siguiendo la guía con el dedo.',
+      enCasa: 'Tracen letras grandes en una bandeja con harina o arena, y después en papel con crayón grueso.',
+      pregunta: '¿Por dónde empieza la letra? Muéstrame con el dedo en el aire.',
+      build: (BuildContext context, GameLaunch launch) => TrazoScreen(launch: launch),
+    ),
+    GameDef(
+      id: 'cuentos',
+      nombre: 'Cuentos con voz',
+      area: Area.lenguaje,
+      emoji: '1f4d6',
+      minBand: AgeBand.b3a4,
+      maxBand: AgeBand.b9a11,
+      skills: const <AgeBand, String>{
+        AgeBand.b3a4: 'lengua.3-4.cuentos',
+        AgeBand.b5a6: 'lengua.5-6.lectura',
+        AgeBand.b7a8: 'lengua.7-8.comprension',
+        AgeBand.b9a11: 'lengua.9-11.textos',
+      },
+      descripcion: 'Comprensión lectora y escucha: cuentos originales leídos en voz alta, con tres preguntas que van de lo literal a la inferencia.',
+      enCasa: 'Después de leer un cuento, pregunten "¿qué pasó primero?", "¿por qué crees que hizo eso?" y "¿qué habrías hecho tú?".',
+      pregunta: '¿Qué parte del cuento te gustó más y por qué?',
+      build: (BuildContext context, GameLaunch launch) => CuentosScreen(launch: launch),
     ),
     GameDef(
       id: 'palabra',
