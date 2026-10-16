@@ -155,5 +155,7 @@ void main() {
     expect(services.state.presets.single.name, 'Bambuco');
     expect(find.text('Bambuco'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    // Deja que se liberen los controladores del diálogo.
+    await tester.pump(const Duration(seconds: 2));
   });
 }
