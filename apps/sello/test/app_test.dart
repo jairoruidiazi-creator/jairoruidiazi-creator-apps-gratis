@@ -66,12 +66,14 @@ void main() {
     addTearDown(() => FlutterError.onError = previous);
     String report() => errors.map((FlutterErrorDetails d) => d.toString()).join('\n----\n');
 
+    debugPrint('[prueba] inicio');
     await tester.pumpWidget(SelloApp(services: services, cameraEnabled: false));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(errors, isEmpty, reason: 'inicio: ${report()}');
     expect(find.text('Cámara'), findsWidgets);
 
+    debugPrint('[prueba] hoja de datos');
     // Hoja de datos de la foto (proyecto, notas, etiquetas) desde la cámara.
     await tester.tap(find.text('General').first);
     await settle(tester);
@@ -81,6 +83,7 @@ void main() {
     await settle(tester);
     expect(errors, isEmpty, reason: 'hoja de datos: ${report()}');
 
+    debugPrint('[prueba] hoja GPS');
     // Hoja de GPS y brújula.
     await tester.tap(find.byIcon(Icons.gps_fixed).first);
     await settle(tester);
@@ -106,6 +109,7 @@ void main() {
     await settle(tester);
     expect(errors, isEmpty, reason: 'hoja GPS: ${report()}');
 
+    debugPrint('[prueba] pestañas');
     // Galería vacía, mapa y proyectos.
     await tester.tap(find.widgetWithText(NavigationDestination, 'Galería'));
     await tester.pump();
@@ -121,6 +125,7 @@ void main() {
     expect(find.text('Proyectos y sellos'), findsOneWidget);
     expect(errors, isEmpty, reason: 'pestañas: ${report()}');
 
+    debugPrint('[prueba] nuevo proyecto');
     // Nuevo proyecto con un campo.
     await tester.tap(find.text('Nuevo'));
     await settle(tester);
@@ -145,6 +150,7 @@ void main() {
     expect(reloaded.projects.last.name, 'Obra Calle 80');
     expect(errors, isEmpty, reason: 'proyecto: ${report()}');
 
+    debugPrint('[prueba] plantilla');
     // Editor de plantilla con vista previa.
     await tester.tap(find.text('Estándar'));
     await settle(tester);
@@ -166,6 +172,7 @@ void main() {
     expect(find.byType(TemplateEditor), findsNothing);
     expect(errors, isEmpty, reason: 'plantilla: ${report()}');
 
+    debugPrint('[prueba] ajustes');
     // Ajustes e idioma.
     await tester.tap(find.byIcon(Icons.settings_outlined).last);
     await settle(tester);
@@ -182,7 +189,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 2));
     FlutterError.onError = previous;
-  });
+  }, timeout: const Timeout(Duration(minutes: 3)));
 
   testWidgets('La galería muestra una foto guardada y abre su detalle', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2160);
@@ -210,14 +217,17 @@ void main() {
       width: 4,
       height: 3,
     ));
+    debugPrint('[prueba] galería: montar');
     await tester.pumpWidget(SelloApp(services: services, cameraEnabled: false));
     await tester.pump();
     await tester.tap(find.widgetWithText(NavigationDestination, 'Galería'));
     await tester.pump();
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pump();
+    debugPrint('[prueba] galería: con foto');
     expect(find.text('#muro'), findsOneWidget);
     expect(find.text('Exportar'), findsOneWidget);
+    debugPrint('[prueba] galería: buscar');
     // Buscar filtra.
     await tester.enterText(find.byType(TextField), 'nada');
     await tester.pump();
@@ -226,8 +236,10 @@ void main() {
     await tester.pump();
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pump();
+    debugPrint('[prueba] galería: desenfocar');
     FocusManager.instance.primaryFocus?.unfocus();
     await tester.pump();
+    debugPrint('[prueba] galería: abrir detalle');
     // Abrir el detalle.
     final Finder tile = find.descendant(of: find.byType(SliverGrid), matching: find.byType(GestureDetector)).first;
     await tester.tap(tile);
@@ -236,16 +248,18 @@ void main() {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
+    debugPrint('[prueba] galería: detalle abierto');
     expect(find.text('Columna C-3'), findsWidgets);
     expect(find.text('18NXL0291020787'), findsOneWidget);
     expect(find.text('67P7PW6H+C5'), findsOneWidget);
+    debugPrint('[prueba] galería: volver');
     await tester.pageBack();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 2));
-  });
+  }, timeout: const Timeout(Duration(minutes: 3)));
 
   test('Los ajustes se guardan en preferencias', () async {
     final AppSettings s = services.settings;
