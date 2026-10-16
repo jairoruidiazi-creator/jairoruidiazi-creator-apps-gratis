@@ -1,17 +1,14 @@
-# pilas
+# Pilas
 
-A new Flutter project.
+Juegos didácticos gratuitos para niños de 3 a 11 años: lógica, números, letras, ciencias, arte y emociones. Sin anuncios, sin suscripciones, sin cuenta y sin internet. Los datos de los niños quedan solo en el dispositivo.
 
-## Getting Started
+- Código: Apache-2.0. Contenido propio: CC BY 4.0. Pictogramas: Twemoji (CC BY 4.0). Tipografías: Lexend y Andika (SIL OFL).
+- Decisiones de diseño: `docs/DECISIONES.md`.
+- Recursos generados: `tools/gen_pilas_assets.py` (ícono, sonidos, pictogramas, tipografías) y `tools/gen_pilas_coloring.py` (láminas).
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```bash
+flutter pub get
+flutter analyze
+flutter test
+flutter run
+```

@@ -6,11 +6,15 @@ on:
     paths:
       - "apps/pilas/**"
       - ".github/workflows/pilas.yml"
+      - "tools/ci/**"
   pull_request:
     paths:
       - "apps/pilas/**"
       - ".github/workflows/pilas.yml"
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 concurrency:
   group: pilas-${{ github.ref }}
@@ -29,10 +33,16 @@ jobs:
         with:
           channel: stable
           cache: true
-      - run: flutter --version
-      - run: flutter pub get
-      - run: flutter analyze
-      - run: flutter test
+      - run: flutter --version 2>&1 | tee version.log
+      - run: flutter pub get 2>&1 | tee pubget.log; exit ${PIPESTATUS[0]}
+      - run: flutter analyze 2>&1 | tee analyze.log; exit ${PIPESTATUS[0]}
+      - run: flutter test 2>&1 | tee test.log; exit ${PIPESTATUS[0]}
+      - name: Publicar registros
+        if: always()
+        working-directory: .
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash tools/ci/publish_logs.sh ci-logs-check apps/pilas/version.log apps/pilas/pubget.log apps/pilas/analyze.log apps/pilas/test.log
 
   android:
     name: APK Android
@@ -58,7 +68,7 @@ jobs:
           cache: true
       - run: flutter pub get
         if: steps.plat.outputs.exists == 'true'
-      - run: flutter build apk --release
+      - run: flutter build apk --release 2>&1 | tee build-android.log; exit ${PIPESTATUS[0]}
         if: steps.plat.outputs.exists == 'true'
       - uses: actions/upload-artifact@v4
         if: steps.plat.outputs.exists == 'true'
@@ -66,6 +76,12 @@ jobs:
           name: pilas-android-apk
           path: apps/pilas/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
+      - name: Publicar registros
+        if: always() && steps.plat.outputs.exists == 'true'
+        working-directory: .
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash tools/ci/publish_logs.sh ci-logs-android apps/pilas/build-android.log
 
   ios:
     name: iOS sin firma
@@ -86,5 +102,11 @@ jobs:
           cache: true
       - run: flutter pub get
         if: steps.plat.outputs.exists == 'true'
-      - run: flutter build ios --release --no-codesign
+      - run: flutter build ios --release --no-codesign 2>&1 | tee build-ios.log; exit ${PIPESTATUS[0]}
         if: steps.plat.outputs.exists == 'true'
+      - name: Publicar registros
+        if: always() && steps.plat.outputs.exists == 'true'
+        working-directory: .
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash tools/ci/publish_logs.sh ci-logs-ios apps/pilas/build-ios.log
