@@ -145,8 +145,9 @@ void main() {
     await waitFor(tester, () => find.byType(ProjectEditor).evaluate().isEmpty);
     expect(find.byType(ProjectEditor), findsNothing);
     expect(services.state.projects.last.fields.single.label, 'Lote');
+    // Lectura real de disco: dentro de runAsync para que el tiempo simulado no la congele.
     final AppState reloaded = AppState(services.store);
-    await reloaded.load();
+    await tester.runAsync(() => reloaded.load());
     expect(reloaded.projects.last.name, 'Obra Calle 80');
     expect(errors, isEmpty, reason: 'proyecto: ${report()}');
 
@@ -198,25 +199,27 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     // Una foto mínima (PNG de 1×1 sirve para Image.file).
     const List<int> png = <int>[137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13, 73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0, 31, 21, 196, 137, 0, 0, 0, 13, 73, 68, 65, 84, 120, 156, 99, 248, 207, 192, 240, 31, 0, 5, 0, 1, 255, 95, 92, 56, 137, 0, 0, 0, 0, 73, 69, 78, 68, 174, 66, 96, 130];
-    await services.store.writeBytes('photos/general/a.jpg', png);
-    await services.state.addPhoto(PhotoRecord(
-      id: 'a',
-      projectId: 'general',
-      originalFile: 'photos/general/a-orig.jpg',
-      stampedFile: 'photos/general/a.jpg',
-      takenAt: DateTime(2026, 3, 9, 14, 5),
-      latitude: 4.711,
-      longitude: -74.0721,
-      accuracy: 4.2,
-      altitude: 2601,
-      heading: 135,
-      address: 'Cra 7, Bogotá',
-      notes: 'Columna C-3',
-      tags: <String>['muro'],
-      description: 'desc',
-      width: 4,
-      height: 3,
-    ));
+    await tester.runAsync(() async {
+      await services.store.writeBytes('photos/general/a.jpg', png);
+      await services.state.addPhoto(PhotoRecord(
+        id: 'a',
+        projectId: 'general',
+        originalFile: 'photos/general/a-orig.jpg',
+        stampedFile: 'photos/general/a.jpg',
+        takenAt: DateTime(2026, 3, 9, 14, 5),
+        latitude: 4.711,
+        longitude: -74.0721,
+        accuracy: 4.2,
+        altitude: 2601,
+        heading: 135,
+        address: 'Cra 7, Bogotá',
+        notes: 'Columna C-3',
+        tags: <String>['muro'],
+        description: 'desc',
+        width: 4,
+        height: 3,
+      ));
+    });
     debugPrint('[prueba] galería: montar');
     await tester.pumpWidget(SelloApp(services: services, cameraEnabled: false));
     await tester.pump();
