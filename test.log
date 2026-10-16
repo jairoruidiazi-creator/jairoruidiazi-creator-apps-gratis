@@ -1,0 +1,131 @@
+
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/mastery_test.dart: MasteryState tres aciertos de cuatro suben de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/mastery_test.dart: MasteryState dos aciertos mantienen el nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/mastery_test.dart: MasteryState dos ventanas seguidas con un acierto o menos bajan un nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/mastery_test.dart: MasteryState no baja del nivel 1 ni sube del máximo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/mastery_test.dart: MasteryState se guarda y se lee igual
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: memoria abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: memoria abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: memoria abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: memoria abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: patrones abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: formato de pesos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: patrones abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: pesos en palabras
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: el parser de paths cierra figuras y detecta puntos dentro
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: las láminas se leen desde JSON
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: el vocabulario es consistente
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: el catálogo de habilidades cubre todas las áreas y tramos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: la puerta parental acepta solo la respuesta correcta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: tramos por edad
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: patrones abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: patrones abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: intruso abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: intruso abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: intruso abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laberintos abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laberintos abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laberintos abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laberintos abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: rompecabezas abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: rompecabezas abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: rompecabezas abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: rompecabezas abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: sudoku abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: sudoku abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content2_test.dart: Cada cuento tiene páginas, tres preguntas válidas y hay al menos tres por tramo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content2_test.dart: Las plantillas de trazo tienen ids únicos, puntos dentro del cuadro y se muestrean
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content2_test.dart: La evaluación del trazo premia seguir la guía y castiga el garabato
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content2_test.dart: Encajar y rompecabezas de imagen generan rondas resolubles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content2_test.dart: Todos los juegos del registro apuntan a habilidades existentes de su tramo y área
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: sudoku abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content2_test.dart: Los patrones de pixel art son cuadrados, usan colores de la paleta y hay simétricos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: tienda abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: tienda abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: tienda abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: tienda abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: carrera abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: carrera abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: carrera abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: reloj abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: reloj abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: reloj abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: sonidos abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: sonidos abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cocina abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cocina abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cocina abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: figuras abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: figuras abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: IntrusoGenerator genera rondas válidas en todos los tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: SonidosGenerator genera rondas válidas en todos los tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: PatronesGenerator genera rondas válidas en todos los tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: figuras abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: EmocionesGenerator genera rondas válidas en todos los tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: ClasificaGenerator genera rondas válidas en todos los tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: CarreraGenerator genera rondas válidas en todos los tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: figuras abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: RelojGenerator genera rondas válidas en todos los tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: CocinaGenerator genera rondas válidas en todos los tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: FigurasGenerator genera rondas válidas en todos los tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: trazo abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: Los bancos de preguntas están completos y generan rondas válidas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: Las fracciones se nombran bien
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: El reloj nombra las horas como se dicen en Colombia
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: La tienda genera rondas válidas de elegir y de pagar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: El tablero de memoria tiene cada pareja dos veces
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: trazo abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuentos abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuentos abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuentos abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuentos abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: palabra abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: palabra abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: palabra abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: oracion abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: oracion abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: oracion abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: clasifica abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: clasifica abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: clasifica abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: clasifica abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuerpo abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuerpo abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/boards_test.dart: Los laberintos siempre tienen salida y la llave es alcanzable
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuerpo abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/boards_test.dart: Los sudokus tienen solución válida, única y el número de pistas esperado
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/boards_test.dart: Arma la palabra: las fichas contienen todas las letras y los distractores no repiten
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuerpo abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/boards_test.dart: Ordena la oración y rutinas producen rondas coherentes
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laboratorio abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laboratorio abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laboratorio abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laboratorio abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: colorear abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: colorear abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: colorear abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: colorear abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: colorear_numeros abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: colorear_numeros abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: colorear_numeros abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: dibujo abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: dibujo abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: dibujo abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: dibujo abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: pixel abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: pixel abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: emociones abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: emociones abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: emociones abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: rutinas abre y responde en 3-4
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: rutinas abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: decisiones abre y responde en 5-6
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: decisiones abre y responde en 7-8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: decisiones abre y responde en 9-11
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/app_test.dart: los perfiles y el progreso se guardan en disco
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/app_test.dart: exportar e importar conserva perfiles y grupos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/app_test.dart: la app arranca en la pantalla de perfiles
+::endgroup::
+
+🎉 126 tests passed.
