@@ -81,17 +81,19 @@ class _TunerSettingsSheetState extends State<TunerSettingsSheet> {
         ),
         const SizedBox(height: 16),
         _Section(title: t(context, 'Temperamento', 'Temperament')),
-        SegmentedButton<Temperament>(
-          segments: <ButtonSegment<Temperament>>[
-            ButtonSegment<Temperament>(value: Temperament.equal, label: Text(t(context, 'Igual', 'Equal'))),
-            ButtonSegment<Temperament>(value: Temperament.just, label: Text(t(context, 'Justo', 'Just'))),
-            ButtonSegment<Temperament>(value: Temperament.pythagorean, label: Text(t(context, 'Pitag.', 'Pyth.'))),
-            ButtonSegment<Temperament>(value: Temperament.meantone, label: Text(t(context, 'Mesot.', 'Mean.'))),
-            ButtonSegment<Temperament>(value: Temperament.custom, label: Text(t(context, 'Propio', 'Custom'))),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: <Widget>[
+            for (final List<dynamic> o in <List<dynamic>>[
+              <dynamic>[Temperament.equal, t(context, 'Igual', 'Equal')],
+              <dynamic>[Temperament.just, t(context, 'Justo', 'Just')],
+              <dynamic>[Temperament.pythagorean, t(context, 'Pitagórico', 'Pythagorean')],
+              <dynamic>[Temperament.meantone, t(context, 'Mesotónico', 'Meantone')],
+              <dynamic>[Temperament.custom, t(context, 'Propio', 'Custom')],
+            ])
+              ChoiceChip(label: Text(o[1] as String), selected: st.temperament == o[0], onSelected: (_) { st.temperament = o[0] as Temperament; save(); }),
           ],
-          selected: <Temperament>{st.temperament},
-          showSelectedIcon: false,
-          onSelectionChanged: (Set<Temperament> v) { st.temperament = v.first; save(); },
         ),
         if (st.temperament != Temperament.equal) ...<Widget>[
           const SizedBox(height: 8),
@@ -136,16 +138,18 @@ class _TunerSettingsSheetState extends State<TunerSettingsSheet> {
         ],
         const SizedBox(height: 16),
         _Section(title: t(context, 'Notación', 'Notation')),
-        SegmentedButton<Notation>(
-          segments: <ButtonSegment<Notation>>[
-            ButtonSegment<Notation>(value: Notation.solfeo, label: Text(t(context, 'Do Re Mi', 'Do Re Mi'))),
-            const ButtonSegment<Notation>(value: Notation.english, label: Text('C D E')),
-            const ButtonSegment<Notation>(value: Notation.german, label: Text('C D E (H)')),
-            const ButtonSegment<Notation>(value: Notation.indian, label: Text('Sa Re Ga')),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: <Widget>[
+            for (final List<dynamic> o in <List<dynamic>>[
+              <dynamic>[Notation.solfeo, 'Do Re Mi'],
+              <dynamic>[Notation.english, 'C D E'],
+              <dynamic>[Notation.german, 'C D E (H)'],
+              <dynamic>[Notation.indian, 'Sa Re Ga'],
+            ])
+              ChoiceChip(label: Text(o[1] as String), selected: st.notation == o[0], onSelected: (_) { st.notation = o[0] as Notation; save(); }),
           ],
-          selected: <Notation>{st.notation},
-          showSelectedIcon: false,
-          onSelectionChanged: (Set<Notation> v) { st.notation = v.first; save(); },
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,

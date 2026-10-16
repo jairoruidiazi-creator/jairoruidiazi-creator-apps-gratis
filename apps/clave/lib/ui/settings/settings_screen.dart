@@ -28,16 +28,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _header(context, t(context, 'General', 'General')),
           ListTile(
             title: Text(t(context, 'Idioma', 'Language')),
-            trailing: SegmentedButton<String>(
+            subtitle: _left(SegmentedButton<String>(
               segments: const <ButtonSegment<String>>[ButtonSegment<String>(value: 'es', label: Text('Español')), ButtonSegment<String>(value: 'en', label: Text('English'))],
               selected: <String>{st.language},
               showSelectedIcon: false,
               onSelectionChanged: (Set<String> v) { st.language = v.first; save(); },
-            ),
+            )),
           ),
           ListTile(
             title: Text(t(context, 'Tema', 'Theme')),
-            trailing: SegmentedButton<String>(
+            subtitle: _left(SegmentedButton<String>(
               segments: <ButtonSegment<String>>[
                 ButtonSegment<String>(value: 'system', label: Text(t(context, 'Sistema', 'System'))),
                 ButtonSegment<String>(value: 'light', label: Text(t(context, 'Claro', 'Light'))),
@@ -46,7 +46,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               selected: <String>{st.themeMode},
               showSelectedIcon: false,
               onSelectionChanged: (Set<String> v) { st.themeMode = v.first; save(); },
-            ),
+            )),
           ),
           SwitchListTile(
             title: Text(t(context, 'Mantener la pantalla encendida', 'Keep the screen on')),
@@ -89,12 +89,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _header(context, t(context, 'Grabadora', 'Recorder')),
           ListTile(
             title: Text(t(context, 'Formato', 'Format')),
-            subtitle: Text(t(context, 'AAC ocupa poco; WAV y FLAC no pierden calidad.', 'AAC is small; WAV and FLAC are lossless.')),
-            trailing: SegmentedButton<String>(
-              segments: const <ButtonSegment<String>>[ButtonSegment<String>(value: 'aac', label: Text('AAC')), ButtonSegment<String>(value: 'wav', label: Text('WAV')), ButtonSegment<String>(value: 'flac', label: Text('FLAC'))],
-              selected: <String>{st.recordingFormat},
-              showSelectedIcon: false,
-              onSelectionChanged: (Set<String> v) { st.recordingFormat = v.first; save(); },
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(t(context, 'AAC ocupa poco; WAV y FLAC no pierden calidad.', 'AAC is small; WAV and FLAC are lossless.')),
+                const SizedBox(height: 6),
+                SegmentedButton<String>(
+                  segments: const <ButtonSegment<String>>[ButtonSegment<String>(value: 'aac', label: Text('AAC')), ButtonSegment<String>(value: 'wav', label: Text('WAV')), ButtonSegment<String>(value: 'flac', label: Text('FLAC'))],
+                  selected: <String>{st.recordingFormat},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (Set<String> v) { st.recordingFormat = v.first; save(); },
+                ),
+              ],
             ),
           ),
           _header(context, t(context, 'Acerca de', 'About')),
@@ -106,6 +112,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
+
+  Widget _left(Widget child) => Padding(padding: const EdgeInsets.only(top: 6), child: Align(alignment: Alignment.centerLeft, child: child));
 
   Widget _header(BuildContext context, String text) {
     return Padding(

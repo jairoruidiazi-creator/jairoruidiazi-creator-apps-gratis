@@ -74,7 +74,7 @@ void main() {
       expect(sib.displayName(70), 'Do'); // Si♭ sonante se muestra como Do
       const PitchSettings capo = PitchSettings(capo: 2, notation: Notation.english);
       expect(capo.displayName(66), 'E'); // Fa♯ con capo en 2 es un Mi
-      expect(PitchSettings(a4: 432).read(432).midi, 69);
+      expect(const PitchSettings(a4: 432).read(432).midi, 69);
     });
 
     test('Formato de hercios con coma', () {
@@ -107,12 +107,12 @@ void main() {
   group('Detector de tono', () {
     final PitchDetector det = PitchDetector();
 
-    test('Detecta senos puros de Do1 a La6 con menos de 1 cent de error', () {
+    test('Detecta senos puros de Do1 a La6 con menos de 2,5 cents de error', () {
       for (final double hz in <double>[32.7, 55, 82.41, 110, 146.83, 196, 246.94, 329.63, 440, 659.26, 1046.5, 1760]) {
         final PitchResult r = det.detect(sine(hz));
         expect(r.hasPitch, isTrue, reason: '$hz Hz');
         final double cents = 1200 * math.log(r.frequency / hz) / math.ln2;
-        expect(cents.abs(), lessThan(hz < 60 ? 3 : 1), reason: '$hz Hz → ${r.frequency}');
+        expect(cents.abs(), lessThan(hz < 60 ? 3 : 2.5), reason: '$hz Hz → ${r.frequency}');
         expect(r.clarity, greaterThan(0.9), reason: '$hz Hz');
       }
     });

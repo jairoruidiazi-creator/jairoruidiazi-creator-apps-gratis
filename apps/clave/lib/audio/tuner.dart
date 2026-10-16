@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:record/record.dart';
@@ -34,13 +33,18 @@ class CentsPoint {
 /// Afinador: captura el micrófono, detecta el tono y lo interpreta según
 /// los ajustes (referencia, temperamento, transposición, instrumento).
 class Tuner extends ChangeNotifier {
-  Tuner({AudioRecorder? recorder, PitchDetector? detector, this.sampleRate = 44100})
-      : _recorder = recorder ?? AudioRecorder(),
+  Tuner({AudioRecorder? recorder, PitchDetector? detector, this.sampleRate = 44100, this.microphoneEnabled = true})
+      : _recorder = recorder,
         _detector = detector ?? PitchDetector(sampleRate: sampleRate);
 
-  final AudioRecorder _recorder;
+  AudioRecorder? _recorder;
   final PitchDetector _detector;
   final int sampleRate;
+
+  /// Falso en pruebas y en equipos sin micrófono: [start] no hace nada.
+  final bool microphoneEnabled;
+
+  AudioRecorder get _rec => _recorder ??= AudioRecorder();
 
   PitchSettings settings = const PitchSettings();
   Instrument instrument = Instruments.all.first;
@@ -87,18 +91,18 @@ class Tuner extends ChangeNotifier {
   double get now => _clock.elapsedMicroseconds / 1e6;
 
   Future<void> start() async {
-    if (_listening) {
+    if (_listening || !microphoneEnabled) {
       return;
     }
     try {
-      final bool ok = await _recorder.hasPermission();
+      final bool ok = await _rec.hasPermission();
       if (!ok) {
         _permissionDenied = true;
         notifyListeners();
         return;
       }
       _permissionDenied = false;
-      final Stream<Uint8List> stream = await _recorder.startStream(RecordConfig(
+      final Stream<Uint8List> stream = await _rec.startStream(RecordConfig(
         encoder: AudioEncoder.pcm16bits,
         sampleRate: sampleRate,
         numChannels: 1,
@@ -124,7 +128,7 @@ class Tuner extends ChangeNotifier {
     _sub = null;
     if (_listening) {
       try {
-        await _recorder.stop();
+        await _rec.stop();
       } catch (_) {}
     }
     _listening = false;
@@ -214,7 +218,10 @@ class Tuner extends ChangeNotifier {
   void dispose() {
     _timer?.cancel();
     _sub?.cancel();
-    unawaited(_recorder.dispose());
+    final AudioRecorder? r = _recorder;
+    if (r != null) {
+      unawaited(r.dispose());
+    }
     super.dispose();
   }
 }

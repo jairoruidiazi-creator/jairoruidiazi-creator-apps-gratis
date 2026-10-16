@@ -23,8 +23,10 @@ class RecorderScreen extends StatefulWidget {
 
 class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAliveClientMixin {
   Services? _services;
-  final AudioRecorder _recorder = AudioRecorder();
+  AudioRecorder? _recorderInstance;
   final AudioPlayer _player = AudioPlayer();
+
+  AudioRecorder get _recorder => _recorderInstance ??= AudioRecorder();
   bool _recording = false;
   DateTime? _recStart;
   Timer? _recTimer;
@@ -68,7 +70,10 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
     unawaited(_posSub?.cancel());
     unawaited(_durSub?.cancel());
     unawaited(_stateSub?.cancel());
-    unawaited(_recorder.dispose());
+    final AudioRecorder? rec = _recorderInstance;
+    if (rec != null) {
+      unawaited(rec.dispose());
+    }
     unawaited(_player.dispose());
     super.dispose();
   }
@@ -87,6 +92,7 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
     final Services s = _services!;
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     final String noPerm = t(context, 'Sin permiso de micrófono.', 'Microphone permission denied.');
+    final String cannotRecord = t(context, 'No se pudo grabar', 'Could not record');
     if (!await _recorder.hasPermission()) {
       messenger.showSnackBar(SnackBar(content: Text(noPerm)));
       return;
@@ -103,7 +109,7 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
     try {
       await _recorder.start(RecordConfig(encoder: enc, sampleRate: 44100, numChannels: 1, bitRate: 160000), path: path);
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('${t(context, 'No se pudo grabar', 'Could not record')}: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('$cannotRecord: $e')));
       return;
     }
     _recordingPath = path;
@@ -127,6 +133,7 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
 
   Future<void> _stopRecording() async {
     final Services s = _services!;
+    final String takeWord = t(context, 'Toma', 'Take');
     _recTimer?.cancel();
     await _ampSub?.cancel();
     _ampSub = null;
@@ -146,7 +153,7 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
     final int n = s.state.recordings.length + 1;
     final Recording r = Recording(
       id: newId(),
-      name: '${t(context, 'Toma', 'Take')} $n',
+      name: '$takeWord $n',
       file: rel,
       format: _recordingFormat,
       durationMs: ms,

@@ -26,7 +26,7 @@ void main() {
     final AppState state = AppState(store);
     await state.load();
     final AudioEngine engine = SilentEngine();
-    services = Services(settings: settings, state: state, store: store, engine: engine, metronome: Metronome(engine), tuner: Tuner());
+    services = Services(settings: settings, state: state, store: store, engine: engine, metronome: Metronome(engine), tuner: Tuner(microphoneEnabled: false));
   });
 
   tearDown(() async {
@@ -141,6 +141,9 @@ void main() {
     await tester.enterText(find.byType(TextField), 'Bambuco');
     await tester.tap(find.text('Aceptar'));
     await tester.pumpAndSettle();
+    // La escritura en disco es asíncrona real: se le da tiempo.
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 400)));
+    await tester.pump();
     expect(services.state.presets.single.name, 'Bambuco');
     expect(find.text('Bambuco'), findsOneWidget);
     expect(tester.takeException(), isNull);

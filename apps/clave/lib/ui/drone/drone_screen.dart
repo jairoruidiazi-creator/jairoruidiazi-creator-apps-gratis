@@ -287,37 +287,32 @@ class _DroneScreenState extends State<DroneScreen> with AutomaticKeepAliveClient
                   ],
                 ),
                 const SizedBox(height: 8),
-                Row(
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: <Widget>[
                     Text(t(context, 'Octava', 'Octave')),
-                    const SizedBox(width: 8),
                     for (final int o in <int>[2, 3, 4, 5])
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: ChoiceChip(label: Text('$o'), selected: Notes.octaveOf(_droneMidi) == o, onSelected: (_) => _setDroneMidi((o + 1) * 12 + Notes.pitchClassOf(_droneMidi))),
-                      ),
-                    const Spacer(),
+                      ChoiceChip(label: Text('$o'), selected: Notes.octaveOf(_droneMidi) == o, onSelected: (_) => _setDroneMidi((o + 1) * 12 + Notes.pitchClassOf(_droneMidi))),
+                    const SizedBox(width: 12),
                     Text(t(context, 'Quinta', 'Fifth')),
                     Switch(value: _fifth, onChanged: _toggleFifth),
                   ],
                 ),
-                Row(
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: <Widget>[
                     Text(t(context, 'Onda', 'Wave')),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: SegmentedButton<WaveShape>(
-                        segments: <ButtonSegment<WaveShape>>[
-                          ButtonSegment<WaveShape>(value: WaveShape.sine, label: Text(t(context, 'Seno', 'Sine'))),
-                          ButtonSegment<WaveShape>(value: WaveShape.triangle, label: Text(t(context, 'Triáng.', 'Tri.'))),
-                          ButtonSegment<WaveShape>(value: WaveShape.saw, label: Text(t(context, 'Sierra', 'Saw'))),
-                          ButtonSegment<WaveShape>(value: WaveShape.square, label: Text(t(context, 'Cuadr.', 'Square'))),
-                        ],
-                        selected: <WaveShape>{_shape},
-                        showSelectedIcon: false,
-                        onSelectionChanged: (Set<WaveShape> v) => _setShape(v.first),
-                      ),
-                    ),
+                    for (final List<dynamic> o in <List<dynamic>>[
+                      <dynamic>[WaveShape.sine, t(context, 'Seno', 'Sine')],
+                      <dynamic>[WaveShape.triangle, t(context, 'Triángulo', 'Triangle')],
+                      <dynamic>[WaveShape.saw, t(context, 'Sierra', 'Saw')],
+                      <dynamic>[WaveShape.square, t(context, 'Cuadrada', 'Square')],
+                    ])
+                      ChoiceChip(label: Text(o[1] as String), selected: _shape == o[0], onSelected: (_) => _setShape(o[0] as WaveShape)),
                   ],
                 ),
                 Row(
