@@ -57,6 +57,18 @@ class Opt {
 
   static ChoiceOption number(int n) => text('n$n', '$n', label: '$n');
 
+  /// Texto largo que puede ocupar varias líneas (opciones de una frase).
+  static ChoiceOption sentence(String id, String text, {double fontSize = 17}) {
+    return ChoiceOption(
+      id: id,
+      label: text,
+      build: (BuildContext context, double size) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        child: Text(text, textAlign: TextAlign.center, maxLines: 4, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600, color: PilasColors.tinta, height: 1.25)),
+      ),
+    );
+  }
+
   static ChoiceOption color(NamedColor c) {
     return ChoiceOption(
       id: 'color_${c.id}',

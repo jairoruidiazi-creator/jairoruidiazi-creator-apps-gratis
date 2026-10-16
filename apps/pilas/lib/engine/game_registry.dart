@@ -1,17 +1,25 @@
 import 'package:flutter/widgets.dart';
 
+import '../games/banco/bank_generator.dart';
+import '../games/banco/cuerpo_bank.dart';
+import '../games/banco/decisiones_bank.dart';
+import '../games/banco/laboratorio_bank.dart';
 import '../games/carrera/carrera_generator.dart';
 import '../games/choice/choice_game_screen.dart';
 import '../games/clasifica/clasifica_generator.dart';
+import '../games/cocina/cocina_generator.dart';
 import '../games/colorear/colorear_screen.dart';
 import '../games/cuentos/cuentos_screen.dart';
+import '../games/dibujo/dibujo_screen.dart';
 import '../games/emociones/emociones_generator.dart';
+import '../games/figuras/figuras_generator.dart';
 import '../games/intruso/intruso_generator.dart';
 import '../games/laberinto/laberinto_screen.dart';
 import '../games/memoria/memoria_screen.dart';
 import '../games/oracion/oracion_generator.dart';
 import '../games/palabra/palabra_round.dart';
 import '../games/patrones/patrones_generator.dart';
+import '../games/pixel/pixel_screen.dart';
 import '../games/reloj/reloj_generator.dart';
 import '../games/rompecabezas/rompecabezas_screen.dart';
 import '../games/rutinas/rutinas_generator.dart';
@@ -204,6 +212,41 @@ class GameRegistry {
       build: (BuildContext context, GameLaunch launch) => ChoiceGameScreen(launch: launch, generator: SonidosGenerator()),
     ),
     GameDef(
+      id: 'cocina',
+      nombre: 'Cocina de medidas',
+      area: Area.matematicas,
+      emoji: '1f373',
+      minBand: AgeBand.b5a6,
+      maxBand: AgeBand.b9a11,
+      skills: const <AgeBand, String>{
+        AgeBand.b5a6: 'mate.5-6.medidas',
+        AgeBand.b7a8: 'mate.7-8.fracciones',
+        AgeBand.b9a11: 'mate.9-11.fracciones',
+      },
+      descripcion: 'Medidas y fracciones con cosas de cocina: lleno y vacío, tazas, balanza, porciones de pizza, fracciones equivalentes y recetas.',
+      enCasa: 'Cocinen juntos: que mida las tazas, parta la arepa en cuatro y diga qué fracción se comió.',
+      pregunta: 'Si partes una pizza en 8 y te comes 2 pedazos, ¿qué fracción comiste? ¿Y cuánta queda?',
+      build: (BuildContext context, GameLaunch launch) => ChoiceGameScreen(launch: launch, generator: CocinaGenerator()),
+    ),
+    GameDef(
+      id: 'figuras',
+      nombre: 'Constructor de figuras',
+      area: Area.matematicas,
+      emoji: '1f4d0',
+      minBand: AgeBand.b3a4,
+      maxBand: AgeBand.b9a11,
+      skills: const <AgeBand, String>{
+        AgeBand.b3a4: 'mate.3-4.formas',
+        AgeBand.b5a6: 'mate.5-6.medidas',
+        AgeBand.b7a8: 'mate.7-8.perimetro',
+        AgeBand.b9a11: 'mate.9-11.area',
+      },
+      descripcion: 'Geometría: reconocer formas y objetos con esa forma, contar lados, comparar longitudes, perímetro y área sobre cuadrícula.',
+      enCasa: 'Busquen formas en la casa: ¿qué cosas son círculos?, ¿cuáles rectángulos? Midan con pasos el borde de una habitación.',
+      pregunta: '¿Cuál es la diferencia entre el perímetro y el área de la cancha?',
+      build: (BuildContext context, GameLaunch launch) => ChoiceGameScreen(launch: launch, generator: FigurasGenerator()),
+    ),
+    GameDef(
       id: 'trazo',
       nombre: 'Trazo de letras',
       area: Area.lenguaje,
@@ -290,6 +333,42 @@ class GameRegistry {
       build: (BuildContext context, GameLaunch launch) => ChoiceGameScreen(launch: launch, generator: ClasificaGenerator()),
     ),
     GameDef(
+      id: 'cuerpo',
+      nombre: 'Arma el cuerpo',
+      area: Area.ciencias,
+      emoji: '1fac0',
+      minBand: AgeBand.b3a4,
+      maxBand: AgeBand.b9a11,
+      skills: const <AgeBand, String>{
+        AgeBand.b3a4: 'ciencias.3-4.cuerpo',
+        AgeBand.b5a6: 'ciencias.5-6.sentidos',
+        AgeBand.b7a8: 'ciencias.7-8.organos',
+        AgeBand.b9a11: 'ciencias.9-11.cuerpo',
+      },
+      descripcion: 'El cuerpo humano: partes y para qué sirven, los cinco sentidos, órganos y sistemas, y hábitos que lo cuidan.',
+      enCasa: 'Jueguen "Simón dice" con partes del cuerpo, y de noche sientan juntos cómo late el corazón después de saltar.',
+      pregunta: '¿Qué pasa en tu cuerpo cuando corres mucho? ¿Por qué?',
+      build: (BuildContext context, GameLaunch launch) => ChoiceGameScreen(launch: launch, generator: BankGenerator(CuerpoBank.all)),
+    ),
+    GameDef(
+      id: 'laboratorio',
+      nombre: 'Laboratorio guiado',
+      area: Area.ciencias,
+      emoji: '1f9ea',
+      minBand: AgeBand.b3a4,
+      maxBand: AgeBand.b9a11,
+      skills: const <AgeBand, String>{
+        AgeBand.b3a4: 'ciencias.3-4.diaynoche',
+        AgeBand.b5a6: 'ciencias.5-6.experimentos',
+        AgeBand.b7a8: 'ciencias.7-8.materia',
+        AgeBand.b9a11: 'ciencias.9-11.metodo',
+      },
+      descripcion: 'Predecir y explicar: día y noche, flota o se hunde, imanes, estados de la materia, mezclas y el método científico.',
+      enCasa: 'Hagan el experimento de verdad: una tina con agua y cinco objetos; que adivine antes cuál flota y por qué.',
+      pregunta: '¿Qué crees que va a pasar y por qué? Después lo probamos.',
+      build: (BuildContext context, GameLaunch launch) => ChoiceGameScreen(launch: launch, generator: BankGenerator(LaboratorioBank.all)),
+    ),
+    GameDef(
       id: 'colorear',
       nombre: 'Colorear',
       area: Area.creatividad,
@@ -327,6 +406,41 @@ class GameRegistry {
       build: (BuildContext context, GameLaunch launch) => ColorearScreen(launch: launch, porNumeros: true),
     ),
     GameDef(
+      id: 'dibujo',
+      nombre: 'Dibujo y sellos',
+      area: Area.creatividad,
+      emoji: '1f58c',
+      minBand: AgeBand.b3a4,
+      maxBand: AgeBand.b9a11,
+      skills: const <AgeBand, String>{
+        AgeBand.b3a4: 'arte.3-4.pintar',
+        AgeBand.b5a6: 'arte.5-6.dibujarformas',
+        AgeBand.b7a8: 'arte.7-8.pasoapaso',
+        AgeBand.b9a11: 'arte.9-11.diseno',
+      },
+      descripcion: 'Expresión libre: pincel de tres grosores, borrador, sellos de pictogramas y guardado en Mis dibujos.',
+      enCasa: 'Pregúntenle qué dibujó y escriban juntos el título debajo del dibujo.',
+      pregunta: '¿Qué historia cuenta tu dibujo?',
+      roundBased: false,
+      build: (BuildContext context, GameLaunch launch) => DibujoScreen(launch: launch),
+    ),
+    GameDef(
+      id: 'pixel',
+      nombre: 'Pixel art',
+      area: Area.creatividad,
+      emoji: '1f7e6',
+      minBand: AgeBand.b7a8,
+      maxBand: AgeBand.b9a11,
+      skills: const <AgeBand, String>{
+        AgeBand.b7a8: 'arte.7-8.pixel',
+        AgeBand.b9a11: 'arte.9-11.simetria',
+      },
+      descripcion: 'Cuadrícula de colores en tres modos: libre, copiar un modelo (filas y columnas) y completar la mitad en espejo (simetría).',
+      enCasa: 'En papel cuadriculado, dibujen la mitad de una figura y que el niño complete la otra mitad.',
+      pregunta: '¿Cómo supiste qué casilla pintar en el espejo?',
+      build: (BuildContext context, GameLaunch launch) => PixelScreen(launch: launch),
+    ),
+    GameDef(
       id: 'emociones',
       nombre: '¿Qué siento?',
       area: Area.socioemocional,
@@ -358,6 +472,23 @@ class GameRegistry {
       enCasa: 'Hagan juntos un cartel con fotos o dibujos de la rutina de la mañana y péguenlo donde el niño lo vea.',
       pregunta: '¿Qué haces tú primero cuando te levantas? ¿Y después?',
       build: (BuildContext context, GameLaunch launch) => OrderGameScreen(launch: launch, builder: rutinaRound),
+    ),
+    GameDef(
+      id: 'decisiones',
+      nombre: 'Historias con decisiones',
+      area: Area.socioemocional,
+      emoji: '1f9ed',
+      minBand: AgeBand.b5a6,
+      maxBand: AgeBand.b9a11,
+      skills: const <AgeBand, String>{
+        AgeBand.b5a6: 'socio.5-6.turnos',
+        AgeBand.b7a8: 'socio.7-8.seguridad',
+        AgeBand.b9a11: 'socio.9-11.pantallas',
+      },
+      descripcion: 'Situaciones cotidianas con tres salidas: turnos y acuerdos, seguridad en casa, calle e internet, trabajo en equipo y pantallas.',
+      enCasa: 'Repasen juntos quiénes son los adultos de confianza del niño y qué hacer si alguien le pide guardar un secreto incómodo.',
+      pregunta: '¿A quién le contarías si algo en internet te hiciera sentir mal?',
+      build: (BuildContext context, GameLaunch launch) => ChoiceGameScreen(launch: launch, generator: BankGenerator(DecisionesBank.all)),
     ),
   ];
 

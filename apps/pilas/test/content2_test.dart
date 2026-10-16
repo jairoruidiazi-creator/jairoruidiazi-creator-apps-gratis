@@ -5,6 +5,7 @@ import 'package:pilas/content/cuentos.dart';
 import 'package:pilas/core/rng.dart';
 import 'package:pilas/engine/game_def.dart';
 import 'package:pilas/engine/game_registry.dart';
+import 'package:pilas/games/pixel/pixel_patterns.dart';
 import 'package:pilas/games/rompecabezas/rompecabezas_screen.dart';
 import 'package:pilas/games/trazo/trazo_screen.dart';
 import 'package:pilas/games/trazo/trazo_templates.dart';
@@ -129,6 +130,25 @@ void main() {
         }
       }
     }
-    expect(GameRegistry.all.length, greaterThanOrEqualTo(19));
+    expect(GameRegistry.all.length, greaterThanOrEqualTo(26));
+  });
+
+  test('Los patrones de pixel art son cuadrados, usan colores de la paleta y hay simétricos', () {
+    final Set<String> ids = <String>{};
+    for (final PixelPattern p in PixelPatterns.all) {
+      expect(ids.add(p.id), isTrue, reason: p.id);
+      for (final String row in p.rows) {
+        expect(row.length, p.size, reason: '${p.id}: fila de largo distinto');
+        for (final String ch in row.split('')) {
+          expect(ch == '.' || PixelPalette.colors.containsKey(ch), isTrue, reason: '${p.id}: color desconocido $ch');
+        }
+      }
+    }
+    expect(PixelPatterns.symmetric.length, greaterThanOrEqualTo(6));
+    expect(PixelPalette.order.toSet().length, PixelPalette.order.length);
+    for (final String k in PixelPalette.order) {
+      expect(PixelPalette.colors.containsKey(k), isTrue);
+      expect(PixelPalette.names.containsKey(k), isTrue);
+    }
   });
 }

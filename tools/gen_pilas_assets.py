@@ -146,7 +146,7 @@ def gen_sounds() -> None:
 
 # ---------------------------------------------------------------- pictogramas
 
-EMOJI_RE = re.compile(r"'([0-9a-f]{4,5}(?:-[0-9a-f]{3,5})*)'")
+EMOJI_RE = re.compile(r"'([0-9a-f]{2,5}(?:-[0-9a-f]{3,5})*)'")
 
 
 def scan_emoji_codes() -> set:
