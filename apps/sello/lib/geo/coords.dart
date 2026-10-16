@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 
+import 'projection.dart';
+
 /// Formatos de coordenadas disponibles para el sello.
-enum CoordFormat { dd, dms, ddm, utm, mgrs, plusCode }
+enum CoordFormat { dd, dms, ddm, utm, mgrs, plusCode, ctm12, magna }
 
 /// Conversión de coordenadas WGS84: grados decimales, sexagesimales, UTM,
 /// MGRS y Plus Codes. Todo se calcula en el teléfono.
@@ -63,10 +65,6 @@ class Coords {
 
   // ------------------------------------------------------------ UTM (WGS84)
 
-  static const double _a = 6378137.0;
-  static const double _f = 1 / 298.257223563;
-  static const double _k0 = 0.9996;
-
   static int utmZone(double lat, double lon) {
     int zone = ((lon + 180) / 6).floor() + 1;
     if (zone > 60) {
@@ -99,32 +97,40 @@ class Coords {
     return letters[i];
   }
 
-  /// Proyección transversa de Mercator (fórmulas de Krüger, serie estándar).
+  /// Proyección UTM (serie de Krüger–Karney, `projection.dart`).
   static UtmPoint toUtm(double lat, double lon, {int? forceZone}) {
     final int zone = forceZone ?? utmZone(lat, lon);
-    final double lon0 = ((zone - 1) * 6 - 180 + 3) * math.pi / 180;
-    final double phi = lat * math.pi / 180;
-    final double lam = lon * math.pi / 180 - lon0;
-    final double e2 = _f * (2 - _f);
-    final double ep2 = e2 / (1 - e2);
-    final double n = _a / math.sqrt(1 - e2 * math.pow(math.sin(phi), 2));
-    final double t = math.tan(phi);
-    final double t2 = t * t;
-    final double c = ep2 * math.pow(math.cos(phi), 2);
-    final double aA = math.cos(phi) * lam;
-    final double e4 = e2 * e2;
-    final double e6 = e4 * e2;
-    final double m = _a *
-        ((1 - e2 / 4 - 3 * e4 / 64 - 5 * e6 / 256) * phi -
-            (3 * e2 / 8 + 3 * e4 / 32 + 45 * e6 / 1024) * math.sin(2 * phi) +
-            (15 * e4 / 256 + 45 * e6 / 1024) * math.sin(4 * phi) -
-            (35 * e6 / 3072) * math.sin(6 * phi));
-    final double easting = _k0 * n * (aA + (1 - t2 + c) * math.pow(aA, 3) / 6 + (5 - 18 * t2 + t2 * t2 + 72 * c - 58 * ep2) * math.pow(aA, 5) / 120) + 500000;
-    double northing = _k0 * (m + n * t * (aA * aA / 2 + (5 - t2 + 9 * c + 4 * c * c) * math.pow(aA, 4) / 24 + (61 - 58 * t2 + t2 * t2 + 600 * c - 330 * ep2) * math.pow(aA, 6) / 720));
-    if (lat < 0) {
-      northing += 10000000;
-    }
-    return UtmPoint(zone: zone, band: utmBand(lat), easting: easting, northing: northing, southern: lat < 0);
+    final double lon0 = ((zone - 1) * 6 - 180 + 3).toDouble();
+    final ProjectedPoint p = TransverseMercator.utm(lon0, southern: lat < 0).forward(lat, lon);
+    return UtmPoint(zone: zone, band: utmBand(lat), easting: p.easting, northing: p.northing, southern: lat < 0);
+  }
+
+  // ------------------------------------------------ Colombia (MAGNA-SIRGAS)
+
+  /// Verdadero dentro del rectángulo que contiene a Colombia (incluye San
+  /// Andrés y Providencia); fuera de él las proyecciones nacionales no tienen
+  /// sentido y no se muestran.
+  static bool inColombia(double lat, double lon) => lat >= -4.5 && lat <= 16.5 && lon >= -82.5 && lon <= -66.5;
+
+  /// Origen Nacional (CTM12, EPSG:9377).
+  static ProjectedPoint ctm12(double lat, double lon) => TransverseMercator.origenNacional.forward(lat, lon);
+
+  /// Texto "E 4881143,15 N 2078651,31" del Origen Nacional.
+  static String ctm12Text(double lat, double lon, {int decimals = 2}) {
+    final ProjectedPoint p = ctm12(lat, lon);
+    return 'E ${p.easting.toStringAsFixed(decimals)} N ${p.northing.toStringAsFixed(decimals)}';
+  }
+
+  /// Zona MAGNA-SIRGAS clásica que corresponde al punto, con sus coordenadas.
+  static MagnaPoint magna(double lat, double lon) {
+    final int i = TransverseMercator.magnaZoneIndex(lon);
+    final ProjectedPoint p = TransverseMercator.magnaZone(i).forward(lat, lon);
+    return MagnaPoint(zoneIndex: i, zoneName: TransverseMercator.magnaZoneNames[i], easting: p.easting, northing: p.northing);
+  }
+
+  static String magnaText(double lat, double lon, {int decimals = 2}) {
+    final MagnaPoint p = magna(lat, lon);
+    return '${p.zoneName} E ${p.easting.toStringAsFixed(decimals)} N ${p.northing.toStringAsFixed(decimals)}';
   }
 
   static String utm(double lat, double lon, {int decimals = 0}) {
@@ -219,6 +225,11 @@ class Coords {
         return mgrs(lat, lon);
       case CoordFormat.plusCode:
         return plusCode(lat, lon);
+      case CoordFormat.ctm12:
+        // Fuera de Colombia la proyección nacional no tiene sentido: grados.
+        return inColombia(lat, lon) ? ctm12Text(lat, lon) : dd(lat, lon);
+      case CoordFormat.magna:
+        return inColombia(lat, lon) ? magnaText(lat, lon) : dd(lat, lon);
     }
   }
 
@@ -236,8 +247,18 @@ class Coords {
         return 'MGRS';
       case CoordFormat.plusCode:
         return 'Plus Code';
+      case CoordFormat.ctm12:
+        return 'Origen Nacional (CTM12)';
+      case CoordFormat.magna:
+        return 'MAGNA-SIRGAS por zona';
     }
   }
+
+  /// Formatos que tienen sentido en el punto (los colombianos solo en Colombia).
+  static List<CoordFormat> formatsFor(double lat, double lon) => <CoordFormat>[
+        for (final CoordFormat f in CoordFormat.values)
+          if ((f != CoordFormat.ctm12 && f != CoordFormat.magna) || inColombia(lat, lon)) f,
+      ];
 
   /// Distancia en metros (fórmula de haversine).
   static double distanceMeters(double lat1, double lon1, double lat2, double lon2) {
@@ -276,4 +297,14 @@ class UtmPoint {
   final double easting;
   final double northing;
   final bool southern;
+}
+
+/// Coordenadas en una zona MAGNA-SIRGAS clásica.
+class MagnaPoint {
+  const MagnaPoint({required this.zoneIndex, required this.zoneName, required this.easting, required this.northing});
+
+  final int zoneIndex;
+  final String zoneName;
+  final double easting;
+  final double northing;
 }

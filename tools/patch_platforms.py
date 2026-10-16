@@ -37,6 +37,37 @@ APPS = {
         },
         "ios_min": "13.0",
     },
+    "sello": {
+        "display_name": "Sello",
+        "min_sdk": 24,
+        "android_permissions": [
+            "android.permission.CAMERA",
+            "android.permission.ACCESS_FINE_LOCATION",
+            "android.permission.ACCESS_COARSE_LOCATION",
+            "android.permission.VIBRATE",
+            "android.permission.INTERNET",
+            ("android.permission.WRITE_EXTERNAL_STORAGE", {"android:maxSdkVersion": "29"}),
+        ],
+        "android_features": [("android.hardware.camera", False), ("android.hardware.sensor.compass", False), ("android.hardware.location.gps", False)],
+        "android_queries": [
+            {"action": "android.intent.action.VIEW", "scheme": "geo"},
+            {"action": "android.intent.action.VIEW", "scheme": "https"},
+        ],
+        "ios_plist": {
+            "CFBundleDisplayName": "Sello",
+            "ITSAppUsesNonExemptEncryption": False,
+            "NSCameraUsageDescription": "Sello usa la cámara para tomar las fotos de campo que luego sella con la hora, la ubicación y el rumbo.",
+            "NSLocationWhenInUseUsageDescription": "Sello usa tu ubicación para escribir las coordenadas, la altitud y la dirección en cada foto. Los datos quedan en el teléfono.",
+            "NSPhotoLibraryAddUsageDescription": "Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges.",
+            "NSPhotoLibraryUsageDescription": "Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges.",
+            "NSMotionUsageDescription": "Sello usa los sensores de movimiento para calcular el rumbo de la cámara.",
+            "LSApplicationQueriesSchemes": ["comgooglemaps", "maps", "waze"],
+            # La carpeta de la app (fotos, exportaciones) se ve en Archivos y en iCloud Drive del usuario.
+            "UIFileSharingEnabled": True,
+            "LSSupportsOpeningDocumentsInPlace": True,
+        },
+        "ios_min": "13.0",
+    },
 }
 
 
@@ -45,16 +76,27 @@ def patch_android(cfg: dict) -> None:
     text = manifest.read_text(encoding="utf-8")
     text = re.sub(r'android:label="[^"]*"', f'android:label="{cfg["display_name"]}"', text, count=1)
     for perm in cfg["android_permissions"]:
-        tag = f'<uses-permission android:name="{perm}"/>'
+        attrs = ""
+        if isinstance(perm, tuple):
+            perm, extra = perm
+            attrs = "".join(f' {k}="{v}"' for k, v in extra.items())
+        tag = f'<uses-permission android:name="{perm}"{attrs}/>'
         if perm not in text:
+            text = text.replace("<application", f"    {tag}\n    <application", 1)
+    for feature, required in cfg.get("android_features", []):
+        tag = f'<uses-feature android:name="{feature}" android:required="{"true" if required else "false"}"/>'
+        if feature not in text:
             text = text.replace("<application", f"    {tag}\n    <application", 1)
     queries = cfg["android_queries"]
     if queries:
         if "<queries>" not in text:
             text = text.replace("</manifest>", "    <queries>\n    </queries>\n</manifest>")
-        for action in queries:
-            if action not in text:
-                intent = f'        <intent>\n            <action android:name="{action}"/>\n        </intent>\n'
+        for q in queries:
+            if isinstance(q, str):
+                q = {"action": q}
+            data = f'            <data android:scheme="{q["scheme"]}"/>\n' if "scheme" in q else ""
+            intent = f'        <intent>\n            <action android:name="{q["action"]}"/>\n{data}        </intent>\n'
+            if intent not in text:
                 text = text.replace("<queries>\n", "<queries>\n" + intent, 1)
     manifest.write_text(text, encoding="utf-8")
 
