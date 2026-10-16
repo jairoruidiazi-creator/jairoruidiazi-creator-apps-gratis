@@ -1,0 +1,65 @@
+
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Coordenadas (valores de referencia de pyproj, mgrs y Open Location Code) UTM coincide con PROJ al centímetro
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Coordenadas (valores de referencia de pyproj, mgrs y Open Location Code) MGRS a 1 m
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Coordenadas (valores de referencia de pyproj, mgrs y Open Location Code) Plus Codes de 10 y 11 caracteres
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Coordenadas (valores de referencia de pyproj, mgrs y Open Location Code) Origen Nacional (CTM12) y zonas MAGNA-SIRGAS coinciden con PROJ al milímetro
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Coordenadas (valores de referencia de pyproj, mgrs y Open Location Code) Formatos de grados
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Coordenadas (valores de referencia de pyproj, mgrs y Open Location Code) Distancia, puntos cardinales y fachada
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Geoide EGM96 Ondulación en Colombia (rejilla de 5') y en el mundo (30')
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Geoide EGM96 La ubicación completa las dos alturas según la plataforma
+Geocodificación: Null check operator used on a null value
+Geocodificación: Null check operator used on a null value
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Modelo magnético WMM2025 Declinación coincide con el cálculo de referencia (NOAA)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Brújula Teléfono vertical con la cámara al norte
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Brújula Teléfono vertical con la cámara al este
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Brújula Inclinar la cámara hacia el suelo no cambia el rumbo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Brújula Teléfono plano sobre la mesa usa el borde superior
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Brújula La declinación se suma al rumbo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Brújula Sin campo o sin gravedad no hay lectura
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Datos del sello Las líneas siguen la plantilla y el orden de StampItem
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Datos del sello Sin GPS se avisa y en inglés cambian los rótulos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Datos del sello Nombres de archivo seguros
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Datos del sello Plantillas y proyectos sobreviven al JSON
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Datos del sello Formato de fecha y desfase horario
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Composición del sello Superpone la capa, conserva el tamaño y escribe EXIF con GPS
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Composición del sello Aplica la orientación EXIF antes de sellar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Composición del sello Sin orientación EXIF devuelve 1
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Exportaciones CSV con comillas, campos y formatos de coordenadas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Exportaciones KML solo con las fotos ubicadas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Exportaciones KMZ y ZIP contienen las fotos y los datos
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Informe PDF Se genera con imagen, tabla y fichas
+Helvetica has no Unicode support see https://github.com/DavBfr/dart_pdf/wiki/Fonts-Management
+Helvetica-Bold has no Unicode support see https://github.com/DavBfr/dart_pdf/wiki/Fonts-Management
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Estado Proyectos, plantillas y fotos se guardan y recargan
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/app_test.dart: La app recorre sus pestañas, crea un proyecto y edita la plantilla sin errores
+[prueba] inicio
+[prueba] hoja de datos
+[prueba] hoja GPS
+Geocodificación: Null check operator used on a null value
+[prueba] pestañas
+[prueba] nuevo proyecto
+[prueba] plantilla
+[prueba] ajustes
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/app_test.dart: La galería muestra una foto guardada y abre su detalle
+[prueba] galería: montar
+[prueba] galería: con foto
+[prueba] galería: buscar
+[prueba] galería: desenfocar
+[prueba] galería: abrir detalle
+[prueba] galería: detalle abierto
+[prueba] galería: volver
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/app_test.dart: Los ajustes se guardan en preferencias
+::endgroup::
+
+🎉 31 tests passed.
