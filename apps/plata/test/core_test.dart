@@ -51,7 +51,7 @@ void main() {
     test('formato colombiano sin centavos y con símbolo', () {
       expect(Money.format(123456700, 'COP'), r'$ 1.234.567');
       expect(Money.format(123456750, 'COP', showCents: true), r'$ 1.234.567,50');
-      expect(Money.format(-500000, 'COP'), r'-$ 5.000');
+      expect(Money.format(-500000, 'COP'), '−\$ 5.000'); // signo menos tipográfico
       expect(Money.format(123450, 'USD'), r'US$ 1.234,50');
       expect(Money.format(0, 'COP'), r'$ 0');
     });

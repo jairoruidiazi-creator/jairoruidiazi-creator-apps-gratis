@@ -35,11 +35,12 @@ Future<void> waitFor(WidgetTester tester, bool Function() done, {int maxTenths =
   await settle(tester);
 }
 
-/// Deja que el guardado diferido del libro escriba en disco de verdad.
+/// Deja que el guardado diferido del libro escriba en disco de verdad: el
+/// temporizador se dispara con el reloj falso y la escritura avanza con
+/// tiempo real (nunca se espera dentro de runAsync un futuro creado afuera).
 Future<void> syncLedger(WidgetTester tester, Services s) async {
   await tester.pump(const Duration(milliseconds: 500));
-  await tester.runAsync(() => s.ledger.flush());
-  await tester.pump();
+  await waitFor(tester, () => !s.ledger.busy);
 }
 
 Future<void> tapKey(WidgetTester tester, String key) async {

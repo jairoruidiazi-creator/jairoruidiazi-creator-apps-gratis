@@ -206,6 +206,9 @@ class Ledger extends ChangeNotifier {
     _saveTimer = Timer(const Duration(milliseconds: 400), () => unawaited(flush()));
   }
 
+  /// Hay cambios sin escribir o una escritura en curso.
+  bool get busy => _dirty || _saving != null;
+
   /// Escribe de inmediato si hay cambios pendientes.
   Future<void> flush() async {
     _saveTimer?.cancel();
