@@ -1,0 +1,50 @@
+
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Dinero formato colombiano sin centavos y con símbolo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Dinero compacto
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Dinero parse acepta formatos locales y extranjeros
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Dinero la calculadora suma, resta y evalúa de izquierda a derecha
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Periodos mes que empieza el día de pago
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Periodos quincenas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Periodos frecuencia quincenal cae el 15 y el último día
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Periodos frecuencia mensual conserva el día ancla en meses cortos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Periodos periodos de presupuesto
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Periodos ciclo de tarjeta: corte 15, pago 5
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro siembra categorías y efectivo, guarda cifrado y recarga
+No se pudo descifrar ledger.json
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro saldos: efectivo, débito enlazado, bolsillos, tarjeta y patrimonio
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro búsqueda, sugerencias y etiquetas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro totales por periodo, categorías y tendencia
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro presupuesto con arrastre y reembolsos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro programados: autoPost avanza; manual queda vencido; fin de serie
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro estado de cuenta de tarjeta con cuotas y pagos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro bandeja de avisos: duplicados, adivinar cuenta y aceptar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro plantillas y conversión a moneda base
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Avisos bancarios reconoce compras, ingresos y descarta ruido
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Exportar y respaldar CSV y XLSX contienen los movimientos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Exportar y respaldar copia cifrada con contraseña: ida y vuelta, contraseña mala y manipulación
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Exportar y respaldar caja criptográfica: cifra, descifra y detecta manipulación
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Tasas, recordatorios y bloqueo TRM de datos.gov.co y cruces del BCE
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Tasas, recordatorios y bloqueo recordatorios: diario, programados y pago de tarjeta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Tasas, recordatorios y bloqueo clave de acceso con esperas crecientes
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Tasas, recordatorios y bloqueo avisos: el servicio deja sugerencias en la bandeja y respeta el ajuste
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/app_test.dart: Inicio, nuevo gasto, movimientos, presupuesto, informes y cuentas sin errores
+[prueba] inicio
+[prueba] nuevo gasto
+[prueba] movimientos
+[prueba] presupuesto
+[prueba] informes
+[prueba] cuentas
+[prueba] programado y tarjetas
+[prueba] ajustes, guía y copias
+[prueba] inicio con datos
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/app_test.dart: La pantalla de bloqueo pide la clave y abre con la correcta
+::endgroup::
+
+🎉 29 tests passed.
