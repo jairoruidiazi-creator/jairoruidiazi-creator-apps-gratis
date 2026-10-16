@@ -76,13 +76,12 @@ class _PixelScreenState extends State<PixelScreen> {
     }
     final int level = _engine.level;
     PixelPattern? model;
-    int n;
-    if (_mode == PixelMode.libre) {
-      n = _sizeFor(level);
-    } else {
+    int n = _sizeFor(level);
+    if (_mode != PixelMode.libre) {
       final List<PixelPattern> pool = _mode == PixelMode.espejo ? PixelPatterns.symmetric : PixelPatterns.all;
-      model = _rng.pick(pool);
-      n = model.size;
+      final PixelPattern elegido = _rng.pick(pool);
+      model = elegido;
+      n = elegido.size;
     }
     final List<String> cells = List<String>.filled(n * n, '.');
     if (_mode == PixelMode.espejo && model != null) {
