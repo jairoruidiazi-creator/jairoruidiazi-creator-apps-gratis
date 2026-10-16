@@ -305,8 +305,9 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
                 flex: 3,
                 child: DropdownButtonFormField<FrequencyUnit>(
                   initialValue: _unit,
+                  isExpanded: true,
                   decoration: InputDecoration(labelText: t(context, 'Se repite', 'Repeats'), border: const OutlineInputBorder()),
-                  items: <DropdownMenuItem<FrequencyUnit>>[for (final FrequencyUnit u in FrequencyUnit.values) DropdownMenuItem<FrequencyUnit>(value: u, child: Text(frequencyName(context, Frequency(unit: u))))],
+                  items: <DropdownMenuItem<FrequencyUnit>>[for (final FrequencyUnit u in FrequencyUnit.values) DropdownMenuItem<FrequencyUnit>(value: u, child: Text(frequencyName(context, Frequency(unit: u)), overflow: TextOverflow.ellipsis))],
                   onChanged: (FrequencyUnit? v) => setState(() => _unit = v ?? _unit),
                 ),
               ),
@@ -351,6 +352,7 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
           ),
           DropdownButtonFormField<int>(
             initialValue: _remind,
+            isExpanded: true,
             decoration: InputDecoration(labelText: t(context, 'Recordatorio', 'Reminder'), border: const OutlineInputBorder()),
             items: <DropdownMenuItem<int>>[
               DropdownMenuItem<int>(value: -1, child: Text(t(context, 'Sin recordatorio', 'No reminder'))),

@@ -247,8 +247,9 @@ class _AccountEditorState extends State<AccountEditor> {
           const SizedBox(height: 12),
           DropdownButtonFormField<AccountType>(
             initialValue: _type,
+            isExpanded: true,
             decoration: InputDecoration(labelText: t(context, 'Tipo', 'Type'), border: const OutlineInputBorder()),
-            items: <DropdownMenuItem<AccountType>>[for (final AccountType ty in AccountType.values) DropdownMenuItem<AccountType>(value: ty, child: Text(accountTypeName(context, ty)))],
+            items: <DropdownMenuItem<AccountType>>[for (final AccountType ty in AccountType.values) DropdownMenuItem<AccountType>(value: ty, child: Text(accountTypeName(context, ty), overflow: TextOverflow.ellipsis))],
             onChanged: (AccountType? v) => setState(() => _type = v ?? _type),
           ),
           const SizedBox(height: 12),
@@ -272,8 +273,9 @@ class _AccountEditorState extends State<AccountEditor> {
           else
             DropdownButtonFormField<String>(
               initialValue: _currency,
+              isExpanded: true,
               decoration: InputDecoration(labelText: t(context, 'Moneda', 'Currency'), border: const OutlineInputBorder(), helperText: t(context, 'Añade monedas en Más › Monedas.', 'Add currencies under More › Currencies.')),
-              items: <DropdownMenuItem<String>>[for (final String c in currencies) DropdownMenuItem<String>(value: c, child: Text('$c · ${Money.info(c).name}'))],
+              items: <DropdownMenuItem<String>>[for (final String c in currencies) DropdownMenuItem<String>(value: c, child: Text('$c · ${Money.info(c).name}', overflow: TextOverflow.ellipsis))],
               onChanged: widget.existing != null && l.txs.any((Tx tx) => tx.accountId == widget.existing!.id) ? null : (String? v) => setState(() => _currency = v ?? _currency),
             ),
           const SizedBox(height: 12),
@@ -349,6 +351,7 @@ class _AccountEditorState extends State<AccountEditor> {
 
   Widget _dayField(BuildContext context, String label, int value, ValueChanged<int> onChanged) => DropdownButtonFormField<int>(
         initialValue: value,
+        isExpanded: true,
         decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
         items: <DropdownMenuItem<int>>[for (int d = 1; d <= 31; d++) DropdownMenuItem<int>(value: d, child: Text('$d'))],
         onChanged: (int? v) => onChanged(v ?? value),

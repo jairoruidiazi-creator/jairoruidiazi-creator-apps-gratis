@@ -270,8 +270,9 @@ class _BudgetEditorState extends State<BudgetEditor> {
           const SizedBox(height: 12),
           DropdownButtonFormField<BudgetPeriod>(
             initialValue: _period,
+            isExpanded: true,
             decoration: InputDecoration(labelText: t(context, 'Periodo', 'Period'), border: const OutlineInputBorder()),
-            items: <DropdownMenuItem<BudgetPeriod>>[for (final BudgetPeriod p in BudgetPeriod.values) DropdownMenuItem<BudgetPeriod>(value: p, child: Text(budgetPeriodName(context, p)))],
+            items: <DropdownMenuItem<BudgetPeriod>>[for (final BudgetPeriod p in BudgetPeriod.values) DropdownMenuItem<BudgetPeriod>(value: p, child: Text(budgetPeriodName(context, p), overflow: TextOverflow.ellipsis))],
             onChanged: (BudgetPeriod? v) => setState(() => _period = v ?? BudgetPeriod.month),
           ),
           if (_period == BudgetPeriod.custom) ...<Widget>[

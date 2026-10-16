@@ -207,10 +207,11 @@ class _CategoryEditorState extends State<CategoryEditor> {
           if (!hasChildren)
             DropdownButtonFormField<String?>(
               initialValue: roots.any((Category c) => c.id == _parentId) ? _parentId : null,
+              isExpanded: true,
               decoration: InputDecoration(labelText: t(context, 'Dentro de', 'Inside'), border: const OutlineInputBorder()),
               items: <DropdownMenuItem<String?>>[
                 DropdownMenuItem<String?>(value: null, child: Text(t(context, '— Categoría principal —', '— Top level —'))),
-                for (final Category r in roots) DropdownMenuItem<String?>(value: r.id, child: Text(r.name)),
+                for (final Category r in roots) DropdownMenuItem<String?>(value: r.id, child: Text(r.name, overflow: TextOverflow.ellipsis)),
               ],
               onChanged: (String? v) => setState(() => _parentId = v),
             ),
