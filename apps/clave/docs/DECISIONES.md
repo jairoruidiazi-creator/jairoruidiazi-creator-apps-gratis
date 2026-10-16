@@ -31,7 +31,7 @@ Registro de las decisiones tomadas durante el desarrollo, con su razón.
 
 ## Técnica
 
-- **Flutter con `flutter_soloud` 5.2, `record` 7.2, `audioplayers`, `flutter_tts`, `share_plus`, `file_selector`, `wakelock_plus`, `shared_preferences`, `path_provider`.** `flutter_soloud` compila su parte nativa con el sistema de "native assets" de Flutter (SDK ≥ 3.11 / Flutter ≥ 3.41), por eso el `environment` del `pubspec` es más nuevo que el de Pilas.
+- **Flutter con `flutter_soloud` 5.2, `record` 7.1, `audioplayers`, `flutter_tts`, `share_plus`, `file_selector`, `wakelock_plus`, `shared_preferences`, `path_provider`.** `flutter_soloud` compila su parte nativa con el sistema de "native assets" de Flutter (SDK ≥ 3.11 / Flutter ≥ 3.41), por eso el `environment` del `pubspec` es más nuevo que el de Pilas.
 - **Motor de audio detrás de una interfaz (`AudioEngine`)** con una implementación muda para las pruebas de widgets y para equipos sin audio.
 - **Sin paquetes GPL** en ninguna plataforma (descartados `mic_stream` y `f_link`), como pide el estudio.
 - **CI igual a la de Pilas**: análisis, pruebas, APK y compilación de iOS sin firma; carpetas de plataforma generadas con `flutter create` y ajustadas con `tools/patch_platforms.py` (permiso de micrófono, texto de uso, modo audio en segundo plano, minSdk 24).
