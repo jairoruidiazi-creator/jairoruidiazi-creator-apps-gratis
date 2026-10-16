@@ -6,10 +6,16 @@ import '../games/clasifica/clasifica_generator.dart';
 import '../games/colorear/colorear_screen.dart';
 import '../games/emociones/emociones_generator.dart';
 import '../games/intruso/intruso_generator.dart';
+import '../games/laberinto/laberinto_screen.dart';
 import '../games/memoria/memoria_screen.dart';
+import '../games/oracion/oracion_generator.dart';
+import '../games/palabra/palabra_round.dart';
 import '../games/patrones/patrones_generator.dart';
 import '../games/reloj/reloj_generator.dart';
+import '../games/rutinas/rutinas_generator.dart';
+import '../games/shell/order_game_screen.dart';
 import '../games/sonidos/sonidos_generator.dart';
+import '../games/sudoku/sudoku_screen.dart';
 import '../games/tienda/tienda_screen.dart';
 import '../model/age_band.dart';
 import '../model/area.dart';
@@ -72,6 +78,41 @@ class GameRegistry {
       enCasa: 'Pongan cuatro cosas de la cocina sobre la mesa, una que no sea de cocina, y pidan que explique cuál sobra y por qué.',
       pregunta: '¿Por qué ese era el intruso? ¿Qué tenían en común los demás?',
       build: (BuildContext context, GameLaunch launch) => ChoiceGameScreen(launch: launch, generator: IntrusoGenerator()),
+    ),
+    GameDef(
+      id: 'laberintos',
+      nombre: 'Laberintos',
+      area: Area.logica,
+      emoji: '1f9ed',
+      minBand: AgeBand.b3a4,
+      maxBand: AgeBand.b9a11,
+      skills: const <AgeBand, String>{
+        AgeBand.b3a4: 'logica.3-4.caminos',
+        AgeBand.b5a6: 'logica.5-6.laberintos',
+        AgeBand.b7a8: 'logica.7-8.planificar',
+        AgeBand.b9a11: 'logica.9-11.estrategia',
+      },
+      descripcion: 'Planificación y orientación espacial: recorrer laberintos cada vez más grandes, y en primaria recoger una llave antes de la meta.',
+      enCasa: 'Dibujen un laberinto en una hoja y pídanle que lo resuelva primero con el dedo y luego con el lápiz.',
+      pregunta: '¿Miraste todo el camino antes de empezar o fuiste probando?',
+      build: (BuildContext context, GameLaunch launch) => LaberintoScreen(launch: launch),
+    ),
+    GameDef(
+      id: 'sudoku',
+      nombre: 'Sudoku de figuras',
+      area: Area.logica,
+      emoji: '1f522',
+      minBand: AgeBand.b5a6,
+      maxBand: AgeBand.b9a11,
+      skills: const <AgeBand, String>{
+        AgeBand.b5a6: 'logica.5-6.sudoku4',
+        AgeBand.b7a8: 'logica.7-8.sudoku',
+        AgeBand.b9a11: 'logica.9-11.sudoku9',
+      },
+      descripcion: 'Razonamiento deductivo: sudokus de 4×4 con dibujos, de 6×6 y de 9×9 con números, siempre con solución única.',
+      enCasa: 'Jueguen "qué falta": en una fila de cuatro cosas distintas, tapen una y pregunten cuál falta.',
+      pregunta: '¿Cómo supiste qué iba en esa casilla? ¿Qué miraste primero?',
+      build: (BuildContext context, GameLaunch launch) => SudokuScreen(launch: launch),
     ),
     GameDef(
       id: 'tienda',
@@ -140,6 +181,40 @@ class GameRegistry {
       enCasa: 'Jueguen a "veo veo" con sonidos: "veo algo que empieza con mmm".',
       pregunta: '¿Con qué sonido empieza tu nombre? ¿Y el de tu mejor amigo?',
       build: (BuildContext context, GameLaunch launch) => ChoiceGameScreen(launch: launch, generator: SonidosGenerator()),
+    ),
+    GameDef(
+      id: 'palabra',
+      nombre: 'Arma la palabra',
+      area: Area.lenguaje,
+      emoji: '1f9e9',
+      minBand: AgeBand.b5a6,
+      maxBand: AgeBand.b9a11,
+      skills: const <AgeBand, String>{
+        AgeBand.b5a6: 'lengua.5-6.alfabeto',
+        AgeBand.b7a8: 'lengua.7-8.ortografia',
+        AgeBand.b9a11: 'lengua.9-11.tildes',
+      },
+      descripcion: 'Escritura: ordenar las letras de una palabra; en primaria con letras que se confunden (b/v, ll/y, h) y con tildes.',
+      enCasa: 'Escriban en papelitos las letras del nombre del niño y pídanle que lo arme; después, el nombre de su mascota o de un amigo.',
+      pregunta: '¿Qué palabra te costó más armar? Dila despacio por sílabas.',
+      build: (BuildContext context, GameLaunch launch) => OrderGameScreen(launch: launch, builder: palabraRound),
+    ),
+    GameDef(
+      id: 'oracion',
+      nombre: 'Ordena la oración',
+      area: Area.lenguaje,
+      emoji: '1f4ac',
+      minBand: AgeBand.b5a6,
+      maxBand: AgeBand.b9a11,
+      skills: const <AgeBand, String>{
+        AgeBand.b5a6: 'lengua.5-6.lectura',
+        AgeBand.b7a8: 'lengua.7-8.oraciones',
+        AgeBand.b9a11: 'lengua.9-11.sintaxis',
+      },
+      descripcion: 'Sintaxis y lectura: ordenar palabras para formar oraciones con sentido, de tres palabras a oraciones con conectores.',
+      enCasa: 'Digan una oración desordenada en voz alta ("duerme el gato") y pídanle que la arregle.',
+      pregunta: '¿Cómo supiste cuál palabra iba primero?',
+      build: (BuildContext context, GameLaunch launch) => OrderGameScreen(launch: launch, builder: oracionRound),
     ),
     GameDef(
       id: 'clasifica',
@@ -212,6 +287,22 @@ class GameRegistry {
       enCasa: 'Al final del día pregunten "¿cómo te sentiste hoy?" y cuenten también cómo se sintieron ustedes.',
       pregunta: '¿Qué haces tú cuando estás enojado y quieres calmarte?',
       build: (BuildContext context, GameLaunch launch) => ChoiceGameScreen(launch: launch, generator: EmocionesGenerator()),
+    ),
+    GameDef(
+      id: 'rutinas',
+      nombre: 'Tablero de rutinas',
+      area: Area.socioemocional,
+      emoji: '1f4c5',
+      minBand: AgeBand.b3a4,
+      maxBand: AgeBand.b5a6,
+      skills: const <AgeBand, String>{
+        AgeBand.b3a4: 'socio.3-4.rutinas',
+        AgeBand.b5a6: 'socio.5-6.turnos',
+      },
+      descripcion: 'Secuencias de la vida diaria: ordenar los pasos de levantarse, lavarse los dientes, sembrar una planta o curar un raspón.',
+      enCasa: 'Hagan juntos un cartel con fotos o dibujos de la rutina de la mañana y péguenlo donde el niño lo vea.',
+      pregunta: '¿Qué haces tú primero cuando te levantas? ¿Y después?',
+      build: (BuildContext context, GameLaunch launch) => OrderGameScreen(launch: launch, builder: rutinaRound),
     ),
   ];
 
