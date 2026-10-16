@@ -57,6 +57,7 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   late int _index = widget.initialIndex;
+  Services? _services;
 
   @override
   void initState() {
@@ -67,6 +68,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _services = AppScope.of(context);
     _applyWakelock();
   }
 
@@ -86,6 +88,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    // Cierra la sesión de práctica (y su temporizador) al desmontar la app.
+    _services?.state.endPractice();
     super.dispose();
   }
 

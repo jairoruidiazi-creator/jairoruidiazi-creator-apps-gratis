@@ -144,6 +144,7 @@ void main() {
     expect(errors, isEmpty, reason: report());
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
+    services.state.endPractice();
     FlutterError.onError = previous;
   });
 
