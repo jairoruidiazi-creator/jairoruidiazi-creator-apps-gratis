@@ -43,6 +43,16 @@ Future<void> syncLedger(WidgetTester tester, Services s) async {
   await waitFor(tester, () => !s.ledger.busy);
 }
 
+/// Abre una entrada de la pestaña Más (desplazando la lista si hace falta).
+Future<void> openMore(WidgetTester tester, String title) async {
+  final Finder tile = find.widgetWithText(ListTile, title);
+  await tester.scrollUntilVisible(tile, 200, scrollable: find.byType(Scrollable).first);
+  await tester.ensureVisible(tile);
+  await tester.pump();
+  await tester.tap(tile);
+  await settle(tester);
+}
+
 Future<void> tapKey(WidgetTester tester, String key) async {
   await tester.tap(find.descendant(of: find.byType(AmountKeypad), matching: find.text(key)).last);
   await tester.pump();
@@ -209,8 +219,7 @@ void main() {
     await tester.tap(find.widgetWithText(NavigationDestination, 'Más'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    await tester.tap(find.widgetWithText(ListTile, 'Cuentas'));
-    await settle(tester);
+    await openMore(tester, 'Cuentas');
     expect(find.text('Efectivo'), findsWidgets);
     await tester.tap(find.widgetWithText(FloatingActionButton, 'Cuenta'));
     await settle(tester);
@@ -227,8 +236,7 @@ void main() {
     await settle(tester);
 
     debugPrint('[prueba] programado y tarjetas');
-    await tester.tap(find.widgetWithText(ListTile, 'Programados'));
-    await settle(tester);
+    await openMore(tester, 'Programados');
     await tester.tap(find.widgetWithText(FloatingActionButton, 'Programado'));
     await settle(tester);
     await tester.enterText(find.byType(TextField).first, 'Arriendo');
@@ -247,16 +255,14 @@ void main() {
     await syncLedger(tester, services);
     await tester.tap(find.byType(BackButton));
     await settle(tester);
-    await tester.tap(find.widgetWithText(ListTile, 'Tarjetas de crédito'));
-    await settle(tester);
+    await openMore(tester, 'Tarjetas de crédito');
     expect(find.textContaining('Tarjeta de crédito'), findsWidgets);
     await tester.tap(find.byType(BackButton));
     await settle(tester);
     expect(errors, isEmpty, reason: 'programado: ${report()}');
 
     debugPrint('[prueba] ajustes, guía y copias');
-    await tester.tap(find.widgetWithText(ListTile, 'Ajustes'));
-    await settle(tester);
+    await openMore(tester, 'Ajustes');
     expect(find.text('Moneda base'), findsOneWidget);
     await tester.tap(find.text('Cómo cuentas el mes'));
     await settle(tester);
@@ -268,14 +274,11 @@ void main() {
     await syncLedger(tester, services);
     await tester.tap(find.byType(BackButton));
     await settle(tester);
-    await tester.tap(find.widgetWithText(ListTile, 'Guía y acerca de'));
-    await settle(tester);
+    await openMore(tester, 'Guía y acerca de');
     expect(find.text('Acerca de Plata'), findsOneWidget);
     await tester.tap(find.byType(BackButton));
     await settle(tester);
-    await tester.scrollUntilVisible(find.widgetWithText(ListTile, 'Copias de seguridad'), 200, scrollable: find.byType(Scrollable).first);
-    await tester.tap(find.widgetWithText(ListTile, 'Copias de seguridad'));
-    await settle(tester);
+    await openMore(tester, 'Copias de seguridad');
     expect(find.text('Exportar copia cifrada'), findsOneWidget);
     await tester.tap(find.text('Hacer copia local ahora'));
     await waitFor(tester, () => find.textContaining('.json.enc').evaluate().isNotEmpty, maxTenths: 80);

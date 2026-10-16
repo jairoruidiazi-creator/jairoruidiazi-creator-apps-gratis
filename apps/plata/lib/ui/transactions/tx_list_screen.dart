@@ -287,7 +287,10 @@ class _FilterSheetState extends State<_FilterSheet> {
       expand: false,
       initialChildSize: 0.8,
       maxChildSize: 0.95,
-      builder: (BuildContext context, ScrollController sc) => ListView(
+      builder: (BuildContext context, ScrollController sc) => Column(
+        children: <Widget>[
+          Expanded(
+            child: ListView(
         controller: sc,
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
         children: <Widget>[
@@ -406,8 +409,16 @@ class _FilterSheetState extends State<_FilterSheet> {
           SwitchListTile(contentPadding: EdgeInsets.zero, title: Text(t(context, 'Solo con foto de recibo', 'Only with receipt photo')), value: _f.onlyWithAttachment, onChanged: (bool v) => setState(() => _f = _f.copyWith(onlyWithAttachment: v))),
           SwitchListTile(contentPadding: EdgeInsets.zero, title: Text(t(context, 'Solo sin categoría', 'Only uncategorized')), value: _f.onlyUncategorized, onChanged: (bool v) => setState(() => _f = _f.copyWith(onlyUncategorized: v))),
           SwitchListTile(contentPadding: EdgeInsets.zero, title: Text(t(context, 'Solo sin conciliar', 'Only unreconciled')), value: _f.onlyUnreconciled, onChanged: (bool v) => setState(() => _f = _f.copyWith(onlyUnreconciled: v))),
-          const SizedBox(height: 8),
-          FilledButton(onPressed: () => Navigator.pop(context, _f), child: Text(t(context, 'Aplicar', 'Apply'))),
+        ],
+            ),
+          ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: FilledButton(onPressed: () => Navigator.pop(context, _f), child: Text(t(context, 'Aplicar', 'Apply'))),
+            ),
+          ),
         ],
       ),
     );
