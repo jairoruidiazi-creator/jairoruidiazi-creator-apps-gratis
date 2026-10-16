@@ -24,6 +24,19 @@ APPS = {
         },
         "ios_min": "13.0",
     },
+    "clave": {
+        "display_name": "Clave",
+        "min_sdk": 24,
+        "android_permissions": ["android.permission.RECORD_AUDIO", "android.permission.VIBRATE"],
+        "android_queries": ["android.intent.action.TTS_SERVICE"],
+        "ios_plist": {
+            "CFBundleDisplayName": "Clave",
+            "ITSAppUsesNonExemptEncryption": False,
+            "NSMicrophoneUsageDescription": "Clave usa el micrófono para afinar tu instrumento y grabar tus tomas. El audio no sale del dispositivo.",
+            "UIBackgroundModes": ["audio"],
+        },
+        "ios_min": "13.0",
+    },
 }
 
 
