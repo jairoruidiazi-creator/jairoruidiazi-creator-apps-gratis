@@ -29,7 +29,7 @@ class ClaveTheme {
       cardTheme: CardThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
       filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(minimumSize: const Size(56, 48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)))),
       segmentedButtonTheme: SegmentedButtonThemeData(style: ButtonStyle(visualDensity: VisualDensity.compact, shape: WidgetStatePropertyAll<OutlinedBorder>(RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))),
-      sliderTheme: const SliderThemeData(showValueIndicator: ShowValueIndicator.always),
+      sliderTheme: const SliderThemeData(showValueIndicator: ShowValueIndicator.onDrag),
     );
   }
 }

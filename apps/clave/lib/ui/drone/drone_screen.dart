@@ -375,10 +375,11 @@ class _DroneScreenState extends State<DroneScreen> with AutomaticKeepAliveClient
                   ],
                 ),
                 const SizedBox(height: 6),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
                   children: <Widget>[
                     FilledButton.tonalIcon(onPressed: _playChord, icon: const Icon(Icons.play_arrow_rounded), label: Text(t(context, 'Tocar acorde', 'Play chord'))),
-                    const SizedBox(width: 8),
                     OutlinedButton.icon(onPressed: _chordTones.isEmpty && _keys.isEmpty ? null : _releaseAllKeys, icon: const Icon(Icons.stop_rounded), label: Text(t(context, 'Silenciar', 'Silence'))),
                   ],
                 ),
@@ -393,13 +394,20 @@ class _DroneScreenState extends State<DroneScreen> with AutomaticKeepAliveClient
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Row(
+                Text(t(context, 'Teclado', 'Keyboard'), style: Theme.of(context).textTheme.titleMedium),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: <Widget>[
-                    Expanded(child: Text(t(context, 'Teclado', 'Keyboard'), style: Theme.of(context).textTheme.titleMedium)),
-                    IconButton(onPressed: _octave > 0 ? () => setState(() => _octave -= 1) : null, icon: const Icon(Icons.chevron_left_rounded)),
-                    Text('${t(context, 'Octava', 'Octave')} $_octave', style: const TextStyle(fontWeight: FontWeight.w600)),
-                    IconButton(onPressed: _octave < 7 ? () => setState(() => _octave += 1) : null, icon: const Icon(Icons.chevron_right_rounded)),
-                    const SizedBox(width: 6),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        IconButton(onPressed: _octave > 0 ? () => setState(() => _octave -= 1) : null, icon: const Icon(Icons.chevron_left_rounded)),
+                        Text('${t(context, 'Octava', 'Octave')} $_octave', style: const TextStyle(fontWeight: FontWeight.w600)),
+                        IconButton(onPressed: _octave < 7 ? () => setState(() => _octave += 1) : null, icon: const Icon(Icons.chevron_right_rounded)),
+                      ],
+                    ),
                     FilterChip(
                       label: Text(t(context, 'Sostener', 'Sustain')),
                       selected: _sustain,

@@ -232,23 +232,33 @@ class _TempoPanel extends StatelessWidget {
           value: bpm.clamp(20.0, 400.0),
           onChanged: (double v) => onBpm(v.roundToDouble()),
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            OutlinedButton.icon(
-              onPressed: onTap,
-              icon: const Icon(Icons.touch_app_outlined),
-              label: Text(t(context, 'Tap tempo', 'Tap tempo')),
-              style: OutlinedButton.styleFrom(minimumSize: const Size(140, 52)),
-            ),
-            const SizedBox(width: 16),
-            FilledButton.icon(
-              onPressed: onToggle,
-              icon: Icon(running ? Icons.stop_rounded : Icons.play_arrow_rounded, size: 30),
-              label: Text(running ? t(context, 'Parar', 'Stop') : t(context, 'Iniciar', 'Start'), style: const TextStyle(fontSize: 18)),
-              style: FilledButton.styleFrom(minimumSize: const Size(150, 56), backgroundColor: running ? cs.error : null),
-            ),
-          ],
+        // Los dos botones reparten el ancho disponible: en pantallas angostas
+        // el texto se recorta con puntos suspensivos en vez de desbordar.
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                flex: 4,
+                child: OutlinedButton.icon(
+                  onPressed: onTap,
+                  icon: const Icon(Icons.touch_app_outlined),
+                  label: Text(t(context, 'Tap tempo', 'Tap tempo'), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 52)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 5,
+                child: FilledButton.icon(
+                  onPressed: onToggle,
+                  icon: Icon(running ? Icons.stop_rounded : Icons.play_arrow_rounded, size: 30),
+                  label: Text(running ? t(context, 'Parar', 'Stop') : t(context, 'Iniciar', 'Start'), style: const TextStyle(fontSize: 18), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 56), backgroundColor: running ? cs.error : null),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

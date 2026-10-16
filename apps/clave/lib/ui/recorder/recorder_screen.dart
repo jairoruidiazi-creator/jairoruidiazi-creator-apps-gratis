@@ -439,15 +439,14 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
               value: _pos.inMilliseconds.toDouble().clamp(0, total <= 0 ? 1 : total),
               onChanged: (double v) => _player.seek(Duration(milliseconds: v.toInt())),
             ),
-            Row(
+            Wrap(
+              spacing: 6,
+              runSpacing: 2,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: <Widget>[
                 Text(t(context, 'Velocidad', 'Speed')),
-                const SizedBox(width: 8),
                 for (final double v in <double>[0.5, 0.75, 1.0, 1.25, 1.5])
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: ChoiceChip(label: Text('${v}x'), selected: _speed == v, onSelected: (_) => _setSpeed(v), visualDensity: VisualDensity.compact),
-                  ),
+                  ChoiceChip(label: Text('${v}x'), selected: _speed == v, onSelected: (_) => _setSpeed(v), visualDensity: VisualDensity.compact),
               ],
             ),
           ],

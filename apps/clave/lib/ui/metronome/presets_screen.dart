@@ -87,6 +87,8 @@ class _PresetsScreenState extends State<PresetsScreen> {
                         padding: const EdgeInsets.only(bottom: 96),
                         itemCount: shown.length,
                         buildDefaultDragHandles: setlist != null,
+                        // onReorderItem existe desde Flutter 3.41; se mantiene onReorder por compatibilidad.
+                        // ignore: deprecated_member_use
                         onReorder: (int a, int b) async {
                           if (setlist == null) {
                             return;

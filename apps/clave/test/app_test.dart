@@ -97,9 +97,15 @@ void main() {
     tester.view.devicePixelRatio = 2.5;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    // Se anotan los errores de dibujo (desbordes, etc.) con todo su detalle,
+    // pero se siguen entregando al manejador del framework de pruebas para
+    // que un expect fallido se reporte con normalidad.
     final List<FlutterErrorDetails> errors = <FlutterErrorDetails>[];
     final FlutterExceptionHandler? previous = FlutterError.onError;
-    FlutterError.onError = errors.add;
+    FlutterError.onError = (FlutterErrorDetails d) {
+      errors.add(d);
+      previous?.call(d);
+    };
     addTearDown(() => FlutterError.onError = previous);
     String report() => errors.map((FlutterErrorDetails d) => d.toString()).join('\n----\n');
     await tester.pumpWidget(ClaveApp(services: services));
@@ -150,9 +156,12 @@ void main() {
     await tester.enterText(find.byType(TextField), 'Bambuco');
     await tester.tap(find.text('Aceptar'));
     await tester.pumpAndSettle();
-    // La escritura en disco es asíncrona real: se le da tiempo.
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 400)));
-    await tester.pump();
+    // La escritura en disco es asíncrona real: se espera a que la lista se
+    // actualice (hasta 5 s).
+    for (int i = 0; i < 50 && find.text('Bambuco').evaluate().isEmpty; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump();
+    }
     expect(services.state.presets.single.name, 'Bambuco');
     expect(find.text('Bambuco'), findsOneWidget);
     expect(tester.takeException(), isNull);
