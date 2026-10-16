@@ -1,0 +1,8 @@
+Warning: Building for device with codesigning disabled. You will have to manually codesign before deploying to device.
+Building co.appsgratis.plata for device (ios-release)...
+Updating minimum iOS deployment target to 15.0.
+Upgrading project.pbxproj
+Upgrading AppFrameworkInfo.plist
+Running Xcode build...                                          
+Xcode build done.                                           124.5s
+✓ Built build/ios/iphoneos/Runner.app (21.0MB)
