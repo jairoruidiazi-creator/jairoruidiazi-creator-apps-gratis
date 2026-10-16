@@ -17,6 +17,10 @@ import 'package:sello/ui/projects/template_editor.dart';
 import 'package:sello/ui/settings/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// pumpAndSettle con un tope corto: si algo anima sin parar, la prueba falla
+/// en segundos (con su pila) en vez de colgarse diez minutos.
+Future<void> settle(WidgetTester tester) => tester.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 15));
+
 /// Espera (con tiempo real) a que termine una escritura en disco y la
 /// interfaz la refleje.
 Future<void> waitFor(WidgetTester tester, bool Function() done, {int maxTenths = 50}) async {
@@ -24,7 +28,7 @@ Future<void> waitFor(WidgetTester tester, bool Function() done, {int maxTenths =
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
     await tester.pump();
   }
-  await tester.pumpAndSettle();
+  await settle(tester);
 }
 
 void main() {
@@ -70,33 +74,36 @@ void main() {
 
     // Hoja de datos de la foto (proyecto, notas, etiquetas) desde la cámara.
     await tester.tap(find.text('General').first);
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Notas para el sello'), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextField, 'Ej.: Fisura en muro norte, nivel 2'), 'Muro norte');
     await tester.tap(find.text('Listo'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(errors, isEmpty, reason: 'hoja de datos: ${report()}');
 
     // Hoja de GPS y brújula.
     await tester.tap(find.byIcon(Icons.gps_fixed).first);
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('GPS apagado'), findsOneWidget);
     expect(find.text('Posición manual'), findsOneWidget);
     await tester.tap(find.text('Posición manual'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.enterText(find.byType(TextField).at(0), '4.711');
     await tester.enterText(find.byType(TextField).at(1), '-74.0721');
     await tester.tap(find.text('Fijar'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(services.location.fix?.latitude, 4.711);
     expect(services.location.locked, isTrue);
     expect(find.text('18NXL0291020787'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Liberar posición'), 150, scrollable: find.byType(Scrollable).last);
+    await tester.ensureVisible(find.text('Liberar posición'));
+    await tester.pump();
     await tester.tap(find.text('Liberar posición'));
     await tester.pump();
     expect(services.location.locked, isFalse);
     // Cerrar la hoja.
     await tester.tapAt(const Offset(10, 10));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(errors, isEmpty, reason: 'hoja GPS: ${report()}');
 
     // Galería vacía, mapa y proyectos.
@@ -116,7 +123,7 @@ void main() {
 
     // Nuevo proyecto con un campo.
     await tester.tap(find.text('Nuevo'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.enterText(find.byType(TextField), 'Obra Calle 80');
     await tester.tap(find.text('Aceptar'));
     await waitFor(tester, () => find.byType(ProjectEditor).evaluate().isNotEmpty);
@@ -124,10 +131,10 @@ void main() {
     expect(services.state.projects.length, 2);
     expect(services.settings.currentProjectId, services.state.projects.last.id);
     await tester.tap(find.text('Añadir'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.enterText(find.byType(TextField).last, 'Lote');
     await tester.tap(find.text('Aceptar'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Lote'), findsOneWidget);
     await tester.tap(find.text('Guardar'));
     await waitFor(tester, () => find.byType(ProjectEditor).evaluate().isEmpty);
@@ -140,35 +147,35 @@ void main() {
 
     // Editor de plantilla con vista previa.
     await tester.tap(find.text('Estándar'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byType(TemplateEditor), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Rosa de los vientos'), 200, scrollable: find.byType(Scrollable).first);
     await tester.ensureVisible(find.text('Rosa de los vientos'));
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.text('Rosa de los vientos'));
     await tester.pump();
     expect(services.state.templateById('default').items, contains(StampItem.compass));
     await tester.scrollUntilVisible(find.text('Franja inferior'), 200, scrollable: find.byType(Scrollable).first);
     await tester.ensureVisible(find.text('Franja inferior').first);
-    await tester.pumpAndSettle();
+    await settle(tester);
     await tester.tap(find.text('Franja inferior').first);
     await tester.pump();
     expect(services.state.templateById('default').position, StampPosition.bottomBar);
     await tester.pageBack();
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byType(TemplateEditor), findsNothing);
     expect(errors, isEmpty, reason: 'plantilla: ${report()}');
 
     // Ajustes e idioma.
     await tester.tap(find.byIcon(Icons.settings_outlined).last);
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.byType(SettingsScreen), findsOneWidget);
     await tester.tap(find.text('English'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Settings'), findsOneWidget);
     await tester.pageBack();
-    await tester.pumpAndSettle();
+    await settle(tester);
     expect(find.text('Projects'), findsWidgets);
     expect(errors, isEmpty, reason: 'ajustes: ${report()}');
 
@@ -219,15 +226,22 @@ void main() {
     await tester.pump();
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
     await tester.pump();
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pump();
     // Abrir el detalle.
     final Finder tile = find.descendant(of: find.byType(SliverGrid), matching: find.byType(GestureDetector)).first;
     await tester.tap(tile);
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Columna C-3'), findsWidgets);
     expect(find.text('18NXL0291020787'), findsOneWidget);
     expect(find.text('67P7PW6H+C5'), findsOneWidget);
     await tester.pageBack();
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 2));

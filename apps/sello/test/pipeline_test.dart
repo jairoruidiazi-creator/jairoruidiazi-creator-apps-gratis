@@ -150,17 +150,23 @@ void main() {
 
     test('CSV con comillas, campos y formatos de coordenadas', () {
       final String csv = Exports.csv(photos, projects);
+      // El salto de línea de las notas va entre comillas (una fila lógica
+      // ocupa dos líneas físicas): se cuentan las filas por su id.
       final List<String> lines = const LineSplitter().convert(csv);
-      expect(lines.length, 3);
+      final List<String> rows = lines.where((String l) => l.startsWith('id,') || l.startsWith('a,') || l.startsWith('b,')).toList();
+      expect(rows.length, 3);
+      expect(csv, contains('"Columna\nC-3"'));
       expect(lines.first, startsWith('id,proyecto,fecha_hora,utc,latitud,longitud'));
       expect(lines.first, endsWith(',lote'));
-      expect(lines[1], contains('"Obra, Calle 80"'));
-      expect(lines[1], contains('"Cra 7 ""La Séptima"", Bogotá"'));
-      expect(lines[1], contains('18NXL0291020787'));
-      expect(lines[1], contains('67P7PW6H+C52'));
-      expect(lines[1], contains('muro fisura'));
-      expect(lines[1], endsWith(',12'));
-      expect(lines[2], contains('sin gps'));
+      final String rowA = csv.split('\nb,').first.split('\na,').last;
+      expect(rowA, contains('"Obra, Calle 80"'));
+      expect(rowA, contains('"Cra 7 ""La Séptima"", Bogotá"'));
+      expect(rowA, contains('18NXL0291020787'));
+      expect(rowA, contains('67P7PW6H+C52'));
+      expect(rowA, contains('4881143.15'));
+      expect(rowA, contains('muro fisura'));
+      expect(rowA.trimRight(), endsWith(',12'));
+      expect(lines.last, contains('sin gps'));
       expect(Exports.csv(photos, projects, spanish: false), startsWith('id,project,datetime'));
     });
 
