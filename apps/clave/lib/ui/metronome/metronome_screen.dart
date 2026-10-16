@@ -98,7 +98,7 @@ class _MetronomeScreenState extends State<MetronomeScreen> with AutomaticKeepAli
   void dispose() {
     _services?.metronome.removeListener(_onBeat);
     _services?.settings.removeListener(_onSettings);
-    unawaited(_tts.stop());
+    unawaited(_tts.stop().catchError((Object e) => 0));
     super.dispose();
   }
 
