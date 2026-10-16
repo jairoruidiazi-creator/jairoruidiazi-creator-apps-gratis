@@ -12,6 +12,7 @@ import 'package:clave/core/storage.dart';
 import 'package:clave/model/models.dart';
 import 'package:clave/ui/metronome/presets_screen.dart';
 import 'package:clave/ui/settings/settings_screen.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
