@@ -23,7 +23,7 @@ class _Grupo {
 /// Clasifica seres vivos: hábitats para los pequeños, grupos de animales
 /// después y cómo se mueven o qué los distingue en primaria.
 class ClasificaGenerator implements ChoiceGenerator {
-  static const List<_Grupo> habitats = <_Grupo>[
+  static const List<_Grupo> _habitats = <_Grupo>[
     _Grupo('granja', 'granja', 'la granja', '1f69c', 'vive en la granja', 'en'),
     _Grupo('mar', 'mar', 'el mar', '1f30a', 'vive en el mar', 'en'),
     _Grupo('selva', 'selva', 'la selva', '1f334', 'vive en la selva', 'en'),
@@ -33,7 +33,7 @@ class ClasificaGenerator implements ChoiceGenerator {
     _Grupo('casa', 'casa', 'la casa', '1f3e1', 'vive en la casa', 'en'),
   ];
 
-  static const List<_Grupo> grupos = <_Grupo>[
+  static const List<_Grupo> _grupos = <_Grupo>[
     _Grupo('mamifero', 'mamifero', 'mamífero', '1f404', 'es un mamífero', 'un'),
     _Grupo('ave', 'ave', 'ave', '1f426', 'es un ave', 'un'),
     _Grupo('pez', 'pez', 'pez', '1f41f', 'es un pez', 'un'),
@@ -42,7 +42,7 @@ class ClasificaGenerator implements ChoiceGenerator {
     _Grupo('insecto', 'insecto', 'insecto', '1f41c', 'es un insecto', 'un'),
   ];
 
-  static const List<_Grupo> movimiento = <_Grupo>[
+  static const List<_Grupo> _movimiento = <_Grupo>[
     _Grupo('vuela', 'vuela', 'vuela', '1f985', 'vuela', ''),
     _Grupo('nada', 'nada', 'nada', '1f42c', 'nada', ''),
     _Grupo('camina', 'camina', 'camina', '1f418', 'camina', ''),
@@ -71,18 +71,18 @@ class ClasificaGenerator implements ChoiceGenerator {
         return _queEs(rng, level == 3 ? 3 : 4, band);
       case AgeBand.b7a8:
         if (level <= 2) {
-          return rng.chance(0.5) ? _queEs(rng, 4, band) : _cualEs(rng, grupos, 4);
+          return rng.chance(0.5) ? _queEs(rng, 4, band) : _cualEs(rng, _grupos, 4);
         }
-        return rng.chance(0.5) ? _cualEs(rng, movimiento, 4) : _cualEs(rng, grupos, level == 3 ? 5 : 6);
+        return rng.chance(0.5) ? _cualEs(rng, _movimiento, 4) : _cualEs(rng, _grupos, level == 3 ? 5 : 6);
       case AgeBand.b9a11:
-        return rng.chance(0.5) ? _cualEs(rng, grupos, 6) : _queEs(rng, 6, band);
+        return rng.chance(0.5) ? _cualEs(rng, _grupos, 6) : _queEs(rng, 6, band);
     }
   }
 
   /// "¿Dónde vive el delfín?" con hábitats como opciones.
   ChoiceRound _dondeVive(Rng rng, int count) {
     for (int attempt = 0; attempt < 30; attempt++) {
-      final List<_Grupo> elegidos = rng.sample(habitats, count);
+      final List<_Grupo> elegidos = rng.sample(_habitats, count);
       final _Grupo correcto = rng.pick(elegidos);
       final List<VocabItem> animales = Vocab.all.where((VocabItem v) {
         if (!v.esAnimal || !v.has(correcto.tag)) {
@@ -118,7 +118,7 @@ class ClasificaGenerator implements ChoiceGenerator {
 
   /// "¿Qué es la rana?" con grupos de animales como opciones.
   ChoiceRound _queEs(Rng rng, int count, AgeBand band) {
-    final List<_Grupo> elegidos = rng.sample(grupos, count);
+    final List<_Grupo> elegidos = rng.sample(_grupos, count);
     final _Grupo correcto = rng.pick(elegidos);
     final List<VocabItem> animales = Vocab.all.where((VocabItem v) => v.esAnimal && v.has(correcto.tag) && !v.nombre.contains(' ')).toList();
     if (animales.isEmpty) {

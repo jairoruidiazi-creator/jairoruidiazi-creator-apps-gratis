@@ -9,6 +9,7 @@ import '../../core/theme.dart';
 import '../../engine/game_def.dart';
 import '../../engine/round_engine.dart';
 import '../../model/age_band.dart';
+import '../../model/area.dart';
 import 'widgets.dart';
 
 /// Marco común de los juegos: cabecera con salida, nivel y progreso; barra de

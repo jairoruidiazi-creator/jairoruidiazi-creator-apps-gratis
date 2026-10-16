@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../games/carrera/carrera_generator.dart';
 import '../games/choice/choice_game_screen.dart';
 import '../games/clasifica/clasifica_generator.dart';
 import '../games/colorear/colorear_screen.dart';
@@ -7,6 +8,7 @@ import '../games/emociones/emociones_generator.dart';
 import '../games/intruso/intruso_generator.dart';
 import '../games/memoria/memoria_screen.dart';
 import '../games/patrones/patrones_generator.dart';
+import '../games/reloj/reloj_generator.dart';
 import '../games/sonidos/sonidos_generator.dart';
 import '../games/tienda/tienda_screen.dart';
 import '../model/age_band.dart';
@@ -88,6 +90,40 @@ class GameRegistry {
       enCasa: 'En la tienda de verdad, dejen que el niño cuente las monedas o calcule las vueltas antes de que se las den.',
       pregunta: '¿Con qué monedas o billetes pagarías algo de tres mil quinientos pesos?',
       build: (BuildContext context, GameLaunch launch) => TiendaScreen(launch: launch),
+    ),
+    GameDef(
+      id: 'carrera',
+      nombre: 'Carrera de cálculo',
+      area: Area.matematicas,
+      emoji: '1f3c1',
+      minBand: AgeBand.b5a6,
+      maxBand: AgeBand.b9a11,
+      skills: const <AgeBand, String>{
+        AgeBand.b5a6: 'mate.5-6.sumas20',
+        AgeBand.b7a8: 'mate.7-8.sumas100',
+        AgeBand.b9a11: 'mate.9-11.operaciones',
+      },
+      descripcion: 'Cálculo mental con estrategia: sumas y restas, tablas, divisiones, decimales y fracciones. Sin reloj: la meta es la propia marca de aciertos.',
+      enCasa: 'En el carro o en la fila del banco, lancen operaciones cortas: "¿cuánto es 7 más 8?". Si se equivoca, pídanle que lo cuente con los dedos o separando decenas.',
+      pregunta: '¿Qué truco usaste para resolver la operación más difícil?',
+      build: (BuildContext context, GameLaunch launch) => ChoiceGameScreen(launch: launch, generator: CarreraGenerator()),
+    ),
+    GameDef(
+      id: 'reloj',
+      nombre: 'El reloj',
+      area: Area.matematicas,
+      emoji: '23f0',
+      minBand: AgeBand.b5a6,
+      maxBand: AgeBand.b9a11,
+      skills: const <AgeBand, String>{
+        AgeBand.b5a6: 'mate.5-6.reloj',
+        AgeBand.b7a8: 'mate.7-8.reloj',
+        AgeBand.b9a11: 'mate.9-11.operaciones',
+      },
+      descripcion: 'Leer la hora en relojes de manecillas: en punto y media, cuartos, minutos de cinco en cinco y cuánto falta para la siguiente rutina.',
+      enCasa: 'Pongan un reloj de manecillas en la cocina y pregunten la hora antes de las rutinas: "¿a qué hora nos vamos? Mira el reloj".',
+      pregunta: '¿Qué hace la manecilla larga mientras la corta pasa de un número al siguiente?',
+      build: (BuildContext context, GameLaunch launch) => ChoiceGameScreen(launch: launch, generator: RelojGenerator()),
     ),
     GameDef(
       id: 'sonidos',

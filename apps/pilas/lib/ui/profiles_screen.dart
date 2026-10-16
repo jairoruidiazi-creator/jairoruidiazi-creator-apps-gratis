@@ -76,7 +76,7 @@ class ProfilesScreen extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
                                   Text(S.appName, style: Theme.of(context).textTheme.headlineMedium),
-                                  Text(S.lema, style: const TextStyle(fontSize: 16, color: PilasColors.tintaSuave)),
+                                  const Text(S.lema, style: TextStyle(fontSize: 16, color: PilasColors.tintaSuave)),
                                 ],
                               ),
                             ),

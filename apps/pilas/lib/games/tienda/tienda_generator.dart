@@ -127,7 +127,7 @@ class TiendaGenerator {
 
   ChoiceRound _masMenos(Rng rng) {
     final VocabItem item = rng.pick(Vocab.withTag('fruta'));
-    int a = rng.range(1, 7);
+    final int a = rng.range(1, 7);
     int b = rng.range(1, 7);
     while (b == a) {
       b = rng.range(1, 7);

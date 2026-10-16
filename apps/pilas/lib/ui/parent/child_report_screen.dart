@@ -8,6 +8,8 @@ import '../../core/theme.dart';
 import '../../engine/game_def.dart';
 import '../../engine/game_registry.dart';
 import '../../games/shell/widgets.dart';
+import '../../model/age_band.dart';
+import '../../model/area.dart';
 import '../../model/profile.dart';
 import '../../model/progress.dart';
 import '../../model/skill.dart';

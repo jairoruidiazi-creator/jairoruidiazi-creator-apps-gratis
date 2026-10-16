@@ -163,7 +163,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<int>(
-            value: _mes,
+            initialValue: _mes,
             decoration: const InputDecoration(labelText: S.mesNacimiento),
             items: <DropdownMenuItem<int>>[
               for (int m = 1; m <= 12; m++) DropdownMenuItem<int>(value: m, child: Text(meses[m - 1])),

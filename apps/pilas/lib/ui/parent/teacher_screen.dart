@@ -10,6 +10,7 @@ import '../../core/app_state.dart';
 import '../../core/strings.dart';
 import '../../core/theme.dart';
 import '../../games/shell/widgets.dart';
+import '../../model/age_band.dart';
 import '../../model/area.dart';
 import '../../model/group.dart';
 import '../../model/profile.dart';

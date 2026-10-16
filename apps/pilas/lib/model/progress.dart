@@ -84,7 +84,7 @@ class ProfileProgress {
         stickers = stickers ?? <StickerAward>[],
         sessions = sessions ?? <SessionLog>[];
 
-  /// Clave: '<gameId>|<bandId>'.
+  /// Clave: `<gameId>|<bandId>`.
   final Map<String, MasteryState> mastery;
   final Map<String, DateTime> skillsAchieved;
   final List<StickerAward> stickers;

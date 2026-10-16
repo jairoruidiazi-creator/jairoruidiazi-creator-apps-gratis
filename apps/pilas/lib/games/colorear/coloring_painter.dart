@@ -67,8 +67,8 @@ class ColoringLayout {
     final double dx = (size.width - viewBox.width * scale) / 2 - viewBox.left * scale;
     final double dy = (size.height - viewBox.height * scale) / 2 - viewBox.top * scale;
     return Matrix4.identity()
-      ..translate(dx, dy)
-      ..scale(scale, scale);
+      ..translateByDouble(dx, dy, 0, 1)
+      ..scaleByDouble(scale, scale, 1, 1);
   }
 
   static Offset toPage(Rect viewBox, Size size, Offset local) {
@@ -144,7 +144,7 @@ class ColoringPainter extends CustomPainter {
           ..pushStyle(ui.TextStyle(color: const Color(0xFF263238), fontSize: fontSize, fontWeight: FontWeight.w700))
           ..addText('${r.number}');
         final ui.Paragraph para = pb.build()..layout(const ui.ParagraphConstraints(width: 20));
-        final double bgR = fontSize * 0.75;
+        const double bgR = fontSize * 0.75;
         canvas.drawCircle(p, bgR, Paint()..color = Colors.white.withValues(alpha: 0.85));
         canvas.drawParagraph(para, Offset(p.dx - 10, p.dy - para.height / 2));
       }

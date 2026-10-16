@@ -5,8 +5,10 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
-import '../../model/skill.dart';
+import '../../model/age_band.dart';
+import '../../model/area.dart';
 import '../../model/progress.dart';
+import '../../model/skill.dart';
 import 'report_data.dart';
 
 /// Informe PDF de un niño: tiempo, habilidades por área, juegos y sugerencias.

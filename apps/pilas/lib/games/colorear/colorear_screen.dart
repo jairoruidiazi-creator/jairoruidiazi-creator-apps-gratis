@@ -119,7 +119,7 @@ class _ColorearScreenState extends State<ColorearScreen> {
     if (widget.porNumeros) {
       if (r.targetColor != _color) {
         unawaited(s.sfx.play(SfxId.hint));
-        s.voice.sayLater(_etiqueta(r.number, 'esa zona es la') + '. Busca ese color.');
+        s.voice.sayLater('${_etiqueta(r.number, 'esa zona es la')}. Busca ese color.');
         setState(() => _highlight = r.id);
         _highlightTimer?.cancel();
         _highlightTimer = Timer(const Duration(milliseconds: 900), () {
@@ -190,13 +190,13 @@ class _ColorearScreenState extends State<ColorearScreen> {
       if (boundary == null) {
         return;
       }
+      final Services s = AppScope.read(context);
       final ui.Image image = await boundary.toImage(pixelRatio: 2.0);
       final ByteData? data = await image.toByteData(format: ui.ImageByteFormat.png);
       if (data == null) {
         return;
       }
       final Uint8List bytes = data.buffer.asUint8List();
-      final Services s = AppScope.read(context);
       final String name = 'drawings/${widget.launch.profile.id}/${DateTime.now().millisecondsSinceEpoch}.png';
       await s.store.writeBytes(name, bytes);
       if (!silencioso && mounted) {

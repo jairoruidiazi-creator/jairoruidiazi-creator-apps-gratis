@@ -4,6 +4,7 @@ import '../../core/app_scope.dart';
 import '../../core/strings.dart';
 import '../../core/theme.dart';
 import '../../games/shell/widgets.dart';
+import '../../model/age_band.dart';
 import '../../model/profile.dart';
 import '../../model/progress.dart';
 import '../profile_edit_screen.dart';

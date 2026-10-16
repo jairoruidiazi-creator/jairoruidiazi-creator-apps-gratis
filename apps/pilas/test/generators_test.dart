@@ -1,12 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pilas/content/money.dart';
 import 'package:pilas/core/rng.dart';
+import 'package:pilas/games/carrera/carrera_generator.dart';
 import 'package:pilas/games/choice/choice_round.dart';
 import 'package:pilas/games/clasifica/clasifica_generator.dart';
 import 'package:pilas/games/emociones/emociones_generator.dart';
 import 'package:pilas/games/intruso/intruso_generator.dart';
 import 'package:pilas/games/memoria/memoria_board.dart';
 import 'package:pilas/games/patrones/patrones_generator.dart';
+import 'package:pilas/games/reloj/reloj_generator.dart';
 import 'package:pilas/games/sonidos/sonidos_generator.dart';
 import 'package:pilas/games/tienda/tienda_generator.dart';
 import 'package:pilas/model/age_band.dart';
@@ -25,13 +27,15 @@ void checkRound(ChoiceRound r, String where) {
 }
 
 void main() {
-  final List<ChoiceGenerator> generators = <ChoiceGenerator>[IntrusoGenerator(), SonidosGenerator(), PatronesGenerator(), EmocionesGenerator(), ClasificaGenerator()];
+  final List<ChoiceGenerator> generators = <ChoiceGenerator>[IntrusoGenerator(), SonidosGenerator(), PatronesGenerator(), EmocionesGenerator(), ClasificaGenerator(), CarreraGenerator(), RelojGenerator()];
   final Map<Type, List<AgeBand>> bands = <Type, List<AgeBand>>{
     IntrusoGenerator: <AgeBand>[AgeBand.b3a4, AgeBand.b5a6, AgeBand.b7a8],
     SonidosGenerator: <AgeBand>[AgeBand.b3a4, AgeBand.b5a6],
     PatronesGenerator: AgeBand.values,
     EmocionesGenerator: <AgeBand>[AgeBand.b3a4, AgeBand.b5a6, AgeBand.b7a8],
     ClasificaGenerator: AgeBand.values,
+    CarreraGenerator: <AgeBand>[AgeBand.b5a6, AgeBand.b7a8, AgeBand.b9a11],
+    RelojGenerator: <AgeBand>[AgeBand.b5a6, AgeBand.b7a8, AgeBand.b9a11],
   };
 
   for (final ChoiceGenerator g in generators) {
@@ -46,6 +50,16 @@ void main() {
       }
     });
   }
+
+  test('El reloj nombra las horas como se dicen en Colombia', () {
+    expect(RelojGenerator.nombreHora(1, 0), 'la una en punto');
+    expect(RelojGenerator.nombreHora(3, 30), 'las 3 y media');
+    expect(RelojGenerator.nombreHora(5, 15), 'las 5 y cuarto');
+    expect(RelojGenerator.nombreHora(12, 45), 'la una menos cuarto');
+    expect(RelojGenerator.nombreHora(8, 45), 'las 9 menos cuarto');
+    expect(RelojGenerator.nombreHora(10, 20), 'las 10 y 20');
+    expect(RelojGenerator.digital(9, 5), '9:05');
+  });
 
   test('La tienda genera rondas válidas de elegir y de pagar', () {
     final TiendaGenerator g = TiendaGenerator();
