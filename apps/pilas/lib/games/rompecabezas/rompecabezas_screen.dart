@@ -400,7 +400,7 @@ class _RompecabezasScreenState extends State<RompecabezasScreen> {
                                       alignment: Alignment(p.n == 1 ? 0 : -1 + 2 * (p.order[pos] % p.n) / (p.n - 1), p.n == 1 ? 0 : -1 + 2 * (p.order[pos] ~/ p.n) / (p.n - 1)),
                                       widthFactor: 1 / p.n,
                                       heightFactor: 1 / p.n,
-                                      child: EmojiImage(p.emoji, size: side - 8),
+                                      child: EmojiImage(p.emoji, size: side > 8 ? side - 8 : 1),
                                     ),
                                   ),
                                 ),

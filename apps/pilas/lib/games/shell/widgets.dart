@@ -15,6 +15,9 @@ class EmojiImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (size <= 0) {
+      return const SizedBox.shrink();
+    }
     return SvgPicture.asset(
       'assets/emoji/$code.svg',
       width: size,
