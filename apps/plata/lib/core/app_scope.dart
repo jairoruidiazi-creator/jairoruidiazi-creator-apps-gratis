@@ -1,0 +1,62 @@
+import 'package:flutter/widgets.dart';
+
+import 'backups.dart';
+import 'crypto_store.dart';
+import 'ledger.dart';
+import 'lock.dart';
+import 'notices.dart';
+import 'notifications.dart';
+import 'rates.dart';
+import 'settings.dart';
+import 'storage.dart';
+
+class Services {
+  const Services({
+    required this.settings,
+    required this.ledger,
+    required this.store,
+    required this.keys,
+    required this.lock,
+    required this.notifier,
+    required this.rates,
+    required this.notices,
+    required this.backups,
+  });
+
+  final AppSettings settings;
+  final Ledger ledger;
+  final JsonStore store;
+  final KeyStore keys;
+  final AppLock lock;
+  final Notifier notifier;
+  final RateService rates;
+  final NoticeService notices;
+  final BackupManager backups;
+}
+
+class AppScope extends InheritedWidget {
+  const AppScope({super.key, required this.services, required super.child});
+
+  final Services services;
+
+  static Services of(BuildContext context) {
+    final AppScope? scope = context.dependOnInheritedWidgetOfExactType<AppScope>();
+    assert(scope != null, 'No hay AppScope en el árbol');
+    return scope!.services;
+  }
+
+  @override
+  bool updateShouldNotify(AppScope oldWidget) => oldWidget.services != services;
+}
+
+/// Texto en el idioma de la app.
+String t(BuildContext context, String es, String en) => AppScope.of(context).settings.spanish ? es : en;
+
+/// Libera controladores después de que cierre el diálogo que los usaba.
+void disposeLater(List<ChangeNotifier> controllers) {
+  Future<void>.delayed(const Duration(seconds: 1), () {
+    for (final ChangeNotifier c in controllers) {
+      c.dispose();
+    }
+  });
+}

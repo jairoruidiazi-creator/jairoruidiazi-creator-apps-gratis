@@ -69,6 +69,47 @@ APPS = {
         },
         "ios_min": "13.0",
     },
+    "plata": {
+        "display_name": "Plata",
+        "min_sdk": 24,
+        "android_permissions": [
+            "android.permission.INTERNET",
+            "android.permission.POST_NOTIFICATIONS",
+            "android.permission.VIBRATE",
+            "android.permission.USE_BIOMETRIC",
+            # flutter_local_notifications reprograma los recordatorios tras reiniciar.
+            "android.permission.RECEIVE_BOOT_COMPLETED",
+        ],
+        "android_queries": [
+            {"action": "android.intent.action.VIEW", "scheme": "https"},
+            {"action": "android.intent.action.SENDTO", "scheme": "mailto"},
+        ],
+        # Dentro de <application>: el lector de avisos bancarios (NotificationListenerService)
+        # y los receptores de notificaciones programadas del plugin.
+        "android_application_xml": [
+            '<service android:name="co.appsgratis.plata.BankNoticeListener" android:exported="true" android:label="Plata: avisos bancarios" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">\n            <intent-filter>\n                <action android:name="android.service.notification.NotificationListenerService"/>\n            </intent-filter>\n        </service>',
+            '<receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"/>',
+            '<receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">\n            <intent-filter>\n                <action android:name="android.intent.action.BOOT_COMPLETED"/>\n                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>\n                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>\n                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>\n            </intent-filter>\n        </receiver>',
+        ],
+        # Código nativo propio: la actividad (FlutterFragmentActivity por local_auth) y el lector de avisos.
+        "android_files": {
+            "native/android/MainActivity.kt": "android/app/src/main/kotlin/co/appsgratis/plata/MainActivity.kt",
+            "native/android/BankNoticeListener.kt": "android/app/src/main/kotlin/co/appsgratis/plata/BankNoticeListener.kt",
+        },
+        # flutter_local_notifications 10+ exige desugaring de la biblioteca de Java.
+        "android_desugaring": True,
+        "ios_plist": {
+            "CFBundleDisplayName": "Plata",
+            "ITSAppUsesNonExemptEncryption": False,
+            "NSFaceIDUsageDescription": "Plata usa Face ID para desbloquear tus cuentas sin escribir la clave.",
+            "NSCameraUsageDescription": "Plata usa la cámara para adjuntar la foto de un recibo a un movimiento.",
+            "NSPhotoLibraryUsageDescription": "Plata accede a tus fotos para adjuntar un recibo a un movimiento.",
+            # La carpeta de la app (exportaciones y copias) se ve en Archivos y en iCloud Drive del usuario.
+            "UIFileSharingEnabled": True,
+            "LSSupportsOpeningDocumentsInPlace": True,
+        },
+        "ios_min": "13.0",
+    },
 }
 
 
@@ -104,7 +145,17 @@ def patch_android(cfg: dict) -> None:
             intent = f'        <intent>\n            <action android:name="{q["action"]}"/>\n{data}        </intent>\n'
             if intent not in text:
                 text = text.replace("<queries>\n", "<queries>\n" + intent, 1)
+    for snippet in cfg.get("android_application_xml", []):
+        key = re.search(r'android:name="([^"]+)"', snippet).group(1)
+        if key not in text:
+            text = text.replace("</application>", f"        {snippet}\n    </application>", 1)
     manifest.write_text(text, encoding="utf-8")
+
+    for src, dst in cfg.get("android_files", {}).items():
+        target = Path(dst)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(Path(src).read_text(encoding="utf-8"), encoding="utf-8")
+        print(f"copiado {src} -> {dst}")
 
     for name in ("android/app/build.gradle.kts", "android/app/build.gradle"):
         gradle = Path(name)
@@ -116,6 +167,14 @@ def patch_android(cfg: dict) -> None:
             g = re.sub(r"minSdk\s*=\s*[^\n]+", f"minSdk = {min_sdk}", g, count=1)
         else:
             g = re.sub(r"minSdkVersion\s+[^\n]+", f"minSdkVersion {min_sdk}", g, count=1)
+        if cfg.get("android_desugaring") and "coreLibraryDesugaring" not in g:
+            if name.endswith(".kts"):
+                g = g.replace("compileOptions {", "compileOptions {\n        isCoreLibraryDesugaringEnabled = true", 1)
+                g += '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n'
+            else:
+                g = g.replace("compileOptions {", "compileOptions {\n        coreLibraryDesugaringEnabled true", 1)
+                g += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\n}\n"
+            print(f"desugaring activado en {name}")
         gradle.write_text(g, encoding="utf-8")
         print(f"minSdk fijado en {min_sdk} en {name}")
 

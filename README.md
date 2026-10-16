@@ -7,7 +7,7 @@ Aplicaciones gratuitas para Android e iOS, sin anuncios, sin suscripciones y sin
 | Pilas | `apps/pilas` | 26 juegos didácticos para niños de 3 a 11 años: lógica, números, letras, ciencias, arte y emociones; perfiles por niño, informe para padres y modo docente | v1 lista |
 | Clave | `apps/clave` | Kit de práctica musical: afinador, metrónomo, bordón y teclado, grabadora y registro de práctica | v1 lista |
 | Sello | `apps/sello` | Cámara de campo con sello GPS: coordenadas en UTM, MGRS, Plus Code y proyección oficial de Colombia, norte verdadero, proyectos, galería, mapa y exportación (CSV, KML, KMZ, ZIP, PDF) | v1 lista |
-| Finanzas personales | `apps/finanzas` | Gastos, presupuestos, tarjetas y avisos bancarios, todo sin conexión | Pendiente |
+| Plata | `apps/plata` | Finanzas personales sin conexión: gastos en 5 segundos, cuentas, bolsillos, tarjetas con corte y cuotas, presupuestos, quincenas, programados, avisos de bancos colombianos, informes, TRM, todo cifrado en el teléfono | v1 lista |
 
 ## Cómo se compila
 
