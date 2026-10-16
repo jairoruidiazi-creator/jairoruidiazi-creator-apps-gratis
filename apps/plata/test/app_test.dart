@@ -46,7 +46,10 @@ Future<void> syncLedger(WidgetTester tester, Services s) async {
 /// Abre una entrada de la pestaña Más (desplazando la lista si hace falta).
 Future<void> openMore(WidgetTester tester, String title) async {
   final Finder tile = find.widgetWithText(ListTile, title);
-  await tester.scrollUntilVisible(tile, 200, scrollable: find.byType(Scrollable).first);
+  // Vuelve al principio: ensureVisible deja el último elemento alineado arriba.
+  await tester.drag(find.byType(Scrollable).first, const Offset(0, 2000));
+  await settle(tester);
+  await tester.scrollUntilVisible(tile, 150, scrollable: find.byType(Scrollable).first);
   await tester.ensureVisible(tile);
   await tester.pump();
   await tester.tap(tile);
