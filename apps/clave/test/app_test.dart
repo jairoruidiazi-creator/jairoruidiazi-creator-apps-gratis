@@ -99,12 +99,15 @@ void main() {
     await tester.pumpWidget(ClaveApp(services: services));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+    final dynamic first = tester.takeException();
+    expect(first, isNull, reason: 'inicio: ${first is FlutterError ? first.toStringDeep() : first}');
     expect(find.text('Afinador'), findsWidgets);
     for (final String tab in <String>['Metrónomo', 'Tono', 'Grabar', 'Práctica']) {
       await tester.tap(find.widgetWithText(NavigationDestination, tab));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(tester.takeException(), isNull, reason: tab);
+      final dynamic e = tester.takeException();
+      expect(e, isNull, reason: '$tab: ${e is FlutterError ? e.toStringDeep() : e}');
     }
     // Metrónomo: iniciar y parar.
     await tester.tap(find.widgetWithText(NavigationDestination, 'Metrónomo'));

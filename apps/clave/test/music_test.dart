@@ -107,12 +107,12 @@ void main() {
   group('Detector de tono', () {
     final PitchDetector det = PitchDetector();
 
-    test('Detecta senos puros de Do1 a La6 con menos de 2,5 cents de error', () {
+    test('Detecta senos puros de Do1 a La6 (medio cent de error desde 120 Hz)', () {
       for (final double hz in <double>[32.7, 55, 82.41, 110, 146.83, 196, 246.94, 329.63, 440, 659.26, 1046.5, 1760]) {
         final PitchResult r = det.detect(sine(hz));
         expect(r.hasPitch, isTrue, reason: '$hz Hz');
         final double cents = 1200 * math.log(r.frequency / hz) / math.ln2;
-        expect(cents.abs(), lessThan(hz < 60 ? 3 : 2.5), reason: '$hz Hz → ${r.frequency}');
+        expect(cents.abs(), lessThan(hz < 60 ? 3 : (hz < 120 ? 2 : 0.5)), reason: '$hz Hz → ${r.frequency}');
         expect(r.clarity, greaterThan(0.9), reason: '$hz Hz');
       }
     });

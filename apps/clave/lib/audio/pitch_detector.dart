@@ -62,7 +62,70 @@ class PitchDetector {
     if (f < minFrequency || f > maxFrequency) {
       return PitchResult(frequency: 0, clarity: 0, rms: rms);
     }
+    // Paso 3: en los agudos el periodo tiene pocas muestras y la parábola de
+    // YIN pierde precisión; se afina buscando el pico espectral con ventana
+    // de Hann alrededor del candidato (±1,5 %).
+    if (f > 120) {
+      f = _refineSpectral(samples, sampleRate, f);
+    }
     return PitchResult(frequency: f, clarity: clarity, rms: rms);
+  }
+
+  /// Magnitud al cuadrado de la DFT en [hz] de una señal ya enventanada.
+  static double _power(Float32List s, int rate, double hz) {
+    final int n = s.length;
+    final double w = 2 * math.pi * hz / rate;
+    final double cw = math.cos(w);
+    final double sw = math.sin(w);
+    // Rotación incremental del fasor para no llamar a sin/cos por muestra.
+    double cr = 1;
+    double ci = 0;
+    double re = 0;
+    double im = 0;
+    for (int i = 0; i < n; i++) {
+      final double x = s[i];
+      re += x * cr;
+      im -= x * ci;
+      final double ncr = cr * cw - ci * sw;
+      ci = cr * sw + ci * cw;
+      cr = ncr;
+    }
+    return re * re + im * im;
+  }
+
+  static double _refineSpectral(Float32List raw, int rate, double f0) {
+    // Ventana de Hann aplicada una sola vez.
+    final int n = raw.length;
+    final Float32List s = Float32List(n);
+    final double k = 2 * math.pi / (n - 1);
+    for (int i = 0; i < n; i++) {
+      s[i] = raw[i] * (0.5 - 0.5 * math.cos(k * i));
+    }
+    double a = f0 / 1.015;
+    double b = f0 * 1.015;
+    const double phi = 0.6180339887498949;
+    double x1 = b - phi * (b - a);
+    double x2 = a + phi * (b - a);
+    double p1 = _power(s, rate, x1);
+    double p2 = _power(s, rate, x2);
+    for (int i = 0; i < 28; i++) {
+      if (p1 > p2) {
+        b = x2;
+        x2 = x1;
+        p2 = p1;
+        x1 = b - phi * (b - a);
+        p1 = _power(s, rate, x1);
+      } else {
+        a = x1;
+        x1 = x2;
+        p1 = p2;
+        x2 = a + phi * (b - a);
+        p2 = _power(s, rate, x2);
+      }
+    }
+    final double best = (a + b) / 2;
+    // Si el pico no es claramente mayor que en el candidato, se conserva YIN.
+    return _power(s, rate, best) >= _power(s, rate, f0) ? best : f0;
   }
 
   static double _rms(Float32List s) {
