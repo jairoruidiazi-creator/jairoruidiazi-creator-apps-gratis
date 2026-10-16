@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 
 import '../model/models.dart';
 import '../model/money.dart';
@@ -421,7 +421,7 @@ class Ledger extends ChangeNotifier {
       }
     }
     if (t.splits.isNotEmpty) {
-      t.amountMinor = t.splits.fold<int>(0, (int s, Split p) => s + p.amountMinor);
+      t.amountMinor = t.splits.fold<int>(0, (int s, TxSplit p) => s + p.amountMinor);
       t.categoryId = null;
     }
     if (t.installments < 1) {
@@ -440,7 +440,7 @@ class Ledger extends ChangeNotifier {
         return false;
       }
       if (f.categoryIds.isNotEmpty) {
-        final bool inCat = (t.categoryId != null && f.categoryIds.contains(t.categoryId)) || t.splits.any((Split s) => f.categoryIds.contains(s.categoryId));
+        final bool inCat = (t.categoryId != null && f.categoryIds.contains(t.categoryId)) || t.splits.any((TxSplit s) => f.categoryIds.contains(s.categoryId));
         if (!inCat) {
           return false;
         }
@@ -505,7 +505,7 @@ class Ledger extends ChangeNotifier {
         continue;
       }
       if (t.splits.isNotEmpty) {
-        for (final Split s in t.splits) {
+        for (final TxSplit s in t.splits) {
           final String key = roots ? _rootOf(s.categoryId) : s.categoryId;
           sums[key] = (sums[key] ?? 0) + toBase(s.amountMinor, t.currency, rate: t.rateToBase);
         }
@@ -639,7 +639,7 @@ class Ledger extends ChangeNotifier {
         if (cats.isEmpty) {
           spent += toBase(t.amountMinor, t.currency, rate: t.rateToBase);
         } else if (t.splits.isNotEmpty) {
-          for (final Split s in t.splits) {
+          for (final TxSplit s in t.splits) {
             if (cats.contains(s.categoryId)) {
               spent += toBase(s.amountMinor, t.currency, rate: t.rateToBase);
             }
@@ -837,7 +837,7 @@ class Ledger extends ChangeNotifier {
 
   void deleteCategory(String id) {
     final Set<String> tree = categoryTree(id);
-    final bool used = txs.any((Tx t) => tree.contains(t.categoryId) || t.splits.any((Split s) => tree.contains(s.categoryId)));
+    final bool used = txs.any((Tx t) => tree.contains(t.categoryId) || t.splits.any((TxSplit s) => tree.contains(s.categoryId)));
     for (final Category c in categories) {
       if (tree.contains(c.id)) {
         c.archived = true;

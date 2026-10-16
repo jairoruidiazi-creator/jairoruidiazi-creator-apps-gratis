@@ -44,7 +44,7 @@ class _TxEditorState extends State<TxEditor> {
   final TextEditingController _check = TextEditingController();
   final TextEditingController _tag = TextEditingController();
   final List<String> _tags = <String>[];
-  final List<Split> _splits = <Split>[];
+  final List<TxSplit> _splits = <TxSplit>[];
   final List<String> _attachments = <String>[];
   int _installments = 1;
   bool _reconciled = false;
@@ -72,7 +72,7 @@ class _TxEditorState extends State<TxEditor> {
     _notes.text = e?.notes ?? (ib == null ? '' : ib.rawText);
     _check.text = e?.checkNumber ?? '';
     _tags.addAll(e?.tags ?? tpl?.tags ?? <String>[]);
-    _splits.addAll(e?.splits ?? <Split>[]);
+    _splits.addAll(e?.splits ?? <TxSplit>[]);
     _attachments.addAll(e?.attachments ?? <String>[]);
     _installments = e?.installments ?? 1;
     _reconciled = e?.reconciled ?? false;
@@ -138,7 +138,7 @@ class _TxEditorState extends State<TxEditor> {
     if (c == null || !mounted) {
       return;
     }
-    final int remaining = _minor - _splits.fold<int>(0, (int s, Split p) => s + p.amountMinor);
+    final int remaining = _minor - _splits.fold<int>(0, (int s, TxSplit p) => s + p.amountMinor);
     final String? txt = await askText(context, '${t(context, 'Monto para', 'Amount for')} ${c.name}', initial: remaining > 0 ? Money.format(remaining, _currency, withSymbol: false) : '', keyboard: const TextInputType.numberWithOptions(decimal: true));
     if (txt == null) {
       return;
@@ -148,8 +148,8 @@ class _TxEditorState extends State<TxEditor> {
       return;
     }
     setState(() {
-      _splits.add(Split(categoryId: c.id, amountMinor: m));
-      _minor = _splits.fold<int>(0, (int s, Split p) => s + p.amountMinor);
+      _splits.add(TxSplit(categoryId: c.id, amountMinor: m));
+      _minor = _splits.fold<int>(0, (int s, TxSplit p) => s + p.amountMinor);
       _calc = Calc(initialMinor: _minor);
       _categoryId = null;
     });
@@ -353,7 +353,7 @@ class _TxEditorState extends State<TxEditor> {
                     },
                   ),
                 if (_splits.isNotEmpty) ...<Widget>[
-                  Padding(padding: const EdgeInsets.only(top: 8, bottom: 4), child: Text(t(context, 'Dividido entre categorías', 'Split across categories'), style: Theme.of(context).textTheme.titleSmall)),
+                  Padding(padding: const EdgeInsets.only(top: 8, bottom: 4), child: Text(t(context, 'Dividido entre categorías', 'TxSplit across categories'), style: Theme.of(context).textTheme.titleSmall)),
                   for (int i = 0; i < _splits.length; i++)
                     ListTile(
                       dense: true,
@@ -365,14 +365,14 @@ class _TxEditorState extends State<TxEditor> {
                         icon: const Icon(Icons.close),
                         onPressed: () => setState(() {
                           _splits.removeAt(i);
-                          _minor = _splits.fold<int>(0, (int a, Split p) => a + p.amountMinor);
+                          _minor = _splits.fold<int>(0, (int a, TxSplit p) => a + p.amountMinor);
                           _calc = Calc(initialMinor: _minor);
                         }),
                       ),
                     ),
                 ],
                 if (_kind != TxKind.transfer)
-                  Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: _addSplit, icon: const Icon(Icons.call_split), label: Text(_splits.isEmpty ? t(context, 'Dividir en varias categorías', 'Split across categories') : t(context, 'Añadir otra parte', 'Add another part')))),
+                  Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: _addSplit, icon: const Icon(Icons.call_split), label: Text(_splits.isEmpty ? t(context, 'Dividir en varias categorías', 'TxSplit across categories') : t(context, 'Añadir otra parte', 'Add another part')))),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.event_outlined),

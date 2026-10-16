@@ -38,7 +38,7 @@ class Exports {
     for (final Tx t in txs) {
       final List<List<String>> parts = <List<String>>[];
       if (t.splits.isNotEmpty) {
-        for (final Split s in t.splits) {
+        for (final TxSplit s in t.splits) {
           parts.add(<String>[s.categoryId, s.amountMinor.toString(), s.note]);
         }
       } else {

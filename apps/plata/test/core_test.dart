@@ -232,7 +232,7 @@ void main() {
       expect(l.search(const TxFilter(text: 'tinto')).length, 2);
       expect(l.search(const TxFilter(text: '35.000')).single.id, '3');
       expect(l.search(const TxFilter(text: 'libres')).single.id, '3');
-      expect(l.search(TxFilter(categoryIds: <String>{'c_transport'})).single.id, '3');
+      expect(l.search(const TxFilter(categoryIds: <String>{'c_transport'})).single.id, '3');
       expect(l.search(TxFilter(from: DateTime(2026, 10, 1), to: DateTime(2026, 10, 1))).single.id, '1');
       expect(l.search(const TxFilter(minMinor: 1000000)).single.id, '3');
       expect(l.search(const TxFilter(tags: <String>{'oficina'})).single.id, '1');

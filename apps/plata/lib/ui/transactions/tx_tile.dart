@@ -23,7 +23,7 @@ class TxTile extends StatelessWidget {
     final Color color = kindColor(context, tx.kind);
     final String title = tx.description.isNotEmpty
         ? tx.description
-        : (tx.kind == TxKind.transfer ? '${a?.name ?? '?'} → ${to?.name ?? '?'}' : (tx.splits.isNotEmpty ? t(context, 'Dividido', 'Split') : (c?.name ?? t(context, 'Sin categoría', 'Uncategorized'))));
+        : (tx.kind == TxKind.transfer ? '${a?.name ?? '?'} → ${to?.name ?? '?'}' : (tx.splits.isNotEmpty ? t(context, 'Dividido', 'TxSplit') : (c?.name ?? t(context, 'Sin categoría', 'Uncategorized'))));
     final List<String> subtitle = <String>[
       if (showDate) formatDate(tx.date, 'dd MMM', spanish: s.settings.spanish),
       if (tx.kind == TxKind.transfer) '${a?.name ?? ''} → ${to?.name ?? ''}' else if (tx.splits.isNotEmpty) '${tx.splits.length} ${t(context, 'categorías', 'categories')}' else if (c != null) l.categoryPath(c.id),

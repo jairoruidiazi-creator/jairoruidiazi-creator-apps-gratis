@@ -2,7 +2,6 @@ import '../model/models.dart';
 import '../model/money.dart';
 import 'ledger.dart';
 import 'notifications.dart';
-import 'periods.dart';
 import 'settings.dart';
 
 /// Programa los recordatorios locales a partir del libro: registro diario,

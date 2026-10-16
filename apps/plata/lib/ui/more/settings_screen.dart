@@ -139,8 +139,8 @@ class SettingsScreen extends StatelessWidget {
                   showSelectedIcon: false,
                   segments: <ButtonSegment<String>>[
                     ButtonSegment<String>(value: 'system', label: Text(t(context, 'Auto', 'Auto'))),
-                    ButtonSegment<String>(value: 'light', icon: const Icon(Icons.light_mode_outlined)),
-                    ButtonSegment<String>(value: 'dark', icon: const Icon(Icons.dark_mode_outlined)),
+                    const ButtonSegment<String>(value: 'light', icon: Icon(Icons.light_mode_outlined)),
+                    const ButtonSegment<String>(value: 'dark', icon: Icon(Icons.dark_mode_outlined)),
                   ],
                   selected: <String>{s.settings.themeMode},
                   onSelectionChanged: (Set<String> v) {

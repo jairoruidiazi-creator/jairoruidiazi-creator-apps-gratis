@@ -150,8 +150,8 @@ class Category {
 enum TxKind { expense, income, transfer }
 
 /// Parte de una transacción dividida entre categorías.
-class Split {
-  const Split({required this.categoryId, required this.amountMinor, this.note = ''});
+class TxSplit {
+  const TxSplit({required this.categoryId, required this.amountMinor, this.note = ''});
 
   final String categoryId;
   final int amountMinor;
@@ -159,7 +159,7 @@ class Split {
 
   Map<String, dynamic> toJson() => <String, dynamic>{'categoryId': categoryId, 'amountMinor': amountMinor, 'note': note};
 
-  static Split fromJson(Map<String, dynamic> j) => Split(categoryId: j['categoryId'] as String? ?? '', amountMinor: (j['amountMinor'] as num?)?.toInt() ?? 0, note: j['note'] as String? ?? '');
+  static TxSplit fromJson(Map<String, dynamic> j) => TxSplit(categoryId: j['categoryId'] as String? ?? '', amountMinor: (j['amountMinor'] as num?)?.toInt() ?? 0, note: j['note'] as String? ?? '');
 }
 
 class Tx {
@@ -177,7 +177,7 @@ class Tx {
     this.payee = '',
     this.notes = '',
     List<String>? tags,
-    List<Split>? splits,
+    List<TxSplit>? splits,
     List<String>? attachments,
     this.checkNumber = '',
     this.installments = 1,
@@ -187,7 +187,7 @@ class Tx {
     this.rateToBase,
     DateTime? createdAt,
   })  : tags = tags ?? <String>[],
-        splits = splits ?? <Split>[],
+        splits = splits ?? <TxSplit>[],
         attachments = attachments ?? <String>[],
         createdAt = createdAt ?? DateTime.now();
 
@@ -210,7 +210,7 @@ class Tx {
   String payee;
   String notes;
   final List<String> tags;
-  final List<Split> splits;
+  final List<TxSplit> splits;
 
   /// Rutas relativas de fotos de recibos.
   final List<String> attachments;
@@ -249,7 +249,7 @@ class Tx {
         'payee': payee,
         'notes': notes,
         'tags': tags,
-        'splits': splits.map((Split s) => s.toJson()).toList(),
+        'splits': splits.map((TxSplit s) => s.toJson()).toList(),
         'attachments': attachments,
         'checkNumber': checkNumber,
         'installments': installments,
@@ -274,7 +274,7 @@ class Tx {
         payee: j['payee'] as String? ?? '',
         notes: j['notes'] as String? ?? '',
         tags: ((j['tags'] as List<dynamic>?) ?? <dynamic>[]).map((dynamic e) => e.toString()).toList(),
-        splits: ((j['splits'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>().map(Split.fromJson).toList(),
+        splits: ((j['splits'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>().map(TxSplit.fromJson).toList(),
         attachments: ((j['attachments'] as List<dynamic>?) ?? <dynamic>[]).map((dynamic e) => e.toString()).toList(),
         checkNumber: j['checkNumber'] as String? ?? '',
         installments: (j['installments'] as num?)?.toInt() ?? 1,

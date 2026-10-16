@@ -185,7 +185,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final Map<String?, int> sums = <String?, int>{};
     for (final Tx tx in _txsOf(l, period, rootId)) {
       if (tx.splits.isNotEmpty) {
-        for (final Split sp in tx.splits) {
+        for (final TxSplit sp in tx.splits) {
           if (l.categoryTree(rootId).contains(sp.categoryId)) {
             sums[sp.categoryId] = (sums[sp.categoryId] ?? 0) + l.toBase(sp.amountMinor, tx.currency, rate: tx.rateToBase);
           }
@@ -201,7 +201,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   List<Tx> _txsOf(Ledger l, Period period, String rootId) {
     final Set<String> tree = l.categoryTree(rootId);
     final TxKind kind = _kind == CategoryKind.expense ? TxKind.expense : TxKind.income;
-    return l.inPeriod(period, accountId: _accountId).where((Tx tx) => tx.kind == kind && (tree.contains(tx.categoryId) || tx.splits.any((Split sp) => tree.contains(sp.categoryId)))).toList();
+    return l.inPeriod(period, accountId: _accountId).where((Tx tx) => tx.kind == kind && (tree.contains(tx.categoryId) || tx.splits.any((TxSplit sp) => tree.contains(sp.categoryId)))).toList();
   }
 
   Widget _trend(BuildContext context, Ledger l) {
