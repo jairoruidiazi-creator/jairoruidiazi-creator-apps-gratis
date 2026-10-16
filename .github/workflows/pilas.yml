@@ -1,0 +1,90 @@
+name: Pilas
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/pilas/**"
+      - ".github/workflows/pilas.yml"
+  pull_request:
+    paths:
+      - "apps/pilas/**"
+      - ".github/workflows/pilas.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: pilas-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Analizar y probar
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/pilas
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter --version
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+  android:
+    name: APK Android
+    needs: check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/pilas
+    steps:
+      - uses: actions/checkout@v4
+      - id: plat
+        run: |
+          if [ -d android ]; then echo "exists=true" >> "$GITHUB_OUTPUT"; else echo "exists=false" >> "$GITHUB_OUTPUT"; echo "La carpeta android/ no existe todavía; falta el bootstrap."; fi
+      - uses: actions/setup-java@v4
+        if: steps.plat.outputs.exists == 'true'
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        if: steps.plat.outputs.exists == 'true'
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+        if: steps.plat.outputs.exists == 'true'
+      - run: flutter build apk --release
+        if: steps.plat.outputs.exists == 'true'
+      - uses: actions/upload-artifact@v4
+        if: steps.plat.outputs.exists == 'true'
+        with:
+          name: pilas-android-apk
+          path: apps/pilas/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+
+  ios:
+    name: iOS sin firma
+    needs: check
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: apps/pilas
+    steps:
+      - uses: actions/checkout@v4
+      - id: plat
+        run: |
+          if [ -d ios ]; then echo "exists=true" >> "$GITHUB_OUTPUT"; else echo "exists=false" >> "$GITHUB_OUTPUT"; echo "La carpeta ios/ no existe todavía; falta el bootstrap."; fi
+      - uses: subosito/flutter-action@v2
+        if: steps.plat.outputs.exists == 'true'
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+        if: steps.plat.outputs.exists == 'true'
+      - run: flutter build ios --release --no-codesign
+        if: steps.plat.outputs.exists == 'true'

@@ -1,0 +1,72 @@
+name: Bootstrap de plataformas
+
+# Genera las carpetas android/ e ios/ de una app con `flutter create`, las
+# ajusta con tools/patch_platforms.py y las sube al repositorio. Se dispara al
+# subir un archivo apps/<app>/.bootstrap-platforms (que luego se borra).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/*/.bootstrap-platforms"
+  workflow_dispatch:
+    inputs:
+      app:
+        description: "Carpeta de la app dentro de apps/ (por ejemplo pilas)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bootstrap-platforms
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Detectar apps
+        id: apps
+        run: |
+          if [ -n "${{ github.event.inputs.app }}" ]; then
+            echo "list=${{ github.event.inputs.app }}" >> "$GITHUB_OUTPUT"
+          else
+            list=$(ls apps/*/.bootstrap-platforms 2>/dev/null | awk -F/ '{print $2}' | tr '\n' ' ')
+            echo "list=$list" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Generar plataformas
+        run: |
+          set -e
+          for app in ${{ steps.apps.outputs.list }}; do
+            echo "== $app"
+            cd "apps/$app"
+            name=$(grep -E '^name:' pubspec.yaml | head -1 | awk '{print $2}')
+            flutter create --platforms=android,ios --org co.appsgratis --project-name "$name" .
+            python3 ../../tools/patch_platforms.py "$app"
+            flutter pub get
+            if grep -q flutter_launcher_icons pubspec.yaml; then
+              dart run flutter_launcher_icons || echo "No se pudieron generar los íconos"
+            fi
+            rm -f .bootstrap-platforms
+            cd ../..
+          done
+      - name: Subir cambios
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nada que subir"
+          else
+            git commit -m "Genera las carpetas de plataforma (${{ steps.apps.outputs.list }})"
+            git push
+          fi
