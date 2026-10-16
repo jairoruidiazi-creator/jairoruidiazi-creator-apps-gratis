@@ -6,6 +6,8 @@ analyzer:
     deprecated_member_use: info
   exclude:
     - build/**
+    - android/**
+    - ios/**
 
 linter:
   rules:
