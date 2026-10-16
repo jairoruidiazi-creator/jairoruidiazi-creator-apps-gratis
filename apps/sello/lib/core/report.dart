@@ -45,10 +45,10 @@ class PdfReport {
       images.add(await imageOf(p));
     }
     String s(String es, String en) => _clean(spanish ? es : en);
-    final pw.TextStyle small = pw.TextStyle(fontSize: 8.5, color: PdfColors.grey800);
-    final pw.TextStyle label = pw.TextStyle(fontSize: 8.5, color: PdfColors.grey600);
-    final pw.TextStyle h1 = pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: PdfColor.fromInt(0xFF1B4332));
-    final pw.TextStyle h2 = pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold);
+    const pw.TextStyle small = pw.TextStyle(fontSize: 8.5, color: PdfColors.grey800);
+    const pw.TextStyle label = pw.TextStyle(fontSize: 8.5, color: PdfColors.grey600);
+    const pw.TextStyle h1 = pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: PdfColor.fromInt(0xFF1B4332));
+    const pw.TextStyle h2 = pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold);
 
     final List<PhotoRecord> located = photos.where((PhotoRecord p) => p.hasLocation).toList();
     DateTime? first;
@@ -78,7 +78,7 @@ class PdfReport {
     // Tabla índice
     if (photos.isNotEmpty) {
       blocks.add(pw.TableHelper.fromTextArray(
-        headerStyle: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+        headerStyle: const pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
         headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF40916C)),
         cellStyle: const pw.TextStyle(fontSize: 7.5),
         cellPadding: const pw.EdgeInsets.symmetric(horizontal: 4, vertical: 2),

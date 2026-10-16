@@ -134,7 +134,7 @@ class HeadingService extends ChangeNotifier {
     final double gy = ay / normA;
     final double gz = az / normA;
     // M = A × H (norte).
-    final double mx = gy * hz - gz * hy;
+    // (La componente x de M no hace falta para los rumbos.)
     final double my = gz * hx - gx * hz;
     final double mz = gx * hy - gy * hx;
     // Rumbo del borde superior (eje y del dispositivo) y del eje de la cámara (-z).

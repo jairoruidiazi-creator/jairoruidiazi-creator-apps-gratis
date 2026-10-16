@@ -122,7 +122,7 @@ void _writeExif(img.Image photo, ComposeJob job) {
     if (t != null) {
       final DateTime u = t.toUtc();
       gps['GPSDateStamp'] = img.IfdValueAscii('${u.year}:${_two(u.month)}:${_two(u.day)}');
-      gps['GPSTimeStamp'] = img.IfdValueRational.list(<img.Rational>[img.Rational(u.hour, 1), img.Rational(u.minute, 1), img.Rational(u.second, 1)]);
+      gps['GPSTimeStamp'] = _rationals(<List<int>>[<int>[u.hour, 1], <int>[u.minute, 1], <int>[u.second, 1]]);
     }
   }
 }
@@ -142,7 +142,19 @@ img.IfdValueRational _dmsRational(double v) {
   final double mFull = (v - d) * 60;
   final int m = mFull.floor();
   final double s = (mFull - m) * 60;
-  return img.IfdValueRational.list(<img.Rational>[img.Rational(d, 1), img.Rational(m, 1), img.Rational((s * 10000).round(), 10000)]);
+  return _rationals(<List<int>>[<int>[d, 1], <int>[m, 1], <int>[(s * 10000).round(), 10000]]);
+}
+
+/// Lista de racionales EXIF. El paquete `image` no exporta su clase
+/// `Rational`, así que se construye desde los bytes (numerador/denominador
+/// de 32 bits, big-endian).
+img.IfdValueRational _rationals(List<List<int>> pairs) {
+  final ByteData d = ByteData(pairs.length * 8);
+  for (int i = 0; i < pairs.length; i++) {
+    d.setUint32(i * 8, pairs[i][0]);
+    d.setUint32(i * 8 + 4, pairs[i][1]);
+  }
+  return img.IfdValueRational.data(img.InputBuffer(d.buffer.asUint8List(), bigEndian: true), pairs.length);
 }
 
 String _two(int v) => v.toString().padLeft(2, '0');

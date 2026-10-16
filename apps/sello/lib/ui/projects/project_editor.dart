@@ -107,7 +107,7 @@ class _ProjectEditorState extends State<ProjectEditor> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              SizedBox(width: 72, child: TextField(controller: _emoji, textAlign: TextAlign.center, maxLength: 2, decoration: InputDecoration(labelText: 'Emoji', counterText: '', border: const OutlineInputBorder(), hintText: '🏗️'))),
+              SizedBox(width: 72, child: TextField(controller: _emoji, textAlign: TextAlign.center, maxLength: 2, decoration: const InputDecoration(labelText: 'Emoji', counterText: '', border: OutlineInputBorder(), hintText: '🏗️'))),
               const SizedBox(width: 10),
               Expanded(child: TextField(controller: _name, decoration: InputDecoration(labelText: t(context, 'Nombre', 'Name'), border: const OutlineInputBorder()), textCapitalization: TextCapitalization.sentences)),
             ],
