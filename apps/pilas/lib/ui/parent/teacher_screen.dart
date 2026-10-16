@@ -41,7 +41,8 @@ class _TeacherScreenState extends State<TeacherScreen> {
         ],
       ),
     );
-    ctrl.dispose();
+    // Se libera después de la animación de cierre del diálogo.
+    Future<void>.delayed(const Duration(seconds: 1), ctrl.dispose);
     if (nombre == null || nombre.isEmpty || !mounted) {
       return;
     }
@@ -87,7 +88,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
         ],
       ),
     );
-    ctrl.dispose();
+    Future<void>.delayed(const Duration(seconds: 1), ctrl.dispose);
     if (texto == null || texto.trim().isEmpty || !mounted) {
       return;
     }
