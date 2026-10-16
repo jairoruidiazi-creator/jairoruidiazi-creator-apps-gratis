@@ -21,6 +21,8 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen> {
+  static const List<String> _tabsEs = <String>['Categorías', 'Tendencia', 'Presupuestos', 'Cuentas'];
+  static const List<String> _tabsEn = <String>['Categories', 'Trend', 'Budgets', 'Accounts'];
   int _shift = 0;
   int _tab = 0;
   CategoryKind _kind = CategoryKind.expense;
@@ -81,19 +83,13 @@ class _ReportsScreenState extends State<ReportsScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SegmentedButton<int>(
-                    showSelectedIcon: false,
-                    segments: <ButtonSegment<int>>[
-                      ButtonSegment<int>(value: 0, label: Text(t(context, 'Categorías', 'Categories'))),
-                      ButtonSegment<int>(value: 1, label: Text(t(context, 'Tendencia', 'Trend'))),
-                      ButtonSegment<int>(value: 2, label: Text(t(context, 'Presupuestos', 'Budgets'))),
-                      ButtonSegment<int>(value: 3, label: Text(t(context, 'Cuentas', 'Accounts'))),
-                    ],
-                    selected: <int>{_tab},
-                    onSelectionChanged: (Set<int> v) => setState(() => _tab = v.first),
-                  ),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 0,
+                  children: <Widget>[
+                    for (int i = 0; i < _tabsEs.length; i++)
+                      ChoiceChip(label: Text(t(context, _tabsEs[i], _tabsEn[i])), selected: _tab == i, onSelected: (_) => setState(() => _tab = i)),
+                  ],
                 ),
               ),
               Expanded(child: _body(context, l, period)),
