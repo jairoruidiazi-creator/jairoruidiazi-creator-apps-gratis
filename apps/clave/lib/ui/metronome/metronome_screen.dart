@@ -271,7 +271,7 @@ class _TempoPanel extends StatelessWidget {
     if (parsed != null) {
       onBpm(parsed);
     }
-    ctrl.dispose();
+    disposeLater(<ChangeNotifier>[ctrl]);
   }
 }
 

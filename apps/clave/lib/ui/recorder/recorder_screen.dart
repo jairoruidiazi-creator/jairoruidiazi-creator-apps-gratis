@@ -258,9 +258,7 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
       r.instrumentId = instrument;
       await s.state.saveRecordings();
     }
-    name.dispose();
-    folder.dispose();
-    notes.dispose();
+    disposeLater(<ChangeNotifier>[name, folder, notes]);
   }
 
   Future<void> _share(Recording r) async {

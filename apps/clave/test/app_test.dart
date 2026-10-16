@@ -96,18 +96,21 @@ void main() {
     tester.view.devicePixelRatio = 2.5;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    final List<FlutterErrorDetails> errors = <FlutterErrorDetails>[];
+    final FlutterExceptionHandler? previous = FlutterError.onError;
+    FlutterError.onError = errors.add;
+    addTearDown(() => FlutterError.onError = previous);
+    String report() => errors.map((FlutterErrorDetails d) => d.toString()).join('\n----\n');
     await tester.pumpWidget(ClaveApp(services: services));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
-    final dynamic first = tester.takeException();
-    expect(first, isNull, reason: 'inicio: ${first is FlutterError ? first.toStringDeep() : first}');
+    expect(errors, isEmpty, reason: 'inicio: ${report()}');
     expect(find.text('Afinador'), findsWidgets);
     for (final String tab in <String>['Metrónomo', 'Tono', 'Grabar', 'Práctica']) {
       await tester.tap(find.widgetWithText(NavigationDestination, tab));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      final dynamic e = tester.takeException();
-      expect(e, isNull, reason: '$tab: ${e is FlutterError ? e.toStringDeep() : e}');
+      expect(errors, isEmpty, reason: '$tab: ${report()}');
     }
     // Metrónomo: iniciar y parar.
     await tester.tap(find.widgetWithText(NavigationDestination, 'Metrónomo'));
@@ -121,7 +124,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
     expect(services.metronome.running, isFalse);
-    expect(tester.takeException(), isNull);
+    expect(errors, isEmpty, reason: report());
     // Ajustes.
     await tester.tap(find.byIcon(Icons.settings_outlined));
     await tester.pumpAndSettle();
@@ -131,8 +134,10 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
+    expect(errors, isEmpty, reason: report());
     await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    FlutterError.onError = previous;
   });
 
   testWidgets('La pantalla de preajustes guarda el ritmo actual', (WidgetTester tester) async {

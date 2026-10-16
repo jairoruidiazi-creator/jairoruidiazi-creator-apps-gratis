@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../audio/audio_engine.dart';
@@ -53,4 +54,14 @@ String formatClock(int ms) {
   final int m = s ~/ 60;
   final int r = s % 60;
   return '${m.toString().padLeft(2, '0')}:${r.toString().padLeft(2, '0')}';
+}
+
+/// Libera un controlador de texto cuando el diálogo que lo usaba ya cerró
+/// (la animación de salida sigue usándolo unos cuadros).
+void disposeLater(List<ChangeNotifier> controllers) {
+  Future<void>.delayed(const Duration(seconds: 1), () {
+    for (final ChangeNotifier c in controllers) {
+      c.dispose();
+    }
+  });
 }

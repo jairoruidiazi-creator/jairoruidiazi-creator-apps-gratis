@@ -218,8 +218,7 @@ class _PresetsScreenState extends State<PresetsScreen> {
       p.notes = notes.text.trim();
       await s.state.savePresets();
     }
-    name.dispose();
-    notes.dispose();
+    disposeLater(<ChangeNotifier>[name, notes]);
   }
 
   Future<void> _newSetlist(BuildContext context) async {
@@ -247,7 +246,7 @@ class _PresetsScreenState extends State<PresetsScreen> {
         ],
       ),
     );
-    ctrl.dispose();
+    disposeLater(<ChangeNotifier>[ctrl]);
     if (v == null || v.isEmpty) {
       return null;
     }
