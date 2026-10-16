@@ -46,7 +46,8 @@ APPS = {
             "android.permission.ACCESS_COARSE_LOCATION",
             "android.permission.VIBRATE",
             "android.permission.INTERNET",
-            ("android.permission.WRITE_EXTERNAL_STORAGE", {"android:maxSdkVersion": "29"}),
+            # gal la necesita hasta Android 10; camerax declara maxSdkVersion 28, así que se fuerza el valor.
+            ("android.permission.WRITE_EXTERNAL_STORAGE", {"android:maxSdkVersion": "29", "tools:replace": "android:maxSdkVersion"}),
         ],
         "android_features": [("android.hardware.camera", False), ("android.hardware.sensor.compass", False), ("android.hardware.location.gps", False)],
         "android_queries": [
@@ -80,9 +81,14 @@ def patch_android(cfg: dict) -> None:
         if isinstance(perm, tuple):
             perm, extra = perm
             attrs = "".join(f' {k}="{v}"' for k, v in extra.items())
+            if any(k.startswith("tools:") for k in extra) and 'xmlns:tools=' not in text:
+                text = text.replace("<manifest ", '<manifest xmlns:tools="http://schemas.android.com/tools" ', 1)
         tag = f'<uses-permission android:name="{perm}"{attrs}/>'
         if perm not in text:
             text = text.replace("<application", f"    {tag}\n    <application", 1)
+        elif attrs and tag not in text:
+            # Ya estaba sin los atributos nuevos: se reemplaza la línea.
+            text = re.sub(rf'<uses-permission android:name="{re.escape(perm)}"[^>]*/>', tag, text, count=1)
     for feature, required in cfg.get("android_features", []):
         tag = f'<uses-feature android:name="{feature}" android:required="{"true" if required else "false"}"/>'
         if feature not in text:
