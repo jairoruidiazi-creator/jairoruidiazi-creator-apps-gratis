@@ -1,8 +1,9 @@
 name: Publicar en las tiendas
 
-# Compila una app firmada, arma su ficha (textos, capturas, gráfico de
-# funciones e ícono) y, si se pide y están los secretos, la sube a Google Play
-# y a App Store Connect. Se lanza a mano desde la pestaña Actions.
+# Revisa la app como la CI (análisis, pruebas, paquetes y capturas), compila la
+# versión firmada, arma su ficha (textos, capturas, gráfico de funciones e
+# ícono) y, si se pide y están los secretos, la sube a Google Play y a App Store
+# Connect. Se lanza a mano desde la pestaña Actions.
 #
 # Secretos (Settings › Secrets and variables › Actions), ver docs/PUBLICACION.md:
 #   Android: ANDROID_UPLOAD_KEYSTORE_BASE64, ANDROID_UPLOAD_KEYSTORE_PASSWORD,
@@ -56,8 +57,20 @@ env:
   APP: ${{ inputs.app }}
 
 jobs:
+  # Antes de firmar nada, la misma revisión que cada push: análisis, pruebas,
+  # paquete de Android, paquete de iOS (incluida la guardia de ubicación
+  # «siempre») y capturas. Lo que se publica es lo que pasó la CI.
+  verify:
+    name: Revisión completa (la de la CI)
+    permissions:
+      contents: write
+    uses: ./.github/workflows/app-ci.yml
+    with:
+      app: ${{ inputs.app }}
+
   listing:
     name: Ficha de tienda
+    needs: verify
     runs-on: ubuntu-latest
     defaults:
       run:

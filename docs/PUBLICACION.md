@@ -16,7 +16,7 @@ cada formulario de las tiendas están en `apps/<app>/store/COMPLIANCE.md`.
 | Política de privacidad en español e inglés, dentro de cada app y publicada en el repositorio | `apps/<app>/assets/legal/privacy_*.md` |
 | Página de soporte | `docs/SOPORTE.md` |
 | Respuestas de Data safety, privacidad de Apple, clasificación, público, cifrado | `apps/<app>/store/COMPLIANCE.md` |
-| Flujo para compilar, firmar y subir | `.github/workflows/release.yml` ("Publicar en las tiendas") |
+| Flujo para compilar, firmar y subir; antes repite la revisión completa de la CI y usa la misma versión de Flutter (3.47.7) | `.github/workflows/release.yml` ("Publicar en las tiendas") |
 
 ## Lo que solo puede hacer el titular
 
