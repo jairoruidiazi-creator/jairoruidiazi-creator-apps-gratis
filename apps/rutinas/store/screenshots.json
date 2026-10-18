@@ -1,0 +1,14 @@
+{
+  "name": "Rutinas",
+  "languages": ["es", "en"],
+  "brand": {"background": ["#2B2C78", "#1E1F5A"], "text": "#FFFFFF", "accent": "#FF8A65"},
+  "feature": {"es": "Hábitos, recordatorios y temporizador de intervalos", "en": "Habits, reminders and an interval timer"},
+  "shots": [
+    {"id": "01-habitos", "es": "Tus hábitos de hoy, cada uno con su racha", "en": "Today's habits, each with its streak"},
+    {"id": "02-racha", "es": "Rachas que no se rompen por un día saltado", "en": "Streaks that a skipped day won't break"},
+    {"id": "03-avisos", "es": "Recordatorios que insisten hasta que los haces", "en": "Reminders that nudge you until it's done"},
+    {"id": "04-intervalos", "es": "Intervalos en grande, con voz y sonido", "en": "Big, clear intervals with voice and sound"},
+    {"id": "05-bloques", "es": "Entrenamientos con bloques que se repiten", "en": "Workouts built from repeating blocks"},
+    {"id": "06-resumen", "es": "Tu semana, tu mes y tu año de un vistazo", "en": "Your week, month and year at a glance"}
+  ]
+}
