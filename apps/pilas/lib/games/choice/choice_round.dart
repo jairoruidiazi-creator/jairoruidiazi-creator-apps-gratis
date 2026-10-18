@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/es.dart';
 import '../../core/rng.dart';
 import '../../model/age_band.dart';
 
@@ -30,6 +31,8 @@ class ChoiceRound {
     this.columns = 0,
     this.readOptionsAloud = false,
     this.optionSize = 96,
+    this.optionAspect = 1.0,
+    this.spoken,
   });
 
   final String instruction;
@@ -42,28 +45,44 @@ class ChoiceRound {
   final WidgetBuilder? prompt;
   final String? praise;
 
-  /// Columnas de la cuadrícula; 0 = automático según el número de opciones.
+  /// Columnas de la cuadrícula; 0 = automático según el espacio.
   final int columns;
 
   /// Si la voz debe leer también las opciones (para los que no leen).
   final bool readOptionsAloud;
 
-  /// Tamaño sugerido de los dibujos dentro de cada opción.
+  /// Tamaño máximo de los dibujos dentro de cada opción.
   final double optionSize;
 
+  /// Proporción preferida de cada casilla (ancho / alto): 1 para dibujos, más
+  /// para frases.
+  final double optionAspect;
+
+  /// Lo que dice la voz si es distinto de lo escrito.
+  final String? spoken;
+
+  /// Con dos opciones no hay segunda oportunidad: se muestra la respuesta.
+  bool get allowRetry => options.length >= 3;
+
   String get spokenInstruction {
+    final String base = spoken ?? instruction;
     if (!readOptionsAloud) {
-      return instruction;
+      return base;
     }
-    final List<String> labels = options.map((ChoiceOption o) => o.label).toList();
+    return '$base ${Es.cap(listaDeOpciones(options.map((ChoiceOption o) => o.label).toList()))}';
+  }
+
+  /// "gato, perro o vaca." (con "u" delante de una palabra que suena con o).
+  static String listaDeOpciones(List<String> labels) {
     if (labels.isEmpty) {
-      return instruction;
+      return '';
     }
     if (labels.length == 1) {
-      return '$instruction ${labels.first}.';
+      return '${labels.first}.';
     }
-    final String last = labels.removeLast();
-    return '$instruction ${labels.join(', ')} o $last.';
+    final List<String> rest = List<String>.from(labels);
+    final String last = rest.removeLast();
+    return '${rest.join(', ')} ${Es.o(last)} $last.';
   }
 }
 

@@ -29,6 +29,8 @@ class BankQuestion {
   final List<String> opciones;
   final int correcta;
   final String explicacion;
+
+  /// Pista propia de la pregunta. Nunca descarta opciones: orienta a pensar.
   final String? pista;
   final List<String>? emojis;
 
@@ -38,13 +40,20 @@ class BankQuestion {
 }
 
 /// Generador de rondas a partir de un banco de preguntas. Elige preguntas del
-/// tramo cuyo nivel esté cerca del nivel actual y evita repetir las últimas.
+/// tramo cuyo nivel esté cerca del nivel actual, evita repetir las últimas y
+/// baraja las opciones (la respuesta no queda siempre en el mismo lugar).
 class BankGenerator implements ChoiceGenerator {
-  BankGenerator(this.questions, {this.shuffleOptions = true});
+  BankGenerator(this.questions, {this.shuffleOptions = true, this.pistaGeneral = const <AgeBand, String>{}});
 
   final List<BankQuestion> questions;
   final bool shuffleOptions;
+
+  /// Pista para las preguntas sin pista propia, por tramo. Orienta a pensar
+  /// sin decir cuál opción no es.
+  final Map<AgeBand, String> pistaGeneral;
   final List<BankQuestion> _recent = <BankQuestion>[];
+
+  static const String pistaPorDefecto = 'Vuelve a escuchar la pregunta y piensa en cada opción antes de tocar.';
 
   List<BankQuestion> poolFor(AgeBand band, int level) {
     List<BankQuestion> pool = questions.where((BankQuestion q) => q.band == band && (q.level - level).abs() <= 1).toList();
@@ -80,47 +89,44 @@ class BankGenerator implements ChoiceGenerator {
     return toRound(rng, q, band);
   }
 
+  /// Pista de [q]: la propia o la general del tramo.
+  String hintFor(BankQuestion q, AgeBand band) => q.pista ?? pistaGeneral[band] ?? pistaPorDefecto;
+
   ChoiceRound toRound(Rng rng, BankQuestion q, AgeBand band) {
     final List<int> idx = <int>[for (int i = 0; i < q.opciones.length; i++) i];
     if (shuffleOptions) {
       rng.shuffle(idx);
     }
     final bool lee = band.readsText;
+    final bool conEmoji = q.emojis != null && q.emojis!.length == q.opciones.length;
     final List<ChoiceOption> options = <ChoiceOption>[];
     for (final int i in idx) {
       final String texto = q.opciones[i];
-      final String? emoji = q.emojis != null && i < q.emojis!.length ? q.emojis![i] : null;
+      final String? emoji = conEmoji ? q.emojis![i] : null;
       if (emoji != null && !lee) {
         options.add(Opt.emoji('o$i', emoji, texto));
       } else if (emoji != null) {
         options.add(Opt.textWithEmoji('o$i', texto, emoji));
-      } else if (texto.length > 18) {
-        options.add(Opt.sentence('o$i', texto));
       } else {
-        options.add(Opt.text('o$i', texto, fontSize: 22));
+        options.add(Opt.sentence('o$i', texto, fontSize: texto.length > 30 ? 17 : 19));
       }
     }
-    final bool largas = q.opciones.any((String o) => o.length > 22);
+    double aspect = 1.0;
+    if (!conEmoji) {
+      aspect = 3.2;
+    } else if (lee) {
+      aspect = 1.3;
+    }
     return ChoiceRound(
       instruction: q.texto,
       options: options,
       correctId: 'o${q.correcta}',
-      hint: q.pista ?? 'Piensa otra vez. ${_pistaGenerica(q)}',
+      hint: hintFor(q, band),
       explain: q.explicacion,
       prompt: q.promptEmoji == null ? null : (BuildContext context) => BigPrompt(child: EmojiImage(q.promptEmoji!, size: 84), caption: q.promptCaption),
-      columns: largas && lee ? 1 : 0,
       readOptionsAloud: !lee,
       optionSize: lee ? 72 : 96,
+      optionAspect: aspect,
     );
-  }
-
-  String _pistaGenerica(BankQuestion q) {
-    // Descarta en voz alta una opción incorrecta para reducir a dos.
-    for (int i = 0; i < q.opciones.length; i++) {
-      if (i != q.correcta) {
-        return 'No es "${q.opciones[i]}".';
-      }
-    }
-    return '';
   }
 }

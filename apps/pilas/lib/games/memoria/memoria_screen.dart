@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -112,10 +113,10 @@ class _MemoriaScreenState extends State<MemoriaScreen> {
       s.voice.sayLater('${card.label}. ¡Pareja!');
       if (board.done) {
         final bool ok = board.efficient;
-        _engine.finishBoard(
+        unawaited(_engine.finishBoard(
           success: ok,
           message: ok ? '¡Encontraste todas las parejas!' : 'Encontraste todas. La próxima vez intenta recordar dónde estaba cada carta.',
-        );
+        ));
       }
     } else {
       board.mismatches += 1;
@@ -142,6 +143,23 @@ class _MemoriaScreenState extends State<MemoriaScreen> {
     super.dispose();
   }
 
+  /// Columnas que dejan las cartas más grandes en el espacio disponible.
+  static int columnsFor(int n, double w, double h) {
+    int best = 2;
+    double bestSide = 0;
+    for (int cols = 2; cols <= math.min(n, 8); cols++) {
+      final int rows = (n / cols).ceil();
+      final double cw = (w - (cols - 1) * 10) / cols;
+      final double ch = (h - (rows - 1) * 10) / rows;
+      final double side = math.min(cw, ch * 1.2);
+      if (side > bestSide) {
+        bestSide = side;
+        best = cols;
+      }
+    }
+    return best;
+  }
+
   @override
   Widget build(BuildContext context) {
     final MemoryBoard? board = _board;
@@ -151,44 +169,63 @@ class _MemoriaScreenState extends State<MemoriaScreen> {
       instruction: board?.descripcion ?? '',
       child: board == null
           ? const SizedBox.shrink()
-          : LayoutBuilder(
-              builder: (BuildContext context, BoxConstraints c) {
-                final int cols = c.maxWidth > c.maxHeight && board.cards.length > 6 ? (board.cards.length / 2).ceil().clamp(3, 6).toInt() : board.columns;
-                final int rows = (board.cards.length / cols).ceil();
-                final double w = (c.maxWidth - 32 - (cols - 1) * 10) / cols;
-                final double h = (c.maxHeight - 32 - (rows - 1) * 10) / rows;
-                final double aspect = (w / h).clamp(0.6, 1.6).toDouble();
-                return Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: GridView.count(
-                    crossAxisCount: cols,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: aspect,
-                    physics: const ClampingScrollPhysics(),
+          : Padding(
+              padding: const EdgeInsets.all(12),
+              child: LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints c) {
+                  final int n = board.cards.length;
+                  final int cols = columnsFor(n, c.maxWidth, c.maxHeight);
+                  final int rows = (n / cols).ceil();
+                  final double cw = (c.maxWidth - (cols - 1) * 10) / cols - 0.5;
+                  final double ch = math.min((c.maxHeight - (rows - 1) * 10) / rows - 0.5, cw * 1.35);
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: <Widget>[
-                      for (final MemoryCard card in board.cards) _CardView(card: card, onTap: () => _tap(card)),
+                      for (int r = 0; r < rows; r++) ...<Widget>[
+                        if (r > 0) const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            for (int col = 0; col < cols && r * cols + col < n; col++) ...<Widget>[
+                              if (col > 0) const SizedBox(width: 10),
+                              SizedBox(
+                                width: cw,
+                                height: ch,
+                                child: _CardView(
+                                  key: ValueKey<String>('carta-${board.cards[r * cols + col].id}'),
+                                  card: board.cards[r * cols + col],
+                                  position: r * cols + col + 1,
+                                  onTap: () => _tap(board.cards[r * cols + col]),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
                     ],
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
     );
   }
 }
 
 class _CardView extends StatelessWidget {
-  const _CardView({required this.card, required this.onTap});
+  const _CardView({super.key, required this.card, required this.position, required this.onTap});
 
   final MemoryCard card;
+  final int position;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final PilasPalette pal = PilasPalette.of(context);
     final bool up = card.faceUp || card.matched;
     return Semantics(
-      button: true,
-      label: up ? card.label : 'Carta boca abajo',
+      button: !card.matched,
+      label: up ? 'Carta $position: ${card.label}${card.matched ? ', pareja encontrada' : ''}' : 'Carta $position, boca abajo',
+      excludeSemantics: true,
       child: GestureDetector(
         onTap: onTap,
         child: TweenAnimationBuilder<double>(
@@ -196,7 +233,7 @@ class _CardView extends StatelessWidget {
           duration: const Duration(milliseconds: 260),
           builder: (BuildContext context, double t, Widget? _) {
             final bool showFront = t > 0.5;
-            final double angle = t * 3.14159;
+            final double angle = t * math.pi;
             return Transform(
               alignment: Alignment.center,
               transform: Matrix4.identity()
@@ -205,10 +242,10 @@ class _CardView extends StatelessWidget {
               child: showFront
                   ? Transform(
                       alignment: Alignment.center,
-                      transform: Matrix4.identity()..rotateY(3.14159),
-                      child: _front(),
+                      transform: Matrix4.identity()..rotateY(math.pi),
+                      child: _front(pal),
                     )
-                  : _back(),
+                  : _back(pal),
             );
           },
         ),
@@ -216,35 +253,35 @@ class _CardView extends StatelessWidget {
     );
   }
 
-  Widget _back() {
+  Widget _back(PilasPalette pal) {
     return Container(
       decoration: BoxDecoration(
-        color: PilasColors.azul,
+        color: pal.acento,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white, width: 3),
+        border: Border.all(color: pal.altoContraste ? pal.tinta : Colors.white, width: 3),
         boxShadow: const <BoxShadow>[BoxShadow(color: Color(0x22000000), blurRadius: 6, offset: Offset(0, 3))],
       ),
-      child: const Center(child: Opacity(opacity: 0.9, child: Mascot(size: 36))),
+      child: const Center(child: FittedBox(fit: BoxFit.scaleDown, child: Padding(padding: EdgeInsets.all(4), child: Mascot(size: 36)))),
     );
   }
 
-  Widget _front() {
+  Widget _front(PilasPalette pal) {
     return Container(
       decoration: BoxDecoration(
-        color: card.matched ? PilasColors.verdeClaro : Colors.white,
+        color: card.matched ? pal.correctoClaro : pal.tarjeta,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: card.matched ? PilasColors.verde : PilasColors.borde, width: 3),
+        border: Border.all(color: card.matched ? pal.correcto : pal.bordeFuerte, width: 3),
       ),
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(6),
       child: Center(
         child: card.emoji != null
             ? LayoutBuilder(builder: (BuildContext context, BoxConstraints c) {
-                final double s = (c.maxWidth < c.maxHeight ? c.maxWidth : c.maxHeight) * 0.8;
+                final double s = (c.maxWidth < c.maxHeight ? c.maxWidth : c.maxHeight) * 0.85;
                 return EmojiImage(card.emoji!, size: s, semanticsLabel: card.label);
               })
             : FittedBox(
                 fit: BoxFit.scaleDown,
-                child: Text(card.text ?? '', textAlign: TextAlign.center, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: PilasColors.tinta)),
+                child: Text(card.text ?? '', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700, color: pal.tinta)),
               ),
       ),
     );

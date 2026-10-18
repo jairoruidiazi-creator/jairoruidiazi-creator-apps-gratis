@@ -15,6 +15,12 @@ class AppSettings extends ChangeNotifier {
   static const String _kLastProfile = 'lastProfileId';
   static const String _kTeacher = 'teacherMode';
   static const String _kOnboarded = 'onboarded';
+  static const String _kGateFails = 'gateFails';
+  static const String _kGateLockedUntil = 'gateLockedUntil';
+
+  /// Cuánto agranda la letra el ajuste "Texto grande" (se multiplica por la
+  /// escala del sistema, con un tope en Dim.maxTextScale).
+  static const double largeTextFactor = 1.25;
 
   SharedPreferences? _prefs;
 
@@ -24,7 +30,7 @@ class AppSettings extends ChangeNotifier {
   double voiceRate = 0.45;
   bool sfxEnabled = true;
 
-  /// Minutos por sesión antes de la pantalla de descanso. 0 = sin límite.
+  /// Minutos por sesión de cada niño antes del descanso. 0 = sin límite.
   int sessionLimitMinutes = 20;
   bool largeText = false;
   bool dyslexiaFont = false;
@@ -32,6 +38,10 @@ class AppSettings extends ChangeNotifier {
   String? lastProfileId;
   bool teacherMode = false;
   bool onboarded = false;
+
+  /// Errores seguidos en la puerta parental y hasta cuándo queda bloqueada.
+  int gateFails = 0;
+  DateTime? gateLockedUntil;
 
   Future<void> load() async {
     final SharedPreferences p = await SharedPreferences.getInstance();
@@ -46,6 +56,9 @@ class AppSettings extends ChangeNotifier {
     lastProfileId = p.getString(_kLastProfile);
     teacherMode = p.getBool(_kTeacher) ?? false;
     onboarded = p.getBool(_kOnboarded) ?? false;
+    gateFails = p.getInt(_kGateFails) ?? 0;
+    final int? locked = p.getInt(_kGateLockedUntil);
+    gateLockedUntil = locked == null ? null : DateTime.fromMillisecondsSinceEpoch(locked);
     notifyListeners();
   }
 
@@ -111,5 +124,17 @@ class AppSettings extends ChangeNotifier {
     onboarded = v;
     await _prefs?.setBool(_kOnboarded, v);
     notifyListeners();
+  }
+
+  /// Guarda el estado de la puerta parental (sobrevive a cerrar la app).
+  Future<void> setGateState({required int fails, DateTime? lockedUntil}) async {
+    gateFails = fails;
+    gateLockedUntil = lockedUntil;
+    await _prefs?.setInt(_kGateFails, fails);
+    if (lockedUntil == null) {
+      await _prefs?.remove(_kGateLockedUntil);
+    } else {
+      await _prefs?.setInt(_kGateLockedUntil, lockedUntil.millisecondsSinceEpoch);
+    }
   }
 }

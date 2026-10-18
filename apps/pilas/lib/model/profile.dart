@@ -1,3 +1,5 @@
+import 'package:clock/clock.dart';
+
 import 'age_band.dart';
 
 /// Un niño o niña que usa la app. Vive solo en el dispositivo.
@@ -11,7 +13,7 @@ class Profile {
     this.bandOverride,
     this.leftHanded = false,
     DateTime? createdAt,
-  }) : createdAt = createdAt ?? DateTime.now();
+  }) : createdAt = createdAt ?? clock.now();
 
   final String id;
   String nombre;
@@ -39,9 +41,9 @@ class Profile {
 
   AgeBand bandOn(DateTime now) => bandOverride ?? AgeBandX.forAge(ageOn(now));
 
-  AgeBand get band => bandOn(DateTime.now());
+  AgeBand get band => bandOn(clock.now());
 
-  int get age => ageOn(DateTime.now());
+  int get age => ageOn(clock.now());
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
@@ -59,31 +61,34 @@ class Profile {
       id: json['id'] as String,
       nombre: (json['nombre'] as String?) ?? '',
       avatar: (json['avatar'] as String?) ?? '1f431',
-      birthYear: (json['birthYear'] as num?)?.toInt() ?? DateTime.now().year - 5,
+      birthYear: (json['birthYear'] as num?)?.toInt() ?? clock.now().year - 5,
       birthMonth: (json['birthMonth'] as num?)?.toInt() ?? 1,
       bandOverride: AgeBandX.fromId(json['bandOverride'] as String?),
       leftHanded: (json['leftHanded'] as bool?) ?? false,
-      createdAt: DateTime.tryParse((json['createdAt'] as String?) ?? '') ?? DateTime.now(),
+      createdAt: DateTime.tryParse((json['createdAt'] as String?) ?? '') ?? clock.now(),
     );
   }
 
-  /// Avatares disponibles (códigos Twemoji).
-  static const List<String> avatares = <String>[
-    '1f431', // gato
-    '1f436', // perro
-    '1f430', // conejo
-    '1f43c', // panda
-    '1f981', // león
-    '1f438', // rana
-    '1f427', // pingüino
-    '1f989', // búho
-    '1f99c', // loro
-    '1f422', // tortuga
-    '1f98b', // mariposa
-    '1f419', // pulpo
-    '1f999', // llama
-    '1f9a5', // perezoso
-    '1f42c', // delfín
-    '1f98a', // zorro
-  ];
+  /// Avatares disponibles (códigos Twemoji) con su nombre, para el lector de
+  /// pantalla.
+  static const Map<String, String> nombresAvatar = <String, String>{
+    '1f431': 'gato',
+    '1f436': 'perro',
+    '1f430': 'conejo',
+    '1f43c': 'panda',
+    '1f981': 'león',
+    '1f438': 'rana',
+    '1f427': 'pingüino',
+    '1f989': 'búho',
+    '1f99c': 'loro',
+    '1f422': 'tortuga',
+    '1f98b': 'mariposa',
+    '1f419': 'pulpo',
+    '1f999': 'llama',
+    '1f9a5': 'perezoso',
+    '1f42c': 'delfín',
+    '1f98a': 'zorro',
+  };
+
+  static List<String> get avatares => nombresAvatar.keys.toList();
 }

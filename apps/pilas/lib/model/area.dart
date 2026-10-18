@@ -57,23 +57,26 @@ extension AreaX on Area {
   }
 
   /// Emoji de Twemoji que identifica el área (código hexadecimal del archivo).
+  /// Ninguno se repite con el ícono de un juego.
   String get emoji {
     switch (this) {
       case Area.logica:
-        return '1f9e9'; // pieza de rompecabezas
+        return '1f9e0'; // cerebro
       case Area.matematicas:
-        return '1f522'; // 1234
+        return '1f9ee'; // ábaco
       case Area.lenguaje:
-        return '1f4d6'; // libro abierto
+        return '1f4da'; // libros
       case Area.ciencias:
         return '1f52c'; // microscopio
       case Area.creatividad:
-        return '1f3a8'; // paleta
+        return '1f308'; // arcoíris
       case Area.socioemocional:
         return '1f49b'; // corazón amarillo
     }
   }
 
+  /// Color de adorno del área (fondos y puntos). El texto del área usa
+  /// PilasPalette.areaTexto, que cumple el contraste.
   Color get color {
     switch (this) {
       case Area.logica:

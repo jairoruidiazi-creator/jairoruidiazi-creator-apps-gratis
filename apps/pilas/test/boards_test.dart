@@ -3,6 +3,7 @@ import 'package:pilas/core/rng.dart';
 import 'package:pilas/games/laberinto/maze.dart';
 import 'package:pilas/games/oracion/oracion_generator.dart';
 import 'package:pilas/games/palabra/palabra_generator.dart';
+import 'package:pilas/games/pixel/pixel_patterns.dart';
 import 'package:pilas/games/rutinas/rutinas_generator.dart';
 import 'package:pilas/games/shell/order_game_screen.dart';
 import 'package:pilas/games/sudoku/sudoku_board.dart';
@@ -14,7 +15,8 @@ void main() {
       for (int level = 1; level <= 4; level++) {
         for (int seed = 0; seed < 6; seed++) {
           final Maze m = Maze.generate(Rng(seed * 7 + level), band, level);
-          expect(m.cols, Maze.sizeFor(band, level));
+          expect(m.cols, Maze.sizeFor(band, level)[0]);
+          expect(m.rows, Maze.sizeFor(band, level)[1]);
           expect(m.shortest(m.start, m.goal), greaterThan(0), reason: '${band.id} nivel $level semilla $seed');
           expect(m.optimalSteps, greaterThan(0));
           if (Maze.keyFor(band, level)) {
@@ -135,6 +137,67 @@ void main() {
     // Cada rutina tiene ids de paso únicos.
     for (final Rutina r in RutinaBank.all) {
       expect(r.pasos.map((Paso p) => p.id).toSet().length, r.pasos.length, reason: r.id);
+    }
+  });
+
+  test('M7: se aceptan los órdenes que también son válidos', () {
+    final Oracion ranas = OracionBank.b9a11.firstWhere((Oracion o) => o.texto.startsWith('Cuando llueve'));
+    expect(ranas.alternativas.map((List<String> a) => a.join(' ')), contains('Cuando llueve, cantan las ranas toda la noche.'));
+    for (final Rutina r in RutinaBank.all) {
+      final List<List<String>> validos = r.ordenesValidos(r.pasos);
+      expect(validos, isNotEmpty, reason: r.id);
+      // El orden en que está escrita la rutina es uno de los válidos y no hay
+      // órdenes repetidos.
+      expect(validos.map((List<String> o) => o.join('|')), contains(r.pasos.map((Paso p) => p.id).join('|')), reason: r.id);
+      expect(validos.map((List<String> o) => o.join('|')).toSet().length, validos.length, reason: r.id);
+    }
+  });
+
+  test('Sudoku: un callejón sin salida se detecta y se marcan las casillas que no van', () {
+    final SudokuBoard b = SudokuBoard.generate(Rng(5), AgeBand.b5a6, 3);
+    // Lleno con la solución: nada mal y sin callejones.
+    for (int i = 0; i < 16; i++) {
+      b.cells[i] = b.solution[i];
+    }
+    expect(b.wrongCells(), isEmpty);
+    expect(b.deadEndCell(), isNull);
+    // Una casilla vacía cuya fila y columna ya tienen los cuatro valores.
+    for (int i = 0; i < 16; i++) {
+      b.cells[i] = 0;
+    }
+    b.cells[1] = 2;
+    b.cells[2] = 3;
+    b.cells[3] = 4;
+    b.cells[4] = 1;
+    expect(b.deadEndCell(), 0);
+    expect(b.candidates(0), isEmpty);
+    // Un valor que no choca pero no es el de la solución queda marcado.
+    SudokuBoard? c;
+    int vacia = -1;
+    for (int seed = 0; seed < 60 && c == null; seed++) {
+      final SudokuBoard x = SudokuBoard.generate(Rng(seed), AgeBand.b7a8, 4);
+      for (int i = 0; i < x.cells.length; i++) {
+        if (!x.isGiven(i) && x.cells[i] == 0 && x.candidates(i).length > 1) {
+          c = x;
+          vacia = i;
+          break;
+        }
+      }
+    }
+    expect(c, isNotNull, reason: 'ningún sudoku de 6×6 tiene una casilla con dos opciones');
+    final SudokuBoard t = c!;
+    final int malo = t.candidates(vacia).firstWhere((int v) => v != t.solution[vacia]);
+    t.cells[vacia] = malo;
+    expect(t.wrongCells(), contains(vacia));
+    expect(t.wrongCells(), hasLength(1));
+  });
+
+  test('Pixel art: cada nivel agranda la cuadrícula y hay modelos de cada tamaño', () {
+    expect(<int>[for (int l = 1; l <= 4; l++) PixelPatterns.sizeFor(false, l)], <int>[6, 8, 10, 12]);
+    expect(<int>[for (int l = 1; l <= 3; l++) PixelPatterns.sizeFor(true, l)], <int>[8, 10, 12]);
+    for (final int n in <int>[6, 8, 10, 12]) {
+      expect(PixelPatterns.ofSize(n).length, greaterThanOrEqualTo(4), reason: 'modelos de $n');
+      expect(PixelPatterns.symmetricOfSize(n).length, greaterThanOrEqualTo(4), reason: 'modelos simétricos de $n');
     }
   });
 }

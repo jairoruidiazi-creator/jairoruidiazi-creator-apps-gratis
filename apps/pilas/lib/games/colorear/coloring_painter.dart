@@ -4,18 +4,25 @@ import 'package:flutter/material.dart';
 
 import '../../content/coloring_pages.dart';
 
-/// Calcula, para cada zona, un punto visible donde poner su número.
+/// Datos de dibujo de una lámina: dónde poner la etiqueta de cada zona y qué
+/// zona se tocó. Se calcula una sola vez por lámina ([ColoringLayout.of]) y
+/// los puntos de las etiquetas solo cuando hacen falta (el catálogo no los usa).
 class ColoringLayout {
-  ColoringLayout(this.page) {
-    _labelPoints = <String, Offset>{};
-    for (int i = 0; i < page.regions.length; i++) {
-      _labelPoints[page.regions[i].id] = _labelPoint(i);
-    }
-  }
+  ColoringLayout._(this.page);
+
+  static final Map<String, ColoringLayout> _cache = <String, ColoringLayout>{};
+
+  /// La disposición de [page], calculada una vez y guardada.
+  static ColoringLayout of(ColoringPage page) => _cache.putIfAbsent(page.id, () => ColoringLayout._(page));
 
   final ColoringPage page;
-  late final Map<String, Offset> _labelPoints;
 
+  late final Map<String, Offset> _labelPoints = <String, Offset>{
+    for (int i = 0; i < page.regions.length; i++) page.regions[i].id: _labelPoint(i),
+  };
+
+  /// Punto visible de la zona donde va su número o su letra (no lo tapa
+  /// ninguna zona de encima).
   Offset labelPoint(ColoringRegion r) => _labelPoints[r.id] ?? r.path.getBounds().center;
 
   Offset _labelPoint(int index) {
@@ -61,9 +68,15 @@ class ColoringLayout {
     return null;
   }
 
+  static double _scale(Rect viewBox, Size size) {
+    final double sx = size.width / viewBox.width;
+    final double sy = size.height / viewBox.height;
+    return sx < sy ? sx : sy;
+  }
+
   /// Transformación de la lámina al lienzo: ajuste proporcional centrado.
   static Matrix4 fit(Rect viewBox, Size size) {
-    final double scale = (size.width / viewBox.width) < (size.height / viewBox.height) ? size.width / viewBox.width : size.height / viewBox.height;
+    final double scale = _scale(viewBox, size);
     final double dx = (size.width - viewBox.width * scale) / 2 - viewBox.left * scale;
     final double dy = (size.height - viewBox.height * scale) / 2 - viewBox.top * scale;
     return Matrix4.identity()
@@ -72,10 +85,18 @@ class ColoringLayout {
   }
 
   static Offset toPage(Rect viewBox, Size size, Offset local) {
-    final double scale = (size.width / viewBox.width) < (size.height / viewBox.height) ? size.width / viewBox.width : size.height / viewBox.height;
+    final double scale = _scale(viewBox, size);
     final double dx = (size.width - viewBox.width * scale) / 2 - viewBox.left * scale;
     final double dy = (size.height - viewBox.height * scale) / 2 - viewBox.top * scale;
     return Offset((local.dx - dx) / scale, (local.dy - dy) / scale);
+  }
+
+  /// Lo contrario de [toPage]: de la lámina al lienzo.
+  static Offset toCanvas(Rect viewBox, Size size, Offset page) {
+    final double scale = _scale(viewBox, size);
+    final double dx = (size.width - viewBox.width * scale) / 2 - viewBox.left * scale;
+    final double dy = (size.height - viewBox.height * scale) / 2 - viewBox.top * scale;
+    return Offset(page.dx * scale + dx, page.dy * scale + dy);
   }
 }
 
@@ -84,16 +105,24 @@ class ColoringPainter extends CustomPainter {
   ColoringPainter({
     required this.layout,
     required this.fills,
-    required this.showNumbers,
+    this.label,
     this.highlight,
+    this.highlightColor = const Color(0xFFB45309),
+    this.frameColor = const Color(0xFFE8DFC8),
   });
 
   final ColoringLayout layout;
   final Map<String, Color> fills;
-  final bool showNumbers;
+
+  /// Etiqueta de cada zona sin pintar ("3" o "C"); null = sin etiquetas.
+  final String Function(int number)? label;
 
   /// Zona que se resalta un momento (al tocar con el color equivocado).
   final String? highlight;
+  final Color highlightColor;
+  final Color frameColor;
+
+  static const Color _ink = Color(0xFF263238);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -103,7 +132,7 @@ class ColoringPainter extends CustomPainter {
     final Paint fill = Paint()..style = PaintingStyle.fill;
     final Paint stroke = Paint()
       ..style = PaintingStyle.stroke
-      ..color = const Color(0xFF263238)
+      ..color = _ink
       ..strokeWidth = 1.4
       ..strokeJoin = StrokeJoin.round;
     for (final ColoringRegion r in page.regions) {
@@ -116,7 +145,7 @@ class ColoringPainter extends CustomPainter {
     for (final ColoringLine l in page.lines) {
       final Paint lp = Paint()
         ..style = PaintingStyle.stroke
-        ..color = const Color(0xFF263238)
+        ..color = _ink
         ..strokeWidth = l.width
         ..strokeCap = StrokeCap.round
         ..strokeJoin = StrokeJoin.round;
@@ -125,15 +154,18 @@ class ColoringPainter extends CustomPainter {
     if (highlight != null) {
       for (final ColoringRegion r in page.regions) {
         if (r.id == highlight) {
-          final Paint hp = Paint()
-            ..style = PaintingStyle.stroke
-            ..color = const Color(0xFFFF7A00)
-            ..strokeWidth = 3;
-          canvas.drawPath(r.path, hp);
+          canvas.drawPath(
+            r.path,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..color = highlightColor
+              ..strokeWidth = 3,
+          );
         }
       }
     }
-    if (showNumbers) {
+    final String Function(int number)? etiqueta = label;
+    if (etiqueta != null) {
       for (final ColoringRegion r in page.regions) {
         if (fills.containsKey(r.id)) {
           continue;
@@ -141,11 +173,11 @@ class ColoringPainter extends CustomPainter {
         final Offset p = layout.labelPoint(r);
         const double fontSize = 6.5;
         final ui.ParagraphBuilder pb = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.center, fontSize: fontSize, fontFamily: 'Lexend', fontWeight: FontWeight.w700))
-          ..pushStyle(ui.TextStyle(color: const Color(0xFF263238), fontSize: fontSize, fontWeight: FontWeight.w700))
-          ..addText('${r.number}');
+          ..pushStyle(ui.TextStyle(color: _ink, fontSize: fontSize, fontWeight: FontWeight.w700))
+          ..addText(etiqueta(r.number));
         final ui.Paragraph para = pb.build()..layout(const ui.ParagraphConstraints(width: 20));
-        const double bgR = fontSize * 0.75;
-        canvas.drawCircle(p, bgR, Paint()..color = Colors.white.withValues(alpha: 0.85));
+        const double bgR = fontSize * 0.78;
+        canvas.drawCircle(p, bgR, Paint()..color = Colors.white.withValues(alpha: 0.9));
         canvas.drawParagraph(para, Offset(p.dx - 10, p.dy - para.height / 2));
       }
     }
@@ -156,13 +188,11 @@ class ColoringPainter extends CustomPainter {
       RRect.fromRectAndRadius(area.deflate(0.5), const Radius.circular(2)),
       Paint()
         ..style = PaintingStyle.stroke
-        ..color = const Color(0xFFE8DFC8)
+        ..color = frameColor
         ..strokeWidth = 1,
     );
   }
 
   @override
-  bool shouldRepaint(covariant ColoringPainter oldDelegate) {
-    return oldDelegate.fills != fills || oldDelegate.showNumbers != showNumbers || oldDelegate.highlight != highlight || oldDelegate.layout != layout;
-  }
+  bool shouldRepaint(covariant ColoringPainter oldDelegate) => true;
 }

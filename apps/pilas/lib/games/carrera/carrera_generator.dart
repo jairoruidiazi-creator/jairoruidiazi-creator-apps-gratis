@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/es.dart';
 import '../../core/rng.dart';
 import '../../core/theme.dart';
 import '../../model/age_band.dart';
@@ -41,7 +42,7 @@ class CarreraGenerator implements ChoiceGenerator {
     }
   }
 
-  ChoiceRound _opts(Rng rng, String titulo, String expresion, int correcto, String hint, String explain, {int spread = 3}) {
+  ChoiceRound _opts(Rng rng, String titulo, String expresion, int correcto, String hint, String explain, {int spread = 3, String? spoken}) {
     final Set<int> opciones = <int>{correcto};
     int guard = 0;
     while (opciones.length < 3 && guard < 60) {
@@ -58,8 +59,9 @@ class CarreraGenerator implements ChoiceGenerator {
     rng.shuffle(options);
     return ChoiceRound(
       instruction: titulo,
+      spoken: spoken,
       prompt: (BuildContext context) => BigPrompt(
-        child: Text(expresion, style: const TextStyle(fontSize: 46, fontWeight: FontWeight.w800, color: PilasColors.tinta)),
+        child: Text(expresion, style: TextStyle(fontSize: 46, fontWeight: FontWeight.w800, color: PilasPalette.of(context).tinta)),
       ),
       options: options,
       correctId: 'n$correcto',
@@ -152,15 +154,21 @@ class CarreraGenerator implements ChoiceGenerator {
     return _opts(rng, '$total dividido entre $d, ¿cuánto sobra?', '$total ÷ $d  →  resto ?', resto, 'Busca el múltiplo de $d más cercano sin pasarte: $d × $q = ${d * q}. Lo que falta hasta $total es el resto.', '$d × $q = ${d * q} y $total − ${d * q} = $resto. Sobran $resto.', spread: 2);
   }
 
+  /// Décimos con coma, sin ",0": 35 → "3,5"; 40 → "4".
+  static String decimos(int v) => v % 10 == 0 ? '${v ~/ 10}' : '${v ~/ 10},${v % 10}';
+
   ChoiceRound _decimales(Rng rng) {
-    // Con pesos: suma de dos precios con decimales en miles (3,5 mil + 2,25 mil).
-    final int a = rng.range(10, 90) * 100; // 1.000 a 9.000 en pasos de 100
-    final int b = rng.range(10, 90) * 100;
+    // Dos cantidades con décimos (1,5 + 2,3), como precios en miles de pesos.
+    int a;
+    int b;
+    do {
+      a = rng.range(11, 89);
+      b = rng.range(11, 89);
+    } while (a % 10 == 0 || b % 10 == 0);
     final int r = a + b;
-    String dec(int v) => '${v ~/ 1000},${((v % 1000) ~/ 100)}';
-    return _opts(rng, '¿Cuánto es ${dec(a)} más ${dec(b)}?', '${dec(a)} + ${dec(b)} = ?', r ~/ 100,
-        'Suma primero los enteros y luego los décimos; si los décimos pasan de 10, llevas 1 al entero.',
-        '${dec(a)} + ${dec(b)} = ${dec(r)}.',
+    return _opts(rng, '¿Cuánto es ${decimos(a)} más ${decimos(b)}?', '${decimos(a)} + ${decimos(b)} = ?', r,
+        'Suma primero los enteros y luego los décimos; si los décimos pasan de diez, llevas uno al entero.',
+        '${decimos(a)} + ${decimos(b)} = ${decimos(r)}.',
         spread: 5).copyWithNumbersAsDecimals();
   }
 
@@ -170,7 +178,7 @@ class CarreraGenerator implements ChoiceGenerator {
     final int unidad = rng.range(2, 12);
     final int total = unidad * den;
     final int r = unidad * num;
-    return _opts(rng, '¿Cuánto es $num/$den de $total?', '$num/$den de $total = ?', r, 'Divide $total entre $den para saber cuánto vale una parte: $unidad. Luego multiplica por $num.', '$total ÷ $den = $unidad y $unidad × $num = $r.', spread: unidad);
+    return _opts(rng, '¿Cuánto es $num/$den de $total?', '$num/$den de $total = ?', r, 'Divide $total entre $den para saber cuánto vale una parte. Luego multiplica por $num.', '$total ÷ $den = $unidad y $unidad × $num = $r.', spread: unidad, spoken: '¿Cuánto es ${Es.fraccion(num, den)} de $total?');
   }
 }
 
@@ -182,11 +190,12 @@ extension on ChoiceRound {
       if (n == null) {
         return o;
       }
-      final String txt = '${n ~/ 10},${n % 10}';
+      final String txt = CarreraGenerator.decimos(n);
       return Opt.text(o.id, txt, label: txt.replaceAll(',', ' coma '));
     }).toList();
     return ChoiceRound(
       instruction: instruction,
+      spoken: spoken,
       options: opts,
       correctId: correctId,
       hint: hint,
@@ -196,6 +205,7 @@ extension on ChoiceRound {
       columns: columns,
       readOptionsAloud: readOptionsAloud,
       optionSize: optionSize,
+      optionAspect: optionAspect,
     );
   }
 }

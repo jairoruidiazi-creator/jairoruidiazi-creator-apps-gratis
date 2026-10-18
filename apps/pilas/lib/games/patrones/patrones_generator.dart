@@ -48,7 +48,7 @@ class PatronesGenerator implements ChoiceGenerator {
       final ShapeKind k = rng.pick(<ShapeKind>[ShapeKind.circle, ShapeKind.square, ShapeKind.star, ShapeKind.heart]);
       final List<NamedColor> colores = rng.sample(NamedColor.basicos.sublist(0, 6), distintos);
       for (final NamedColor c in colores) {
-        elems.add(_Elem.shape(k, c, '${nombreForma(k)} ${c.nombre}', c.nombre));
+        elems.add(_Elem.shape(k, c, formaConColor(k, c), colorConcordado(c, generoForma(k))));
       }
     } else {
       final NamedColor c = rng.pick(NamedColor.basicos.sublist(0, 6));
@@ -101,6 +101,7 @@ class PatronesGenerator implements ChoiceGenerator {
     return ChoiceRound(
       instruction: '¿Qué sigue?',
       prompt: (BuildContext context) => PromptRow(
+        semanticsLabel: '${secuencia.map((_Elem e) => e.nombre).join(', ')}, y falta uno',
         children: <Widget>[
           for (final _Elem e in secuencia) e.build(52),
           const QuestionSlot(size: 52),
@@ -123,10 +124,10 @@ class PatronesGenerator implements ChoiceGenerator {
       } else if (porColor) {
         final _Elem base = elems.first;
         final NamedColor c = rng.pick(NamedColor.basicos);
-        candidato = _Elem.shape(base.shape!, c, '${nombreForma(base.shape!)} ${c.nombre}', c.nombre);
+        candidato = _Elem.shape(base.shape!, c, formaConColor(base.shape!, c), colorConcordado(c, generoForma(base.shape!)));
       } else {
         final _Elem base = elems.first;
-        final ShapeKind k = rng.pick(ShapeKind.values);
+        final ShapeKind k = rng.pick(<ShapeKind>[ShapeKind.circle, ShapeKind.square, ShapeKind.triangle, ShapeKind.star, ShapeKind.heart, ShapeKind.hexagon]);
         candidato = _Elem.shape(k, base.color!, nombreForma(k), nombreForma(k));
       }
       if (!usados.contains(candidato.key)) {
@@ -199,8 +200,9 @@ class PatronesGenerator implements ChoiceGenerator {
         siguiente = (inicio + largo) * (inicio + largo);
         regla = 'cada número es un cuadrado: 1×1, 2×2, 3×3...';
       } else if (tipo == 2) {
-        final int a = rng.range(2, 6);
-        final int b = rng.range(1, 4);
+        // Suma más de lo que resta: la serie nunca baja de cero.
+        final int a = rng.range(3, 6);
+        final int b = rng.range(1, a - 1);
         final int inicio = rng.range(1, 10);
         serie = <int>[inicio];
         int v = inicio;
@@ -230,9 +232,10 @@ class PatronesGenerator implements ChoiceGenerator {
       instruction: '¿Qué número sigue?',
       prompt: (BuildContext context) => PromptRow(
         size: 56,
+        semanticsLabel: '$serieTexto, y falta uno',
         children: <Widget>[
           for (final int n in serie)
-            Text('$n', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: PilasColors.tinta)),
+            Text('$n', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w700, color: PilasPalette.of(context).tinta)),
           const QuestionSlot(size: 52),
         ],
       ),
@@ -272,13 +275,13 @@ class _Elem {
     if (vocab != null) {
       return EmojiImage(vocab!.emoji, size: size, semanticsLabel: vocab!.nombre);
     }
-    return ShapeIcon(kind: shape!, color: color!.color, size: size);
+    return ShapeIcon(kind: shape!, color: color!.color, size: size, mark: color!.mark);
   }
 
   ChoiceOption option(String id) {
     if (vocab != null) {
       return Opt.emoji(id, vocab!.emoji, vocab!.nombre);
     }
-    return Opt.shape(id, shape!, color!.color, nombre);
+    return Opt.shape(id, shape!, color!, nombre);
   }
 }

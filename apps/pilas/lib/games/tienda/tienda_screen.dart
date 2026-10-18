@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -81,10 +82,10 @@ class _TiendaScreenState extends State<TiendaScreen> {
       return;
     }
     if (o.id == round.correctId) {
-      _engine.correct(praise: round.praise);
+      unawaited(_engine.correct(praise: round.praise));
     } else {
       setState(() => _wrongIds.add(o.id));
-      _engine.wrong(hint: round.hint, explain: round.explain);
+      unawaited(_engine.wrong(hint: round.hint, explain: round.explain, allowRetry: round.allowRetry));
     }
   }
 
@@ -118,11 +119,11 @@ class _TiendaScreenState extends State<TiendaScreen> {
   }
 
   void _quitar(int index) {
-    if (_engine.busy) {
+    if (_engine.busy || index >= _bandeja.length) {
       return;
     }
     setState(() => _bandeja.removeAt(index));
-    AppScope.read(context).voice.sayLater(pesosEnPalabras(_suma));
+    AppScope.read(context).voice.sayLater(_suma == 0 ? 'No llevas nada.' : pesosEnPalabras(_suma));
   }
 
   void _pagar() {
@@ -133,18 +134,15 @@ class _TiendaScreenState extends State<TiendaScreen> {
     final int total = pago.total;
     final int suma = _suma;
     if (suma == total) {
-      _engine.correct(praise: 'Pagaste ${pesosEnPalabras(total)} exactos.');
+      unawaited(_engine.correct(praise: 'Pagaste ${pesosEnPalabras(total)} exactos.'));
       return;
     }
     final String llevas = pesosEnPalabras(suma);
-    final String faltan = suma < total ? 'Te faltan ${pesosEnPalabras(total - suma)}.' : 'Te sobran ${pesosEnPalabras(suma - total)}.';
-    _engine.wrong(
-      hint: 'Llevas $llevas y necesitas ${pesosEnPalabras(total)}. $faltan',
+    final String diferencia = suma < total ? 'Te faltan ${pesosEnPalabras(total - suma)}.' : 'Te sobran ${pesosEnPalabras(suma - total)}: quita alguna moneda o billete.';
+    unawaited(_engine.wrong(
+      hint: 'Llevas $llevas y necesitas ${pesosEnPalabras(total)}. $diferencia',
       explain: 'Eran ${pesosEnPalabras(total)}: ${_combinacion(pago)}.',
-    );
-    if (suma > total) {
-      setState(() => _bandeja.clear());
-    }
+    ));
   }
 
   /// Una forma de armar el total con las denominaciones disponibles, de mayor a menor.
@@ -155,7 +153,7 @@ class _TiendaScreenState extends State<TiendaScreen> {
     for (final Denominacion d in ds) {
       final int n = resto ~/ d.valor;
       if (n > 0) {
-        partes.add('$n de ${formatPesos(d.valor)}');
+        partes.add('${d.esBillete ? (n == 1 ? 'un billete' : '$n billetes') : (n == 1 ? 'una moneda' : '$n monedas')} de ${formatPesos(d.valor)}');
         resto -= n * d.valor;
       }
     }
@@ -190,14 +188,12 @@ class _TiendaScreenState extends State<TiendaScreen> {
       engine: _engine,
       instruction: pago.instruction,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
         child: LayoutBuilder(builder: (BuildContext context, BoxConstraints c) {
           final bool wide = c.maxWidth > c.maxHeight * 1.15;
           if (wide) {
-            // Apaisado: productos, bandeja y monedero en tres columnas a todo lo
-            // alto. Un teléfono acostado deja ~200 dp para el juego: apilados,
-            // los productos le quitaban a la bandeja el alto que necesita.
-            final double unit = (c.maxWidth - 24) / 12;
+            // Apaisado: productos, bandeja y monedero en tres columnas a todo lo alto.
+            final double monederoW = c.maxWidth * 5 / 12 - 12;
             return Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
@@ -209,7 +205,7 @@ class _TiendaScreenState extends State<TiendaScreen> {
                   flex: 5,
                   child: Column(
                     children: <Widget>[
-                      Expanded(child: SingleChildScrollView(child: _monedero(pago, _coinWidth(pago, unit * 5)))),
+                      Expanded(child: Center(child: SingleChildScrollView(child: _monedero(pago, _coinWidth(pago, monederoW, 3))))),
                       const SizedBox(height: 8),
                       _botonPagar(),
                     ],
@@ -218,32 +214,15 @@ class _TiendaScreenState extends State<TiendaScreen> {
               ],
             );
           }
-          final double coinWidth = _coinWidth(pago, c.maxWidth);
-          if (c.maxHeight < 560) {
-            // Vertical pero bajo (la mayoría de los teléfonos, o texto grande):
-            // todo se desplaza y la bandeja tiene un alto fijo.
-            return SingleChildScrollView(
-              child: Column(
-                children: <Widget>[
-                  _productos(pago, emoji: 52),
-                  const SizedBox(height: 12),
-                  SizedBox(height: 140, child: _bandejaView()),
-                  const SizedBox(height: 12),
-                  _monedero(pago, coinWidth),
-                  const SizedBox(height: 12),
-                  _botonPagar(),
-                ],
-              ),
-            );
-          }
+          final double coinWidth = _coinWidth(pago, c.maxWidth, 2);
           return Column(
             children: <Widget>[
-              _productos(pago, emoji: 64),
-              const SizedBox(height: 12),
+              _productos(pago, emoji: c.maxHeight < 520 ? 44 : 60),
+              const SizedBox(height: 10),
               Expanded(child: _bandejaView()),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               _monedero(pago, coinWidth),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               _botonPagar(),
             ],
           );
@@ -252,36 +231,41 @@ class _TiendaScreenState extends State<TiendaScreen> {
     );
   }
 
-  /// Ancho de cada moneda o billete para que el monedero quepa en dos filas
-  /// como mucho: en un teléfono angosto se achican en lugar de empujar la bandeja.
-  double _coinWidth(PagoRound pago, double available) {
+  /// Ancho de cada moneda o billete para que el monedero quepa en [filas]
+  /// filas como mucho.
+  double _coinWidth(PagoRound pago, double available, int filas) {
     final int n = pago.denominaciones.length;
-    final int perRow = n <= 1 ? 1 : (n / 2).ceil();
-    return ((available - (perRow - 1) * 10) / perRow - 16).clamp(56.0, 96.0).toDouble();
+    final int perRow = n <= 1 ? 1 : (n / filas).ceil();
+    return ((available - (perRow - 1) * 10) / perRow - 16).clamp(52.0, 96.0).toDouble();
   }
 
   Widget _productos(PagoRound pago, {required double emoji}) {
+    final PilasPalette pal = PilasPalette.of(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Dim.radio), border: Border.all(color: PilasColors.borde, width: 2)),
-      child: Wrap(
-        alignment: WrapAlignment.center,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 20,
-        runSpacing: 8,
-        children: <Widget>[
-          for (final Producto p in pago.productos)
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                EmojiImage(p.item.emoji, size: emoji, semanticsLabel: p.item.nombre),
-                Text(formatPesos(p.precio), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-              ],
-            ),
-          if (pago.productos.length > 1)
-            Text('= ${formatPesos(pago.total)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: PilasColors.azul)),
-        ],
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: pal.tarjeta, borderRadius: BorderRadius.circular(Dim.radio), border: Border.all(color: pal.altoContraste ? pal.bordeFuerte : pal.borde, width: 2)),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            for (int i = 0; i < pago.productos.length; i++) ...<Widget>[
+              if (i > 0) const SizedBox(width: 20),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  EmojiImage(pago.productos[i].item.emoji, size: emoji, semanticsLabel: pago.productos[i].item.nombre),
+                  Text(formatPesos(pago.productos[i].precio), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: pal.tinta)),
+                ],
+              ),
+            ],
+            if (pago.productos.length > 1) ...<Widget>[
+              const SizedBox(width: 16),
+              Text('= ${formatPesos(pago.total)}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: pal.acento)),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -289,9 +273,10 @@ class _TiendaScreenState extends State<TiendaScreen> {
   /// Los productos uno debajo de otro (dibujo y precio en la misma línea),
   /// achicados si la columna no alcanza.
   Widget _productosColumna(PagoRound pago) {
+    final PilasPalette pal = PilasPalette.of(context);
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Dim.radio), border: Border.all(color: PilasColors.borde, width: 2)),
+      decoration: BoxDecoration(color: pal.tarjeta, borderRadius: BorderRadius.circular(Dim.radio), border: Border.all(color: pal.altoContraste ? pal.bordeFuerte : pal.borde, width: 2)),
       child: Center(
         child: FittedBox(
           fit: BoxFit.scaleDown,
@@ -307,14 +292,14 @@ class _TiendaScreenState extends State<TiendaScreen> {
                     children: <Widget>[
                       EmojiImage(p.item.emoji, size: 48, semanticsLabel: p.item.nombre),
                       const SizedBox(width: 8),
-                      Text(formatPesos(p.precio), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                      Text(formatPesos(p.precio), style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: pal.tinta)),
                     ],
                   ),
                 ),
               if (pago.productos.length > 1)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
-                  child: Text('= ${formatPesos(pago.total)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: PilasColors.azul)),
+                  child: Text('= ${formatPesos(pago.total)}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: pal.acento)),
                 ),
             ],
           ),
@@ -324,9 +309,10 @@ class _TiendaScreenState extends State<TiendaScreen> {
   }
 
   Widget _bandejaView() {
+    final PilasPalette pal = PilasPalette.of(context);
     final Widget total = FittedBox(
       fit: BoxFit.scaleDown,
-      child: Text('Llevas ${formatPesos(_suma)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+      child: Text('Llevas ${formatPesos(_suma)}', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: pal.tinta)),
     );
     final Widget monedas = Wrap(
       spacing: 8,
@@ -334,11 +320,12 @@ class _TiendaScreenState extends State<TiendaScreen> {
       alignment: WrapAlignment.center,
       children: <Widget>[
         for (int i = 0; i < _bandeja.length; i++)
-          GestureDetector(
-            onTap: () => _quitar(i),
-            child: Semantics(
-              button: true,
-              label: 'Quitar ${_bandeja[i].nombre}',
+          Semantics(
+            button: true,
+            label: 'Quitar ${_bandeja[i].nombre}',
+            excludeSemantics: true,
+            child: GestureDetector(
+              onTap: () => _quitar(i),
               child: MoneyWidget(denominacion: _bandeja[i], width: 84),
             ),
           ),
@@ -346,24 +333,20 @@ class _TiendaScreenState extends State<TiendaScreen> {
     );
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: PilasColors.verdeClaro,
+        color: pal.correctoClaro,
         borderRadius: BorderRadius.circular(Dim.radio),
-        border: Border.all(color: PilasColors.verde, width: 2),
+        border: Border.all(color: pal.correcto, width: 2),
       ),
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints b) {
           if (b.maxHeight < 80) {
-            // Muy bajita (texto grande en un teléfono acostado): el total y las
-            // monedas se desplazan juntos en vez de desbordar.
-            return SingleChildScrollView(
-              child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[total, const SizedBox(height: 8), monedas]),
-            );
+            return SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[total, const SizedBox(height: 8), monedas]));
           }
           return Column(
             children: <Widget>[
-              total,
+              Semantics(liveRegion: true, child: total),
               const SizedBox(height: 8),
               Expanded(child: SingleChildScrollView(child: monedas)),
             ],
@@ -380,12 +363,17 @@ class _TiendaScreenState extends State<TiendaScreen> {
       alignment: WrapAlignment.center,
       children: <Widget>[
         for (final Denominacion d in pago.denominaciones)
-          OptionTile(
-            padding: const EdgeInsets.all(8),
-            minHeight: 56,
-            semanticsLabel: 'Agregar ${d.nombre}',
-            onTap: () => _agregar(d),
-            child: MoneyWidget(denominacion: d, width: coinWidth),
+          SizedBox(
+            width: math.max(coinWidth + 16, 56),
+            child: OptionTile(
+              key: ValueKey<String>('dinero-${d.valor}'),
+              padding: const EdgeInsets.all(8),
+              minHeight: 56,
+              minWidth: 56,
+              semanticsLabel: 'Agregar ${d.nombre}',
+              onTap: () => _agregar(d),
+              child: FittedBox(fit: BoxFit.scaleDown, child: MoneyWidget(denominacion: d, width: coinWidth)),
+            ),
           ),
       ],
     );
@@ -395,7 +383,8 @@ class _TiendaScreenState extends State<TiendaScreen> {
     return SizedBox(
       width: double.infinity,
       child: FilledButton.icon(
-        onPressed: _bandeja.isEmpty ? null : _pagar,
+        key: const ValueKey<String>('pagar'),
+        onPressed: _bandeja.isEmpty || _engine.busy ? null : _pagar,
         icon: const Icon(Icons.shopping_bag_rounded),
         label: const Text('Pagar'),
       ),

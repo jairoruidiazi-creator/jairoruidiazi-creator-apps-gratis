@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
@@ -7,17 +8,27 @@ import '../../core/sfx.dart';
 import '../../core/theme.dart';
 import '../../engine/game_def.dart';
 import '../../engine/round_engine.dart';
+import '../colorear/colorear_screen.dart';
 import '../shell/canvas_saver.dart';
 import '../shell/game_frame.dart';
 import '../shell/widgets.dart';
 
-/// Un trazo libre: puntos, color y grosor.
+/// Un trazo libre: puntos, color y grosor. [goma] = trazo de borrador.
 class _Stroke {
-  _Stroke(this.color, this.width, this.points);
+  _Stroke(this.color, this.width, this.points, {this.goma = false});
 
   final Color color;
   final double width;
   final List<Offset> points;
+  final bool goma;
+
+  double get length {
+    double l = 0;
+    for (int i = 1; i < points.length; i++) {
+      l += (points[i] - points[i - 1]).distance;
+    }
+    return l;
+  }
 }
 
 /// Un sello (pictograma) puesto en el lienzo.
@@ -29,9 +40,10 @@ class _Stamp {
   final double size;
 }
 
-/// Dibujo y sellos: lienzo libre con pincel, borrador, sellos de pictogramas
-/// y guardado en Mis dibujos. Sin bien ni mal: al terminar se registra una
-/// ronda completada.
+/// Dibujo y sellos: lienzo libre con pincel de tres grosores, goma, sellos de
+/// pictogramas y guardado en Mis dibujos. Sin bien ni mal: al terminar cuenta
+/// como actividad, sin niveles ni habilidades. Nunca se guarda un lienzo
+/// vacío.
 class DibujoScreen extends StatefulWidget {
   const DibujoScreen({super.key, required this.launch});
 
@@ -47,20 +59,14 @@ class _DibujoScreenState extends State<DibujoScreen> {
   final List<_Stroke> _strokes = <_Stroke>[];
   final List<_Stamp> _stamps = <_Stamp>[];
   final List<Object> _history = <Object>[]; // orden de creación para deshacer
-  Color _color = const Color(0xFFE53935);
+  int _colorIndex = 0;
   double _width = 10;
   String? _stamp;
-  bool _eraser = false;
+  bool _goma = false;
   bool _saving = false;
   bool _started = false;
 
-  static const List<Color> _paleta = <Color>[
-    Color(0xFFE53935), Color(0xFFFB8C00), Color(0xFFFDD835), Color(0xFF43A047), Color(0xFF9CCC65),
-    Color(0xFF1E88E5), Color(0xFF4FC3F7), Color(0xFF8E24AA), Color(0xFFEC407A), Color(0xFF6D4C41),
-    Color(0xFF263238), Colors.white,
-  ];
-
-  static const List<List<String>> _sellos = <List<String>>[
+  static const List<List<String>> sellos = <List<String>>[
     <String>['2b50', 'estrella'],
     <String>['2764', 'corazón'],
     <String>['1f33b', 'girasol'],
@@ -76,8 +82,12 @@ class _DibujoScreenState extends State<DibujoScreen> {
     <String>['1f308', 'arcoíris'],
     <String>['1f43b', 'oso'],
     <String>['1f984', 'unicornio'],
-    <String>['1f99c', 'guacamaya'],
+    <String>['1f99c', 'loro'],
   ];
+
+  static const List<double> grosores = <double>[5, 10, 20];
+
+  static const List<String> nombresGrosor = <String>['delgado', 'mediano', 'grueso'];
 
   @override
   void initState() {
@@ -115,8 +125,23 @@ class _DibujoScreenState extends State<DibujoScreen> {
     _engine.startRound();
   }
 
+  /// Hay algo dibujado de verdad: un sello o trazos de color que sumen un
+  /// pedazo visible (un toque suelto no basta).
+  bool get _hasDrawing {
+    if (_stamps.isNotEmpty) {
+      return true;
+    }
+    double total = 0;
+    for (final _Stroke s in _strokes) {
+      if (!s.goma) {
+        total += s.length + s.width;
+      }
+    }
+    return total >= 30;
+  }
+
   void _undo() {
-    if (_history.isEmpty) {
+    if (_history.isEmpty || _engine.busy) {
       return;
     }
     unawaited(AppScope.read(context).sfx.play(SfxId.tap));
@@ -143,7 +168,9 @@ class _DibujoScreenState extends State<DibujoScreen> {
       });
       return;
     }
-    final _Stroke s = _Stroke(_eraser ? Colors.white : _color, _eraser ? _width * 2.5 : _width, <Offset>[p]);
+    final _Stroke s = _goma
+        ? _Stroke(Colors.white, _width * 2.5, <Offset>[p], goma: true)
+        : _Stroke(PaletaLibre.colores[_colorIndex].color, _width, <Offset>[p]);
     setState(() {
       _strokes.add(s);
       _history.add(s);
@@ -157,39 +184,66 @@ class _DibujoScreenState extends State<DibujoScreen> {
     setState(() => _strokes.last.points.add(p));
   }
 
-  Future<void> _guardar() async {
+  Future<void> _guardar({bool silencioso = false}) async {
     if (_saving) {
+      return;
+    }
+    if (!_hasDrawing) {
+      if (!silencioso) {
+        AppScope.read(context).voice.sayLater('Primero dibuja algo.');
+      }
       return;
     }
     _saving = true;
     try {
-      await saveCanvasPng(context, _canvasKey, widget.launch.profile.id);
+      await saveCanvasPng(context, _canvasKey, widget.launch.profile.id, silencioso: silencioso);
     } finally {
       _saving = false;
     }
   }
 
   Future<void> _terminar() async {
-    if (_strokes.isEmpty && _stamps.isEmpty) {
+    if (_engine.busy) {
+      return;
+    }
+    if (!_hasDrawing) {
       AppScope.read(context).voice.sayLater('Primero dibuja algo.');
       return;
     }
-    await _guardarSilencioso();
-    if (mounted) {
-      await _engine.completeFree();
-    }
+    unawaited(_guardar(silencioso: true));
+    await _engine.completeFree(message: '¡Qué buen dibujo! Lo guardé en Mis dibujos.');
   }
 
-  Future<void> _guardarSilencioso() async {
-    if (_saving) {
-      return;
-    }
-    _saving = true;
-    try {
-      await saveCanvasPng(context, _canvasKey, widget.launch.profile.id, silencioso: true);
-    } finally {
-      _saving = false;
-    }
+  void _say(String text) => AppScope.read(context).voice.sayLater(text);
+
+  void _pickColor(int i) {
+    setState(() {
+      _colorIndex = i;
+      _goma = false;
+      _stamp = null;
+    });
+    _say(PaletaLibre.colores[i].nombre);
+  }
+
+  void _pickGoma() {
+    setState(() {
+      _goma = true;
+      _stamp = null;
+    });
+    _say('Goma');
+  }
+
+  void _pickStamp(List<String> s) {
+    setState(() {
+      _stamp = s[0];
+      _goma = false;
+    });
+    _say('Sello: ${s[1]}');
+  }
+
+  void _pickWidth(int i) {
+    setState(() => _width = grosores[i]);
+    _say('Pincel ${nombresGrosor[i]}');
   }
 
   @override
@@ -205,83 +259,159 @@ class _DibujoScreenState extends State<DibujoScreen> {
       launch: widget.launch,
       engine: _engine,
       instruction: 'Dibuja lo que quieras con colores y sellos.',
-      actions: <Widget>[
-        RoundIconButton(icon: Icons.undo_rounded, tooltip: 'Deshacer', onPressed: _undo),
-        const SizedBox(width: 6),
-        RoundIconButton(icon: Icons.save_alt_rounded, tooltip: 'Guardar', onPressed: _guardar),
-      ],
-      child: LayoutBuilder(builder: (BuildContext context, BoxConstraints c) {
-        final bool wide = c.maxWidth > c.maxHeight * 1.15;
-        final Widget canvas = Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(Dim.radio),
-            child: Container(
-              decoration: BoxDecoration(border: Border.all(color: PilasColors.borde, width: 2), borderRadius: BorderRadius.circular(Dim.radio)),
+      child: LayoutBuilder(builder: _layout),
+    );
+  }
+
+  Widget _layout(BuildContext context, BoxConstraints c) {
+    final PilasPalette pal = PilasPalette.of(context);
+    final bool leftHanded = widget.launch.profile.leftHanded;
+    final Widget canvas = Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+      child: Container(
+        decoration: BoxDecoration(border: Border.all(color: pal.altoContraste ? pal.bordeFuerte : pal.borde, width: 2), borderRadius: BorderRadius.circular(Dim.radio)),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(Dim.radio - 2),
+          child: Semantics(
+            label: 'Lienzo para dibujar',
+            child: GestureDetector(
+              key: const ValueKey<String>('dibujo-lienzo'),
+              behavior: HitTestBehavior.opaque,
+              onTapUp: (TapUpDetails d) => _start(d.localPosition),
+              onPanStart: (DragStartDetails d) => _start(d.localPosition),
+              onPanUpdate: (DragUpdateDetails d) => _move(d.localPosition),
               child: RepaintBoundary(
                 key: _canvasKey,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onPanStart: (DragStartDetails d) => _start(d.localPosition),
-                  onPanUpdate: (DragUpdateDetails d) => _move(d.localPosition),
-                  child: Stack(
-                    children: <Widget>[
-                      Positioned.fill(child: CustomPaint(painter: _DrawPainter(_strokes))),
-                      for (final _Stamp st in _stamps)
-                        Positioned(
-                          left: st.at.dx - st.size / 2,
-                          top: st.at.dy - st.size / 2,
-                          child: IgnorePointer(child: EmojiImage(st.code, size: st.size)),
-                        ),
-                    ],
-                  ),
+                child: Stack(
+                  children: <Widget>[
+                    Positioned.fill(child: CustomPaint(painter: _DrawPainter(_strokes))),
+                    for (final _Stamp st in _stamps)
+                      Positioned(
+                        left: st.at.dx - st.size / 2,
+                        top: st.at.dy - st.size / 2,
+                        child: IgnorePointer(child: EmojiImage(st.code, size: st.size)),
+                      ),
+                  ],
                 ),
               ),
             ),
           ),
-        );
-        final Widget tools = _Tools(
-          paleta: _paleta,
-          sellos: _sellos,
-          color: _color,
-          eraser: _eraser,
-          stamp: _stamp,
-          width: _width,
-          vertical: wide,
-          onColor: (Color c) => setState(() {
-            _color = c;
-            _eraser = false;
-            _stamp = null;
-          }),
-          onEraser: () => setState(() {
-            _eraser = true;
-            _stamp = null;
-          }),
-          onStamp: (String s) => setState(() {
-            _stamp = s;
-            _eraser = false;
-          }),
-          onWidth: (double w) => setState(() => _width = w),
-        );
-        final Widget done = Padding(
-          padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-          child: FilledButton.icon(
-            onPressed: _engine.busy ? null : _terminar,
-            icon: const Icon(Icons.check_rounded),
-            label: const Text('Terminé', style: TextStyle(fontSize: 18)),
-            style: FilledButton.styleFrom(minimumSize: const Size(160, 50)),
-          ),
-        );
-        if (wide) {
-          return Row(
+        ),
+      ),
+    );
+    final List<Widget> colores = <Widget>[
+      for (int i = 0; i < PaletaLibre.colores.length; i++)
+        _ToolButton(
+          key: ValueKey<String>('dibujo-color-$i'),
+          selected: !_goma && _stamp == null && _colorIndex == i,
+          label: 'Color ${PaletaLibre.colores[i].nombre}',
+          onTap: () => _pickColor(i),
+          child: Container(width: 30, height: 30, decoration: BoxDecoration(color: PaletaLibre.colores[i].color, shape: BoxShape.circle, border: Border.all(color: pal.bordeFuerte))),
+        ),
+      _ToolButton(key: const ValueKey<String>('dibujo-goma'), selected: _goma, label: 'Goma', onTap: _pickGoma, child: Icon(Icons.auto_fix_normal_rounded, color: pal.tinta)),
+    ];
+    final List<Widget> pinceles = <Widget>[
+      for (int i = 0; i < grosores.length; i++)
+        _ToolButton(
+          selected: _width == grosores[i] && _stamp == null,
+          label: 'Pincel ${nombresGrosor[i]}',
+          onTap: () => _pickWidth(i),
+          child: Container(width: grosores[i] + 4, height: grosores[i] + 4, decoration: BoxDecoration(color: pal.tinta, shape: BoxShape.circle)),
+        ),
+    ];
+    final List<Widget> stamps = <Widget>[
+      for (final List<String> s in sellos) _ToolButton(selected: _stamp == s[0], label: 'Sello: ${s[1]}', onTap: () => _pickStamp(s), child: EmojiImage(s[0], size: 32)),
+    ];
+    final List<Widget> buttons = <Widget>[
+      RoundIconButton(key: const ValueKey<String>('dibujo-deshacer'), icon: Icons.undo_rounded, tooltip: 'Deshacer', onPressed: _history.isEmpty ? null : _undo, size: 52),
+      const SizedBox(width: 8),
+      RoundIconButton(key: const ValueKey<String>('dibujo-guardar'), icon: Icons.save_alt_rounded, tooltip: 'Guardar en Mis dibujos', onPressed: () => _guardar(), size: 52),
+    ];
+    final Widget done = FilledButton.icon(
+      key: const ValueKey<String>('dibujo-termine'),
+      onPressed: _engine.busy ? null : _terminar,
+      icon: const Icon(Icons.check_rounded),
+      label: const Text('Terminé'),
+      style: FilledButton.styleFrom(minimumSize: const Size(120, 52), padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12)),
+    );
+    if (c.maxWidth > c.maxHeight) {
+      // Acostado: el lienzo a un lado y las herramientas al otro.
+      final double colW = math.min(220, c.maxWidth * 0.4);
+      final int cols = math.max(3, (colW / 52).floor());
+      final Widget column = SizedBox(
+        width: colW,
+        child: Column(
+          children: <Widget>[
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: <Widget>[
+                    _grid(colores, cols),
+                    const SizedBox(height: 6),
+                    _grid(pinceles, cols),
+                    const SizedBox(height: 6),
+                    _grid(stamps, cols),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            FittedBox(fit: BoxFit.scaleDown, child: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[...buttons, const SizedBox(width: 8), done])),
+            const SizedBox(height: 8),
+          ],
+        ),
+      );
+      final List<Widget> row = <Widget>[Expanded(child: canvas), column, const SizedBox(width: 8)];
+      return Row(children: leftHanded ? row.reversed.toList() : row);
+    }
+    final int perRow = math.max(4, ((c.maxWidth - 24) / 52).floor());
+    final int rows = (colores.length / perRow).ceil();
+    final int cols = (colores.length / rows).ceil();
+    // «Terminé» ocupa lo que sobra y se achica un poco si la letra es muy
+    // grande, para no salirse de la pantalla.
+    final List<Widget> bottom = <Widget>[
+      ...buttons,
+      const SizedBox(width: 8),
+      Expanded(child: Align(alignment: leftHanded ? Alignment.centerLeft : Alignment.centerRight, child: FittedBox(fit: BoxFit.scaleDown, child: done))),
+    ];
+    return Column(
+      children: <Widget>[
+        Expanded(child: canvas),
+        _grid(colores, cols),
+        const SizedBox(height: 4),
+        SizedBox(
+          height: 52,
+          child: Row(
             children: <Widget>[
-              Expanded(child: Column(children: <Widget>[Expanded(child: canvas), done])),
-              SizedBox(width: 120, child: tools),
+              const SizedBox(width: 8),
+              ...pinceles,
+              const SizedBox(width: 4),
+              Container(width: 2, height: 36, color: pal.borde),
+              const SizedBox(width: 4),
+              Expanded(child: ListView(scrollDirection: Axis.horizontal, children: stamps)),
             ],
-          );
-        }
-        return Column(children: <Widget>[Expanded(child: canvas), tools, done]);
-      }),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+          child: Row(children: leftHanded ? bottom.reversed.toList() : bottom),
+        ),
+      ],
+    );
+  }
+
+  Widget _grid(List<Widget> items, int columns) {
+    final int rows = (items.length / columns).ceil();
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        for (int r = 0; r < rows; r++)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[for (int k = r * columns; k < math.min(items.length, (r + 1) * columns); k++) items[k]],
+          ),
+      ],
     );
   }
 }
@@ -317,99 +447,8 @@ class _DrawPainter extends CustomPainter {
   bool shouldRepaint(covariant _DrawPainter old) => true;
 }
 
-class _Tools extends StatelessWidget {
-  const _Tools({
-    required this.paleta,
-    required this.sellos,
-    required this.color,
-    required this.eraser,
-    required this.stamp,
-    required this.width,
-    required this.vertical,
-    required this.onColor,
-    required this.onEraser,
-    required this.onStamp,
-    required this.onWidth,
-  });
-
-  final List<Color> paleta;
-  final List<List<String>> sellos;
-  final Color color;
-  final bool eraser;
-  final String? stamp;
-  final double width;
-  final bool vertical;
-  final ValueChanged<Color> onColor;
-  final VoidCallback onEraser;
-  final ValueChanged<String> onStamp;
-  final ValueChanged<double> onWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    final List<Widget> items = <Widget>[
-      for (final Color c in paleta)
-        if (c == Colors.white)
-          _ToolButton(selected: eraser, label: 'Borrador', onTap: onEraser, child: const Icon(Icons.cleaning_services_rounded, color: PilasColors.tintaSuave))
-        else
-          _ToolButton(
-            selected: !eraser && stamp == null && color == c,
-            label: 'Color',
-            onTap: () => onColor(c),
-            child: Container(width: 30, height: 30, decoration: BoxDecoration(color: c, shape: BoxShape.circle, border: Border.all(color: Colors.black.withValues(alpha: 0.15)))),
-          ),
-      for (final List<String> s in sellos) _ToolButton(selected: stamp == s[0], label: 'Sello: ${s[1]}', onTap: () => onStamp(s[0]), child: EmojiImage(s[0], size: 30)),
-    ];
-    final List<Widget> grosores = <Widget>[
-      for (final double w in <double>[5, 10, 20])
-        _ToolButton(
-          selected: width == w,
-          label: 'Grosor $w',
-          onTap: () => onWidth(w),
-          child: Container(width: w + 6, height: w + 6, decoration: const BoxDecoration(color: PilasColors.tinta, shape: BoxShape.circle)),
-        ),
-    ];
-    if (vertical) {
-      return Container(
-        margin: const EdgeInsets.fromLTRB(0, 4, 12, 12),
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Dim.radio), border: Border.all(color: PilasColors.borde, width: 2)),
-        child: SingleChildScrollView(
-          child: Column(
-            children: <Widget>[
-              Wrap(alignment: WrapAlignment.center, children: items),
-              const Divider(),
-              // En la columna angosta de apaisado los grosores también se acomodan.
-              Wrap(alignment: WrapAlignment.center, children: grosores),
-            ],
-          ),
-        ),
-      );
-    }
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Dim.radio), border: Border.all(color: PilasColors.borde, width: 2)),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          SizedBox(
-            height: 52,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              physics: const ClampingScrollPhysics(),
-              children: items,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(mainAxisSize: MainAxisSize.min, children: grosores),
-        ],
-      ),
-    );
-  }
-}
-
 class _ToolButton extends StatelessWidget {
-  const _ToolButton({required this.selected, required this.label, required this.onTap, required this.child});
+  const _ToolButton({super.key, required this.selected, required this.label, required this.onTap, required this.child});
 
   final bool selected;
   final String label;
@@ -418,25 +457,28 @@ class _ToolButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final PilasPalette pal = PilasPalette.of(context);
     return Padding(
-      padding: const EdgeInsets.all(3),
+      padding: const EdgeInsets.all(2),
       child: Semantics(
         button: true,
         selected: selected,
         label: label,
+        excludeSemantics: true,
         child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () {
             unawaited(AppScope.read(context).sfx.play(SfxId.tap));
             onTap();
           },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            width: 46,
-            height: 46,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              color: selected ? PilasColors.amarillo.withValues(alpha: 0.5) : PilasColors.fondo,
+              color: selected ? pal.acentoClaro : pal.tarjeta,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: selected ? PilasColors.tinta : PilasColors.borde, width: selected ? 3 : 1.5),
+              border: Border.all(color: selected ? pal.tinta : pal.bordeFuerte, width: selected ? 3 : 1.5),
             ),
             child: Center(child: child),
           ),

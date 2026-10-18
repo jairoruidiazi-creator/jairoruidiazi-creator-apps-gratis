@@ -1,1 +1,2 @@
 "CFBundleDisplayName" = "Pilas";
+"NSPhotoLibraryAddUsageDescription" = "Pilas usa este permiso solo si un adulto, al compartir un dibujo, elige guardarlo en las fotos del teléfono.";

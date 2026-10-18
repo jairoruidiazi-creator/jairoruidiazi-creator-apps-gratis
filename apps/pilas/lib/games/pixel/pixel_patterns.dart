@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Paleta del pixel art: letra → color. El punto es "sin pintar".
+/// Paleta del pixel art: letra → color. El punto es "sin pintar" (blanco).
 class PixelPalette {
   PixelPalette._();
 
@@ -9,22 +9,30 @@ class PixelPalette {
     'o': Color(0xFFFB8C00),
     'y': Color(0xFFFDD835),
     'g': Color(0xFF43A047),
-    'l': Color(0xFF9CCC65),
     'b': Color(0xFF1E88E5),
     'c': Color(0xFF4FC3F7),
     'p': Color(0xFF8E24AA),
     'i': Color(0xFFEC407A),
     'n': Color(0xFF6D4C41),
     'k': Color(0xFF263238),
-    'w': Color(0xFFFFFFFF),
     's': Color(0xFFF5CBA7),
-    'a': Color(0xFF90A4AE),
   };
 
-  static const List<String> order = <String>['r', 'o', 'y', 'g', 'l', 'b', 'c', 'p', 'i', 'n', 'k', 's', 'a', 'w'];
+  /// Orden de la paleta en pantalla.
+  static const List<String> order = <String>['r', 'o', 'y', 'g', 'b', 'c', 'p', 'i', 'n', 'k', 's'];
 
   static const Map<String, String> names = <String, String>{
-    'r': 'rojo', 'o': 'naranja', 'y': 'amarillo', 'g': 'verde', 'l': 'verde claro', 'b': 'azul', 'c': 'celeste', 'p': 'morado', 'i': 'rosado', 'n': 'café', 'k': 'negro', 'w': 'blanco', 's': 'piel', 'a': 'gris',
+    'r': 'rojo',
+    'o': 'naranja',
+    'y': 'amarillo',
+    'g': 'verde',
+    'b': 'azul',
+    'c': 'celeste',
+    'p': 'morado',
+    'i': 'rosado',
+    'n': 'café',
+    'k': 'negro',
+    's': 'durazno',
   };
 }
 
@@ -33,9 +41,11 @@ class PixelPattern {
   const PixelPattern(this.id, this.nombre, this.rows);
 
   final String id;
+
+  /// Con artículo: "el corazón", "la mariposa".
   final String nombre;
 
-  /// Filas de la misma longitud; '.' = vacío.
+  /// Filas de la misma longitud; '.' = sin pintar.
   final List<String> rows;
 
   int get size => rows.length;
@@ -55,11 +65,88 @@ class PixelPattern {
   }
 }
 
+/// Modelos de 6×6, 8×8, 10×10 y 12×12: cada nivel agranda la cuadrícula.
+/// test/content_test.dart comprueba que todos son cuadrados, que usan solo
+/// colores de la paleta y que hay modelos simétricos de cada tamaño.
 class PixelPatterns {
   PixelPatterns._();
 
+  /// Lado de la cuadrícula según el tramo y el nivel.
+  static int sizeFor(bool mayores, int level) {
+    final List<int> sizes = mayores ? const <int>[8, 10, 12] : const <int>[6, 8, 10, 12];
+    return sizes[(level - 1).clamp(0, sizes.length - 1)];
+  }
+
+  static List<PixelPattern> ofSize(int n) => all.where((PixelPattern p) => p.size == n).toList();
+
+  static List<PixelPattern> symmetricOfSize(int n) => all.where((PixelPattern p) => p.size == n && p.symmetric).toList();
+
   static const List<PixelPattern> all = <PixelPattern>[
-    PixelPattern('corazon', 'corazón', <String>[
+    PixelPattern('corazon6', 'el corazón', <String>[
+      '......',
+      '.r..r.',
+      'rrrrrr',
+      'rrrrrr',
+      '.rrrr.',
+      '..rr..',
+    ]),
+    PixelPattern('flor6', 'la flor', <String>[
+      '..ii..',
+      '.iyyi.',
+      '..ii..',
+      '..gg..',
+      'g.gg.g',
+      '.gggg.',
+    ]),
+    PixelPattern('casa6', 'la casa', <String>[
+      '..rr..',
+      '.rrrr.',
+      'rrrrrr',
+      '.cyyc.',
+      '.ynny.',
+      '.ynny.',
+    ]),
+    PixelPattern('hongo6', 'el hongo', <String>[
+      '.rrrr.',
+      'rryyrr',
+      'rrrrrr',
+      '..ss..',
+      '..ss..',
+      '.ssss.',
+    ]),
+    PixelPattern('gato6', 'el gato', <String>[
+      'o....o',
+      'oo..oo',
+      'oooooo',
+      'okooko',
+      'oooooo',
+      '.oiio.',
+    ]),
+    PixelPattern('sol6', 'el sol', <String>[
+      'y.yy.y',
+      '.yyyy.',
+      'yyyyyy',
+      'yyyyyy',
+      '.yyyy.',
+      'y.yy.y',
+    ]),
+    PixelPattern('pez6', 'el pez', <String>[
+      '......',
+      'b..bb.',
+      'bbbbkb',
+      'bbbbbb',
+      'b..bb.',
+      '......',
+    ]),
+    PixelPattern('barco6', 'el barco', <String>[
+      '..r...',
+      '..rr..',
+      '..rrr.',
+      'nnnnnn',
+      '.nnnn.',
+      'cccccc',
+    ]),
+    PixelPattern('corazon8', 'el corazón', <String>[
       '........',
       '.rr..rr.',
       'rrrrrrrr',
@@ -69,17 +156,17 @@ class PixelPatterns {
       '..rrrr..',
       '...rr...',
     ]),
-    PixelPattern('hongo', 'hongo', <String>[
+    PixelPattern('hongo8', 'el hongo', <String>[
       '..rrrr..',
-      '.rwrrwr.',
-      'rrrwwrrr',
-      'rwrrrrwr',
+      '.ryrryr.',
+      'rrryyrrr',
+      'ryrrrryr',
       'rrrrrrrr',
       '..ssss..',
       '..skks..',
       '..ssss..',
     ]),
-    PixelPattern('gato', 'gato', <String>[
+    PixelPattern('gato8', 'el gato', <String>[
       'o......o',
       'oo....oo',
       'oooooooo',
@@ -89,7 +176,7 @@ class PixelPatterns {
       'oooooooo',
       '.oooooo.',
     ]),
-    PixelPattern('flor', 'flor', <String>[
+    PixelPattern('flor8', 'la flor', <String>[
       '...ii...',
       '..iyyi..',
       '.iyyyyi.',
@@ -99,27 +186,27 @@ class PixelPatterns {
       '.g.gg.g.',
       '.gggggg.',
     ]),
-    PixelPattern('barco', 'barco', <String>[
-      '...w....',
-      '...ww...',
-      '...www..',
-      '...wwww.',
-      '...w....',
+    PixelPattern('barco8', 'el barco', <String>[
+      '...r....',
+      '...rr...',
+      '...rrr..',
+      '...rrrr.',
+      '...n....',
       'nnnnnnnn',
       '.nnnnnn.',
       'cccccccc',
     ]),
-    PixelPattern('cohete', 'cohete', <String>[
+    PixelPattern('cohete8', 'el cohete', <String>[
       '...rr...',
       '..rrrr..',
-      '..raar..',
-      '..raar..',
+      '..rccr..',
+      '..rccr..',
       '..rrrr..',
       '.rrrrrr.',
       'rr.yy.rr',
       '...oo...',
     ]),
-    PixelPattern('arbol', 'árbol', <String>[
+    PixelPattern('arbol8', 'el árbol', <String>[
       '...gg...',
       '..gggg..',
       '.gggggg.',
@@ -129,7 +216,7 @@ class PixelPatterns {
       '...nn...',
       '...nn...',
     ]),
-    PixelPattern('casa', 'casa', <String>[
+    PixelPattern('casa8', 'la casa', <String>[
       '...rr...',
       '..rrrr..',
       '.rrrrrr.',
@@ -139,7 +226,7 @@ class PixelPatterns {
       'yyynnyyy',
       'yyynnyyy',
     ]),
-    PixelPattern('mariposa', 'mariposa', <String>[
+    PixelPattern('mariposa8', 'la mariposa', <String>[
       'p......p',
       'pp.kk.pp',
       'ppykkypp',
@@ -149,7 +236,7 @@ class PixelPatterns {
       'pp.kk.pp',
       'p......p',
     ]),
-    PixelPattern('pez', 'pez', <String>[
+    PixelPattern('pez8', 'el pez', <String>[
       '........',
       '..cccc..',
       '.cccccc.',
@@ -159,7 +246,7 @@ class PixelPatterns {
       '..cccc..',
       '........',
     ]),
-    PixelPattern('guacamaya', 'guacamaya', <String>[
+    PixelPattern('guacamaya8', 'la guacamaya', <String>[
       '..rrr...',
       '.rrrrr..',
       'rrkrryy.',
@@ -169,7 +256,7 @@ class PixelPatterns {
       '..bbbbb.',
       '...bb.b.',
     ]),
-    PixelPattern('sol', 'sol', <String>[
+    PixelPattern('sol8', 'el sol', <String>[
       'y..yy..y',
       '.yyyyyy.',
       '.yyyyyy.',
@@ -179,7 +266,185 @@ class PixelPatterns {
       '.yyyyyy.',
       'y..yy..y',
     ]),
+    PixelPattern('carita10', 'la carita feliz', <String>[
+      '..yyyyyy..',
+      '.yyyyyyyy.',
+      'yyykyykyyy',
+      'yyykyykyyy',
+      'yyyyyyyyyy',
+      'ykyyyyyyky',
+      'yykyyyykyy',
+      'yyykkkkyyy',
+      '.yyyyyyyy.',
+      '..yyyyyy..',
+    ]),
+    PixelPattern('cohete10', 'el cohete', <String>[
+      '....rr....',
+      '...rrrr...',
+      '...rccr...',
+      '...rccr...',
+      '...rrrr...',
+      '...rrrr...',
+      '..rrrrrr..',
+      '.rr.rr.rr.',
+      '.r..oo..r.',
+      '....yy....',
+    ]),
+    PixelPattern('mariposa10', 'la mariposa', <String>[
+      'pp......pp',
+      'ppp.kk.ppp',
+      'ppppkkpppp',
+      'pyppkkppyp',
+      '.pppkkppp.',
+      '..ppkkpp..',
+      '.pppkkppp.',
+      'pippkkppip',
+      'ppp.kk.ppp',
+      'pp......pp',
+    ]),
+    PixelPattern('helado10', 'el ponquecito', <String>[
+      '....rr....',
+      '...iiii...',
+      '..iiiiii..',
+      '.iiiiiiii.',
+      '.iiiiiiii.',
+      '.nnnnnnnn.',
+      '..nnnnnn..',
+      '..nnnnnn..',
+      '...nnnn...',
+      '....nn....',
+    ]),
+    PixelPattern('casa10', 'la casa', <String>[
+      '....rr....',
+      '...rrrr...',
+      '..rrrrrr..',
+      '.rrrrrrrr.',
+      'rrrrrrrrrr',
+      '.yyyyyyyy.',
+      '.ycyyyycy.',
+      '.yyynnyyy.',
+      '.yyynnyyy.',
+      'gggggggggg',
+    ]),
+    PixelPattern('gato10', 'el gato', <String>[
+      '.o......o.',
+      '.oo....oo.',
+      '.oooooooo.',
+      'oooooooooo',
+      'ookooookoo',
+      'oooooooooo',
+      'ooooiioooo',
+      '.oooooooo.',
+      '..oooooo..',
+      '..........',
+    ]),
+    PixelPattern('carro10', 'el carro', <String>[
+      '..........',
+      '..........',
+      '...rrrr...',
+      '..rcrrcr..',
+      '.rccrrccr.',
+      'rrrrrrrrrr',
+      'rrrrrrrrry',
+      'rrkkrrkkrr',
+      '..kk..kk..',
+      '..........',
+    ]),
+    PixelPattern('pez10', 'el pez', <String>[
+      '..........',
+      '....bbb...',
+      'b..bbbbb..',
+      'bbbbbbbkb.',
+      'bbbbbbbbbb',
+      'bbbbbbbbb.',
+      'b..bbbbb..',
+      '....bbb...',
+      '..........',
+      'cccccccccc',
+    ]),
+    PixelPattern('buho12', 'el búho', <String>[
+      '.n........n.',
+      '.nn......nn.',
+      '.nnnnnnnnnn.',
+      'nnyyynnyyynn',
+      'nykyynnyykyn',
+      'nnyyynnyyynn',
+      'nnnnnoonnnnn',
+      'nsnsnnnnsnsn',
+      '.nnnnnnnnnn.',
+      '..nnnnnnnn..',
+      '...o....o...',
+      '..oo....oo..',
+    ]),
+    PixelPattern('robot12', 'el robot', <String>[
+      '.....kk.....',
+      '.....kk.....',
+      '..bbbbbbbb..',
+      '..bccbbccb..',
+      '..bbbbbbbb..',
+      '..bbrrrrbb..',
+      '..bbbbbbbb..',
+      'kbbbbbbbbbbk',
+      'k.bbybbybb.k',
+      '..bbbbbbbb..',
+      '...bb..bb...',
+      '..kkk..kkk..',
+    ]),
+    PixelPattern('flor12', 'la flor', <String>[
+      '.....ii.....',
+      '...iiiiii...',
+      '..iiiyyiii..',
+      '..iiyyyyii..',
+      '...iiiiii...',
+      '.....gg.....',
+      '.gg..gg..gg.',
+      '..gg.gg.gg..',
+      '...gggggg...',
+      '.....gg.....',
+      '....nnnn....',
+      '...nnnnnn...',
+    ]),
+    PixelPattern('rana12', 'la rana', <String>[
+      '..gg....gg..',
+      '.gkkg..gkkg.',
+      '.gggggggggg.',
+      'gggggggggggg',
+      'ggkggggggkgg',
+      'gggkkkkkkggg',
+      '.gggggggggg.',
+      '..gggggggg..',
+      '.gg.gggg.gg.',
+      'gg..gggg..gg',
+      'g...g..g...g',
+      '............',
+    ]),
+    PixelPattern('barco12', 'el velero', <String>[
+      '.....k......',
+      '.....kr.....',
+      '.....krr....',
+      '.....krrr...',
+      '....ykrrrr..',
+      '...yykrrrrr.',
+      '..yyykrrrrrr',
+      '.....k......',
+      'nnnnnnnnnnnn',
+      '.nnnnnnnnnn.',
+      '..nnnnnnnn..',
+      'cccccccccccc',
+    ]),
+    PixelPattern('caracol12', 'el caracol', <String>[
+      '............',
+      '......nnnn..',
+      '.....nooonn.',
+      '....noonnon.',
+      '....nonoono.',
+      '....nonnnon.',
+      '.k..noooon..',
+      '.ss..nnnn...',
+      'sssssssssss.',
+      'ssssssssssss',
+      '............',
+      'gggggggggggg',
+    ]),
   ];
-
-  static List<PixelPattern> get symmetric => all.where((PixelPattern p) => p.symmetric).toList();
 }

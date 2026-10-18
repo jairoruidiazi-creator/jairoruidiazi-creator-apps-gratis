@@ -5,13 +5,11 @@ import '../../core/theme.dart';
 import '../shell/widgets.dart';
 import 'choice_round.dart';
 
-/// Fábricas de opciones comunes.
+/// Fábricas de opciones comunes. Todas se acomodan a la casilla que les toca:
+/// el texto se parte al ancho y, si no cabe a lo alto, se achica.
 class Opt {
   Opt._();
 
-  /// Dibujo con nombre dentro de una casilla: el texto se parte al ancho de la
-  /// casilla y, si el conjunto no cabe a lo alto (apaisado, teléfono pequeño),
-  /// se achica en lugar de salirse.
   static Widget _fitInTile(Widget content) {
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints c) {
@@ -29,13 +27,14 @@ class Opt {
         if (!showLabel) {
           return EmojiImage(code, size: size, semanticsLabel: label);
         }
+        final PilasPalette pal = PilasPalette.of(context);
         return _fitInTile(
           Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               EmojiImage(code, size: size * 0.8, semanticsLabel: label),
               const SizedBox(height: 6),
-              Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+              Text(label, textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: pal.tinta)),
             ],
           ),
         );
@@ -47,11 +46,13 @@ class Opt {
     return emoji('${idPrefix ?? ''}${v.id}', v.emoji, v.nombre, showLabel: showLabel);
   }
 
-  static ChoiceOption shape(String id, ShapeKind kind, Color color, String label) {
+  /// Figura de color. En alto contraste lleva la marca de su color, para no
+  /// depender solo del color.
+  static ChoiceOption shape(String id, ShapeKind kind, NamedColor color, String label) {
     return ChoiceOption(
       id: id,
       label: label,
-      build: (BuildContext context, double size) => ShapeIcon(kind: kind, color: color, size: size),
+      build: (BuildContext context, double size) => ShapeIcon(kind: kind, color: color.color, size: size, mark: color.mark),
     );
   }
 
@@ -63,7 +64,7 @@ class Opt {
         fit: BoxFit.scaleDown,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Text(text, textAlign: TextAlign.center, style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700, color: PilasColors.tinta)),
+          child: Text(text, textAlign: TextAlign.center, style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w700, color: PilasPalette.of(context).tinta)),
         ),
       ),
     );
@@ -72,13 +73,15 @@ class Opt {
   static ChoiceOption number(int n) => text('n$n', '$n', label: '$n');
 
   /// Texto largo que puede ocupar varias líneas (opciones de una frase).
-  static ChoiceOption sentence(String id, String text, {double fontSize = 17}) {
+  static ChoiceOption sentence(String id, String text, {double fontSize = 18}) {
     return ChoiceOption(
       id: id,
       label: text,
-      build: (BuildContext context, double size) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        child: Text(text, textAlign: TextAlign.center, maxLines: 4, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600, color: PilasColors.tinta, height: 1.25)),
+      build: (BuildContext context, double size) => _fitInTile(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          child: Text(text, textAlign: TextAlign.center, style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600, color: PilasPalette.of(context).tinta, height: 1.25)),
+        ),
       ),
     );
   }
@@ -87,16 +90,12 @@ class Opt {
     return ChoiceOption(
       id: 'color_${c.id}',
       label: c.nombre,
-      build: (BuildContext context, double size) => Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(color: c.color, shape: BoxShape.circle, border: Border.all(color: Colors.black.withValues(alpha: 0.2), width: 2)),
-      ),
+      build: (BuildContext context, double size) => ShapeIcon(kind: ShapeKind.circle, color: c.color, size: size, mark: c.mark),
     );
   }
 
   /// Texto con un pictograma al lado (para los que leen poco).
-  static ChoiceOption textWithEmoji(String id, String text, String code) {
+  static ChoiceOption textWithEmoji(String id, String text, String code, {double fontSize = 17}) {
     return ChoiceOption(
       id: id,
       label: text,
@@ -106,7 +105,7 @@ class Opt {
           children: <Widget>[
             EmojiImage(code, size: size * 0.7, semanticsLabel: text),
             const SizedBox(height: 6),
-            Text(text, textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+            Text(text, textAlign: TextAlign.center, style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600, color: PilasPalette.of(context).tinta, height: 1.2)),
           ],
         ),
       ),
@@ -116,30 +115,36 @@ class Opt {
 
 /// Fila de pictogramas o figuras para mostrar una secuencia como estímulo.
 class PromptRow extends StatelessWidget {
-  const PromptRow({super.key, required this.children, this.size = 56});
+  const PromptRow({super.key, required this.children, this.size = 56, this.semanticsLabel});
 
   final List<Widget> children;
   final double size;
+  final String? semanticsLabel;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(Dim.radio),
-        border: Border.all(color: PilasColors.borde, width: 2),
-      ),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            for (int i = 0; i < children.length; i++) ...<Widget>[
-              if (i > 0) const SizedBox(width: 10),
-              SizedBox(width: size, height: size, child: Center(child: children[i])),
+    final PilasPalette pal = PilasPalette.of(context);
+    return Semantics(
+      label: semanticsLabel,
+      excludeSemantics: semanticsLabel != null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: pal.tarjeta,
+          borderRadius: BorderRadius.circular(Dim.radio),
+          border: Border.all(color: pal.altoContraste ? pal.bordeFuerte : pal.borde, width: 2),
+        ),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              for (int i = 0; i < children.length; i++) ...<Widget>[
+                if (i > 0) const SizedBox(width: 10),
+                SizedBox(width: size, height: size, child: Center(child: children[i])),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -154,15 +159,16 @@ class QuestionSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final PilasPalette pal = PilasPalette.of(context);
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: PilasColors.amarillo.withValues(alpha: 0.35),
+        color: pal.pistaClaro,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: PilasColors.naranja, width: 2),
+        border: Border.all(color: pal.pista, width: 2),
       ),
-      child: Center(child: Text('?', style: TextStyle(fontSize: size * 0.6, fontWeight: FontWeight.w800, color: PilasColors.naranja))),
+      child: Center(child: Text('?', style: TextStyle(fontSize: size * 0.6, fontWeight: FontWeight.w800, color: pal.pista))),
     );
   }
 }
@@ -176,23 +182,23 @@ class BigPrompt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final PilasPalette pal = PilasPalette.of(context);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: pal.tarjeta,
         borderRadius: BorderRadius.circular(Dim.radio),
-        border: Border.all(color: PilasColors.borde, width: 2),
+        border: Border.all(color: pal.altoContraste ? pal.bordeFuerte : pal.borde, width: 2),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          // Lo que no cabe a lo ancho (una fila de producto, precio y billete en
-          // un teléfono angosto) se achica en lugar de desbordar; los Wrap ya se
-          // acomodan solos en varias líneas.
+          // Lo que no cabe a lo ancho se achica en lugar de desbordar; los
+          // Wrap ya se acomodan solos en varias líneas.
           if (child is Wrap) child else FittedBox(fit: BoxFit.scaleDown, child: child),
           if (caption != null) ...<Widget>[
             const SizedBox(height: 6),
-            Text(caption!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text(caption!, textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: pal.tinta)),
           ],
         ],
       ),

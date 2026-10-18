@@ -10,7 +10,16 @@ import '../core/theme.dart';
 import '../games/shell/widgets.dart';
 import '../model/profile.dart';
 
-/// Galería de los dibujos guardados por el niño.
+/// Un dibujo guardado: su ruta dentro de la app y la ruta en el disco.
+class _Drawing {
+  const _Drawing(this.rel, this.abs);
+
+  final String rel;
+  final String abs;
+}
+
+/// Galería de los dibujos guardados por el niño. Compartir y borrar pasan
+/// por la puerta parental o por una confirmación.
 class MyDrawingsScreen extends StatefulWidget {
   const MyDrawingsScreen({super.key});
 
@@ -19,7 +28,7 @@ class MyDrawingsScreen extends StatefulWidget {
 }
 
 class _MyDrawingsScreenState extends State<MyDrawingsScreen> {
-  List<String>? _files;
+  List<_Drawing>? _files;
 
   @override
   void initState() {
@@ -31,29 +40,30 @@ class _MyDrawingsScreenState extends State<MyDrawingsScreen> {
     final Services s = AppScope.read(context);
     final Profile? p = s.state.current;
     if (p == null) {
-      setState(() => _files = <String>[]);
+      setState(() => _files = <_Drawing>[]);
       return;
     }
     final List<String> files = await s.store.list('drawings/${p.id}', extension: '.png');
-    final List<String> abs = <String>[];
+    final List<_Drawing> out = <_Drawing>[];
     for (final String f in files.reversed) {
-      abs.add(await s.store.absolutePath(f));
+      out.add(_Drawing(f, await s.store.absolutePath(f)));
     }
     if (mounted) {
-      setState(() => _files = abs);
+      setState(() => _files = out);
     }
   }
 
-  Future<void> _compartir(String path) async {
+  Future<void> _compartir(BuildContext buttonContext, _Drawing d) async {
     // Compartir sale de la app: va detrás de la puerta parental.
+    final Services s = AppScope.read(context);
     final bool ok = await showParentalGate(context, reason: 'Compartir el dibujo');
-    if (!ok) {
+    if (!ok || !buttonContext.mounted) {
       return;
     }
-    await SharePlus.instance.share(ShareParams(files: <XFile>[XFile(path)], text: 'Dibujo hecho en Pilas'));
+    await s.sharer.shareFiles(buttonContext, <XFile>[XFile(d.abs, mimeType: 'image/png')], text: 'Dibujo hecho en Pilas');
   }
 
-  Future<void> _borrar(String path) async {
+  Future<void> _borrar(_Drawing d) async {
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
@@ -64,63 +74,63 @@ class _MyDrawingsScreenState extends State<MyDrawingsScreen> {
         ],
       ),
     );
-    if (ok != true) {
+    if (ok != true || !mounted) {
       return;
     }
-    final File f = File(path);
-    if (await f.exists()) {
-      await f.delete();
-    }
+    await AppScope.read(context).store.delete(d.rel);
     await _load();
   }
 
   @override
   Widget build(BuildContext context) {
-    final List<String>? files = _files;
+    final PilasPalette pal = PilasPalette.of(context);
+    final List<_Drawing>? files = _files;
     return Scaffold(
       appBar: AppBar(title: const Text(S.misDibujos)),
       body: files == null
           ? const Center(child: CircularProgressIndicator())
           : files.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(24),
+              ? Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        Mascot(size: 120),
-                        SizedBox(height: 16),
-                        Text('Tus dibujos guardados aparecerán aquí.', textAlign: TextAlign.center, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                        const Mascot(size: 120),
+                        const SizedBox(height: 16),
+                        Text('Tus dibujos guardados aparecerán aquí.', textAlign: TextAlign.center, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: pal.tinta)),
                       ],
                     ),
                   ),
                 )
-              : LayoutBuilder(
-                  builder: (BuildContext context, BoxConstraints c) {
-                    final int cols = c.maxWidth > 900 ? 4 : (c.maxWidth > 560 ? 3 : 2);
-                    return GridView.builder(
-                      padding: const EdgeInsets.all(16),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: cols, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: 0.85),
-                      itemCount: files.length,
-                      itemBuilder: (BuildContext context, int i) {
-                        final String path = files[i];
-                        return Container(
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: PilasColors.borde, width: 2)),
-                          clipBehavior: Clip.antiAlias,
-                          child: Column(
+              : GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(maxCrossAxisExtent: 240, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: 0.85),
+                  itemCount: files.length,
+                  itemBuilder: (BuildContext context, int i) {
+                    final _Drawing d = files[i];
+                    return Container(
+                      decoration: BoxDecoration(color: pal.tarjeta, borderRadius: BorderRadius.circular(20), border: Border.all(color: pal.altoContraste ? pal.bordeFuerte : pal.borde, width: 2)),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: <Widget>[
+                          Expanded(child: Semantics(label: 'Dibujo ${i + 1}', image: true, child: Image.file(File(d.abs), fit: BoxFit.contain))),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: <Widget>[
-                              Expanded(child: Image.file(File(path), fit: BoxFit.contain)),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                children: <Widget>[
-                                  IconButton(onPressed: () => _compartir(path), icon: const Icon(Icons.share_rounded), tooltip: 'Compartir'),
-                                  IconButton(onPressed: () => _borrar(path), icon: const Icon(Icons.delete_outline_rounded), tooltip: S.borrar),
-                                ],
+                              Builder(
+                                builder: (BuildContext buttonContext) => IconButton(
+                                  key: ValueKey<String>('compartir-$i'),
+                                  onPressed: () => _compartir(buttonContext, d),
+                                  icon: const Icon(Icons.share_rounded),
+                                  tooltip: 'Compartir (adulto)',
+                                ),
                               ),
+                              IconButton(key: ValueKey<String>('borrar-$i'), onPressed: () => _borrar(d), icon: const Icon(Icons.delete_outline_rounded), tooltip: S.borrar),
                             ],
                           ),
-                        );
-                      },
+                        ],
+                      ),
                     );
                   },
                 ),

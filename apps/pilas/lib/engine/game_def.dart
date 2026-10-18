@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../model/age_band.dart';
 import '../model/area.dart';
 import '../model/profile.dart';
+import 'mastery.dart';
 
 /// Datos con los que arranca un juego: el juego, el tramo y el perfil.
 class GameLaunch {
@@ -16,7 +17,7 @@ class GameLaunch {
 typedef GameBuilder = Widget Function(BuildContext context, GameLaunch launch);
 
 /// Definición de un juego: a qué área y tramos pertenece, qué habilidad
-/// trabaja en cada tramo y cómo seguirla sin pantalla.
+/// evalúa en cada tramo y cómo seguirla sin pantalla.
 class GameDef {
   const GameDef({
     required this.id,
@@ -31,7 +32,9 @@ class GameDef {
     required this.pregunta,
     required this.build,
     this.levels = 4,
+    this.levelsByBand = const <AgeBand, int>{},
     this.roundBased = true,
+    this.mastery = MasteryRule.eleccion,
   });
 
   final String id;
@@ -43,7 +46,8 @@ class GameDef {
   final AgeBand minBand;
   final AgeBand maxBand;
 
-  /// Habilidad del mapa que trabaja en cada tramo.
+  /// Habilidad del mapa que el juego evalúa en cada tramo. Los juegos libres
+  /// (colorear libre, dibujo) no evalúan ninguna y la dejan vacía.
   final Map<AgeBand, String> skills;
 
   /// Qué trabaja, para la ficha del adulto.
@@ -56,15 +60,25 @@ class GameDef {
   final String pregunta;
   final GameBuilder build;
 
-  /// Niveles por tramo.
+  /// Niveles por tramo (1 = el juego no muestra niveles).
   final int levels;
 
-  /// Los juegos libres (colorear, dibujar) no tienen rondas ni niveles.
+  /// Tramos con otro número de niveles.
+  final Map<AgeBand, int> levelsByBand;
+
+  /// Los juegos libres (colorear libre, dibujo) no tienen rondas evaluadas,
+  /// niveles ni habilidades: no cuentan como aciertos en el informe.
   final bool roundBased;
+
+  /// Regla de dominio del juego.
+  final MasteryRule mastery;
 
   bool supports(AgeBand band) => band.index >= minBand.index && band.index <= maxBand.index;
 
-  int levelsFor(AgeBand band) => levels;
+  int levelsFor(AgeBand band) => levelsByBand[band] ?? levels;
 
-  String? skillFor(AgeBand band) => skills[band];
+  /// Si el juego muestra niveles (puntos y "Nivel N").
+  bool get hasLevels => roundBased && levels > 1;
+
+  String? skillFor(AgeBand band) => roundBased ? skills[band] : null;
 }

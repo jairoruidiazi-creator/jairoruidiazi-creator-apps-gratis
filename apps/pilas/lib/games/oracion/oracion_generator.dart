@@ -8,10 +8,14 @@ import '../shell/widgets.dart';
 
 /// Una oración del banco: las palabras en orden y, si aplica, un pictograma.
 class Oracion {
-  const Oracion(this.palabras, {this.emoji, this.regla});
+  const Oracion(this.palabras, {this.emoji, this.regla, this.alternativas = const <List<String>>[]});
 
   final List<String> palabras;
   final String? emoji;
+
+  /// Otros órdenes que también son correctos ("Cuando llueve, cantan las
+  /// ranas toda la noche.").
+  final List<List<String>> alternativas;
 
   /// Regla gramatical que se nombra al explicar (por ejemplo, "primero quién, luego qué hace").
   final String? regla;
@@ -60,7 +64,9 @@ class OracionBank {
   ];
 
   static const List<Oracion> b9a11 = <Oracion>[
-    Oracion(<String>['Cuando', 'llueve,', 'las', 'ranas', 'cantan', 'toda', 'la', 'noche.'], emoji: '1f438', regla: reglaConector),
+    Oracion(<String>['Cuando', 'llueve,', 'las', 'ranas', 'cantan', 'toda', 'la', 'noche.'], emoji: '1f438', regla: reglaConector, alternativas: <List<String>>[
+      <String>['Cuando', 'llueve,', 'cantan', 'las', 'ranas', 'toda', 'la', 'noche.'],
+    ]),
     Oracion(<String>['Llevé', 'paraguas', 'porque', 'el', 'cielo', 'estaba', 'nublado.'], emoji: '2602', regla: reglaConector),
     Oracion(<String>['Quería', 'jugar', 'afuera,', 'pero', 'tenía', 'que', 'terminar', 'la', 'tarea.'], emoji: '1f4dd', regla: reglaConector),
     Oracion(<String>['Los', 'páramos', 'guardan', 'el', 'agua', 'que', 'beben', 'las', 'ciudades.'], emoji: '1f3d4', regla: reglaComplemento),
@@ -68,7 +74,9 @@ class OracionBank {
     Oracion(<String>['Mi', 'abuelo', 'cuenta', 'que', 'antes', 'no', 'había', 'celulares.'], emoji: '1f474', regla: reglaConector),
     Oracion(<String>['Si', 'reciclamos', 'el', 'plástico,', 'el', 'mar', 'estará', 'más', 'limpio.'], emoji: '267b', regla: reglaConector),
     Oracion(<String>['El', 'cóndor', 'vuela', 'muy', 'alto', 'sobre', 'los', 'Andes.'], emoji: '1f985', regla: reglaComplemento),
-    Oracion(<String>['Después', 'del', 'partido,', 'todos', 'celebramos', 'con', 'jugo', 'de', 'lulo.'], emoji: '1f9c3', regla: reglaComplemento),
+    Oracion(<String>['Después', 'del', 'partido,', 'todos', 'celebramos', 'con', 'jugo', 'de', 'lulo.'], emoji: '1f9c3', regla: reglaComplemento, alternativas: <List<String>>[
+      <String>['Después', 'del', 'partido,', 'celebramos', 'todos', 'con', 'jugo', 'de', 'lulo.'],
+    ]),
     Oracion(<String>['La', 'biblioteca', 'abre', 'temprano', 'y', 'cierra', 'al', 'anochecer.'], emoji: '1f4da', regla: reglaConector),
     Oracion(<String>['Nadie', 'sabía', 'quién', 'había', 'dejado', 'la', 'puerta', 'abierta.'], emoji: '1f6aa', regla: reglaComplemento),
     Oracion(<String>['Primero', 'mezclamos', 'la', 'harina', 'y', 'luego', 'agregamos', 'el', 'queso.'], emoji: '1f9c0', regla: reglaConector),
@@ -97,14 +105,15 @@ OrderRound oracionRound(Rng rng, AgeBand band, int level) {
   final int fin = (inicio + tramo + 2).clamp(1, ordenadas.length).toInt();
   final Oracion o = rng.pick(ordenadas.sublist(inicio, fin));
 
-  final List<OrderTile> ordered = <OrderTile>[
-    for (int i = 0; i < o.palabras.length; i++)
-      OrderTile(id: 'w$i', value: o.palabras[i].toLowerCase(), label: o.palabras[i], build: (BuildContext context, double size) => textTile(o.palabras[i], fontSize: size * 0.36)),
-  ];
-  final List<OrderTile> shuffled = <OrderTile>[
-    for (int i = 0; i < o.palabras.length; i++)
-      OrderTile(id: 's$i', value: o.palabras[i].toLowerCase(), label: o.palabras[i], build: (BuildContext context, double size) => textTile(o.palabras[i], fontSize: size * 0.36)),
-  ];
+  OrderTile ficha(String id, String palabra) => OrderTile(
+        id: id,
+        value: palabra.toLowerCase(),
+        label: palabra,
+        widthFactor: wordWidthFactor(palabra),
+        build: (BuildContext context, double size) => textTile(context, palabra, fontSize: size * 0.36),
+      );
+  final List<OrderTile> ordered = <OrderTile>[for (int i = 0; i < o.palabras.length; i++) ficha('w$i', o.palabras[i])];
+  final List<OrderTile> shuffled = <OrderTile>[for (int i = 0; i < o.palabras.length; i++) ficha('s$i', o.palabras[i])];
   rng.shuffle(shuffled);
   if (shuffled.first.value == ordered.first.value && shuffled.length > 1) {
     final OrderTile t = shuffled[0];
@@ -122,8 +131,9 @@ OrderRound oracionRound(Rng rng, AgeBand band, int level) {
     explain: 'La oración es: ${o.texto} ${o.regla ?? ''}',
     praise: o.texto,
     ordered: ordered,
+    alternatives: <List<String>>[for (final List<String> alt in o.alternativas) <String>[for (final String w in alt) w.toLowerCase()]],
     shuffled: shuffled,
-    tileSize: o.palabras.length > 7 ? 72 : 84,
+    tileSize: o.palabras.length > 7 ? 60 : 68,
     prompt: o.emoji == null ? null : (BuildContext context) => EmojiImage(o.emoji!, size: 56),
     sayOnPlaced: (OrderTile t, int i) => t.label,
   );

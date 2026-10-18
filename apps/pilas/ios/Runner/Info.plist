@@ -71,7 +71,8 @@
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>es</string>
-		<string>en</string>
 	</array>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Pilas usa este permiso solo si un adulto, al compartir un dibujo, elige guardarlo en las fotos del teléfono.</string>
 </dict>
 </plist>

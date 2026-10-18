@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_scope.dart';
@@ -35,7 +36,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     _nombre = TextEditingController(text: p?.nombre ?? '');
     _avatar = p?.avatar ?? Profile.avatares.first;
     _edad = p?.age ?? 5;
-    _mes = p?.birthMonth ?? DateTime.now().month;
+    _mes = p?.birthMonth ?? clock.now().month;
     _override = p?.bandOverride;
     _zurdo = p?.leftHanded ?? false;
   }
@@ -53,7 +54,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       return;
     }
     final Services s = AppScope.read(context);
-    final DateTime now = DateTime.now();
+    final DateTime now = clock.now();
     int birthYear = now.year - _edad;
     if (_mes > now.month) {
       birthYear -= 1;
@@ -106,6 +107,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final PilasPalette pal = PilasPalette.of(context);
     final bool editing = widget.profile != null;
     return Scaffold(
       appBar: AppBar(
@@ -118,10 +120,17 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         padding: const EdgeInsets.all(20),
         children: <Widget>[
           TextField(
+            key: const ValueKey<String>('perfil-nombre'),
             controller: _nombre,
             textCapitalization: TextCapitalization.words,
             maxLength: 20,
             style: const TextStyle(fontSize: 22),
+            // Sin menú de copiar, pegar, buscar o traducir: ningún campo de
+            // texto lleva fuera de la app.
+            contextMenuBuilder: null,
+            enableInteractiveSelection: false,
+            autocorrect: false,
+            enableSuggestions: false,
             decoration: const InputDecoration(labelText: S.nombre),
           ),
           const SizedBox(height: 16),
@@ -132,16 +141,23 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             runSpacing: 10,
             children: <Widget>[
               for (final String a in Profile.avatares)
-                GestureDetector(
-                  onTap: () => setState(() => _avatar = a),
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: _avatar == a ? PilasColors.azulClaro : Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: _avatar == a ? PilasColors.azul : PilasColors.borde, width: _avatar == a ? 3 : 2),
+                Semantics(
+                  button: true,
+                  selected: _avatar == a,
+                  label: Profile.nombresAvatar[a],
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    key: ValueKey<String>('avatar-$a'),
+                    onTap: () => setState(() => _avatar = a),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: _avatar == a ? pal.acentoClaro : pal.tarjeta,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: _avatar == a ? pal.acento : pal.bordeFuerte, width: _avatar == a ? 3 : 1.5),
+                      ),
+                      child: EmojiImage(a, size: 48),
                     ),
-                    child: EmojiImage(a, size: 48),
                   ),
                 ),
             ],
@@ -171,11 +187,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             onChanged: (int? v) => setState(() => _mes = v ?? _mes),
           ),
           const SizedBox(height: 20),
-          Text('Nivel de los juegos', style: Theme.of(context).textTheme.titleMedium),
+          Text('Edad de los juegos', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 4),
           Text(
-            'Por defecto se elige según la edad: ${AgeBandX.forAge(_edad).label} (${AgeBandX.forAge(_edad).schoolLabel}). Cámbialo solo si el niño va más adelante o necesita algo más sencillo.',
-            style: const TextStyle(color: PilasColors.tintaSuave),
+            'Según su edad, verá los juegos de ${AgeBandX.forAge(_edad).label} (${AgeBandX.forAge(_edad).schoolLabel.toLowerCase()}). Cámbialo solo si el niño va más adelante o necesita algo más sencillo.',
+            style: TextStyle(color: pal.tintaSuave),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -189,13 +205,15 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           ),
           const SizedBox(height: 12),
           SwitchListTile(
+            key: const ValueKey<String>('perfil-zurdo'),
             value: _zurdo,
             onChanged: (bool v) => setState(() => _zurdo = v),
             title: const Text(S.zurdo),
+            subtitle: const Text(S.zurdoDetalle),
             contentPadding: EdgeInsets.zero,
           ),
           const SizedBox(height: 24),
-          FilledButton(onPressed: _guardar, child: const Text(S.guardar)),
+          FilledButton(key: const ValueKey<String>('perfil-guardar'), onPressed: _guardar, child: const Text(S.guardar)),
         ],
       ),
     );

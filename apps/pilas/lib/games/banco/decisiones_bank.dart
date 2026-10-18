@@ -1,15 +1,22 @@
 import '../../model/age_band.dart';
 import 'bank_generator.dart';
 
-/// Historias con decisiones: situaciones cotidianas con tres salidas. La
-/// explicación siempre dice por qué la mejor opción cuida a uno y a los demás.
+/// Historias con decisiones: situaciones cotidianas con una salida que cuida
+/// a todos y dos que no. La explicación siempre dice por qué.
 /// Turnos y acuerdos (5-6), seguridad (7-8), equipo y pantallas (9-11).
 class DecisionesBank {
   DecisionesBank._();
 
+  /// Pistas que orientan sin descartar ninguna opción.
+  static const Map<AgeBand, String> pistaGeneral = <AgeBand, String>{
+    AgeBand.b5a6: 'Piensa qué opción cuida a todos y deja contentos a los dos.',
+    AgeBand.b7a8: 'Piensa qué opción te mantiene seguro y a quién le puedes pedir ayuda.',
+    AgeBand.b9a11: 'Piensa qué pasaría después con cada opción y cuál cuida a todos.',
+  };
+
   static const List<BankQuestion> all = <BankQuestion>[
     // ---------------------------------------------------------- 5 a 6: turnos, compartir, calmarse
-    BankQuestion(AgeBand.b5a6, 1, 'Los dos quieren el columpio al mismo tiempo. ¿Qué haces?', <String>['propones turnos: primero uno y luego el otro', 'lo empujas para subir tú', 'te vas llorando'], 0, 'Con turnos los dos se columpian y siguen siendo amigos.', emojis: <String>['1f91d', '1f4a5', '1f622'], promptEmoji: '1f6dd'),
+    BankQuestion(AgeBand.b5a6, 1, 'Los dos quieren el columpio al mismo tiempo. ¿Qué haces?', <String>['propones turnos: primero uno y luego el otro', 'lo empujas para subir tú', 'te vas llorando'], 0, 'Con turnos los dos se columpian y siguen siendo amigos.', emojis: <String>['1f91d', '1f4a5', '1f622']),
     BankQuestion(AgeBand.b5a6, 1, 'Tu amiga está armando una torre y tú quieres los mismos bloques. ¿Qué haces?', <String>['se los quitas', 'le pides algunos y arman juntos', 'tumbas la torre'], 1, 'Pedir y construir juntos hace el juego más divertido para los dos.', emojis: <String>['1f44a', '1f91d', '1f4a5'], promptEmoji: '1f9f1'),
     BankQuestion(AgeBand.b5a6, 1, 'Quieres jugar con un juguete que es de tu hermano. ¿Qué haces?', <String>['lo tomas sin decir nada', 'lo escondes para después', 'le pides permiso'], 2, 'Pedir permiso muestra respeto por las cosas de los demás, y casi siempre te dicen que sí.', emojis: <String>['1f92b', '1f648', '1f64b'], promptEmoji: '1f9f8'),
     BankQuestion(AgeBand.b5a6, 2, 'Estás muy bravo porque perdiste en el juego. ¿Qué te ayuda a calmarte?', <String>['respirar hondo tres veces', 'gritarle a los demás', 'tirar las fichas'], 0, 'Respirar lento le avisa al cuerpo que ya puede calmarse; después puedes hablar.', emojis: <String>['1f32c', '1f621', '1f4a5'], promptEmoji: '1f621'),
@@ -19,7 +26,7 @@ class DecisionesBank {
     BankQuestion(AgeBand.b5a6, 3, 'Te toca esperar en la fila y la fila es larga. ¿Qué haces?', <String>['te cuelas adelante', 'esperas tu turno y mientras juegas a contar', 'empujas a los de adelante'], 1, 'Esperar el turno es justo para todos; contar o cantar hace que la espera pase más rápido.', emojis: <String>['1f3c3', '1f9d1', '1f4a5'], promptEmoji: '1f6b6'),
     BankQuestion(AgeBand.b5a6, 3, 'Tu amigo está llorando porque se cayó. ¿Qué haces?', <String>['te ríes', 'sigues jugando', 'le preguntas si está bien y llamas a un adulto'], 2, 'Acompañar y avisar a un adulto es lo que un buen amigo hace.', emojis: <String>['1f602', '26bd', '1f64b'], promptEmoji: '1f622'),
     BankQuestion(AgeBand.b5a6, 4, 'En el juego de mesa, tu hermanita se equivoca de casilla. ¿Qué haces?', <String>['le explicas con calma cómo se juega', 'le gritas que es tonta', 'guardas el juego'], 0, 'Explicar con paciencia hace que todos aprendan y el juego siga.', emojis: <String>['1f4ac', '1f621', '1f4e6'], promptEmoji: '1f3b2'),
-    BankQuestion(AgeBand.b5a6, 4, 'Quieres seguir viendo televisión pero tu mamá dice que ya es hora de dormir. ¿Qué haces?', <String>['te escondes el control', 'apagas y pides ver mañana', 'gritas hasta que te deje'], 1, 'Dormir a tiempo cuida tu cuerpo; pedir con calma funciona mejor que gritar.', emojis: <String>['1f648', '1f634', '1f621'], promptEmoji: '1f4fa'),
+    BankQuestion(AgeBand.b5a6, 4, 'Quieres seguir viendo televisión, pero tu mamá dice que ya es hora de dormir. ¿Qué haces?', <String>['escondes el control', 'apagas y pides ver mañana', 'gritas hasta que te deje'], 1, 'Dormir a tiempo cuida tu cuerpo; pedir con calma funciona mejor que gritar.', emojis: <String>['1f648', '1f634', '1f621'], promptEmoji: '1f4fa'),
     BankQuestion(AgeBand.b5a6, 4, 'Dos amigos pelean por quién va primero en el tobogán. ¿Qué les propones?', <String>['que se peguen', 'que ninguno suba', 'que lo decidan con piedra, papel o tijera'], 2, 'Un juego de azar justo resuelve la pelea rápido y los dos aceptan el resultado.', emojis: <String>['1f44a', '1f6ab', '270c'], promptEmoji: '1f6dd'),
 
     // ---------------------------------------------------------- 7 a 8: seguridad en casa, calle e internet
@@ -41,7 +48,7 @@ class DecisionesBank {
     BankQuestion(AgeBand.b9a11, 1, 'Tu compañera propone una idea que a ti no te gusta. ¿Qué haces?', <String>['dices que es una tontería', 'escuchas hasta el final y explicas tu punto con argumentos', 'te callas y haces lo tuyo'], 1, 'Escuchar y argumentar con respeto permite llegar a mejores ideas que las de uno solo.'),
     BankQuestion(AgeBand.b9a11, 1, 'Tu equipo perdió el partido por un error tuyo. ¿Qué haces?', <String>['culpas al árbitro', 'te vas sin despedirte', 'lo reconoces, pides disculpas y propones entrenar esa jugada'], 2, 'Reconocer el error y buscar cómo mejorar es lo que hace a un buen compañero de equipo.'),
     BankQuestion(AgeBand.b9a11, 2, 'Llevas dos horas en el celular y tu mamá te pide dejarlo. ¿Qué haces?', <String>['lo dejas y haces otra cosa; puedes acordar un horario', 'discutes y sigues jugando', 'lo escondes y sigues en el baño'], 0, 'Las pantallas sin límite quitan sueño, ejercicio y tiempo con otros; acordar horarios evita peleas.'),
-    BankQuestion(AgeBand.b9a11, 2, 'Un amigo te pide tu contraseña del juego "para ayudarte a subir de nivel". ¿Qué haces?', <String>['se la das porque es tu amigo', 'no se la das: las contraseñas no se comparten con nadie', 'se la das pero la cambias después'], 1, 'Las contraseñas son personales, incluso con amigos; solo tus papás pueden conocerlas.'),
+    BankQuestion(AgeBand.b9a11, 2, 'Un amigo te pide tu contraseña del juego "para ayudarte a subir de nivel". ¿Qué haces?', <String>['se la das porque es tu amigo', 'no se la das: las contraseñas no se comparten con nadie', 'se la das, pero la cambias después'], 1, 'Las contraseñas son personales, incluso con amigos; solo tus papás pueden conocerlas.'),
     BankQuestion(AgeBand.b9a11, 2, 'En el grupo de chat empiezan a burlarse de un compañero con memes. ¿Qué haces?', <String>['mandas uno también para encajar', 'solo miras sin decir nada', 'no participas, le escribes al compañero y avisas a un adulto'], 2, 'El acoso en línea duele igual que el presencial; no participar y apoyar a la persona marca la diferencia.'),
     BankQuestion(AgeBand.b9a11, 3, 'Alguien que no conoces te manda un mensaje muy amable y te pide fotos tuyas. ¿Qué haces?', <String>['no mandas nada, bloqueas y cuentas a tus papás', 'mandas una foto donde no se vea tu cara', 'preguntas primero quién es'], 0, 'Nadie que te quiera bien te pide fotos por internet; bloquear y contar es lo correcto.'),
     BankQuestion(AgeBand.b9a11, 3, 'Ves una noticia impresionante en redes y quieres compartirla. ¿Qué haces antes?', <String>['la compartes rápido para ser el primero', 'revisas si sale en medios confiables y quién la publicó', 'le cambias el título para que sea más llamativa'], 1, 'Mucho de lo que circula es falso; verificar antes de compartir evita engañar a otros.'),

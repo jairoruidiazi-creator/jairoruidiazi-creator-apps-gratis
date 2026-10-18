@@ -17,9 +17,17 @@ const String _corazon = '1fac0';
 const String _pulmones = '1fac1';
 const String _hueso = '1f9b4';
 
-/// Arma el cuerpo: partes, sentidos, órganos y sistemas.
+/// El cuerpo humano: partes, sentidos, órganos y sistemas.
 class CuerpoBank {
   CuerpoBank._();
+
+  /// Pistas que orientan sin descartar ninguna opción.
+  static const Map<AgeBand, String> pistaGeneral = <AgeBand, String>{
+    AgeBand.b3a4: 'Señala en tu propio cuerpo la parte que usas para eso.',
+    AgeBand.b5a6: 'Piensa qué parte de tu cuerpo usas para sentir eso.',
+    AgeBand.b7a8: 'Piensa dónde está ese órgano y qué trabajo hace en el cuerpo.',
+    AgeBand.b9a11: 'Recuerda qué hace cada sistema y qué órganos trabajan juntos.',
+  };
 
   static const List<BankQuestion> all = <BankQuestion>[
     // ---------------------------------------------------------- 3 a 4: partes y para qué sirven
@@ -51,18 +59,18 @@ class CuerpoBank {
     BankQuestion(AgeBand.b5a6, 4, '¿Qué parte del cuerpo bombea la sangre?', <String>['los pulmones', 'el cerebro', 'el corazón'], 2, 'El corazón bombea la sangre a todo el cuerpo.', emojis: <String>[_pulmones, _cerebro, _corazon]),
 
     // ---------------------------------------------------------- 7 a 8: órganos
-    BankQuestion(AgeBand.b7a8, 1, '¿Qué órgano bombea la sangre a todo el cuerpo?', <String>['el corazón', 'el estómago', 'el cerebro'], 0, 'El corazón es un músculo que late unas 90 veces por minuto en un niño.', emojis: <String>[_corazon, '1f372', _cerebro]),
-    BankQuestion(AgeBand.b7a8, 1, '¿Con qué órganos respiramos?', <String>['los riñones', 'los pulmones', 'los huesos'], 1, 'Los pulmones toman el oxígeno del aire y sacan el dióxido de carbono.', emojis: <String>['1fa78', _pulmones, _hueso]),
-    BankQuestion(AgeBand.b7a8, 1, '¿Dónde se mezcla la comida con los jugos que la deshacen?', <String>['en el corazón', 'en los pulmones', 'en el estómago'], 2, 'En el estómago la comida se mezcla con jugos gástricos y se deshace.', emojis: <String>[_corazon, _pulmones, '1f372']),
-    BankQuestion(AgeBand.b7a8, 2, '¿Qué protege al cerebro?', <String>['el cráneo', 'las costillas', 'la piel'], 0, 'El cráneo es el hueso que rodea y protege el cerebro.', emojis: <String>['1f480', _hueso, _mano]),
-    BankQuestion(AgeBand.b7a8, 2, '¿Qué huesos protegen el corazón y los pulmones?', <String>['los de las piernas', 'las costillas', 'los dedos'], 1, 'Las costillas forman una jaula que protege el corazón y los pulmones.', emojis: <String>[_pierna, _hueso, _mano]),
-    BankQuestion(AgeBand.b7a8, 2, '¿Qué órgano es el más grande del cuerpo?', <String>['el corazón', 'el cerebro', 'la piel'], 2, 'La piel cubre todo el cuerpo: es el órgano más grande y nos protege.', emojis: <String>[_corazon, _cerebro, _mano]),
-    BankQuestion(AgeBand.b7a8, 3, '¿Qué hacen los músculos?', <String>['mueven los huesos', 'digieren la comida', 'limpian la sangre'], 0, 'Los músculos se acortan y tiran de los huesos para movernos.', emojis: <String>[_brazo, '1f372', '1fa78']),
-    BankQuestion(AgeBand.b7a8, 3, '¿Qué pasa cuando se caen los dientes de leche?', <String>['se caen para siempre', 'dejan espacio a los dientes definitivos', 'vuelven a salir iguales'], 1, 'Los dientes de leche se caen para dar espacio a los dientes definitivos, que duran toda la vida.', emojis: <String>['274c', _diente, '1f504']),
-    BankQuestion(AgeBand.b7a8, 3, '¿Por qué nos late más rápido el corazón cuando corremos?', <String>['porque tenemos miedo', 'porque hace calor', 'porque los músculos necesitan más oxígeno'], 2, 'Al correr, los músculos piden más oxígeno y el corazón bombea más rápido para llevárselo.', emojis: <String>['1f628', '1f975', _corazon]),
-    BankQuestion(AgeBand.b7a8, 4, '¿Qué órgano limpia la sangre y produce la orina?', <String>['los riñones', 'los pulmones', 'el estómago'], 0, 'Los riñones filtran la sangre y sacan los desechos en la orina.', emojis: <String>['1fa78', _pulmones, '1f372']),
-    BankQuestion(AgeBand.b7a8, 4, '¿Para qué sirve la saliva?', <String>['para que la comida sepa dulce', 'para empezar a deshacer la comida y tragarla', 'para enfriar la boca'], 1, 'La saliva humedece la comida y empieza la digestión en la boca.', emojis: <String>['1f36c', _boca, '1f9ca']),
-    BankQuestion(AgeBand.b7a8, 4, '¿Qué órgano recibe la información de los cinco sentidos?', <String>['el corazón', 'el estómago', 'el cerebro'], 2, 'Los sentidos envían señales por los nervios hasta el cerebro.', emojis: <String>[_corazon, '1f372', _cerebro]),
+    BankQuestion(AgeBand.b7a8, 1, '¿Qué órgano bombea la sangre a todo el cuerpo?', <String>['el corazón', 'el estómago', 'el cerebro'], 0, 'El corazón es un músculo que late unas 90 veces por minuto en un niño.'),
+    BankQuestion(AgeBand.b7a8, 1, '¿Con qué órganos respiramos?', <String>['los riñones', 'los pulmones', 'los huesos'], 1, 'Los pulmones toman el oxígeno del aire y sacan el dióxido de carbono.'),
+    BankQuestion(AgeBand.b7a8, 1, '¿Dónde se mezcla la comida con los jugos que la deshacen?', <String>['en el corazón', 'en los pulmones', 'en el estómago'], 2, 'En el estómago la comida se mezcla con jugos gástricos y se deshace.'),
+    BankQuestion(AgeBand.b7a8, 2, '¿Qué protege al cerebro?', <String>['el cráneo', 'las costillas', 'la piel'], 0, 'El cráneo es el hueso que rodea y protege el cerebro.'),
+    BankQuestion(AgeBand.b7a8, 2, '¿Qué huesos protegen el corazón y los pulmones?', <String>['los de las piernas', 'las costillas', 'los dedos'], 1, 'Las costillas forman una jaula que protege el corazón y los pulmones.'),
+    BankQuestion(AgeBand.b7a8, 2, '¿Qué órgano es el más grande del cuerpo?', <String>['el corazón', 'el cerebro', 'la piel'], 2, 'La piel cubre todo el cuerpo: es el órgano más grande y nos protege.'),
+    BankQuestion(AgeBand.b7a8, 3, '¿Qué hacen los músculos?', <String>['mueven los huesos', 'digieren la comida', 'limpian la sangre'], 0, 'Los músculos se acortan y tiran de los huesos para movernos.'),
+    BankQuestion(AgeBand.b7a8, 3, '¿Qué pasa cuando se caen los dientes de leche?', <String>['se caen para siempre', 'dejan espacio a los dientes definitivos', 'vuelven a salir iguales'], 1, 'Los dientes de leche se caen para dar espacio a los dientes definitivos, que duran toda la vida.'),
+    BankQuestion(AgeBand.b7a8, 3, '¿Por qué nos late más rápido el corazón cuando corremos?', <String>['porque tenemos miedo', 'porque hace calor', 'porque los músculos necesitan más oxígeno'], 2, 'Al correr, los músculos piden más oxígeno y el corazón bombea más rápido para llevárselo.'),
+    BankQuestion(AgeBand.b7a8, 4, '¿Qué órgano limpia la sangre y produce la orina?', <String>['los riñones', 'los pulmones', 'el estómago'], 0, 'Los riñones filtran la sangre y sacan los desechos en la orina.'),
+    BankQuestion(AgeBand.b7a8, 4, '¿Para qué sirve la saliva?', <String>['para que la comida sepa dulce', 'para empezar a deshacer la comida y tragarla', 'para enfriar la boca'], 1, 'La saliva humedece la comida y empieza la digestión en la boca.'),
+    BankQuestion(AgeBand.b7a8, 4, '¿Qué órgano recibe la información de los cinco sentidos?', <String>['el corazón', 'el estómago', 'el cerebro'], 2, 'Los sentidos envían señales por los nervios hasta el cerebro.'),
 
     // ---------------------------------------------------------- 9 a 11: sistemas y cuidado
     BankQuestion(AgeBand.b9a11, 1, '¿A qué sistema pertenecen el corazón y las venas?', <String>['circulatorio', 'digestivo', 'respiratorio'], 0, 'El sistema circulatorio lleva la sangre por el cuerpo: corazón, arterias y venas.'),

@@ -3,24 +3,29 @@ import 'package:flutter/widgets.dart';
 import 'app_state.dart';
 import 'settings.dart';
 import 'sfx.dart';
+import 'share.dart';
 import 'speech.dart';
 import 'storage.dart';
 
 /// Servicios compartidos por toda la app.
 class Services {
-  const Services({
+  Services({
     required this.settings,
     required this.voice,
     required this.sfx,
     required this.store,
     required this.state,
-  });
+    Sharer? sharer,
+  }) : sharer = sharer ?? Sharer();
 
   final AppSettings settings;
   final Voice voice;
   final Sfx sfx;
   final JsonStore store;
   final AppState state;
+
+  /// Hoja de compartir del sistema.
+  final Sharer sharer;
 }
 
 /// Pone los servicios al alcance del árbol y reconstruye cuando cambia el estado.

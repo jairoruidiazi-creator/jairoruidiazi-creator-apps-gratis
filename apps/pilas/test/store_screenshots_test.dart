@@ -22,6 +22,7 @@ import 'package:pilas/core/speech.dart';
 import 'package:pilas/core/storage.dart';
 import 'package:pilas/engine/game_def.dart';
 import 'package:pilas/engine/game_registry.dart';
+import 'package:pilas/games/colorear/colorear_screen.dart';
 import 'package:pilas/games/colorear/coloring_painter.dart';
 import 'package:pilas/model/profile.dart';
 import 'package:pilas/ui/kid_home_screen.dart';
@@ -60,34 +61,29 @@ Future<void> _openGame(WidgetTester tester, AppState state, String id, Profile p
   await _open(tester, (BuildContext context) => game.build(context, GameLaunch(game: game, band: p.band, profile: p)));
 }
 
-/// Pinta casi toda la lámina abierta con los colores de sus números (deja
-/// [leave] zonas sin pintar para que se vea el modo por números).
+/// Pinta casi toda la lámina abierta con los colores de sus números, también
+/// las zonas blancas (deja sin pintar las [leave] últimas zonas de color, para
+/// que se vea el modo por números). Toca la pantalla como lo haría un niño:
+/// elige el color y toca cada zona.
 Future<void> _colorIn(WidgetTester tester, {int leave = 3}) async {
   final Finder canvas = find.byWidgetPredicate((Widget w) => w is CustomPaint && w.painter is ColoringPainter);
   final CustomPaint paint = tester.widget<CustomPaint>(canvas.first);
-  final ColoringLayout layout = (paint.painter! as ColoringPainter).layout;
+  final ColoringPage page = (paint.painter! as ColoringPainter).layout.page;
   final RenderBox box = tester.renderObject<RenderBox>(canvas.first);
-  final Size size = box.size;
-  final Rect vb = layout.page.viewBox;
-  final double scale = (size.width / vb.width) < (size.height / vb.height) ? size.width / vb.width : size.height / vb.height;
-  final double dx = (size.width - vb.width * scale) / 2 - vb.left * scale;
-  final double dy = (size.height - vb.height * scale) / 2 - vb.top * scale;
-  final List<Color> palette = layout.page.palette;
-  final int last = layout.page.regions.length - leave;
+  final List<Color> palette = ColoringSession.numberPalette(page);
+  final Set<String> sinPintar = page.regions.where((ColoringRegion r) => r.targetColor != Colors.white).map((ColoringRegion r) => r.id).toList().reversed.take(leave).toSet();
   for (int c = 0; c < palette.length; c++) {
-    final Finder swatch = find.byWidgetPredicate((Widget w) => w is Semantics && w.properties.label == 'color número ${c + 1}');
+    final Finder swatch = find.byKey(ValueKey<String>('color-$c'));
     if (swatch.evaluate().isEmpty) {
       continue;
     }
     await tester.tap(swatch.first, warnIfMissed: false);
     await tester.pump(const Duration(milliseconds: 200));
-    for (int i = 0; i < last; i++) {
-      final ColoringRegion r = layout.page.regions[i];
-      if (r.targetColor != palette[c]) {
+    for (final ColoringRegion r in page.regions) {
+      if (r.number != c + 1 || sinPintar.contains(r.id)) {
         continue;
       }
-      final Offset pagePoint = layout.labelPoint(r);
-      final Offset local = Offset(pagePoint.dx * scale + dx, pagePoint.dy * scale + dy);
+      final Offset local = ColoringLayout.toCanvas(page.viewBox, box.size, ColoringLayout.of(page).labelPoint(r));
       await tester.tapAt(box.localToGlobal(local));
       await tester.pump(const Duration(milliseconds: 60));
     }

@@ -8,6 +8,7 @@ import '../../core/sfx.dart';
 import '../../engine/game_def.dart';
 import '../../engine/round_engine.dart';
 import '../../model/age_band.dart';
+import '../choice/choice_body.dart';
 import 'game_frame.dart';
 import 'tile_order_board.dart';
 
@@ -19,6 +20,7 @@ class OrderRound {
     required this.explain,
     required this.ordered,
     required this.shuffled,
+    this.alternatives = const <List<String>>[],
     this.spoken,
     this.praise,
     this.prompt,
@@ -38,7 +40,12 @@ class OrderRound {
   final String explain;
   final String? praise;
   final WidgetBuilder? prompt;
+
+  /// Fichas en el orden que se muestra al explicar.
   final List<OrderTile> ordered;
+
+  /// Otros órdenes que también son correctos, como listas de valores.
+  final List<List<String>> alternatives;
   final List<OrderTile> shuffled;
   final double tileSize;
   final List<String>? slotLabels;
@@ -46,6 +53,12 @@ class OrderRound {
 
   /// Qué decir al colocar cada ficha (por defecto, su etiqueta).
   final String Function(OrderTile tile, int index)? sayOnPlaced;
+
+  /// Todos los órdenes válidos (el principal primero).
+  List<List<String>> get validOrders => <List<String>>[
+        <String>[for (final OrderTile t in ordered) t.value],
+        ...alternatives,
+      ];
 }
 
 typedef OrderRoundBuilder = OrderRound Function(Rng rng, AgeBand band, int level);
@@ -114,12 +127,12 @@ class _OrderGameScreenState extends State<OrderGameScreen> {
     }
   }
 
-  void _onWrong(OrderTile tapped, OrderTile expected, int errors) {
+  void _onWrong(OrderTile tapped, int errors) {
     final OrderRound? r = _round;
     if (r == null) {
       return;
     }
-    _engine.wrong(hint: r.hint, explain: r.explain);
+    unawaited(_engine.wrong(hint: r.hint, explain: r.explain));
   }
 
   void _onComplete(int errors) {
@@ -127,7 +140,7 @@ class _OrderGameScreenState extends State<OrderGameScreen> {
     if (r == null) {
       return;
     }
-    _engine.correct(praise: r.praise);
+    unawaited(_engine.correct(praise: r.praise));
   }
 
   @override
@@ -147,29 +160,44 @@ class _OrderGameScreenState extends State<OrderGameScreen> {
       onRepeat: r == null ? null : () => AppScope.read(context).voice.sayLater(r.spoken ?? r.instruction),
       child: r == null
           ? const SizedBox.shrink()
-          : Column(
-              children: <Widget>[
-                if (r.prompt != null)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                    child: Center(child: r.prompt!(context)),
+          : LayoutBuilder(builder: (BuildContext context, BoxConstraints c) {
+              final Widget board = TileOrderBoard(
+                key: ValueKey<int>(_engine.roundNumber),
+                validOrders: r.validOrders,
+                shuffled: r.shuffled,
+                tileSize: r.tileSize,
+                slotLabels: r.slotLabels,
+                separator: r.separator,
+                enabled: !_engine.busy,
+                onPlaced: _onPlaced,
+                onWrong: _onWrong,
+                onComplete: _onComplete,
+              );
+              if (r.prompt == null) {
+                return board;
+              }
+              final bool wide = c.maxWidth > c.maxHeight * 1.3;
+              if (wide) {
+                return Row(
+                  children: <Widget>[
+                    SizedBox(
+                      width: c.maxWidth * 0.28,
+                      child: Padding(padding: const EdgeInsets.fromLTRB(12, 4, 0, 12), child: Center(child: FitPrompt(builder: r.prompt!))),
+                    ),
+                    Expanded(child: board),
+                  ],
+                );
+              }
+              return Column(
+                children: <Widget>[
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: c.maxHeight * 0.3),
+                    child: Padding(padding: const EdgeInsets.fromLTRB(16, 4, 16, 8), child: Center(child: FitPrompt(builder: r.prompt!))),
                   ),
-                Expanded(
-                  child: TileOrderBoard(
-                    key: ValueKey<int>(_engine.roundNumber),
-                    ordered: r.ordered,
-                    shuffled: r.shuffled,
-                    tileSize: r.tileSize,
-                    slotLabels: r.slotLabels,
-                    separator: r.separator,
-                    enabled: !_engine.busy,
-                    onPlaced: _onPlaced,
-                    onWrong: _onWrong,
-                    onComplete: _onComplete,
-                  ),
-                ),
-              ],
-            ),
+                  Expanded(child: board),
+                ],
+              );
+            }),
     );
   }
 }

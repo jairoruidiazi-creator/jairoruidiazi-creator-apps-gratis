@@ -3,15 +3,18 @@ description: "Pilas: juegos didácticos gratuitos, sin anuncios y sin cuenta, pa
 publish_to: "none"
 version: 1.0.0+1
 
+# Versiones mínimas reales: las que exigen los paquetes fijados en
+# pubspec.lock (la CI compila con Flutter 3.47.7 y Dart 3.13.5).
 environment:
-  sdk: ">=3.4.0 <4.0.0"
-  flutter: ">=3.22.0"
+  sdk: ">=3.13.0 <4.0.0"
+  flutter: ">=3.47.0"
 
 dependencies:
   flutter:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  clock: ^1.1.1
   collection: ^1.18.0
   flutter_svg: ^2.0.10
   flutter_tts: ^4.0.2
@@ -19,8 +22,11 @@ dependencies:
   path_provider: ^2.1.3
   shared_preferences: ^2.2.3
   pdf: ^3.11.0
-  printing: ^5.13.0
-  share_plus: ^11.0.0
+  # 13.3.1 o posterior: pasa el origen de la hoja de compartir que exigen el
+  # iPad y el iPhone compilado con Xcode 26.
+  share_plus: ^13.3.1
+  # Elegir el archivo exportado al importar datos en el modo docente.
+  file_selector: ^1.0.3
 
 dev_dependencies:
   flutter_test:

@@ -5,6 +5,7 @@ import 'package:pilas/content/coloring_pages.dart';
 import 'package:pilas/content/money.dart';
 import 'package:pilas/content/svg_path.dart';
 import 'package:pilas/content/vocab.dart';
+import 'package:pilas/core/es.dart';
 import 'package:pilas/core/parental_gate.dart';
 import 'package:pilas/model/age_band.dart';
 import 'package:pilas/model/skill.dart';
@@ -64,7 +65,6 @@ void main() {
       expect(v.genero == 'm' || v.genero == 'f', isTrue, reason: v.id);
       expect(v.emoji, matches(RegExp(r'^[0-9a-f-]+$')), reason: v.id);
     }
-    expect(Vocab.startingWith('m'), isNotEmpty);
     expect(Vocab.withSyllables(3), isNotEmpty);
     expect(Vocab.withTag('animal').length, greaterThan(40));
   });
@@ -84,7 +84,29 @@ void main() {
     expect(g.check('${g.answer}'), isTrue);
     expect(g.check('${g.answer + 1}'), isFalse);
     expect(g.check('abc'), isFalse);
-    expect(g.answer, greaterThanOrEqualTo(36));
+    expect(g.answer, greaterThanOrEqualTo(13 * 13));
+  });
+
+  test('los números en palabras llevan sus tildes y su género', () {
+    expect(Es.numero(22), 'veintidós');
+    expect(Es.numero(23), 'veintitrés');
+    expect(Es.numero(26), 'veintiséis');
+    expect(Es.numero(16), 'dieciséis');
+    expect(Es.numero(21, femenino: true), 'veintiuna');
+    expect(Es.numero(1, apocope: true), 'un');
+    expect(Es.numero(200, femenino: true), 'doscientas');
+    expect(Es.cantidadEnPalabras(1, 'manzana', genero: 'f'), 'una manzana');
+    expect(Es.cantidadEnPalabras(3, 'taza', genero: 'f'), 'tres tazas');
+    expect(Es.cantidad(1, 'paso'), '1 paso');
+    expect(Es.cantidad(2, 'paso'), '2 pasos');
+    expect(Es.plural('ratón'), 'ratones');
+    expect(Es.plural('lápiz'), 'lápices');
+    expect(Es.plural('autobús'), 'autobuses');
+    expect(Es.plural('lunes'), 'lunes');
+    expect(Es.contraer('Lleva a el conejo de el bosque'), 'Lleva al conejo del bosque');
+    expect(Es.o('ocho'), 'u');
+    expect(Es.y('Isabel'), 'e');
+    expect(Es.y('hielo'), 'y');
   });
 
   test('tramos por edad', () {

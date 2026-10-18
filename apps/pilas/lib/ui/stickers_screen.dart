@@ -18,6 +18,7 @@ class StickersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Services s = AppScope.of(context);
+    final PilasPalette pal = PilasPalette.of(context);
     final Profile? p = s.state.current;
     final ProfileProgress? prog = p == null ? null : s.state.progressOf(p.id);
     final List<StickerAward> stickers = prog?.stickers ?? <StickerAward>[];
@@ -33,7 +34,7 @@ class StickersScreen extends StatelessWidget {
           children: <Widget>[
             EmojiImage(area.emoji, size: 28),
             const SizedBox(width: 8),
-            Text(area.nombre, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: area.color)),
+            Expanded(child: Text(area.nombre, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: pal.areaTexto(area)))),
           ],
         ),
       ));
@@ -45,17 +46,18 @@ class StickersScreen extends StatelessWidget {
           children: <Widget>[
             for (final StickerAward st in deArea)
               Semantics(
-                label: '${GameRegistry.byId(st.gameId)?.nombre ?? st.gameId}, nivel ${st.level}',
+                label: 'Pegatina de ${GameRegistry.byId(st.gameId)?.nombre ?? st.gameId}, nivel ${st.level}',
+                excludeSemantics: true,
                 child: Container(
-                  width: 96,
+                  width: 104,
                   padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: PilasColors.borde, width: 2)),
+                  decoration: BoxDecoration(color: pal.tarjeta, borderRadius: BorderRadius.circular(20), border: Border.all(color: pal.altoContraste ? pal.bordeFuerte : pal.borde, width: 2)),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       EmojiImage(st.emoji, size: 56),
                       const SizedBox(height: 4),
-                      Text(_nombreCorto(st), textAlign: TextAlign.center, maxLines: 2, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: PilasColors.tintaSuave)),
+                      Text(_nombreCorto(st), textAlign: TextAlign.center, maxLines: 3, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: pal.tintaSuave)),
                     ],
                   ),
                 ),
@@ -68,7 +70,7 @@ class StickersScreen extends StatelessWidget {
       appBar: AppBar(title: Text('${S.misPegatinas} (${stickers.length})')),
       body: stickers.isEmpty
           ? Center(
-              child: Padding(
+              child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -78,7 +80,7 @@ class StickersScreen extends StatelessWidget {
                     Text(
                       p == null || p.band.readsText ? 'Completa un nivel de cualquier juego para ganar tu primera pegatina.' : '¡Juega para ganar pegatinas!',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: pal.tinta),
                     ),
                   ],
                 ),
@@ -90,6 +92,6 @@ class StickersScreen extends StatelessWidget {
 
   String _nombreCorto(StickerAward st) {
     final GameDef? g = GameRegistry.byId(st.gameId);
-    return '${g?.nombre ?? st.gameId} · N${st.level}';
+    return '${g?.nombre ?? st.gameId} · nivel ${st.level}';
   }
 }

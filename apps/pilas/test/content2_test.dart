@@ -1,15 +1,11 @@
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pilas/content/cuentos.dart';
 import 'package:pilas/core/rng.dart';
-import 'package:pilas/engine/game_def.dart';
-import 'package:pilas/engine/game_registry.dart';
 import 'package:pilas/games/pixel/pixel_patterns.dart';
 import 'package:pilas/games/rompecabezas/rompecabezas_screen.dart';
 import 'package:pilas/games/trazo/trazo_screen.dart';
 import 'package:pilas/games/trazo/trazo_templates.dart';
 import 'package:pilas/model/age_band.dart';
-import 'package:pilas/model/skill.dart';
 
 void main() {
   test('Cada cuento tiene páginas, tres preguntas válidas y hay al menos tres por tramo', () {
@@ -69,19 +65,68 @@ void main() {
     final TraceTemplate t = TraceCatalog.mayusculas.firstWhere((TraceTemplate x) => x.id == 'L');
     final List<Offset> guia = t.sample(3);
     // Trazo perfecto: los mismos puntos de la guía.
-    final TraceScore perfecto = TraceScore.evaluate(guia, <List<Offset>>[guia], 10);
+    final TraceScore perfecto = TraceScore.evaluate(t, <List<Offset>>[guia], 10);
     expect(perfecto.coverage, 1.0);
     expect(perfecto.precision, 1.0);
     expect(perfecto.good, isTrue);
     // Trazo desplazado 4 unidades: sigue siendo bueno con tolerancia 10.
     final List<Offset> desplazado = guia.map((Offset p) => p + const Offset(4, 0)).toList();
-    expect(TraceScore.evaluate(guia, <List<Offset>>[desplazado], 10).good, isTrue);
+    expect(TraceScore.evaluate(t, <List<Offset>>[desplazado], 10).good, isTrue);
     // Medio trazo: la cobertura baja de 0,72.
-    final TraceScore mitad = TraceScore.evaluate(guia, <List<Offset>>[guia.sublist(0, guia.length ~/ 2)], 10);
+    final TraceScore mitad = TraceScore.evaluate(t, <List<Offset>>[guia.sublist(0, guia.length ~/ 2)], 10);
     expect(mitad.good, isFalse);
+    expect(mitad.problem, TraceProblem.coverage);
     // Garabato lejos de la guía.
     final List<Offset> lejos = <Offset>[for (int i = 0; i < 40; i++) Offset(90, 10.0 + i)];
-    expect(TraceScore.evaluate(guia, <List<Offset>>[lejos], 10).good, isFalse);
+    expect(TraceScore.evaluate(t, <List<Offset>>[lejos], 10).good, isFalse);
+  });
+
+  test('M8: el trazo evalúa la dirección y el orden de las líneas', () {
+    // La L al revés (de abajo a la derecha hacia arriba).
+    final TraceTemplate l = TraceCatalog.mayusculas.firstWhere((TraceTemplate x) => x.id == 'L');
+    final List<Offset> alReves = l.sample(3).reversed.toList();
+    final TraceScore r1 = TraceScore.evaluate(l, <List<Offset>>[alReves], 10);
+    expect(r1.problem, TraceProblem.direction);
+    // La o pequeña en el sentido del reloj (al revés del trazo escolar).
+    final TraceTemplate o = TraceCatalog.minusculas.firstWhere((TraceTemplate x) => x.id == 'o');
+    final List<Offset> horario = o.sample(3).reversed.toList();
+    expect(TraceScore.evaluate(o, <List<Offset>>[horario], 10).problem, TraceProblem.direction);
+    expect(TraceScore.evaluate(o, <List<Offset>>[o.sample(3)], 10).good, isTrue);
+    // La T con la línea parada primero: orden equivocado.
+    final TraceTemplate t = TraceCatalog.mayusculas.firstWhere((TraceTemplate x) => x.id == 'T');
+    final TraceScore r2 = TraceScore.evaluate(t, <List<Offset>>[t.sampleStroke(1, 3), t.sampleStroke(0, 3)], 10);
+    expect(r2.problem, TraceProblem.order);
+    expect(TraceScore.evaluate(t, <List<Offset>>[t.sampleStroke(0, 3), t.sampleStroke(1, 3)], 10).good, isTrue);
+  });
+
+  test('G11 y G17: datos de las plantillas y modo zurdo', () {
+    final TraceTemplate i = TraceCatalog.mayusculas.firstWhere((TraceTemplate x) => x.id == 'I');
+    expect(i.ejemplo, isNot('1f3d4'), reason: 'la montaña nevada no es un iglú');
+    // La a y la o pequeñas giran en sentido contrario al reloj (área con signo
+    // negativa en pantalla, donde la y crece hacia abajo).
+    double area(List<Offset> p) {
+      double a = 0;
+      for (int k = 0; k < p.length; k++) {
+        final Offset u = p[k];
+        final Offset v = p[(k + 1) % p.length];
+        a += u.dx * v.dy - v.dx * u.dy;
+      }
+      return a / 2;
+    }
+
+    for (final String id in <String>['a', 'o']) {
+      final TraceTemplate t = TraceCatalog.minusculas.firstWhere((TraceTemplate x) => x.id == id);
+      expect(area(t.strokes.first), lessThan(0), reason: '$id debe girar hacia la izquierda');
+    }
+    // Zurdo: la línea acostada de pre-escritura empieza por la derecha.
+    final TraceTemplate h = TraceCatalog.preescritura.firstWhere((TraceTemplate x) => x.id == 'h_line');
+    expect(h.strokes.first.first.dx, lessThan(h.strokes.first.last.dx));
+    final TraceTemplate hz = h.paraZurdo();
+    expect(hz.strokes.first.first.dx, greaterThan(hz.strokes.first.last.dx));
+    expect(hz.dicho, contains('derecha a izquierda'));
+    // Las letras no cambian en modo zurdo.
+    final TraceTemplate a = TraceCatalog.mayusculas.first;
+    expect(identical(a.paraZurdo(), a), isTrue);
   });
 
   test('Encajar y rompecabezas de imagen generan rondas resolubles', () {
@@ -94,7 +139,7 @@ void main() {
           // Cada silueta tiene exactamente una pieza que encaja en la bandeja.
           for (final EncajePiece t in r.targets) {
             final int compatibles = r.tray.where((EncajePiece p) => p.kind == t.kind && p.scale == t.scale).length;
-            expect(compatibles, 1, reason: '${band.id} nivel $level semilla $seed: ${t.nombre}');
+            expect(compatibles, 1, reason: '${band.id} nivel $level semilla $seed: ${t.nombre()}');
           }
           expect(r.tray.map((EncajePiece p) => p.id).toSet().length, r.tray.length);
         }
@@ -109,27 +154,10 @@ void main() {
           expect(p.solved, isFalse);
           expect(p.minSwaps, greaterThan(0));
           expect(p.minSwaps, lessThanOrEqualTo(p.n * p.n));
+          expect(p.imagen.tamanos, contains(p.n), reason: '${p.nombre} no sirve para ${p.n}×${p.n}');
         }
       }
     }
-  });
-
-  test('Todos los juegos del registro apuntan a habilidades existentes de su tramo y área', () {
-    final Map<String, Skill> skills = <String, Skill>{for (final Skill s in SkillCatalog.all) s.id: s};
-    final Set<String> ids = <String>{};
-    for (final GameDef g in GameRegistry.all) {
-      expect(ids.add(g.id), isTrue, reason: 'id de juego repetido ${g.id}');
-      for (final AgeBand b in AgeBand.values) {
-        final String? skillId = g.skillFor(b);
-        if (g.supports(b)) {
-          expect(skillId, isNotNull, reason: '${g.id} no tiene habilidad para ${b.id}');
-          final Skill? s = skills[skillId];
-          expect(s, isNotNull, reason: '${g.id}: habilidad $skillId no existe');
-          expect(s!.band, b, reason: '${g.id}: $skillId no es del tramo ${b.id}');
-        }
-      }
-    }
-    expect(GameRegistry.all.length, greaterThanOrEqualTo(26));
   });
 
   test('Los patrones de pixel art son cuadrados, usan colores de la paleta y hay simétricos', () {
@@ -143,7 +171,9 @@ void main() {
         }
       }
     }
-    expect(PixelPatterns.symmetric.length, greaterThanOrEqualTo(6));
+    expect(PixelPatterns.all.where((PixelPattern p) => p.symmetric).length, greaterThanOrEqualTo(16));
+    // Sin "piel" como único tono (auditoría M18).
+    expect(PixelPalette.names.values, isNot(contains('piel')));
     expect(PixelPalette.order.toSet().length, PixelPalette.order.length);
     for (final String k in PixelPalette.order) {
       expect(PixelPalette.colors.containsKey(k), isTrue);

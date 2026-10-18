@@ -1,10 +1,19 @@
 import '../../core/rng.dart';
 import '../../model/age_band.dart';
 
+/// Un juego de símbolos para el sudoku de dibujos: el pictograma y su nombre
+/// (para la voz y para el lector de pantalla).
+class SudokuSymbols {
+  const SudokuSymbols(this.emojis, this.nombres);
+
+  final List<String> emojis;
+  final List<String> nombres;
+}
+
 /// Tablero de sudoku de 4×4, 6×6 o 9×9. Los valores van de 1 a [size];
 /// 0 es casilla vacía.
 class SudokuBoard {
-  SudokuBoard._({required this.size, required this.boxRows, required this.boxCols, required this.solution, required this.given, required this.emojis});
+  SudokuBoard._({required this.size, required this.boxRows, required this.boxCols, required this.solution, required this.given, required this.symbols});
 
   final int size;
 
@@ -17,10 +26,10 @@ class SudokuBoard {
   final List<int> given;
   late final List<int> cells = List<int>.from(given);
 
-  /// Pictogramas para los símbolos (vacío = se usan números).
-  final List<String> emojis;
+  /// Pictogramas para los símbolos (null = se usan números).
+  final SudokuSymbols? symbols;
 
-  bool get usesEmoji => emojis.isNotEmpty;
+  bool get usesEmoji => symbols != null;
 
   int index(int r, int c) => r * size + c;
 
@@ -28,19 +37,27 @@ class SudokuBoard {
 
   bool get complete => !cells.contains(0);
 
-  /// Si hay un valor repetido en la fila, la columna o la región de [i]
-  /// (sin contar la casilla misma).
-  bool conflicts(int i, int value) {
+  /// Pictograma del valor (solo en el sudoku de dibujos).
+  String emojiOf(int value) => symbols!.emojis[value - 1];
+
+  /// Nombre del valor: "manzana" o "3".
+  String nombre(int value) => value <= 0 ? '' : (usesEmoji ? symbols!.nombres[value - 1] : '$value');
+
+  /// La casilla de la fila, la columna o la región de [i] que ya tiene
+  /// [value] (sin contar la casilla misma), o null si no hay choque.
+  int? conflictCell(int i, int value) {
     final int r = i ~/ size;
     final int c = i % size;
     for (int k = 0; k < size; k++) {
       final int ri = index(r, k);
-      final int ci = index(k, c);
       if (ri != i && cells[ri] == value) {
-        return true;
+        return ri;
       }
+    }
+    for (int k = 0; k < size; k++) {
+      final int ci = index(k, c);
       if (ci != i && cells[ci] == value) {
-        return true;
+        return ci;
       }
     }
     final int br = (r ~/ boxRows) * boxRows;
@@ -49,39 +66,49 @@ class SudokuBoard {
       for (int cc = bc; cc < bc + boxCols; cc++) {
         final int bi = index(rr, cc);
         if (bi != i && cells[bi] == value) {
-          return true;
+          return bi;
         }
       }
     }
-    return false;
+    return null;
   }
 
-  /// Dónde está el conflicto, para la pista: 'fila', 'columna' o 'región'.
-  String conflictPlace(int i, int value) {
-    final int r = i ~/ size;
-    final int c = i % size;
-    for (int k = 0; k < size; k++) {
-      if (index(r, k) != i && cells[index(r, k)] == value) {
-        return 'fila';
-      }
+  bool conflicts(int i, int value) => conflictCell(i, value) != null;
+
+  /// Dónde está el choque, para la pista: 'fila', 'columna' o 'región'.
+  String conflictPlace(int i, int other) {
+    if (i ~/ size == other ~/ size) {
+      return 'fila';
     }
-    for (int k = 0; k < size; k++) {
-      if (index(k, c) != i && cells[index(k, c)] == value) {
-        return 'columna';
-      }
+    if (i % size == other % size) {
+      return 'columna';
     }
     return 'región';
   }
 
-  String label(int value) => value <= 0 ? '' : (usesEmoji ? emojis[value - 1] : '$value');
+  /// Valores que caben en la casilla vacía [i] con lo que hay en el tablero.
+  List<int> candidates(int i) => <int>[for (int v = 1; v <= size; v++) if (!conflicts(i, v)) v];
+
+  /// Una casilla vacía en la que ya no cabe nada (callejón sin salida), o null.
+  int? deadEndCell() {
+    for (int i = 0; i < cells.length; i++) {
+      if (cells[i] == 0 && candidates(i).isEmpty) {
+        return i;
+      }
+    }
+    return null;
+  }
+
+  /// Casillas que puso el niño y que no coinciden con la solución.
+  List<int> wrongCells() => <int>[for (int i = 0; i < cells.length; i++) if (!isGiven(i) && cells[i] != 0 && cells[i] != solution[i]) i];
 
   // ------------------------------------------------------------ generación
 
-  static const List<List<String>> _emojiSets = <List<String>>[
-    <String>['1f34e', '1f34c', '1f347', '1f353'], // frutas
-    <String>['1f408', '1f415', '1f407', '1f41f'], // animales
-    <String>['2600', '1f319', '2b50', '2601'], // cielo
-    <String>['1f697', '1f6b2', '1f6a4', '2708'], // transporte
+  static const List<SudokuSymbols> symbolSets = <SudokuSymbols>[
+    SudokuSymbols(<String>['1f34e', '1f34c', '1f347', '1f353'], <String>['manzana', 'banano', 'uvas', 'fresa']),
+    SudokuSymbols(<String>['1f408', '1f415', '1f407', '1f41f'], <String>['gato', 'perro', 'conejo', 'pez']),
+    SudokuSymbols(<String>['2600', '1f319', '2b50', '2601'], <String>['sol', 'luna', 'estrella', 'nube']),
+    SudokuSymbols(<String>['1f697', '1f6b2', '1f6a4', '2708'], <String>['carro', 'bicicleta', 'lancha', 'avión']),
   ];
 
   static int sizeFor(AgeBand band, int level) {
@@ -108,9 +135,12 @@ class SudokuBoard {
     }
   }
 
+  /// Dibujos en los dos primeros niveles de 4×4; números en el resto.
+  static bool emojiFor(AgeBand band, int level) => sizeFor(band, level) == 4 && level <= 2;
+
   static SudokuBoard generate(Rng rng, AgeBand band, int level) {
     final int size = sizeFor(band, level);
-    final int boxRows = size == 9 ? 3 : (size == 6 ? 2 : 2);
+    final int boxRows = size == 9 ? 3 : 2;
     final int boxCols = size == 9 ? 3 : (size == 6 ? 3 : 2);
     // Solución base por desplazamiento y mezcla de símbolos, filas y columnas.
     final List<int> symbols = <int>[for (int i = 1; i <= size; i++) i];
@@ -138,20 +168,19 @@ class SudokuBoard {
       }
       final int backup = given[i];
       given[i] = 0;
-      if (_countSolutions(given, size, boxRows, boxCols, 2) == 1) {
+      if (countSolutions(given, size, boxRows, boxCols, 2) == 1) {
         remaining -= 1;
       } else {
         given[i] = backup;
       }
     }
-    final bool emoji = size == 4 && level <= 2;
     return SudokuBoard._(
       size: size,
       boxRows: boxRows,
       boxCols: boxCols,
       solution: solution,
       given: given,
-      emojis: emoji ? rng.pick(_emojiSets) : const <String>[],
+      symbols: emojiFor(band, level) ? rng.pick(symbolSets) : null,
     );
   }
 
@@ -190,7 +219,7 @@ class SudokuBoard {
 
   /// Cuenta soluciones hasta [cap], eligiendo siempre la casilla con menos
   /// candidatos para que el conteo sea rápido incluso en 9×9.
-  static int _countSolutions(List<int> grid, int size, int boxRows, int boxCols, int cap) {
+  static int countSolutions(List<int> grid, int size, int boxRows, int boxCols, int cap) {
     int best = -1;
     List<int> bestCands = const <int>[];
     for (int i = 0; i < grid.length; i++) {
@@ -220,7 +249,7 @@ class SudokuBoard {
     int count = 0;
     for (final int v in bestCands) {
       grid[best] = v;
-      count += _countSolutions(grid, size, boxRows, boxCols, cap - count);
+      count += countSolutions(grid, size, boxRows, boxCols, cap - count);
       grid[best] = 0;
       if (count >= cap) {
         return count;

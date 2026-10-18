@@ -1,26 +1,41 @@
 import 'dart:collection';
 
+import '../../core/es.dart';
 import '../../core/rng.dart';
 import '../../model/age_band.dart';
 
 /// Un personaje y lo que busca, para dar sentido al laberinto.
 class MazeTheme {
-  const MazeTheme(this.heroe, this.heroeNombre, this.meta, this.metaNombre);
+  const MazeTheme(this.heroe, this.heroeNombre, this.heroeGenero, this.meta, this.metaNombre, this.metaGenero);
 
   final String heroe;
   final String heroeNombre;
+  final String heroeGenero;
   final String meta;
   final String metaNombre;
+  final String metaGenero;
+
+  /// "el conejo", "la abeja".
+  String get heroeConArticulo => '${Es.articulo(heroeGenero)} $heroeNombre';
+
+  /// "al conejo", "a la abeja".
+  String get aHeroe => Es.aEl(heroeGenero, heroeNombre);
+
+  /// "la zanahoria", "el mar".
+  String get metaConArticulo => '${Es.articulo(metaGenero)} $metaNombre';
+
+  /// "a la zanahoria", "al mar".
+  String get aMeta => Es.aEl(metaGenero, metaNombre);
 
   static const List<MazeTheme> all = <MazeTheme>[
-    MazeTheme('1f407', 'el conejo', '1f955', 'la zanahoria'),
-    MazeTheme('1f415', 'el perro', '1f9b4', 'el hueso'),
-    MazeTheme('1f41d', 'la abeja', '1f33b', 'la flor'),
-    MazeTheme('1f408', 'el gato', '1f41f', 'el pescado'),
-    MazeTheme('1f9d2', 'el niño', '1f3e1', 'la casa'),
-    MazeTheme('1f412', 'el mono', '1f34c', 'el banano'),
-    MazeTheme('1f422', 'la tortuga', '1f30a', 'el mar'),
-    MazeTheme('1f680', 'el cohete', '1f319', 'la luna'),
+    MazeTheme('1f407', 'conejo', 'm', '1f955', 'zanahoria', 'f'),
+    MazeTheme('1f415', 'perro', 'm', '1f9b4', 'hueso', 'm'),
+    MazeTheme('1f41d', 'abeja', 'f', '1f33b', 'flor', 'f'),
+    MazeTheme('1f408', 'gato', 'm', '1f41f', 'pescado', 'm'),
+    MazeTheme('1f9d2', 'niño', 'm', '1f3e1', 'casa', 'f'),
+    MazeTheme('1f412', 'mono', 'm', '1f34c', 'banano', 'm'),
+    MazeTheme('1f422', 'tortuga', 'f', '1f30a', 'mar', 'm'),
+    MazeTheme('1f680', 'cohete', 'm', '1f319', 'luna', 'f'),
   ];
 }
 
@@ -107,18 +122,47 @@ class Maze {
   /// Pasos mínimos para resolverlo (pasando por la llave si la hay).
   int get optimalSteps => keyCell < 0 ? shortest(start, goal) : shortest(start, keyCell) + shortest(keyCell, goal);
 
-  static int sizeFor(AgeBand band, int level) {
-    switch (band) {
-      case AgeBand.b3a4:
-        return <int>[3, 4, 4, 5][level - 1];
-      case AgeBand.b5a6:
-        return <int>[5, 6, 7, 8][level - 1];
-      case AgeBand.b7a8:
-        return <int>[8, 9, 10, 11][level - 1];
-      case AgeBand.b9a11:
-        return <int>[11, 12, 13, 15][level - 1];
-    }
+  /// Columnas y filas (acostado) de cada tramo y nivel. Los laberintos son
+  /// rectangulares para que en un teléfono, de pie o acostado, cada casilla
+  /// mida al menos 24 dp: de pie se muestran girados (filas por columnas), que
+  /// es el mismo laberinto con el mismo camino.
+  static List<int> sizeFor(AgeBand band, int level) {
+    const Map<AgeBand, List<List<int>>> tamanos = <AgeBand, List<List<int>>>{
+      AgeBand.b3a4: <List<int>>[<int>[3, 3], <int>[4, 4], <int>[5, 4], <int>[6, 4]],
+      AgeBand.b5a6: <List<int>>[<int>[6, 4], <int>[7, 5], <int>[8, 6], <int>[9, 7]],
+      AgeBand.b7a8: <List<int>>[<int>[9, 7], <int>[10, 8], <int>[12, 8], <int>[13, 9]],
+      AgeBand.b9a11: <List<int>>[<int>[13, 9], <int>[14, 10], <int>[15, 11], <int>[16, 12]],
+    };
+    return tamanos[band]![(level - 1).clamp(0, 3).toInt()];
   }
+
+  /// El mismo laberinto girado: la columna pasa a ser fila. La salida sigue
+  /// arriba a la izquierda y la meta abajo a la derecha.
+  Maze transposed() {
+    final List<int> muros = List<int>.filled(cols * rows, 0);
+    for (int i = 0; i < cols * rows; i++) {
+      int bits = 0;
+      // Al girar, el norte pasa a ser el oeste y el este pasa a ser el sur.
+      if (hasWall(i, n)) {
+        bits |= w;
+      }
+      if (hasWall(i, w)) {
+        bits |= n;
+      }
+      if (hasWall(i, s)) {
+        bits |= e;
+      }
+      if (hasWall(i, e)) {
+        bits |= s;
+      }
+      muros[transposeIndex(i)] = bits;
+    }
+    return Maze._(rows, cols, muros, theme, keyCell: keyCell < 0 ? -1 : transposeIndex(keyCell));
+  }
+
+  /// Índice de una celda en el laberinto girado.
+  int transposeIndex(int i) => colOf(i) * rows + rowOf(i);
+
 
   static bool keyFor(AgeBand band, int level) => (band == AgeBand.b7a8 && level >= 3) || (band == AgeBand.b9a11 && level >= 2);
 
@@ -126,9 +170,9 @@ class Maze {
   /// algoritmo de retroceso. Para los más pequeños se abren algunas paredes
   /// extra, para que haya menos callejones sin salida.
   static Maze generate(Rng rng, AgeBand band, int level) {
-    final int size = sizeFor(band, level);
-    final int cols = size;
-    final int rows = size;
+    final List<int> size = sizeFor(band, level);
+    final int cols = size[0];
+    final int rows = size[1];
     final List<int> walls = List<int>.filled(cols * rows, n | e | s | w);
     final List<bool> visited = List<bool>.filled(cols * rows, false);
     final List<int> stack = <int>[0];

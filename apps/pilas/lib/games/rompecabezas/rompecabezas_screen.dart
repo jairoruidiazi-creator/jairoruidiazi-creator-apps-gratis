@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
+import '../../core/es.dart';
 import '../../core/rng.dart';
 import '../../core/sfx.dart';
 import '../../core/theme.dart';
@@ -14,22 +16,35 @@ import '../shell/widgets.dart';
 
 /// Pieza de encajar: una figura con color y tamaño.
 class EncajePiece {
-  const EncajePiece(this.id, this.kind, this.color, this.scale, this.nombre);
+  const EncajePiece(this.id, this.kind, this.color, this.scale);
 
   final String id;
   final ShapeKind kind;
   final NamedColor color;
   final double scale;
-  final String nombre;
+
+  bool get pequena => scale < 1;
+
+  /// "estrella pequeña", "círculo grande", "cuadrado".
+  String nombre({bool conTamano = false}) {
+    if (!conTamano) {
+      return nombreForma(kind);
+    }
+    final bool f = generoForma(kind) == 'f';
+    return '${nombreForma(kind)} ${pequena ? (f ? 'pequeña' : 'pequeño') : 'grande'}';
+  }
 }
 
 /// Ronda de encajar: siluetas (en orden) y piezas en la bandeja (con distractores).
 class EncajeRound {
-  const EncajeRound({required this.targets, required this.tray, required this.descripcion});
+  const EncajeRound({required this.targets, required this.tray, required this.descripcion, required this.porTamano});
 
   final List<EncajePiece> targets;
   final List<EncajePiece> tray;
   final String descripcion;
+
+  /// Si hay figuras iguales en dos tamaños (hay que fijarse en el tamaño).
+  final bool porTamano;
 
   static const List<ShapeKind> kinds = <ShapeKind>[ShapeKind.circle, ShapeKind.square, ShapeKind.triangle, ShapeKind.star, ShapeKind.heart, ShapeKind.hexagon, ShapeKind.rectangle, ShapeKind.oval];
 
@@ -47,43 +62,59 @@ class EncajeRound {
       for (final ShapeKind k in ks) {
         for (final double sc in <double>[1.0, 0.62]) {
           if (targets.length < n) {
-            final NamedColor c = rng.pick(NamedColor.basicos);
-            targets.add(EncajePiece('t$i', k, c, sc, '${nombreForma(k)} ${sc < 1 ? 'pequeño' : 'grande'}'));
+            targets.add(EncajePiece('t$i', k, rng.pick(NamedColor.basicos), sc));
             i += 1;
           }
         }
       }
       for (int d = 0; d < distractores; d++) {
         final ShapeKind k = rng.pick(kinds.where((ShapeKind x) => !ks.contains(x)).toList());
-        extra.add(EncajePiece('d$d', k, rng.pick(NamedColor.basicos), 1.0, nombreForma(k)));
+        extra.add(EncajePiece('d$d', k, rng.pick(NamedColor.basicos), 1.0));
       }
     } else {
       for (int i = 0; i < n; i++) {
-        final ShapeKind k = ks[i];
-        targets.add(EncajePiece('t$i', k, rng.pick(NamedColor.basicos), 1.0, nombreForma(k)));
+        targets.add(EncajePiece('t$i', ks[i], rng.pick(NamedColor.basicos), 1.0));
       }
       for (int d = 0; d < distractores; d++) {
-        final ShapeKind k = ks[n + d];
-        extra.add(EncajePiece('d$d', k, rng.pick(NamedColor.basicos), 1.0, nombreForma(k)));
+        extra.add(EncajePiece('d$d', ks[n + d], rng.pick(NamedColor.basicos), 1.0));
       }
     }
     final List<EncajePiece> tray = <EncajePiece>[...targets, ...extra];
     rng.shuffle(tray);
-    return EncajeRound(targets: targets, tray: tray, descripcion: 'Arrastra cada figura hasta su silueta.');
+    return EncajeRound(targets: targets, tray: tray, porTamano: porTamano, descripcion: 'Pon cada figura en su silueta: tócala y luego toca la silueta, o arrástrala.');
   }
+}
+
+/// Una imagen para armar y los tamaños de rompecabezas en los que todas sus
+/// fichas se ven distintas (revisado con test/rompecabezas_test.dart: ninguna
+/// ficha vacía o igual a otra, para que no se vea armada sin estarlo).
+class ImagenPuzzle {
+  const ImagenPuzzle(this.emoji, this.nombre, this.tamanos);
+
+  final String emoji;
+
+  /// Con artículo: "un parque", "el planeta Tierra".
+  final String nombre;
+  final List<int> tamanos;
 }
 
 /// Rompecabezas de imagen: fichas de una imagen que se intercambian tocando dos.
 class SwapPuzzle {
-  SwapPuzzle({required this.n, required this.emoji, required this.nombre, required this.order});
+  SwapPuzzle({required this.n, required this.imagen, required this.order}) : minInicial = _minSwaps(order);
 
   final int n;
-  final String emoji;
-  final String nombre;
+  final ImagenPuzzle imagen;
 
   /// order[pos] = índice de la ficha que está en esa posición.
   final List<int> order;
+
+  /// Intercambios mínimos al empezar.
+  final int minInicial;
   int swaps = 0;
+
+  String get emoji => imagen.emoji;
+
+  String get nombre => imagen.nombre;
 
   bool get solved {
     for (int i = 0; i < order.length; i++) {
@@ -94,23 +125,38 @@ class SwapPuzzle {
     return true;
   }
 
-  static const List<List<String>> imagenes = <List<String>>[
-    <String>['1f3de', 'un parque'],
-    <String>['1f305', 'un amanecer'],
-    <String>['1f3d6', 'una playa'],
-    <String>['1f30b', 'un volcán'],
-    <String>['1f3a1', 'una rueda de Chicago'],
-    <String>['1f6a2', 'un barco'],
-    <String>['1f981', 'un león'],
-    <String>['1f98b', 'una mariposa'],
-    <String>['1f33b', 'un girasol'],
-    <String>['1f308', 'un arcoíris'],
-    <String>['1f3e0', 'una casa'],
-    <String>['1f69c', 'un tractor'],
-    <String>['1f419', 'un pulpo'],
-    <String>['1f99c', 'una guacamaya'],
-    <String>['1f3af', 'una diana'],
-    <String>['1f682', 'un tren'],
+  /// Se resolvió con pocos movimientos de más.
+  bool get eficiente => swaps <= minInicial + n;
+
+  static const List<ImagenPuzzle> imagenes = <ImagenPuzzle>[
+    ImagenPuzzle('1f3de', 'un parque', <int>[3, 4]),
+    ImagenPuzzle('1f3a1', 'una rueda de Chicago', <int>[3, 4]),
+    ImagenPuzzle('1f98b', 'una mariposa', <int>[3, 4, 5]),
+    ImagenPuzzle('1f33b', 'un girasol', <int>[3, 4]),
+    ImagenPuzzle('1f3af', 'un tiro al blanco', <int>[3, 4, 5]),
+    ImagenPuzzle('1f682', 'una locomotora', <int>[3, 4]),
+    ImagenPuzzle('1f304', 'un amanecer en las montañas', <int>[3, 4]),
+    ImagenPuzzle('1f303', 'una noche estrellada', <int>[3, 4]),
+    ImagenPuzzle('1f306', 'una ciudad al atardecer', <int>[3]),
+    ImagenPuzzle('1f307', 'un atardecer en la ciudad', <int>[3, 4, 5]),
+    ImagenPuzzle('1f309', 'un puente de noche', <int>[3, 4]),
+    ImagenPuzzle('1f3dd', 'una isla', <int>[3]),
+    ImagenPuzzle('1f3d5', 'un campamento', <int>[3, 4]),
+    ImagenPuzzle('1f3df', 'un estadio', <int>[3, 4]),
+    ImagenPuzzle('1f3e1', 'una casa con jardín', <int>[3, 4]),
+    ImagenPuzzle('1f5fa', 'un mapa del mundo', <int>[3, 4]),
+    ImagenPuzzle('1f3a8', 'una paleta de pintor', <int>[3, 4]),
+    ImagenPuzzle('1f382', 'una torta de cumpleaños', <int>[3]),
+    ImagenPuzzle('1f35f', 'unas papas fritas', <int>[3, 4]),
+    ImagenPuzzle('1f30d', 'el planeta Tierra', <int>[3, 4]),
+    ImagenPuzzle('1f31e', 'un sol sonriente', <int>[3, 4]),
+    ImagenPuzzle('1f31d', 'una luna llena sonriente', <int>[3]),
+    ImagenPuzzle('1f369', 'una dona', <int>[3, 4]),
+    ImagenPuzzle('1f391', 'una noche de luna', <int>[3, 4]),
+    ImagenPuzzle('1f3eb', 'un colegio', <int>[3, 4, 5]),
+    ImagenPuzzle('1f3b2', 'un dado', <int>[3, 4]),
+    ImagenPuzzle('26bd', 'un balón', <int>[3, 4, 5]),
+    ImagenPuzzle('1f3d0', 'un balón de voleibol', <int>[3, 4]),
   ];
 
   static int sizeFor(AgeBand band, int level) {
@@ -122,7 +168,7 @@ class SwapPuzzle {
 
   static SwapPuzzle generate(Rng rng, AgeBand band, int level) {
     final int n = sizeFor(band, level);
-    final List<String> img = rng.pick(imagenes);
+    final ImagenPuzzle img = rng.pick(imagenes.where((ImagenPuzzle i) => i.tamanos.contains(n)).toList());
     final List<int> order = <int>[for (int i = 0; i < n * n; i++) i];
     // Mezcla con un número limitado de intercambios para que sea resoluble en pocos pasos.
     final int mezclas = level <= 1 ? n + 1 : n * 2 + level;
@@ -133,16 +179,16 @@ class SwapPuzzle {
       order[a] = order[b];
       order[b] = t;
     }
-    if (order.every((int v) => order.indexOf(v) == v)) {
+    if (_minSwaps(order) == 0) {
       final int t = order[0];
       order[0] = order[1];
       order[1] = t;
     }
-    return SwapPuzzle(n: n, emoji: img[0], nombre: img[1], order: order);
+    return SwapPuzzle(n: n, imagen: img, order: order);
   }
 
-  /// Intercambios mínimos: n − ciclos de la permutación.
-  int get minSwaps {
+  /// Intercambios mínimos: fichas − ciclos de la permutación.
+  static int _minSwaps(List<int> order) {
     final List<bool> seen = List<bool>.filled(order.length, false);
     int cycles = 0;
     for (int i = 0; i < order.length; i++) {
@@ -158,9 +204,11 @@ class SwapPuzzle {
     }
     return order.length - cycles;
   }
+
+  int get minSwaps => _minSwaps(order);
 }
 
-/// Tangram y rompecabezas: encajar siluetas (3 a 6 años) y armar imágenes
+/// Rompecabezas: encajar siluetas (3 a 6 años) y armar imágenes
 /// intercambiando fichas (primaria).
 class RompecabezasScreen extends StatefulWidget {
   const RompecabezasScreen({super.key, required this.launch});
@@ -177,6 +225,7 @@ class _RompecabezasScreenState extends State<RompecabezasScreen> {
   EncajeRound? _encaje;
   SwapPuzzle? _puzzle;
   final Set<String> _placed = <String>{};
+  String? _pieceSelected;
   int _errors = 0;
   int _selected = -1;
   bool _started = false;
@@ -213,6 +262,7 @@ class _RompecabezasScreenState extends State<RompecabezasScreen> {
     }
     setState(() {
       _placed.clear();
+      _pieceSelected = null;
       _errors = 0;
       _selected = -1;
       if (_modoEncaje) {
@@ -222,7 +272,7 @@ class _RompecabezasScreenState extends State<RompecabezasScreen> {
       } else {
         _puzzle = SwapPuzzle.generate(_rng, widget.launch.band, _engine.level);
         _encaje = null;
-        _instruction = 'Arma la imagen de ${_puzzle!.nombre}: toca dos fichas para intercambiarlas.';
+        _instruction = Es.contraer('Arma la imagen de ${_puzzle!.nombre}: toca dos fichas para intercambiarlas.');
       }
     });
     _engine.startRound();
@@ -232,104 +282,171 @@ class _RompecabezasScreenState extends State<RompecabezasScreen> {
   // ------------------------------------------------------------ encajar
 
   void _drop(EncajePiece target, EncajePiece piece) {
+    final EncajeRound? r = _encaje;
+    if (r == null || _placed.contains(target.id) || _engine.busy) {
+      return;
+    }
     final Services s = AppScope.read(context);
     final bool ok = piece.kind == target.kind && piece.scale == target.scale;
+    setState(() => _pieceSelected = null);
     if (!ok) {
       _errors += 1;
       unawaited(s.sfx.play(SfxId.hint));
-      final String porque = piece.kind == target.kind ? 'Es la misma figura pero de otro tamaño.' : 'Mira los lados y las puntas: esa silueta es de ${target.nombre}.';
+      final String porque = piece.kind == target.kind
+          ? 'Es la misma figura, pero de otro tamaño.'
+          : 'Mira los lados y las puntas: esa silueta es de ${Es.articulo(generoForma(target.kind), definido: false)} ${nombreForma(target.kind)}.';
       s.voice.sayLater('Ahí no encaja. $porque');
       return;
     }
     unawaited(s.sfx.play(SfxId.pop));
-    s.voice.sayLater('${_cap(piece.nombre)}.');
-    setState(() => _placed.add(piece.id));
-    if (_placed.length == _encaje!.targets.length) {
+    s.voice.sayLater('${Es.cap(piece.nombre(conTamano: r.porTamano))}.');
+    setState(() => _placed.add(target.id));
+    if (_placed.length == r.targets.length) {
       final bool bien = _errors <= 1;
-      _engine.finishBoard(success: bien, message: bien ? '¡Todas las figuras en su lugar!' : '¡Lo lograste! Fíjate en las puntas y los lados antes de soltar la pieza.');
+      unawaited(_engine.finishBoard(success: bien, message: bien ? '¡Todas las figuras en su lugar!' : '¡Lo lograste! Fíjate en las puntas, los lados y el tamaño antes de soltar la pieza.'));
     }
   }
 
-  String _cap(String t) => t.isEmpty ? t : t[0].toUpperCase() + t.substring(1);
+  void _tapPiece(EncajePiece p) {
+    if (_engine.busy) {
+      return;
+    }
+    unawaited(AppScope.read(context).sfx.play(SfxId.tap));
+    setState(() => _pieceSelected = _pieceSelected == p.id ? null : p.id);
+    AppScope.read(context).voice.sayLater(p.nombre(conTamano: _encaje?.porTamano ?? false));
+  }
+
+  void _tapSilhouette(EncajePiece target) {
+    final EncajeRound? r = _encaje;
+    final String? sel = _pieceSelected;
+    if (r == null || sel == null) {
+      return;
+    }
+    final EncajePiece piece = r.tray.firstWhere((EncajePiece p) => p.id == sel);
+    _drop(target, piece);
+  }
+
+  bool _pieceUsed(EncajeRound r, EncajePiece p) {
+    // Una pieza queda usada si su silueta (la que encaja) ya está llena con
+    // ella: las piezas de la bandeja y las siluetas se emparejan por forma y tamaño.
+    for (final EncajePiece t in r.targets) {
+      if (_placed.contains(t.id) && t.kind == p.kind && t.scale == p.scale) {
+        final int usadas = r.targets.where((EncajePiece x) => _placed.contains(x.id) && x.kind == p.kind && x.scale == p.scale).length;
+        final List<EncajePiece> iguales = r.tray.where((EncajePiece x) => x.kind == p.kind && x.scale == p.scale).toList();
+        return iguales.indexOf(p) < usadas;
+      }
+    }
+    return false;
+  }
 
   Widget _buildEncaje(EncajeRound r) {
+    final PilasPalette pal = PilasPalette.of(context);
     return LayoutBuilder(builder: (BuildContext context, BoxConstraints c) {
+      final bool wide = c.maxWidth > c.maxHeight * 1.2;
       final int n = r.targets.length;
-      final double maxW = (c.maxWidth - 32) / (n <= 3 ? n : ((n + 1) ~/ 2));
-      final double size = maxW.clamp(64.0, 120.0).toDouble();
-      return Column(
-        children: <Widget>[
-          Expanded(
-            flex: 5,
-            child: Container(
-              margin: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Dim.radio), border: Border.all(color: PilasColors.borde, width: 2)),
-              child: Center(
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 14,
-                  runSpacing: 14,
-                  children: <Widget>[
-                    for (final EncajePiece t in r.targets)
-                      DragTarget<EncajePiece>(
-                        onWillAcceptWithDetails: (DragTargetDetails<EncajePiece> d) => !_placed.contains(t.id),
-                        onAcceptWithDetails: (DragTargetDetails<EncajePiece> d) => _drop(t, d.data),
-                        builder: (BuildContext context, List<EncajePiece?> cand, List<dynamic> rej) {
-                          final bool done = _placed.contains(t.id);
-                          return Container(
-                            width: size,
-                            height: size,
-                            decoration: BoxDecoration(
-                              color: cand.isNotEmpty ? PilasColors.amarillo.withValues(alpha: 0.25) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
+      final double areaW = wide ? c.maxWidth * 0.55 : c.maxWidth;
+      final double areaH = wide ? c.maxHeight : c.maxHeight * 0.55;
+      final int perRow = n <= 3 ? n : ((n + 1) ~/ 2);
+      final int rows = (n / perRow).ceil();
+      final double size = math.min((areaW - 48 - (perRow - 1) * 14) / perRow, (areaH - 48 - (rows - 1) * 14) / rows).clamp(56.0, 130.0).toDouble();
+      final Widget siluetas = Container(
+        margin: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: pal.tarjeta, borderRadius: BorderRadius.circular(Dim.radio), border: Border.all(color: pal.altoContraste ? pal.bordeFuerte : pal.borde, width: 2)),
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: SizedBox(
+              width: perRow * size + (perRow - 1) * 14,
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 14,
+                runSpacing: 14,
+                children: <Widget>[
+                  for (final EncajePiece t in r.targets)
+                    DragTarget<EncajePiece>(
+                      onWillAcceptWithDetails: (DragTargetDetails<EncajePiece> d) => !_placed.contains(t.id),
+                      onAcceptWithDetails: (DragTargetDetails<EncajePiece> d) => _drop(t, d.data),
+                      builder: (BuildContext context, List<EncajePiece?> cand, List<dynamic> rej) {
+                        final bool done = _placed.contains(t.id);
+                        return Semantics(
+                          button: !done,
+                          label: done ? '${t.nombre(conTamano: r.porTamano)}, en su lugar' : 'Silueta de ${Es.articulo(generoForma(t.kind), definido: false)} ${t.nombre(conTamano: r.porTamano)}',
+                          excludeSemantics: true,
+                          child: GestureDetector(
+                            onTap: () => _tapSilhouette(t),
+                            child: Container(
+                              width: size,
+                              height: size,
+                              decoration: BoxDecoration(
+                                color: cand.isNotEmpty || (_pieceSelected != null && !done) ? pal.pistaClaro : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Center(
+                                child: done
+                                    ? ShapeIcon(kind: t.kind, color: t.color.color, size: size * 0.85 * t.scale, mark: t.color.mark)
+                                    : CustomPaint(size: Size.square(size * 0.85 * t.scale), painter: ShapePainter(t.kind, pal.silueta, edge: pal.silueta)),
+                              ),
                             ),
-                            child: Center(
-                              child: done
-                                  ? ShapeIcon(kind: t.kind, color: t.color.color, size: size * 0.85 * t.scale)
-                                  : ShapeIcon(kind: t.kind, color: const Color(0xFFCFCAC0), size: size * 0.85 * t.scale),
-                            ),
-                          );
-                        },
-                      ),
-                  ],
-                ),
+                          ),
+                        );
+                      },
+                    ),
+                ],
               ),
             ),
           ),
-          Expanded(
-            flex: 4,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: Center(
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: <Widget>[
-                    for (final EncajePiece p in r.tray)
-                      if (!_placed.contains(p.id))
-                        Draggable<EncajePiece>(
-                          data: p,
-                          maxSimultaneousDrags: _engine.busy ? 0 : 1,
-                          feedback: ShapeIcon(kind: p.kind, color: p.color.color, size: size * 0.85 * p.scale),
-                          childWhenDragging: Opacity(opacity: 0.25, child: ShapeIcon(kind: p.kind, color: p.color.color, size: size * 0.85 * p.scale)),
-                          child: Semantics(
-                            label: p.nombre,
-                            child: SizedBox(
-                              width: size * 0.9,
-                              height: size * 0.9,
-                              child: Center(child: ShapeIcon(kind: p.kind, color: p.color.color, size: size * 0.85 * p.scale)),
+        ),
+      );
+      final Widget bandeja = Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: SizedBox(
+              width: math.max(areaW - 24, size),
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 12,
+                runSpacing: 12,
+                children: <Widget>[
+                  for (final EncajePiece p in r.tray)
+                    if (!_pieceUsed(r, p))
+                      Draggable<EncajePiece>(
+                        data: p,
+                        maxSimultaneousDrags: _engine.busy ? 0 : 1,
+                        feedback: ShapeIcon(kind: p.kind, color: p.color.color, size: size * 0.85 * p.scale, mark: p.color.mark),
+                        childWhenDragging: Opacity(opacity: 0.25, child: ShapeIcon(kind: p.kind, color: p.color.color, size: size * 0.85 * p.scale, mark: p.color.mark)),
+                        child: Semantics(
+                          button: true,
+                          selected: _pieceSelected == p.id,
+                          label: 'Pieza: ${p.nombre(conTamano: r.porTamano)}',
+                          excludeSemantics: true,
+                          child: GestureDetector(
+                            onTap: () => _tapPiece(p),
+                            child: Container(
+                              width: math.max(size * 0.95, 56),
+                              height: math.max(size * 0.95, 56),
+                              decoration: BoxDecoration(
+                                color: _pieceSelected == p.id ? pal.acentoClaro : Colors.transparent,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: _pieceSelected == p.id ? pal.acento : Colors.transparent, width: 3),
+                              ),
+                              child: Center(child: ShapeIcon(kind: p.kind, color: p.color.color, size: size * 0.85 * p.scale, mark: p.color.mark)),
                             ),
                           ),
                         ),
-                  ],
-                ),
+                      ),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       );
+      if (wide) {
+        return Row(children: <Widget>[Expanded(flex: 11, child: siluetas), Expanded(flex: 9, child: bandeja)]);
+      }
+      return Column(children: <Widget>[Expanded(flex: 11, child: siluetas), Expanded(flex: 9, child: bandeja)]);
     });
   }
 
@@ -359,77 +476,90 @@ class _RompecabezasScreenState extends State<RompecabezasScreen> {
       _selected = -1;
     });
     if (p.solved) {
-      final bool bien = p.swaps <= p.n * p.n;
-      _engine.finishBoard(success: bien, message: bien ? '¡Armaste ${p.nombre}!' : '¡Lo armaste! Antes de mover una ficha, piensa dónde debería quedar.');
+      final bool bien = p.eficiente;
+      unawaited(_engine.finishBoard(success: bien, message: bien ? Es.contraer('¡Armaste la imagen de ${p.nombre}!') : '¡Lo armaste! Antes de mover una ficha, piensa dónde debería quedar.'));
     }
   }
 
   Widget _buildPuzzle(SwapPuzzle p) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: <Widget>[
-          Expanded(
-            child: Center(
-              child: AspectRatio(
-                aspectRatio: 1,
-                child: LayoutBuilder(builder: (BuildContext context, BoxConstraints c) {
-                  final double side = c.maxWidth;
-                  final double tile = side / p.n;
-                  return Container(
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: PilasColors.tinta, width: 3)),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(9),
-                      child: Stack(
-                        children: <Widget>[
-                          for (int pos = 0; pos < p.order.length; pos++)
-                            Positioned(
-                              left: (pos % p.n) * tile,
-                              top: (pos ~/ p.n) * tile,
-                              width: tile,
-                              height: tile,
-                              child: GestureDetector(
-                                onTap: () => _tapTile(pos),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: _selected == pos ? PilasColors.naranja : PilasColors.borde, width: _selected == pos ? 4 : 1),
-                                    color: _selected == pos ? PilasColors.amarillo.withValues(alpha: 0.3) : Colors.white,
-                                  ),
-                                  child: ClipRect(
-                                    child: Align(
-                                      alignment: Alignment(p.n == 1 ? 0 : -1 + 2 * (p.order[pos] % p.n) / (p.n - 1), p.n == 1 ? 0 : -1 + 2 * (p.order[pos] ~/ p.n) / (p.n - 1)),
-                                      widthFactor: 1 / p.n,
-                                      heightFactor: 1 / p.n,
-                                      child: EmojiImage(p.emoji, size: side > 8 ? side - 8 : 1),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
+    final PilasPalette pal = PilasPalette.of(context);
+    return LayoutBuilder(builder: (BuildContext context, BoxConstraints c) {
+      final bool mostrarPie = c.maxHeight > 380;
+      final double side = math.min(c.maxWidth - 24, c.maxHeight - 24 - (mostrarPie ? 56 : 0));
+      final double tile = side / p.n;
+      final Widget tablero = Container(
+        key: ValueKey<String>('tablero-${p.n}x${p.n}'),
+        width: side,
+        height: side,
+        decoration: BoxDecoration(color: pal.tarjeta, borderRadius: BorderRadius.circular(12), border: Border.all(color: pal.tinta, width: 3)),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(9),
+          child: Stack(
+            children: <Widget>[
+              for (int pos = 0; pos < p.order.length; pos++)
+                Positioned(
+                  left: (pos % p.n) * tile,
+                  top: (pos ~/ p.n) * tile,
+                  width: tile,
+                  height: tile,
+                  child: Semantics(
+                    button: true,
+                    selected: _selected == pos,
+                    label: 'Ficha en la fila ${pos ~/ p.n + 1}, columna ${pos % p.n + 1}${p.order[pos] == pos ? ', en su lugar' : ''}',
+                    excludeSemantics: true,
+                    child: GestureDetector(
+                      onTap: () => _tapTile(pos),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: _selected == pos ? pal.acento : pal.borde, width: _selected == pos ? 4 : 1),
+                          color: _selected == pos ? pal.acentoClaro : Colors.white,
+                        ),
+                        child: ClipRect(
+                          child: Align(
+                            alignment: Alignment(p.n == 1 ? 0 : -1 + 2 * (p.order[pos] % p.n) / (p.n - 1), p.n == 1 ? 0 : -1 + 2 * (p.order[pos] ~/ p.n) / (p.n - 1)),
+                            widthFactor: 1 / p.n,
+                            heightFactor: 1 / p.n,
+                            child: EmojiImage(p.emoji, size: side > 8 ? side - 8 : 1),
+                          ),
+                        ),
                       ),
                     ),
-                  );
-                }),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Wrap: en un teléfono angosto el contador de 9 a 11 años baja de línea.
-          Wrap(
-            alignment: WrapAlignment.center,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 4,
-            children: <Widget>[
-              EmojiImage(p.emoji, size: 44),
-              Text('${p.swaps} cambios', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: PilasColors.tintaSuave)),
-              if (widget.launch.band == AgeBand.b9a11) Text('Faltan al menos ${p.minSwaps}', style: const TextStyle(fontSize: 16, color: PilasColors.tintaSuave)),
+                  ),
+                ),
             ],
           ),
-        ],
-      ),
-    );
+        ),
+      );
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: <Widget>[
+            Expanded(child: Center(child: tablero)),
+            if (mostrarPie) ...<Widget>[
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 48,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      EmojiImage(p.emoji, size: 44, semanticsLabel: 'Modelo: ${p.nombre}'),
+                      const SizedBox(width: 12),
+                      Text(p.swaps == 1 ? '1 cambio' : '${p.swaps} cambios', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: pal.tintaSuave)),
+                      if (widget.launch.band == AgeBand.b9a11) ...<Widget>[
+                        const SizedBox(width: 12),
+                        Text('Faltan al menos ${p.minSwaps}', style: TextStyle(fontSize: 16, color: pal.tintaSuave)),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    });
   }
 
   @override

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 
 import '../engine/game_def.dart';
@@ -15,14 +16,35 @@ import 'storage.dart';
 class RoundFeedback {
   const RoundFeedback({required this.event, required this.sticker, required this.skillId});
 
+  static const RoundFeedback none = RoundFeedback(event: MasteryEvent.none, sticker: null, skillId: null);
+
   final MasteryEvent event;
   final StickerAward? sticker;
 
-  /// Habilidad lograda en esta ronda, si se completó el último nivel del tramo.
+  /// Habilidad lograda en esta ronda, si se dominó el último nivel del tramo.
   final String? skillId;
 }
 
-/// Estado de la app: perfiles, progreso, grupos y sesión activa.
+/// Un aviso para el panel de adultos (por ejemplo, un archivo dañado).
+class StorageNotice {
+  const StorageNotice(this.texto, this.fecha);
+
+  final String texto;
+  final DateTime fecha;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{'texto': texto, 'fecha': fecha.toIso8601String()};
+
+  static StorageNotice fromJson(Map<String, dynamic> j) => StorageNotice((j['texto'] as String?) ?? '', DateTime.tryParse((j['fecha'] as String?) ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0));
+}
+
+/// Estado de la app: perfiles, progreso, grupos, sesión de juego y descanso.
+///
+/// El tiempo de juego se mide por perfil y por sesión, solo con la app en
+/// primer plano. Una sesión termina tras [sessionGap] sin jugar (app cerrada,
+/// en segundo plano o en la pantalla de perfiles). Al llegar al límite de la
+/// sesión empieza un descanso de [restLength] que se guarda en disco: cerrar y
+/// abrir la app no lo salta. Toda la hora sale de `clock` (package:clock) para
+/// poder probarlo con un reloj falso.
 class AppState extends ChangeNotifier {
   AppState(this.store);
 
@@ -31,17 +53,30 @@ class AppState extends ChangeNotifier {
   final List<ClassGroup> groups = <ClassGroup>[];
   final Map<String, ProfileProgress> _progress = <String, ProfileProgress>{};
 
+  /// Avisos de almacenamiento pendientes para el adulto.
+  final List<StorageNotice> notices = <StorageNotice>[];
+
   Profile? current;
-  SessionLog? _session;
-  Timer? _tick;
-  DateTime? _lastTick;
   bool loaded = false;
 
-  /// Minutos extra concedidos por un adulto en la sesión de hoy.
-  int extraMinutes = 0;
+  /// Límite de la sesión en minutos (0 = sin límite). La app lo enlaza a los ajustes.
+  int Function() sessionLimitMinutes = () => 0;
+
+  /// Se llama cuando el límite de la sesión hace empezar un descanso.
+  VoidCallback? onRestStarted;
+
+  static const Duration sessionGap = Duration(minutes: 10);
+  static const Duration restLength = Duration(minutes: 10);
+  static const Duration extraTime = Duration(minutes: 10);
 
   static const String _profilesFile = 'profiles.json';
   static const String _groupsFile = 'groups.json';
+  static const String _noticesFile = 'avisos.json';
+
+  bool _foreground = true;
+  DateTime? _countingSince;
+  Timer? _tick;
+  int _ticks = 0;
 
   static const List<String> stickerPool = <String>[
     '2b50', '1f31f', '1f308', '1f984', '1f98b', '1f41e', '1f338', '1f33b', '1f34e', '1f353',
@@ -52,24 +87,117 @@ class AppState extends ChangeNotifier {
 
   // ---------------------------------------------------------------- carga
 
+  /// Lee perfiles, grupos y el progreso de todos los perfiles. Nunca lanza:
+  /// lo que no se pudo leer queda como aviso para el panel de adultos.
   Future<void> load() async {
-    final Map<String, dynamic>? pj = await store.readJson(_profilesFile);
     profiles.clear();
-    if (pj != null) {
-      final List<dynamic> list = (pj['profiles'] as List<dynamic>?) ?? <dynamic>[];
-      for (final dynamic e in list) {
+    groups.clear();
+    _progress.clear();
+    notices.clear();
+    try {
+      final Map<String, dynamic>? avisos = await store.readJson(_noticesFile);
+      for (final dynamic e in (avisos?['avisos'] as List<dynamic>?) ?? <dynamic>[]) {
+        if (e is Map<String, dynamic>) {
+          notices.add(StorageNotice.fromJson(e));
+        }
+      }
+    } catch (e) {
+      debugPrint('No se pudieron leer los avisos: $e');
+    }
+    final List<StorageNotice> nuevos = <StorageNotice>[];
+
+    final JsonRead pr = await _safeRead(_profilesFile);
+    _noteRead(pr, 'la lista de perfiles', nuevos);
+    for (final dynamic e in (pr.data?['profiles'] as List<dynamic>?) ?? <dynamic>[]) {
+      try {
         profiles.add(Profile.fromJson(e as Map<String, dynamic>));
+      } catch (_) {
+        nuevos.add(StorageNotice('Se ignoró un perfil que no se pudo leer.', clock.now()));
       }
     }
-    final Map<String, dynamic>? gj = await store.readJson(_groupsFile);
-    groups.clear();
-    if (gj != null) {
-      final List<dynamic> list = (gj['groups'] as List<dynamic>?) ?? <dynamic>[];
-      for (final dynamic e in list) {
+    final JsonRead gr = await _safeRead(_groupsFile);
+    _noteRead(gr, 'los grupos del modo docente', nuevos);
+    for (final dynamic e in (gr.data?['groups'] as List<dynamic>?) ?? <dynamic>[]) {
+      try {
         groups.add(ClassGroup.fromJson(e as Map<String, dynamic>));
+      } catch (_) {
+        nuevos.add(StorageNotice('Se ignoró un grupo que no se pudo leer.', clock.now()));
       }
+    }
+    final DateTime now = clock.now();
+    for (final Profile p in profiles) {
+      final String rel = 'progress/${p.id}.json';
+      final JsonRead r = await _safeRead(rel);
+      _noteRead(r, 'el avance de ${p.nombre}', nuevos);
+      ProfileProgress prog = ProfileProgress();
+      if (r.data != null) {
+        try {
+          prog = ProfileProgress.fromJson(r.data!);
+        } catch (_) {
+          // JSON válido pero con un formato que no se entiende: se aparta tal
+          // cual (no se pisa) y se empieza de cero, con aviso.
+          final String aside = await _setAside(rel);
+          nuevos.add(StorageNotice('No se pudo interpretar el avance de ${p.nombre}; el archivo se guardó aparte ($aside) y su avance empezó de cero.', now));
+        }
+      }
+      _progress[p.id] = prog;
+      if (_closeStale(prog, now)) {
+        await _saveProgressSafe(p.id);
+      }
+    }
+    if (nuevos.isNotEmpty) {
+      notices.addAll(nuevos);
+      await _saveNotices();
     }
     loaded = true;
+    notifyListeners();
+  }
+
+  Future<JsonRead> _safeRead(String rel) async {
+    try {
+      return await store.readJsonSafe(rel);
+    } catch (e) {
+      debugPrint('No se pudo leer $rel: $e');
+      return const JsonRead(null, ReadOutcome.missing);
+    }
+  }
+
+  Future<String> _setAside(String rel) async {
+    try {
+      final Map<String, dynamic>? data = await store.readJson(rel);
+      final String name = '$rel.corrupto-${clock.now().millisecondsSinceEpoch}';
+      if (data != null) {
+        await store.writeJson(name, data);
+      }
+      await store.delete(rel);
+      return name;
+    } catch (_) {
+      return rel;
+    }
+  }
+
+  void _noteRead(JsonRead r, String what, List<StorageNotice> out) {
+    final DateTime now = clock.now();
+    if (r.outcome == ReadOutcome.recovered) {
+      out.add(StorageNotice('Se recuperó $what desde la copia de seguridad, porque el archivo estaba dañado.', now));
+    } else if (r.outcome == ReadOutcome.corrupt) {
+      final String donde = r.asidePath == null ? '' : ' (quedó guardado aparte como ${r.asidePath!.split(RegExp(r'[\\/]')).last})';
+      out.add(StorageNotice('No se pudo leer $what: el archivo y su copia estaban dañados$donde. Se empezó de cero.', now));
+    }
+  }
+
+  Future<void> _saveNotices() async {
+    try {
+      await store.writeJson(_noticesFile, <String, dynamic>{'avisos': notices.map((StorageNotice n) => n.toJson()).toList()});
+    } catch (e) {
+      debugPrint('No se pudieron guardar los avisos: $e');
+    }
+  }
+
+  /// El adulto leyó los avisos.
+  Future<void> dismissNotices() async {
+    notices.clear();
+    await _saveNotices();
     notifyListeners();
   }
 
@@ -87,7 +215,7 @@ class AppState extends ChangeNotifier {
 
   String _newId() {
     final Random r = Random();
-    final int t = DateTime.now().millisecondsSinceEpoch;
+    final int t = clock.now().millisecondsSinceEpoch;
     return '${t.toRadixString(36)}${r.nextInt(1 << 20).toRadixString(36)}';
   }
 
@@ -121,8 +249,10 @@ class AppState extends ChangeNotifier {
       birthMonth: birthMonth,
       bandOverride: bandOverride,
       leftHanded: leftHanded,
+      createdAt: clock.now(),
     );
     profiles.add(p);
+    _progress[p.id] = ProfileProgress();
     await _saveProfiles();
     notifyListeners();
     return p;
@@ -133,51 +263,44 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Borra el perfil, su avance y sus dibujos.
   Future<void> deleteProfile(String id) async {
+    if (current?.id == id) {
+      _stopCounting();
+      current = null;
+    }
     profiles.removeWhere((Profile p) => p.id == id);
     _progress.remove(id);
     for (final ClassGroup g in groups) {
       g.profileIds.remove(id);
     }
-    if (current?.id == id) {
-      current = null;
-    }
     await store.delete('progress/$id.json');
+    try {
+      await store.deleteDir('drawings/$id');
+    } catch (e) {
+      debugPrint('No se pudieron borrar los dibujos de $id: $e');
+    }
     await _saveProfiles();
     await _saveGroups();
     notifyListeners();
   }
 
-  Future<void> selectProfile(Profile? p) async {
-    if (current?.id != p?.id) {
-      await endSession();
-    }
-    current = p;
-    extraMinutes = 0;
-    if (p != null) {
-      await progressFor(p.id);
-      startSession();
-    }
-    notifyListeners();
-  }
-
   // ---------------------------------------------------------------- progreso
 
-  Future<ProfileProgress> progressFor(String profileId) async {
-    final ProfileProgress? cached = _progress[profileId];
-    if (cached != null) {
-      return cached;
+  /// Progreso de un perfil. Se carga completo en [load], así que nunca se
+  /// devuelve un progreso vacío que luego se guarde encima del real.
+  ProfileProgress progressOf(String profileId) {
+    final ProfileProgress? p = _progress[profileId];
+    if (p != null) {
+      return p;
     }
-    final Map<String, dynamic>? json = await store.readJson('progress/$profileId.json');
-    final ProfileProgress p = json == null ? ProfileProgress() : ProfileProgress.fromJson(json);
-    _progress[profileId] = p;
-    return p;
+    // Perfil desconocido (por ejemplo, borrado mientras una pantalla lo
+    // mostraba): un progreso vacío que no se guarda en ningún lado.
+    return ProfileProgress();
   }
 
-  /// Progreso ya cargado (vacío si todavía no se leyó).
-  ProfileProgress progressOf(String profileId) {
-    return _progress.putIfAbsent(profileId, () => ProfileProgress());
-  }
+  /// Igual que [progressOf]; se mantiene asíncrono por compatibilidad.
+  Future<ProfileProgress> progressFor(String profileId) async => progressOf(profileId);
 
   ProfileProgress? get currentProgress => current == null ? null : progressOf(current!.id);
 
@@ -189,36 +312,50 @@ class AppState extends ChangeNotifier {
     await store.writeJson('progress/$profileId.json', p.toJson());
   }
 
-  /// Registra una ronda del perfil actual y aplica la regla de dominio.
+  Future<void> _saveProgressSafe(String profileId) async {
+    try {
+      await saveProgress(profileId);
+    } catch (e) {
+      debugPrint('No se pudo guardar el avance de $profileId: $e');
+    }
+  }
+
+  /// Registra una ronda del perfil actual. [success] es "acertó al primer
+  /// intento". Los juegos libres solo cuentan como actividad de la sesión: no
+  /// tienen niveles, ni aciertos, ni habilidades.
   Future<RoundFeedback> recordRound(GameDef game, AgeBand band, bool success) async {
     final Profile? p = current;
-    if (p == null) {
-      return const RoundFeedback(event: MasteryEvent.none, sticker: null, skillId: null);
+    if (p == null || !_progress.containsKey(p.id)) {
+      return RoundFeedback.none;
     }
-    final ProfileProgress prog = progressOf(p.id);
+    if (!game.roundBased) {
+      await recordActivity(game);
+      return RoundFeedback.none;
+    }
+    final ProfileProgress prog = _progress[p.id]!;
+    final SessionLog? s = prog.live;
     final MasteryState m = prog.masteryFor(game.id, band);
     final int levelBefore = m.level;
-    final MasteryEvent event = m.record(success, game.levelsFor(band));
+    final MasteryEvent event = m.record(success, game.levelsFor(band), rule: game.mastery);
 
     StickerAward? sticker;
     String? skillId;
     if (event.completedLevel) {
       final int completedLevel = levelBefore;
       if (!prog.hasSticker(game.id, band, completedLevel)) {
-        final String emoji = stickerPool[(game.id.hashCode.abs() + band.index * 7 + completedLevel * 13) % stickerPool.length];
-        sticker = StickerAward(gameId: game.id, band: band, level: completedLevel, emoji: emoji, date: DateTime.now());
+        final String emoji = stickerPool[(game.id.codeUnits.fold<int>(0, (int a, int b) => a + b) + band.index * 7 + completedLevel * 13) % stickerPool.length];
+        sticker = StickerAward(gameId: game.id, band: band, level: completedLevel, emoji: emoji, date: clock.now());
         prog.stickers.add(sticker);
       }
       if (completedLevel == game.levelsFor(band)) {
         final String? sid = game.skillFor(band);
         if (sid != null && !prog.skillsAchieved.containsKey(sid)) {
-          prog.skillsAchieved[sid] = DateTime.now();
+          prog.skillsAchieved[sid] = clock.now();
           skillId = sid;
         }
       }
     }
 
-    final SessionLog? s = _session;
     if (s != null) {
       s.rounds += 1;
       if (success) {
@@ -226,95 +363,346 @@ class AppState extends ChangeNotifier {
       }
       s.gameRounds[game.id] = (s.gameRounds[game.id] ?? 0) + 1;
     }
-    await saveProgress(p.id);
+    await _saveProgressSafe(p.id);
     notifyListeners();
     return RoundFeedback(event: event, sticker: sticker, skillId: skillId);
   }
 
+  /// Actividad libre (colorear libre, dibujo, pixel libre): cuenta en la
+  /// sesión como juego usado, sin rondas evaluadas ni aciertos.
+  Future<void> recordActivity(GameDef game) async {
+    final Profile? p = current;
+    if (p == null || !_progress.containsKey(p.id)) {
+      return;
+    }
+    final SessionLog? s = _progress[p.id]!.live;
+    if (s != null) {
+      s.gameRounds[game.id] = (s.gameRounds[game.id] ?? 0) + 1;
+    }
+    await _saveProgressSafe(p.id);
+    notifyListeners();
+  }
+
+  /// Guarda una marca personal si supera la anterior. Devuelve true si es nueva.
+  Future<bool> saveRecord(String key, int value) async {
+    final Profile? p = current;
+    if (p == null || !_progress.containsKey(p.id)) {
+      return false;
+    }
+    final ProfileProgress prog = _progress[p.id]!;
+    final int? before = prog.records[key];
+    if (before != null && before >= value) {
+      return false;
+    }
+    prog.records[key] = value;
+    await _saveProgressSafe(p.id);
+    notifyListeners();
+    return true;
+  }
+
+  int? recordOf(String key) {
+    final Profile? p = current;
+    return p == null ? null : progressOf(p.id).records[key];
+  }
+
   // ---------------------------------------------------------------- sesiones
 
-  void startSession() {
-    if (_session != null) {
-      return;
-    }
-    _session = SessionLog(start: DateTime.now());
-    _lastTick = DateTime.now();
-    _tick?.cancel();
-    _tick = Timer.periodic(const Duration(seconds: 15), (_) => _accumulate());
-  }
-
-  void _accumulate() {
-    final SessionLog? s = _session;
-    final DateTime? last = _lastTick;
-    if (s == null || last == null) {
-      return;
-    }
-    final DateTime now = DateTime.now();
-    s.seconds += now.difference(last).inSeconds;
-    _lastTick = now;
-  }
-
-  /// Segundos jugados en la sesión activa.
-  int get sessionSeconds {
-    final SessionLog? s = _session;
-    final DateTime? last = _lastTick;
-    if (s == null || last == null) {
-      return 0;
-    }
-    return s.seconds + DateTime.now().difference(last).inSeconds;
-  }
-
-  /// Minutos jugados hoy por el perfil actual, sesión activa incluida.
-  int get minutesToday {
-    final Profile? p = current;
-    if (p == null) {
-      return 0;
-    }
-    final ProfileProgress prog = progressOf(p.id);
-    return (prog.secondsOn(DateTime.now()) + sessionSeconds) ~/ 60;
-  }
-
-  Future<void> endSession() async {
-    final Profile? p = current;
-    final SessionLog? s = _session;
-    _tick?.cancel();
-    _tick = null;
-    if (p == null || s == null) {
-      _session = null;
-      return;
-    }
-    _accumulate();
-    _session = null;
-    if (s.seconds >= 10 || s.rounds > 0) {
-      final ProfileProgress prog = progressOf(p.id);
-      prog.sessions.add(s);
-      while (prog.sessions.length > 400) {
-        prog.sessions.removeAt(0);
+  /// Cambia de jugador. La sesión del anterior queda en pausa (y se cierra
+  /// sola si pasan [sessionGap] sin volver).
+  Future<void> selectProfile(Profile? p) async {
+    if (current?.id == p?.id) {
+      if (p != null) {
+        _openOrResume(p);
       }
-      await saveProgress(p.id);
+      notifyListeners();
+      return;
+    }
+    final Profile? before = current;
+    _stopCounting();
+    current = p;
+    if (before != null) {
+      await _saveProgressSafe(before.id);
+    }
+    if (p != null) {
+      _openOrResume(p);
+      await _saveProgressSafe(p.id);
     }
     notifyListeners();
   }
 
-  /// Guarda lo acumulado sin cerrar la sesión (al pasar a segundo plano).
-  Future<void> flushSession() async {
+  /// Cierra la sesión si lleva [sessionGap] sin jugar, y el descanso si terminó.
+  /// Devuelve true si cambió algo.
+  bool _closeStale(ProfileProgress prog, DateTime now) {
+    bool changed = false;
+    final DateTime? rest = prog.restUntil;
+    if (rest != null) {
+      if (!rest.isAfter(now)) {
+        prog.restUntil = null;
+        changed = true;
+      } else if (rest.isAfter(now.add(restLength))) {
+        // El reloj del teléfono se atrasó: el descanso no puede durar más.
+        prog.restUntil = now.add(restLength);
+        changed = true;
+      }
+    }
+    final SessionLog? live = prog.live;
+    if (live != null && prog.restUntil == null && now.difference(live.lastActive) >= sessionGap) {
+      if (live.meaningful) {
+        prog.addSession(live);
+      }
+      prog.live = null;
+      changed = true;
+    }
+    return changed;
+  }
+
+  void _openOrResume(Profile p) {
+    final ProfileProgress? prog = _progress[p.id];
+    if (prog == null) {
+      return;
+    }
+    final DateTime now = clock.now();
+    _closeStale(prog, now);
+    if (isResting(p.id)) {
+      return;
+    }
+    prog.live ??= SessionLog(start: now, lastActive: now);
+    _startCounting();
+  }
+
+  void _startCounting() {
     final Profile? p = current;
-    final SessionLog? s = _session;
-    if (p == null || s == null) {
+    if (!_foreground || p == null) {
+      return;
+    }
+    final ProfileProgress? prog = _progress[p.id];
+    if (prog == null || prog.live == null || isResting(p.id)) {
+      return;
+    }
+    if (_countingSince == null) {
+      _countingSince = clock.now();
+      prog.live!.lastActive = _countingSince!;
+    }
+    _tick ??= Timer.periodic(const Duration(seconds: 15), (_) => unawaited(tick()));
+  }
+
+  void _accumulate() {
+    final Profile? p = current;
+    final DateTime? since = _countingSince;
+    if (p == null || since == null) {
+      return;
+    }
+    final SessionLog? s = _progress[p.id]?.live;
+    if (s == null) {
+      return;
+    }
+    final DateTime now = clock.now();
+    final int secs = now.difference(since).inSeconds;
+    if (secs > 0) {
+      s.seconds += secs;
+      _countingSince = since.add(Duration(seconds: secs));
+    }
+    s.lastActive = now;
+  }
+
+  void _stopCounting() {
+    _accumulate();
+    _countingSince = null;
+    _tick?.cancel();
+    _tick = null;
+  }
+
+  /// Si el reloj de la sesión está corriendo (app en primer plano, con jugador).
+  bool get counting => _countingSince != null;
+
+  /// La app pasó a segundo plano (o quedó inactiva): se deja de contar.
+  Future<void> pauseClock() async {
+    _foreground = false;
+    final bool wasCounting = counting;
+    _stopCounting();
+    final Profile? p = current;
+    if (p != null && wasCounting) {
+      await _saveProgressSafe(p.id);
+    }
+  }
+
+  /// La app volvió al primer plano.
+  Future<void> resumeClock() async {
+    _foreground = true;
+    final Profile? p = current;
+    if (p == null) {
+      return;
+    }
+    final ProfileProgress prog = progressOf(p.id);
+    final bool changed = _closeStale(prog, clock.now());
+    _openOrResume(p);
+    if (changed) {
+      await _saveProgressSafe(p.id);
+    }
+    notifyListeners();
+  }
+
+  /// Un paso del reloj: acumula, revisa el límite y guarda cada minuto.
+  Future<void> tick() async {
+    final Profile? p = current;
+    if (p == null || !counting) {
       return;
     }
     _accumulate();
-    final ProfileProgress prog = progressOf(p.id);
-    if (!prog.sessions.contains(s)) {
-      prog.sessions.add(s);
+    _ticks += 1;
+    if (limitReached) {
+      await startRest();
+      return;
     }
-    await saveProgress(p.id);
+    if (_ticks % 4 == 0) {
+      await _saveProgressSafe(p.id);
+    }
+  }
+
+  /// Segundos jugados en la sesión abierta del perfil actual.
+  int get sessionSeconds {
+    final Profile? p = current;
+    if (p == null) {
+      return 0;
+    }
+    final SessionLog? s = progressOf(p.id).live;
+    if (s == null) {
+      return 0;
+    }
+    final DateTime? since = _countingSince;
+    return s.seconds + (since == null ? 0 : clock.now().difference(since).inSeconds);
+  }
+
+  /// Si la sesión actual ya usó su tiempo (con el extra que dio un adulto).
+  bool get limitReached {
+    final int limit = sessionLimitMinutes();
+    final Profile? p = current;
+    if (limit <= 0 || p == null) {
+      return false;
+    }
+    final SessionLog? s = progressOf(p.id).live;
+    if (s == null) {
+      return false;
+    }
+    return sessionSeconds >= limit * 60 + s.extraSeconds;
+  }
+
+  /// Revisa el límite ahora (la pantalla lo llama al abrir un juego).
+  Future<void> checkLimit() async {
+    final Profile? p = current;
+    if (p != null && counting) {
+      _accumulate();
+    }
+    if (p != null && limitReached && !isResting(p.id)) {
+      await startRest();
+    }
+  }
+
+  bool isResting(String profileId) {
+    final DateTime? until = _progress[profileId]?.restUntil;
+    return until != null && until.isAfter(clock.now());
+  }
+
+  /// Tiempo que le falta al descanso del perfil (cero si no descansa).
+  Duration restRemaining(String profileId) {
+    final DateTime? until = _progress[profileId]?.restUntil;
+    if (until == null) {
+      return Duration.zero;
+    }
+    final Duration d = until.difference(clock.now());
+    return d.isNegative ? Duration.zero : d;
+  }
+
+  /// Otro perfil que esté en su descanso (para pedir la puerta al cambiar).
+  Profile? restingProfileOtherThan(String profileId) {
+    for (final Profile p in profiles) {
+      if (p.id != profileId && isResting(p.id)) {
+        return p;
+      }
+    }
+    return null;
+  }
+
+  /// Empieza el descanso del perfil actual: se deja de contar y se guarda
+  /// hasta cuándo dura, para que cerrar y abrir la app no lo salte.
+  Future<void> startRest() async {
+    final Profile? p = current;
+    if (p == null) {
+      return;
+    }
+    _stopCounting();
+    final ProfileProgress prog = progressOf(p.id);
+    prog.restUntil = clock.now().add(restLength);
+    await _saveProgressSafe(p.id);
+    notifyListeners();
+    onRestStarted?.call();
+  }
+
+  /// El descanso terminó: la sesión anterior se cierra y empieza otra.
+  Future<void> finishRest() async {
+    final Profile? p = current;
+    if (p == null) {
+      return;
+    }
+    final ProfileProgress prog = progressOf(p.id);
+    if (isResting(p.id)) {
+      return;
+    }
+    prog.restUntil = null;
+    final SessionLog? live = prog.live;
+    if (live != null) {
+      if (live.meaningful) {
+        prog.addSession(live);
+      }
+      prog.live = null;
+    }
+    _openOrResume(p);
+    await _saveProgressSafe(p.id);
+    notifyListeners();
+  }
+
+  /// Un adulto da [extraTime] más: se acaba el descanso y la sesión sigue.
+  Future<void> grantExtraTime() async {
+    final Profile? p = current;
+    if (p == null) {
+      return;
+    }
+    final ProfileProgress prog = progressOf(p.id);
+    prog.restUntil = null;
+    final DateTime now = clock.now();
+    prog.live ??= SessionLog(start: now, lastActive: now);
+    prog.live!.extraSeconds += extraTime.inSeconds;
+    // La sesión sigue desde ahora, aunque el adulto tardara en venir.
+    prog.live!.lastActive = now;
+    _openOrResume(p);
+    await _saveProgressSafe(p.id);
+    notifyListeners();
+  }
+
+  /// Cierra ya la sesión abierta del perfil actual (idempotente).
+  Future<void> endSession() async {
+    final Profile? p = current;
+    _stopCounting();
+    if (p == null) {
+      return;
+    }
+    final ProfileProgress? prog = _progress[p.id];
+    final SessionLog? live = prog?.live;
+    if (prog == null || live == null) {
+      return;
+    }
+    if (live.meaningful) {
+      prog.addSession(live);
+    }
+    prog.live = null;
+    await _saveProgressSafe(p.id);
+    notifyListeners();
   }
 
   // ---------------------------------------------------------------- grupos
 
   Future<ClassGroup> addGroup(String nombre) async {
-    final ClassGroup g = ClassGroup(id: _newId(), nombre: nombre);
+    final ClassGroup g = ClassGroup(id: _newId(), nombre: nombre, createdAt: clock.now());
     groups.add(g);
     await _saveGroups();
     notifyListeners();
@@ -334,56 +722,92 @@ class AppState extends ChangeNotifier {
 
   // ---------------------------------------------------------------- exportar
 
+  /// Todos los perfiles, grupos y avances, tal como están guardados.
   Future<Map<String, dynamic>> exportAll() async {
     final Map<String, dynamic> progress = <String, dynamic>{};
     for (final Profile p in profiles) {
-      final ProfileProgress prog = await progressFor(p.id);
-      progress[p.id] = prog.toJson();
+      progress[p.id] = progressOf(p.id).toJson();
     }
     return <String, dynamic>{
       'app': 'pilas',
-      'version': 1,
-      'exportedAt': DateTime.now().toIso8601String(),
+      'version': 2,
+      'exportedAt': clock.now().toIso8601String(),
       'profiles': profiles.map((Profile p) => p.toJson()).toList(),
       'groups': groups.map((ClassGroup g) => g.toJson()).toList(),
       'progress': progress,
     };
   }
 
-  /// Importa perfiles y progreso. Los perfiles con el mismo id se reemplazan.
+  /// Importa perfiles, grupos y avance de otra tableta. Un perfil que ya
+  /// existe (mismo id) conserva sus datos y suma el avance importado; los
+  /// grupos con el mismo id juntan sus integrantes. Lanza [FormatException]
+  /// con un mensaje para el adulto si el archivo no sirve.
   Future<int> importAll(Map<String, dynamic> data) async {
     if (data['app'] != 'pilas') {
-      throw const FormatException('El archivo no es de Pilas');
+      throw const FormatException('El archivo no es de Pilas.');
     }
-    int count = 0;
-    final List<dynamic> ps = (data['profiles'] as List<dynamic>?) ?? <dynamic>[];
-    final Map<String, dynamic> prog = (data['progress'] as Map<String, dynamic>?) ?? <String, dynamic>{};
-    for (final dynamic e in ps) {
-      final Profile p = Profile.fromJson(e as Map<String, dynamic>);
-      profiles.removeWhere((Profile x) => x.id == p.id);
-      profiles.add(p);
-      final dynamic pj = prog[p.id];
-      if (pj is Map<String, dynamic>) {
-        _progress[p.id] = ProfileProgress.fromJson(pj);
-        await saveProgress(p.id);
+    final List<Profile> nuevos = <Profile>[];
+    final Map<String, ProfileProgress> avances = <String, ProfileProgress>{};
+    final List<ClassGroup> grupos = <ClassGroup>[];
+    try {
+      final List<dynamic> ps = (data['profiles'] as List<dynamic>?) ?? <dynamic>[];
+      final Map<String, dynamic> prog = (data['progress'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+      for (final dynamic e in ps) {
+        final Profile p = Profile.fromJson(e as Map<String, dynamic>);
+        nuevos.add(p);
+        final dynamic pj = prog[p.id];
+        if (pj is Map<String, dynamic>) {
+          avances[p.id] = ProfileProgress.fromJson(pj);
+        }
       }
-      count += 1;
+      for (final dynamic e in (data['groups'] as List<dynamic>?) ?? <dynamic>[]) {
+        grupos.add(ClassGroup.fromJson(e as Map<String, dynamic>));
+      }
+    } catch (e) {
+      throw const FormatException('El archivo está incompleto o tiene un formato que Pilas no reconoce.');
     }
-    final List<dynamic> gs = (data['groups'] as List<dynamic>?) ?? <dynamic>[];
-    for (final dynamic e in gs) {
-      final ClassGroup g = ClassGroup.fromJson(e as Map<String, dynamic>);
-      groups.removeWhere((ClassGroup x) => x.id == g.id);
-      groups.add(g);
+    for (final Profile p in nuevos) {
+      final Profile? existing = profileById(p.id);
+      if (existing == null) {
+        profiles.add(p);
+        _progress[p.id] = avances[p.id] ?? ProfileProgress();
+      } else {
+        final ProfileProgress mine = progressOf(p.id);
+        final ProfileProgress? theirs = avances[p.id];
+        if (theirs != null) {
+          mine.mergeFrom(theirs);
+        }
+        _progress[p.id] = mine;
+      }
+      await saveProgress(p.id);
+    }
+    for (final ClassGroup g in grupos) {
+      ClassGroup? mine;
+      for (final ClassGroup x in groups) {
+        if (x.id == g.id) {
+          mine = x;
+        }
+      }
+      if (mine == null) {
+        groups.add(g);
+      } else {
+        for (final String id in g.profileIds) {
+          if (!mine.profileIds.contains(id)) {
+            mine.profileIds.add(id);
+          }
+        }
+      }
     }
     await _saveProfiles();
     await _saveGroups();
     notifyListeners();
-    return count;
+    return nuevos.length;
   }
 
   @override
   void dispose() {
     _tick?.cancel();
+    _tick = null;
     super.dispose();
   }
 }

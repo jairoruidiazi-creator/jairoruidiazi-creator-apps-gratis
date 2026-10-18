@@ -15,27 +15,33 @@ class FractionPie extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(size: Size(size, size), painter: _PiePainter(num: num, den: den, color: color));
+    final PilasPalette pal = PilasPalette.of(context);
+    return Semantics(
+      label: '$num de $den partes',
+      child: CustomPaint(size: Size(size, size), painter: _PiePainter(num: num, den: den, color: color, ink: pal.tinta, paper: pal.tarjeta)),
+    );
   }
 }
 
 class _PiePainter extends CustomPainter {
-  const _PiePainter({required this.num, required this.den, required this.color});
+  const _PiePainter({required this.num, required this.den, required this.color, required this.ink, required this.paper});
 
   final int num;
   final int den;
   final Color color;
+  final Color ink;
+  final Color paper;
 
   @override
   void paint(Canvas canvas, Size size) {
     final Rect r = Rect.fromLTWH(2, 2, size.width - 4, size.height - 4);
-    canvas.drawOval(r, Paint()..color = Colors.white);
+    canvas.drawOval(r, Paint()..color = paper);
     final double sweep = 2 * math.pi / den;
     for (int i = 0; i < num; i++) {
       canvas.drawArc(r, -math.pi / 2 + i * sweep, sweep, true, Paint()..color = color);
     }
     final Paint line = Paint()
-      ..color = PilasColors.tinta
+      ..color = ink
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2;
     canvas.drawOval(r, line);
@@ -49,7 +55,7 @@ class _PiePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _PiePainter old) => old.num != num || old.den != den || old.color != color;
+  bool shouldRepaint(covariant _PiePainter old) => old.num != num || old.den != den || old.color != color || old.ink != ink || old.paper != paper;
 }
 
 /// Barra de fracciones (chocolatina): [num] cuadros sombreados de [den].
@@ -64,21 +70,25 @@ class FractionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: width,
-      height: height,
-      child: Row(
-        children: <Widget>[
-          for (int i = 0; i < den; i++)
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: i < num ? color : Colors.white,
-                  border: Border.all(color: PilasColors.tinta, width: 1.5),
+    final PilasPalette pal = PilasPalette.of(context);
+    return Semantics(
+      label: '$num de $den partes',
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: Row(
+          children: <Widget>[
+            for (int i = 0; i < den; i++)
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: i < num ? color : pal.tarjeta,
+                    border: Border.all(color: pal.tinta, width: 1.5),
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -94,15 +104,16 @@ class GlassFill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(size: Size(size * 0.7, size), painter: _GlassPainter(level: level, color: color));
+    return CustomPaint(size: Size(size * 0.7, size), painter: _GlassPainter(level: level, color: color, ink: PilasPalette.of(context).tinta));
   }
 }
 
 class _GlassPainter extends CustomPainter {
-  const _GlassPainter({required this.level, required this.color});
+  const _GlassPainter({required this.level, required this.color, required this.ink});
 
   final double level;
   final Color color;
+  final Color ink;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -120,14 +131,19 @@ class _GlassPainter extends CustomPainter {
     canvas.drawPath(
       glass,
       Paint()
-        ..color = PilasColors.tinta
+        ..color = ink
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.5,
     );
+    // Rayita de la mitad: así "por la mitad" se ve y no solo se adivina.
+    final double mid = 2 + (size.height - 6) / 2 + 2;
+    canvas.drawLine(Offset(size.width * 0.05, mid), Offset(size.width * 0.16, mid), Paint()
+      ..color = ink
+      ..strokeWidth = 2);
   }
 
   @override
-  bool shouldRepaint(covariant _GlassPainter old) => old.level != level || old.color != color;
+  bool shouldRepaint(covariant _GlassPainter old) => old.level != level || old.color != color || old.ink != ink;
 }
 
 /// Figura sobre cuadrícula: celdas rellenas (x, y) en unidades. Sirve para
@@ -148,12 +164,16 @@ class GridFigure extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double unit = size / cols;
-    return CustomPaint(size: Size(size, unit * rows), painter: _GridPainter(cells: cells, cols: cols, rows: rows, color: color, showGrid: showGrid, labels: labels));
+    final PilasPalette pal = PilasPalette.of(context);
+    return CustomPaint(
+      size: Size(size, unit * rows),
+      painter: _GridPainter(cells: cells, cols: cols, rows: rows, color: color, showGrid: showGrid, labels: labels, ink: pal.tinta, grid: pal.cuadricula, paper: pal.tarjeta),
+    );
   }
 }
 
 class _GridPainter extends CustomPainter {
-  const _GridPainter({required this.cells, required this.cols, required this.rows, required this.color, required this.showGrid, required this.labels});
+  const _GridPainter({required this.cells, required this.cols, required this.rows, required this.color, required this.showGrid, required this.labels, required this.ink, required this.grid, required this.paper});
 
   final List<Offset> cells;
   final int cols;
@@ -161,26 +181,29 @@ class _GridPainter extends CustomPainter {
   final Color color;
   final bool showGrid;
   final Map<String, String> labels;
+  final Color ink;
+  final Color grid;
+  final Color paper;
 
   @override
   void paint(Canvas canvas, Size size) {
     final double u = size.width / cols;
-    canvas.drawRect(Offset.zero & size, Paint()..color = Colors.white);
+    canvas.drawRect(Offset.zero & size, Paint()..color = paper);
     if (showGrid) {
-      final Paint grid = Paint()
-        ..color = const Color(0xFFE3DED2)
+      final Paint gridPaint = Paint()
+        ..color = grid
         ..strokeWidth = 1;
       for (int i = 0; i <= cols; i++) {
-        canvas.drawLine(Offset(i * u, 0), Offset(i * u, size.height), grid);
+        canvas.drawLine(Offset(i * u, 0), Offset(i * u, size.height), gridPaint);
       }
       for (int j = 0; j <= rows; j++) {
-        canvas.drawLine(Offset(0, j * u), Offset(size.width, j * u), grid);
+        canvas.drawLine(Offset(0, j * u), Offset(size.width, j * u), gridPaint);
       }
     }
     final Set<String> filled = cells.map((Offset c) => '${c.dx.toInt()},${c.dy.toInt()}').toSet();
     final Paint fill = Paint()..color = color.withValues(alpha: 0.75);
     final Paint edge = Paint()
-      ..color = PilasColors.tinta
+      ..color = ink
       ..strokeWidth = 2.5
       ..strokeCap = StrokeCap.round;
     for (final Offset c in cells) {
@@ -220,11 +243,11 @@ class _GridPainter extends CustomPainter {
           return;
         }
         final TextPainter tp = TextPainter(
-          text: TextSpan(text: text, style: TextStyle(fontSize: u * 0.5, fontWeight: FontWeight.w700, color: PilasColors.tinta, fontFamily: 'Lexend')),
+          text: TextSpan(text: text, style: TextStyle(fontSize: math.max(12, u * 0.5), fontWeight: FontWeight.w700, color: ink, fontFamily: 'Lexend')),
           textDirection: TextDirection.ltr,
         )..layout();
         final Rect bg = Rect.fromCenter(center: at, width: tp.width + 8, height: tp.height + 2);
-        canvas.drawRRect(RRect.fromRectAndRadius(bg, const Radius.circular(6)), Paint()..color = Colors.white.withValues(alpha: 0.9));
+        canvas.drawRRect(RRect.fromRectAndRadius(bg, const Radius.circular(6)), Paint()..color = paper.withValues(alpha: 0.92));
         tp.paint(canvas, at - Offset(tp.width / 2, tp.height / 2));
       }
 
@@ -236,7 +259,7 @@ class _GridPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _GridPainter old) => old.cells != cells || old.color != color || old.labels != labels;
+  bool shouldRepaint(covariant _GridPainter old) => old.cells != cells || old.color != color || old.labels != labels || old.ink != ink || old.grid != grid;
 }
 
 /// Balanza con dos platillos y un lado más pesado (-1 izquierda, 0 igual, 1 derecha).
@@ -250,6 +273,8 @@ class Balance extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final PilasPalette pal = PilasPalette.of(context);
+    final Color ink = pal.tinta;
     final double tilt = heavier == 0 ? 0 : (heavier < 0 ? -0.12 : 0.12);
     return SizedBox(
       width: width,
@@ -257,8 +282,8 @@ class Balance extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: <Widget>[
-          Positioned(bottom: 0, child: Container(width: width * 0.3, height: 8, decoration: BoxDecoration(color: PilasColors.tinta, borderRadius: BorderRadius.circular(4)))),
-          Positioned(bottom: 6, child: Container(width: 8, height: width * 0.3, color: PilasColors.tinta)),
+          Positioned(bottom: 0, child: Container(width: width * 0.3, height: 8, decoration: BoxDecoration(color: ink, borderRadius: BorderRadius.circular(4)))),
+          Positioned(bottom: 6, child: Container(width: 8, height: width * 0.3, color: ink)),
           Transform.rotate(
             angle: tilt,
             child: SizedBox(
@@ -267,9 +292,9 @@ class Balance extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: <Widget>[
-                  Container(width: width * 0.9, height: 6, decoration: BoxDecoration(color: PilasColors.tinta, borderRadius: BorderRadius.circular(3))),
-                  Positioned(left: 0, top: 0, child: _plate(left, width)),
-                  Positioned(right: 0, top: 0, child: _plate(right, width)),
+                  Container(width: width * 0.9, height: 6, decoration: BoxDecoration(color: ink, borderRadius: BorderRadius.circular(3))),
+                  Positioned(left: 0, top: 0, child: _plate(left, width, pal.tintaSuave)),
+                  Positioned(right: 0, top: 0, child: _plate(right, width, pal.tintaSuave)),
                 ],
               ),
             ),
@@ -279,12 +304,12 @@ class Balance extends StatelessWidget {
     );
   }
 
-  Widget _plate(Widget child, double width) {
+  Widget _plate(Widget child, double width, Color plate) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         SizedBox(width: width * 0.3, height: width * 0.22, child: Center(child: child)),
-        Container(width: width * 0.32, height: 6, decoration: BoxDecoration(color: PilasColors.tintaSuave, borderRadius: BorderRadius.circular(3))),
+        Container(width: width * 0.32, height: 6, decoration: BoxDecoration(color: plate, borderRadius: BorderRadius.circular(3))),
       ],
     );
   }

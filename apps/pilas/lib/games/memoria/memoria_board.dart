@@ -138,6 +138,7 @@ class MemoryBoard {
           final int q = rng.range(2, 9);
           op = '${b * q} ÷ $b';
           r = q;
+          // Se lee "cuarenta y ocho dividido entre seis".
         } else {
           final int n = rng.range(2, 25);
           op = 'doble de $n';
@@ -147,7 +148,7 @@ class MemoryBoard {
           continue;
         }
         usados.add(r);
-        cards.add(MemoryCard(id: id++, pairId: p, text: op, label: op.replaceAll('×', 'por').replaceAll('÷', 'dividido')));
+        cards.add(MemoryCard(id: id++, pairId: p, text: op, label: op.replaceAll('×', 'por').replaceAll('÷', 'dividido entre')));
         cards.add(MemoryCard(id: id++, pairId: p, text: '$r', label: '$r'));
         p += 1;
       }
