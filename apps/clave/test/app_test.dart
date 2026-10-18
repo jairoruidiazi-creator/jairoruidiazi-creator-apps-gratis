@@ -192,6 +192,25 @@ void main() {
     await t.shutdown(tester);
   });
 
+  testWidgets('En Android, salir con una toma en curso la cierra, la guarda y avisa al volver (M7)', (WidgetTester tester) async {
+    usePhone(tester);
+    final TestServices t = TestServices();
+    await tester.pumpWidget(ClaveApp(services: t.services, initialIndex: 3));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Grabar una toma'));
+    await pumpUntil(tester, () => t.services.recorder.recording);
+    expect(t.services.recorder.recording, isTrue);
+    await tester.pump(const Duration(seconds: 3));
+    await setLifecycle(tester, <AppLifecycleState>[AppLifecycleState.inactive, AppLifecycleState.hidden, AppLifecycleState.paused]);
+    await pumpUntil(tester, () => t.services.state.recordings.isNotEmpty);
+    expect(t.services.recorder.recording, isFalse);
+    expect(t.services.state.recordings.single.durationMs, 3000);
+    await setLifecycle(tester, <AppLifecycleState>[AppLifecycleState.hidden, AppLifecycleState.inactive, AppLifecycleState.resumed]);
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.textContaining('Android no deja grabar en segundo plano'), findsOneWidget);
+    await t.shutdown(tester);
+  });
+
   testWidgets('La grabadora explica el micrófono, graba, guarda la toma y la comparte con su nombre (M6, M7, B4)', (WidgetTester tester) async {
     usePhone(tester);
     final TestServices t = TestServices(micGranted: false);

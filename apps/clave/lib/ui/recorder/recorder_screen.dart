@@ -531,7 +531,7 @@ class _RecorderScreenState extends State<RecorderScreen> with WidgetsBindingObse
       formatDateTime(context, r.createdAt),
       if (instrument != null) instrument,
       if (r.folder.isNotEmpty) r.folder,
-      if (r.bpm != null) '${r.bpm!.toStringAsFixed(0)} BPM',
+      if (r.bpm != null) '${r.bpm!.toStringAsFixed(0)}\u00a0BPM',
       if (r.recovered) t(context, 'rescatada', 'recovered'),
     ];
     return ListTile(
@@ -542,7 +542,8 @@ class _RecorderScreenState extends State<RecorderScreen> with WidgetsBindingObse
       ),
       title: Text(r.name, style: TextStyle(fontWeight: current ? FontWeight.w700 : FontWeight.w500)),
       subtitle: Text(
-        '${parts.join(' · ')}${r.notes.isNotEmpty ? '\n${r.notes}' : ''}',
+        // El punto va pegado a lo anterior: una línea nunca empieza con "·".
+        '${parts.join('\u00a0· ')}${r.notes.isNotEmpty ? '\n${r.notes}' : ''}',
         maxLines: 3,
         overflow: TextOverflow.ellipsis,
       ),

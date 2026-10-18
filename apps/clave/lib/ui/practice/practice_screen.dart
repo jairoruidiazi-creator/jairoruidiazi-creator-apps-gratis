@@ -466,7 +466,9 @@ class _BarsPainter extends CustomPainter {
     if (n == 0) {
       return;
     }
-    final double bottom = 8 + textScaler.scale(12);
+    // Alto de la fila de días: la línea del texto (con su interlineado) y
+    // un margen.
+    final double bottom = 6 + textScaler.scale((labelStyle.fontSize ?? 11) * (labelStyle.height ?? 1.2));
     final double h = size.height - bottom;
     final int maxV = math.max(goal, values.fold<int>(0, math.max));
     final double gap = n > 14 ? 2 : 6;

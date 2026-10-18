@@ -135,6 +135,7 @@ class _MetronomeScreenState extends State<MetronomeScreen> {
       final Widget tempo = _TempoPanel(
         bpm: c.bpm,
         currentBpm: m.currentBpm,
+        targetBpm: c.trainer?.targetBpm,
         running: m.running,
         onBpm: (double v) => m.setBpm(v),
         onTap: () {
@@ -306,10 +307,16 @@ class _BeatBuilder extends StatelessWidget {
 }
 
 class _TempoPanel extends StatelessWidget {
-  const _TempoPanel({required this.bpm, required this.currentBpm, required this.running, required this.onBpm, required this.onTap, required this.onToggle, required this.spanish, this.scale = 1.0});
+  const _TempoPanel({required this.bpm, required this.currentBpm, this.targetBpm, required this.running, required this.onBpm, required this.onTap, required this.onToggle, required this.spanish, this.scale = 1.0});
 
+  /// Tempo elegido (con el entrenador, el de partida).
   final double bpm;
+
+  /// Tempo que suena ahora (el entrenador lo va cambiando).
   final double currentBpm;
+
+  /// Meta del entrenador, o null si está apagado.
+  final double? targetBpm;
   final bool running;
   final ValueChanged<double> onBpm;
   final VoidCallback onTap;
@@ -323,12 +330,17 @@ class _TempoPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final ClavePalette pal = ClavePalette.of(context);
-    final bool trainerActive = (currentBpm - bpm).abs() >= 0.5 && running;
+    // Con el entrenador en marcha se muestra el tempo que suena y su meta.
+    // Sin entrenador se muestra siempre el elegido (un cambio en marcha rige
+    // desde el pulso siguiente, pero el número cambia al momento).
+    final double? target = targetBpm;
+    final bool trainerActive = running && target != null && (currentBpm - bpm).abs() >= 0.5;
+    final double shownBpm = trainerActive ? currentBpm : bpm;
     final String bpmText = trainerActive ? currentBpm.toStringAsFixed(0) : formatDecimal(bpm, spanish: spanish, decimals: bpm == bpm.roundToDouble() ? 0 : 1);
     return Column(
       children: <Widget>[
         const SizedBox(height: 6),
-        Text(TempoMark.forBpm(bpm), style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant, letterSpacing: 1)),
+        Text(TempoMark.forBpm(shownBpm), style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant, letterSpacing: 1)),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
@@ -353,7 +365,7 @@ class _TempoPanel extends StatelessWidget {
                           style: TextStyle(fontSize: 76 * scale, fontWeight: FontWeight.w800, height: 1, color: trainerActive ? pal.accent : cs.onSurface, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()]),
                         ),
                       ),
-                      Text(trainerActive ? '${t(context, 'meta', 'target')} ${bpm.toStringAsFixed(0)} · BPM' : 'BPM', style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
+                      Text(trainerActive ? 'BPM · ${t(context, 'meta', 'target')} ${(target ?? bpm).toStringAsFixed(0)}' : 'BPM', style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
                     ],
                   ),
                 ),
