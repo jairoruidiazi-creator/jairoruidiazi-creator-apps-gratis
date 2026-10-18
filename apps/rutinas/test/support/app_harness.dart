@@ -129,14 +129,29 @@ Future<void> goBack(WidgetTester tester) async {
 /// la lista y baja hasta encontrarlo.
 Future<void> reveal(WidgetTester tester, Finder finder, {Finder? scrollable}) async {
   if (finder.evaluate().isEmpty) {
-    await tester.drag(scrollable ?? verticalList(), const Offset(0, 6000));
-    await settle(tester);
+    final Finder list = scrollable ?? verticalList();
+    final ScrollableState st = tester.state<ScrollableState>(list);
+    st.position.jumpTo(st.position.minScrollExtent);
+    await tester.pump();
     if (finder.evaluate().isEmpty) {
-      await tester.scrollUntilVisible(finder, 150, scrollable: scrollable ?? verticalList());
+      await tester.scrollUntilVisible(finder, 300, scrollable: list, maxScrolls: 300);
     }
   }
   await tester.ensureVisible(finder.first);
   await tester.pump();
+}
+
+/// Baja hasta el final de la lista de la pantalla.
+Future<void> toBottom(WidgetTester tester) async {
+  for (int i = 0; i < 30; i++) {
+    final ScrollPosition pos = tester.state<ScrollableState>(verticalList()).position;
+    if (pos.pixels >= pos.maxScrollExtent) {
+      break;
+    }
+    pos.jumpTo(pos.maxScrollExtent);
+    await tester.pump();
+  }
+  await settle(tester);
 }
 
 /// Lleva [finder] a la vista y comprueba que recibe toques.

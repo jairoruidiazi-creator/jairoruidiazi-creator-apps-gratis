@@ -333,6 +333,22 @@ void main() {
     }
   }
 
+  testWidgets('tema oscuro y otro color de acento', (WidgetTester tester) async {
+    await withApp(tester, (Services s) async {
+      s.settings
+        ..themeMode = 'dark'
+        ..accent = 4;
+      await s.settings.save();
+      await settle(tester);
+      expect(Theme.of(tester.element(find.text('Beber agua'))).brightness, Brightness.dark);
+      expect(Theme.of(tester.element(find.text('Beber agua'))).colorScheme.brightness, Brightness.dark);
+      for (final String tab in <String>['Avisos', 'Tiempo', 'Resumen', 'Ajustes', 'Hábitos']) {
+        await goTab(tester, tab);
+        expectNoErrors(tester, 'oscuro: $tab');
+      }
+    }, seeded: true);
+  });
+
   testWidgets('tableta: riel lateral y contenido a un ancho legible', (WidgetTester tester) async {
     await withApp(tester, (Services s) async {
       expect(find.byType(NavigationRail), findsOneWidget);
@@ -419,8 +435,7 @@ Future<void> screensTour(WidgetTester tester, Services s, String where) async {
   await settle(tester);
   await scrollAndTap(tester, find.text(tr('Varias veces', 'Several times')));
   await scrollAndTap(tester, find.text(tr('Algunos días', 'Some days')));
-  await tester.drag(verticalList(), const Offset(0, -3000));
-  await settle(tester);
+  await toBottom(tester);
   await expectReachable(tester, find.text(tr('Guardar hábito', 'Save habit')), '$where: guardar hábito');
   expectNoErrors(tester, '$where: editor de hábitos');
   await goBack(tester);
@@ -428,8 +443,7 @@ Future<void> screensTour(WidgetTester tester, Services s, String where) async {
   // Detalle de un hábito con su calendario, y la hoja del día.
   await scrollAndTap(tester, find.text(tr('Ir al gimnasio', 'Go to the gym')));
   expectNoErrors(tester, '$where: detalle');
-  await tester.drag(verticalList(), const Offset(0, -3000));
-  await settle(tester);
+  await toBottom(tester);
   expectNoErrors(tester, '$where: calendario');
   await goBack(tester);
   final Finder meditar = find.text(tr('Meditar', 'Meditate'));
@@ -447,8 +461,7 @@ Future<void> screensTour(WidgetTester tester, Services s, String where) async {
   expectHittable(tester, find.text(tr('Recordatorio', 'Reminder')), '$where: recordatorio nuevo');
   expectNoErrors(tester, '$where: recordatorios');
   await scrollAndTap(tester, find.text(tr('Pagar el arriendo', 'Pay the rent')));
-  await tester.drag(verticalList(), const Offset(0, -3000));
-  await settle(tester);
+  await toBottom(tester);
   await expectReachable(tester, find.text(tr('Guardar recordatorio', 'Save reminder')), '$where: guardar recordatorio');
   expectNoErrors(tester, '$where: editor de recordatorios');
   await goBack(tester);
@@ -458,8 +471,7 @@ Future<void> screensTour(WidgetTester tester, Services s, String where) async {
   await expectReachable(tester, find.text(tr('Iniciar', 'Start')), '$where: iniciar entrenamiento');
   expectNoErrors(tester, '$where: entrenamientos');
   await scrollAndTap(tester, find.text(tr('Tabata de 4 series', 'Tabata, 4 sets')).first);
-  await tester.drag(verticalList(), const Offset(0, -1500));
-  await settle(tester);
+  await toBottom(tester);
   expectNoErrors(tester, '$where: editor de entrenamientos');
   await goBack(tester);
   for (final String tab in <String>[tr('Cronómetro', 'Stopwatch'), tr('Cuenta atrás', 'Countdown')]) {
@@ -499,14 +511,12 @@ Future<void> screensTour(WidgetTester tester, Services s, String where) async {
     await settle(tester);
     expectNoErrors(tester, '$where: resumen $r');
   }
-  await tester.drag(verticalList(), const Offset(0, -3000));
-  await settle(tester);
+  await toBottom(tester);
   expectNoErrors(tester, '$where: resumen por hábito');
 
   // Ajustes de arriba abajo.
   await goTab(tester, tr('Ajustes', 'Settings'));
-  await tester.drag(verticalList(), const Offset(0, -6000));
-  await settle(tester);
+  await toBottom(tester);
   await expectReachable(tester, find.text(tr('Política de privacidad', 'Privacy policy')), '$where: privacidad');
   expectNoErrors(tester, '$where: ajustes');
 }

@@ -242,6 +242,16 @@ class _Running extends StatelessWidget {
           child: LayoutBuilder(
             builder: (BuildContext context, BoxConstraints box) {
               final bool landscape = box.maxWidth > box.maxHeight * 1.2;
+              // Los controles van siempre a la vista, abajo; si el texto es
+              // muy grande, lo que se desplaza es la información de en medio.
+              final Widget details = SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    ...info.map((Widget w) => Padding(padding: const EdgeInsets.only(bottom: 4), child: w)),
+                  ],
+                ),
+              );
               if (landscape) {
                 return Padding(
                   padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
@@ -255,16 +265,13 @@ class _Running extends StatelessWidget {
                             const SizedBox(width: 12),
                             Expanded(
                               flex: 4,
-                              child: SingleChildScrollView(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: <Widget>[
-                                    ...info.map((Widget w) => Padding(padding: const EdgeInsets.only(bottom: 4), child: w)),
-                                    const SizedBox(height: 8),
-                                    controls,
-                                    lockedHint,
-                                  ],
-                                ),
+                              child: Column(
+                                children: <Widget>[
+                                  Expanded(child: Center(child: details)),
+                                  const SizedBox(height: 8),
+                                  controls,
+                                  lockedHint,
+                                ],
                               ),
                             ),
                           ],
@@ -281,20 +288,10 @@ class _Running extends StatelessWidget {
                     top,
                     Expanded(flex: 6, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: clock)),
                     const SizedBox(height: 12),
-                    Flexible(
-                      flex: 4,
-                      child: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            ...info.map((Widget w) => Padding(padding: const EdgeInsets.only(bottom: 4), child: w)),
-                            const SizedBox(height: 12),
-                            controls,
-                            lockedHint,
-                          ],
-                        ),
-                      ),
-                    ),
+                    Flexible(flex: 3, child: details),
+                    const SizedBox(height: 12),
+                    controls,
+                    lockedHint,
                   ],
                 ),
               );
