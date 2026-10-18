@@ -2,12 +2,17 @@
 // N-G1): apagado de entrada, como mucho 3 destellos por segundo, contraste
 // suave y nada con "quitar animaciones".
 
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:clave/app.dart';
 import 'package:clave/audio/sequencer.dart';
 import 'package:clave/core/settings.dart';
 import 'package:clave/core/theme.dart';
 import 'package:clave/ui/metronome/screen_flash.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -59,6 +64,26 @@ Future<List<Onset>> recordFlashes(WidgetTester tester, RhythmConfig config, {boo
   await t.shutdown(tester);
   return onsets;
 }
+
+/// La pantalla en píxeles RGBA (1 píxel por punto lógico).
+Future<Uint8List> capture(WidgetTester tester, GlobalKey key) async {
+  final RenderRepaintBoundary b = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+  final Uint8List? bytes = await tester.runAsync<Uint8List?>(() async {
+    final ui.Image img = await b.toImage();
+    final ByteData? d = await img.toByteData();
+    img.dispose();
+    return d?.buffer.asUint8List();
+  });
+  return bytes!;
+}
+
+double _linear(int c) {
+  final double v = c / 255;
+  return v <= 0.04045 ? v / 12.92 : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
+}
+
+/// Luminancia relativa del píxel [i] (WCAG).
+double luminanceAt(Uint8List rgba, int i) => 0.2126 * _linear(rgba[i * 4]) + 0.7152 * _linear(rgba[i * 4 + 1]) + 0.0722 * _linear(rgba[i * 4 + 2]);
 
 /// El mayor número de destellos que empiezan dentro de un mismo segundo.
 int maxPerSecond(List<Onset> onsets) {
@@ -123,6 +148,60 @@ void main() {
       expect(change, lessThan(0.1));
     }
   });
+
+  for (final bool dark in <bool>[false, true]) {
+    testWidgets('El tinte va detrás del contenido: en los píxeles reales nada cambia más de 0,06 de luminancia (tema ${dark ? 'oscuro' : 'claro'})', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1080, 2160);
+      tester.view.devicePixelRatio = 2.5;
+      addTearDown(tester.view.reset);
+      final TestServices t = TestServices(settings: AppSettings()..themeMode = dark ? 'dark' : 'light');
+      t.services.settings.flash = true;
+      await t.services.settings.save();
+      t.services.metronome.setConfig(const RhythmConfig(bpm: 60));
+      final GlobalKey root = GlobalKey();
+      await tester.pumpWidget(RepaintBoundary(key: root, child: ClaveApp(services: t.services, initialIndex: 1)));
+      await tester.pump();
+      await tester.tap(find.text('Iniciar'));
+      await tester.pump();
+      for (int i = 0; i < 400 && find.byKey(flashKey).evaluate().isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 5));
+      }
+      expect(find.byKey(flashKey), findsOneWidget);
+      final Uint8List on = await capture(tester, root);
+      final Rect stop = tester.getRect(find.text('Parar'));
+      // El mismo cuadro, sin destello (el tiempo no avanza).
+      t.services.metronome.flashEnabled = false;
+      tester.element(find.ancestor(of: find.byKey(flashKey), matching: find.byWidgetPredicate((Widget w) => w.runtimeType.toString() == '_BeatBuilder'))).markNeedsBuild();
+      await tester.pump();
+      expect(find.byKey(flashKey), findsNothing);
+      final Uint8List off = await capture(tester, root);
+      expect(on.length, off.length);
+      final int width = 432;
+      double maxChange = 0;
+      double stopChange = 0;
+      int changed = 0;
+      for (int i = 0; i < on.length ~/ 4; i++) {
+        final double d = (luminanceAt(on, i) - luminanceAt(off, i)).abs();
+        if (d > maxChange) {
+          maxChange = d;
+        }
+        if (d > 0.002) {
+          changed++;
+        }
+        final double x = (i % width) + 0.5;
+        final double y = (i ~/ width) + 0.5;
+        if (stop.contains(Offset(x, y)) && d > stopChange) {
+          stopChange = d;
+        }
+      }
+      expect(maxChange, lessThanOrEqualTo(ScreenFlash.maxLuminanceChange + 0.01), reason: 'ningún píxel, tampoco botones ni números');
+      expect(stopChange, lessThan(0.002), reason: 'el botón Parar no cambia');
+      expect(changed, greaterThan(2000), reason: 'el destello se ve en el fondo');
+      await tester.tap(find.text('Parar'));
+      await tester.pump();
+      await t.shutdown(tester);
+    });
+  }
 
   testWidgets('A 120 BPM destella en cada pulso: 2 por segundo', (WidgetTester tester) async {
     final List<Onset> onsets = await recordFlashes(tester, const RhythmConfig(bpm: 120), seconds: 3);

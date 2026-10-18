@@ -28,7 +28,7 @@ Las cinco apps son gratuitas, de código abierto y funcionan sin cuenta. Como no
 - **En Android, el metrónomo o el bordón se detienen al salir de la app.** Es a propósito en esta versión: Android no deja seguir sonando a una app en segundo plano sin un servicio especial. Si estabas grabando, la toma queda guardada. Mientras practicas con la app abierta, la pantalla se mantiene encendida.
 - **La app se cerró mientras grababa.** Al abrirla otra vez, Clave rescata la toma y la muestra en la Grabadora marcada como «rescatada». Una toma en WAV o FLAC se oye hasta donde llegó; en AAC, si el archivo quedó incompleto, puede no reproducirse.
 - **Con capo, los nombres de las cuerdas cambian.** Es a propósito: con el capo puesto, cada botón de cuerda muestra la nota que esa cuerda debe dar (con capo en el 2.º traste, la quinta cuerda de la guitarra es Si2) y el afinador mide contra esa nota. La nota que oye se nombra siempre como suena.
-- **El destello de pantalla.** Viene apagado. Si lo activas en Ajustes, la pantalla destella suave en cada pulso, como mucho tres veces por segundo: a tempos rápidos solo en el acento. No destella si el teléfono tiene activado quitar animaciones.
+- **El destello de pantalla.** Viene apagado. Si lo activas en Ajustes, la pantalla destella suave en cada pulso, como mucho tres veces por segundo: a tempos rápidos solo en el acento y, si tampoco así cabe (por ejemplo, acentos en 1 y 3 a más de 353 BPM), no destella. Solo se tiñe el fondo; botones y números no cambian. No destella si el teléfono tiene activado quitar animaciones.
 
 ### Sello
 
@@ -86,7 +86,7 @@ The five apps are free, open source and work without an account. We have no serv
 - **On Android, the metronome or the drone stop when I leave the app.** That is intentional in this version: Android does not let an app keep playing in the background without a special service. If you were recording, the take is saved. While you practice with the app open, the screen stays on.
 - **The app closed while recording.** When you open it again, Clave recovers the take and shows it in the Recorder marked as "recovered". A WAV or FLAC take plays up to where it stopped; an incomplete AAC file may not play.
 - **With a capo, the string names change.** That is intentional: with the capo on, each string button shows the note that string should give (capo on the 2nd fret makes the guitar's fifth string a B2), and the tuner measures against that note. The note it hears is always named as it sounds.
-- **The screen flash.** It is off by default. If you turn it on in Settings, the screen flashes softly on each beat, at most three times per second: at fast tempos only on the accent. It does not flash when the phone is set to remove animations.
+- **The screen flash.** It is off by default. If you turn it on in Settings, the screen flashes softly on each beat, at most three times per second: at fast tempos only on the accent, and if even that does not fit (for example, accents on 1 and 3 above 353 BPM), it does not flash. Only the background is tinted; buttons and numbers do not change. It does not flash when the phone is set to remove animations.
 
 ### Sello
 

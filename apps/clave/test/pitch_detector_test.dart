@@ -254,6 +254,58 @@ void main() {
     expect(at5.length, lessThanOrEqualTo(2), reason: '5 dB: $at5');
   });
 
+  group('Voz y flauta (3.ª ronda, G1)', () {
+    List<double> voiceOf(double f) => <double>[for (int k = 1; k < 30 && k * f < 6000; k++) 1 / math.pow(k, 1.5).toDouble()];
+
+    test('Voz con ruido rosa a 10 y 7 dB: ninguna lectura lejos de la nota ni sin lectura', () {
+      final math.Random rnd = math.Random(31);
+      for (final double snr in <double>[10, 7]) {
+        final List<String> bad = <String>[];
+        for (int m = 40; m <= 84; m++) {
+          final double f0 = hzOf(m) * math.pow(2, (rnd.nextDouble() * 100 - 50) / 1200).toDouble();
+          final Float32List s = tone(rnd, f0, voiceOf(f0), vibCents: 40);
+          final Float32List w = pinkNoise(rnd, s.length);
+          final double k = rmsOf(s) * math.pow(10, -snr / 20).toDouble() / rmsOf(w);
+          final PitchResult r = det.detect(Float32List.fromList(<double>[for (int i = 0; i < s.length; i++) s[i] + k * w[i]]));
+          if (!r.hasPitch || r.clarity < 0.6 || centsBetween(r.frequency, f0).abs() > 60) {
+            bad.add('midi $m: ${f0.toStringAsFixed(1)} Hz → ${r.frequency.toStringAsFixed(1)} Hz (claridad ${r.clarity.toStringAsFixed(2)})');
+          }
+        }
+        expect(bad, isEmpty, reason: '$snr dB');
+      }
+    });
+
+    test('Voz y flauta sobre el bordón una octava abajo a −12 dB: la nota o el bordón, nunca otra cosa', () {
+      final math.Random rnd = math.Random(32);
+      Float32List withDrone(Float32List s, double f0) {
+        final double phase = rnd.nextDouble() * 2 * math.pi;
+        final Float32List d = Float32List.fromList(<double>[for (int i = 0; i < s.length; i++) math.sin(2 * math.pi * (f0 / 2) * i / sr + phase)]);
+        final double k = rmsOf(s) * math.pow(10, -12 / 20).toDouble() / rmsOf(d);
+        return Float32List.fromList(<double>[for (int i = 0; i < s.length; i++) s[i] + k * d[i]]);
+      }
+
+      final List<String> bad = <String>[];
+      void check(String name, int m, Float32List x, double f0) {
+        final PitchResult r = det.detect(x);
+        final bool note = r.hasPitch && centsBetween(r.frequency, f0).abs() <= 60;
+        final bool drone = r.hasPitch && centsBetween(r.frequency, f0 / 2).abs() <= 60;
+        if (!r.hasPitch || r.clarity < 0.6 || !(note || drone)) {
+          bad.add('$name midi $m: ${f0.toStringAsFixed(1)} Hz → ${r.frequency.toStringAsFixed(1)} Hz (claridad ${r.clarity.toStringAsFixed(2)})');
+        }
+      }
+
+      for (int m = 48; m <= 84; m++) {
+        final double f0 = hzOf(m) * math.pow(2, (rnd.nextDouble() * 100 - 50) / 1200).toDouble();
+        check('voz', m, withDrone(tone(rnd, f0, voiceOf(f0), vibCents: 40), f0), f0);
+      }
+      for (int m = 60; m <= 96; m++) {
+        final double f0 = hzOf(m) * math.pow(2, (rnd.nextDouble() * 100 - 50) / 1200).toDouble();
+        check('flauta', m, withDrone(tone(rnd, f0, flute), f0), f0);
+      }
+      expect(bad, isEmpty);
+    });
+  });
+
   test('Ruido blanco, ruido rosa y silencio no dan nota', () {
     final math.Random rnd = math.Random(20);
     int notes = 0;

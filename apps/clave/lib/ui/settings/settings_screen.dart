@@ -82,7 +82,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             SwitchListTile(
               title: Text(t(context, 'Destello de pantalla', 'Screen flash')),
-              subtitle: Text(t(context, 'Un destello suave en cada pulso, como mucho tres por segundo: a tempos rápidos solo en el acento. No se usa si el sistema pide quitar animaciones.', 'A soft flash on each beat, at most three per second: at fast tempos only on the accent. Off when the system asks to remove animations.')),
+              subtitle: Text(t(context, 'Un destello suave del fondo en cada pulso, como mucho tres por segundo: a tempos rápidos solo en el acento y, si tampoco así cabe, no destella. No se usa si el sistema pide quitar animaciones.', 'A soft background flash on each beat, at most three per second: at fast tempos only on the accent, and if even that does not fit, no flash. Off when the system asks to remove animations.')),
               value: st.flash,
               onChanged: (bool v) {
                 st.flash = v;

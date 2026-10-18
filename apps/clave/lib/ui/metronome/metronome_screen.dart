@@ -214,9 +214,11 @@ class _MetronomeScreenState extends State<MetronomeScreen> {
                   ),
                 )
               : ListView(padding: const EdgeInsets.fromLTRB(12, 4, 12, 24), children: column);
+      // El tinte del destello va detrás del contenido: solo cambia el fondo
+      // (como mucho 0,06 de luminancia); botones, número y textos no se
+      // oscurecen.
       return Stack(
         children: <Widget>[
-          Positioned.fill(child: body),
           Positioned.fill(
             child: IgnorePointer(
               child: _BeatBuilder(
@@ -237,6 +239,7 @@ class _MetronomeScreenState extends State<MetronomeScreen> {
               ),
             ),
           ),
+          Positioned.fill(child: body),
         ],
       );
     });

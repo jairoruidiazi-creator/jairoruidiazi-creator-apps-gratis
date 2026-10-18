@@ -339,7 +339,11 @@ class PitchDetector {
   }
 
   /// Pico de la NSDF de x (ventana [w] desde el inicio) cerca de [tauC].
-  static _Peak? _nsdfPeak(Float64List x, Float64List p, int w, double tauC, double span) {
+  /// Con [interior], solo vale un máximo con vecinos más bajos a los dos
+  /// lados: si el máximo de la ventana cae en su borde, no es un pico (por
+  /// ejemplo, la falda del lóbulo de retardo 0 de una señal grave) y se
+  /// devuelve null.
+  static _Peak? _nsdfPeak(Float64List x, Float64List p, int w, double tauC, double span, {bool interior = false}) {
     final int n = x.length;
     final int lo = math.max(2, (tauC - span).floor());
     int hi = (tauC + span).ceil();
@@ -375,6 +379,9 @@ class PitchDetector {
     final double a = values[k - 1];
     final double b = values[k];
     final double c = values[k + 1];
+    if (interior && !(a < b && c < b)) {
+      return null;
+    }
     final double den = a - 2 * b + c;
     if (den < -1e-12) {
       final double off = 0.5 * (a - c) / den;
@@ -402,7 +409,10 @@ class PitchDetector {
       final int maxDivisor = base.value < _noisyClarity ? _noisyMaxDivisor : _cleanMaxDivisor;
       for (int k = 2; k <= maxDivisor && base.tau / k >= minTau; k++) {
         final double tk = base.tau / k;
-        final _Peak? r = _nsdfPeak(y, p, w, tk, math.max(1.5, tk * 0.02));
+        // Solo picos de verdad (3.ª ronda, G1: con divisores hasta 16, T/k cae en
+        // la falda del lóbulo de retardo 0 de una voz grave y su máximo de
+        // borde pasaba por subarmónico; la lectura saltaba 4 o 5 octavas).
+        final _Peak? r = _nsdfPeak(y, p, w, tk, math.max(1.5, tk * 0.02), interior: true);
         if (r != null && r.value >= _subharmonicFloor && r.value >= base.value - slack) {
           best = r;
         }

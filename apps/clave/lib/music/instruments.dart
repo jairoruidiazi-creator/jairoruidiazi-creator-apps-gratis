@@ -30,6 +30,29 @@ class Instrument {
 
   String name(bool spanish) => spanish ? nameEs : nameEn;
 
+  /// Margen bajo la nota más grave del perfil (afinaciones bajadas, voces
+  /// más graves de lo habitual).
+  static const int rangeMargin = 5;
+
+  /// Nota sonante (MIDI) más grave que el afinador muestra con este perfil:
+  /// la cuerda más grave con el capo, o el extremo grave del rango, menos
+  /// [rangeMargin]. Por debajo, con un perfil elegido, lo que llega es ruido
+  /// grave o un subarmónico, no la nota. En Cromático es Do0 − 5: no limita.
+  double lowestReading({int capo = 0}) {
+    if (!hasStrings) {
+      return (lowMidi - rangeMargin).toDouble();
+    }
+    int low = 1 << 20;
+    for (final List<int> c in courses) {
+      for (final int pitch in c) {
+        if (pitch < low) {
+          low = pitch;
+        }
+      }
+    }
+    return (low + capo - rangeMargin).toDouble();
+  }
+
   /// Orden cuya altura (o la de alguna de sus octavas), subida [capo]
   /// trastes, queda más cerca de [midi] (fraccionario y sonante).
   CourseMatch nearestCourse(double midi, {int capo = 0}) {

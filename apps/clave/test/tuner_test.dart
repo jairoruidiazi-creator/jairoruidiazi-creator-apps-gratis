@@ -206,6 +206,27 @@ void main() {
       expect(tuner.reading!.note.cents, closeTo(-100, 2));
     });
 
+    test('Con un perfil elegido no se muestra lo que queda muy por debajo de su rango; en Cromático sí (3.ª ronda)', () {
+      Tuner fresh(String id, {int capo = 0}) => Tuner(microphoneEnabled: false)
+        ..instrument = Instruments.byId(id)
+        ..settings = PitchSettings(capo: capo)
+        ..damping = 0;
+      final Sustained s = Sustained();
+      // Flauta (desde Do4): un La2 es ruido grave o un subarmónico.
+      final Tuner flute = fresh('flauta')..feed(s.next(hzAt(45, 0), 8192));
+      expect(flute.reading, isNull);
+      expect(flute.stableTone, isFalse);
+      flute.feed(s.next(hzAt(56, 0), 8192)); // Sol♯3, dentro del margen de 5 semitonos
+      expect(flute.reading?.note.midi, 56);
+      // Guitarra (Mi2 = 40): Do2 se muestra; La1 no. Con capo 5, el límite sube.
+      expect((fresh('guitarra')..feed(s.next(hzAt(36, 0), 8192))).reading?.note.midi, 36);
+      expect((fresh('guitarra')..feed(s.next(hzAt(33, 0), 8192))).reading, isNull);
+      expect((fresh('guitarra', capo: 5)..feed(s.next(hzAt(36, 0), 8192))).reading, isNull);
+      // Cromático: cualquier nota del rango del detector.
+      expect((fresh('cromatico')..feed(s.next(hzAt(24, 0), 8192))).reading?.note.midi, 24);
+      expect(Instruments.byId('cromatico').lowestReading(), lessThan(12.1));
+    });
+
     test('Un tono sostenido cuenta como práctica a partir de 0,4 s; los clics no (B3)', () {
       fakeAsync((FakeAsync async) {
         final Tuner tuner = Tuner(microphoneEnabled: false);

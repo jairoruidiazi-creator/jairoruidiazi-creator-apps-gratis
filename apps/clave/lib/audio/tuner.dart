@@ -425,7 +425,10 @@ class Tuner extends ChangeNotifier {
     }
     final PitchResult r = _detector.detect(buf);
     final double t = now;
-    if (!r.hasPitch || r.clarity < 0.6) {
+    // Muy por debajo del rango del perfil elegido no es la nota (ruido grave o
+    // un subarmónico): no se muestra. En Cromático no limita.
+    final bool belowRange = r.hasPitch && Notes.hzToMidi(r.frequency, a4: settings.a4) < instrument.lowestReading(capo: settings.capo);
+    if (!r.hasPitch || r.clarity < 0.6 || belowRange) {
       _stableNow = stability.update(wall, voiced: false, midi: 0, clarity: 0, impulsive: false, ownSound: false);
       // Mantiene la última lectura un momento para que la aguja no parpadee.
       final DateTime? lv = _lastVoiced;
