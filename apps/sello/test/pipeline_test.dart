@@ -25,6 +25,45 @@ Uint8List redOverlay(int w, int h) {
   return img.encodePng(im);
 }
 
+/// Estructura del EXIF leída byte a byte.
+class RawExifLayout {
+  const RawExifLayout(this.nextIfd, this.exifSegments);
+
+  /// Desplazamiento del IFD que sigue a IFD0: 0 si no hay IFD1 (miniatura).
+  final int nextIfd;
+
+  /// Segmentos APP1 de EXIF en el archivo.
+  final int exifSegments;
+}
+
+/// Lee a mano, sin el paquete `image`, el EXIF de un JPEG.
+RawExifLayout rawExifLayout(Uint8List jpeg) {
+  int? nextIfd;
+  int segments = 0;
+  int i = 2; // Tras SOI.
+  while (i + 4 <= jpeg.length && jpeg[i] == 0xFF) {
+    final int marker = jpeg[i + 1];
+    if (marker == 0xDA) {
+      break; // Empieza la imagen.
+    }
+    final int length = (jpeg[i + 2] << 8) | jpeg[i + 3];
+    if (marker == 0xE1 && String.fromCharCodes(jpeg.sublist(i + 4, i + 10)) == 'Exif\u0000\u0000') {
+      segments++;
+      final int t = i + 10; // Cabecera TIFF.
+      final bool little = jpeg[t] == 0x49;
+      int u16(int o) => little ? jpeg[t + o] | (jpeg[t + o + 1] << 8) : (jpeg[t + o] << 8) | jpeg[t + o + 1];
+      int u32(int o) => little ? u16(o) | (u16(o + 2) << 16) : (u16(o) << 16) | u16(o + 2);
+      final int ifd0 = u32(4);
+      nextIfd ??= u32(ifd0 + 2 + u16(ifd0) * 12);
+    }
+    i += 2 + length;
+  }
+  if (nextIfd == null) {
+    throw StateError('El JPEG no tiene EXIF');
+  }
+  return RawExifLayout(nextIfd, segments);
+}
+
 /// Texto de un PDF: el archivo tal cual más sus flujos descomprimidos.
 String pdfText(Uint8List pdf) {
   final String raw = latin1.decode(pdf);
@@ -78,6 +117,7 @@ void main() {
       final File orig = File('${tmp.path}/orig.jpg')..writeAsBytesSync(syntheticJpeg(640, 480, thumbnail: true, make: 'Acme', cameraLatitude: 51.5));
       // La foto de la cámara traía miniatura (IFD1) y su propio GPS.
       expect(img.decodeJpgExif(orig.readAsBytesSync())!.thumbnailData, isNotNull);
+      expect(rawExifLayout(orig.readAsBytesSync()).nextIfd, isNot(0));
       final String out = '${tmp.path}/out.jpg';
       final ComposeResult r = composeStampedSync(ComposeJob(
         originalPath: orig.path,
@@ -128,6 +168,11 @@ void main() {
       final img.ExifData raw = img.decodeJpgExif(bytes)!;
       expect(raw.thumbnailData, isNull);
       expect(raw.directories.containsKey('ifd1'), isFalse);
+      // Lo mismo leído byte a byte, sin el paquete que lo escribió: un solo
+      // EXIF y IFD0 sin IFD siguiente.
+      final RawExifLayout layout = rawExifLayout(bytes);
+      expect(layout.nextIfd, 0);
+      expect(layout.exifSegments, 1);
       expect(readStampExif(bytes).latitude, closeTo(4.711, 1e-6));
       // Y lo escrito se vuelve a leer para recuperar la ficha.
       final StampExif back = readStampExif(bytes);
