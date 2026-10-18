@@ -53,7 +53,7 @@ void main() {
     final CapturePipeline pipeline = CapturePipeline(store: state.store, state: state, settings: settings);
     final Project project = state.projectById('general');
     final Fix approx = Fix(latitude: 4.71137, longitude: -74.07263, time: DateTime.utc(2026, 3, 9, 19), accuracy: 2000, approximate: true);
-    final PhotoRecord r = pipeline.buildRecord(id: 'a', project: project, originalFile: '', stampedFile: '', time: DateTime.utc(2026, 3, 9, 19), fix: approx);
+    final PhotoRecord r = pipeline.buildRecord(id: 'a', project: project, originalFile: 'photos/general/a-orig.jpg', stampedFile: 'photos/general/a.jpg', time: DateTime.utc(2026, 3, 9, 19), fix: approx);
     expect(r.approximateLocation, isTrue);
     expect(r.latitude, 4.71);
     expect(r.longitude, -74.07);

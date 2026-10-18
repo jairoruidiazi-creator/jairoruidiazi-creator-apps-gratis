@@ -419,7 +419,8 @@ void main() {
     await tester.tap(find.widgetWithText(NavigationDestination, 'Gallery'));
     await tester.pumpAndSettle();
     expect(find.text('Search notes, address, tags…'), findsOneWidget);
-    expect(find.text('Export'), findsOneWidget);
+    expect(find.text('Sort'), findsOneWidget);
+    expect(find.textContaining('No photos yet'), findsOneWidget);
     // El usuario pone el teléfono en español sin cerrar la app (Android no la reinicia).
     tester.platformDispatcher.localeTestValue = const Locale('es', 'CO');
     tester.platformDispatcher.localesTestValue = const <Locale>[Locale('es', 'CO')];
@@ -429,7 +430,8 @@ void main() {
     // Todas las pestañas en el idioma nuevo, también la galería que ya estaba
     // abierta (M1 de la ronda 6).
     expect(find.text('Buscar en notas, dirección, etiquetas…'), findsOneWidget);
-    expect(find.text('Exportar'), findsOneWidget);
+    expect(find.text('Orden'), findsOneWidget);
+    expect(find.textContaining('Aún no hay fotos'), findsOneWidget);
     expect(find.text('Search notes, address, tags…'), findsNothing);
     await tester.tap(find.widgetWithText(NavigationDestination, 'Mapa'));
     await tester.pumpAndSettle();

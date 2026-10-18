@@ -129,7 +129,7 @@ void main() {
     final Finder plus = find.bySemanticsLabel(RegExp(r'^Plus Code: '));
     await tester.scrollUntilVisible(plus, 200, scrollable: find.byType(Scrollable).first);
     await tester.pump();
-    expect(tester.getSemantics(plus), containsSemantics(isButton: true, hasTapAction: true, onTapHint: 'copiar'));
+    expect(tester.getSemantics(plus), isSemantics(isButton: true, hasTapAction: true, onTapHint: 'copiar'));
     expect(tester.getSize(find.ancestor(of: find.text('Plus Code'), matching: find.byType(InkWell)).first).height, greaterThanOrEqualTo(48));
     await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
     await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
@@ -147,6 +147,8 @@ void main() {
       return null;
     });
     addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    await tester.scrollUntilVisible(find.text('Plus Code'), 200, scrollable: find.byType(Scrollable).first);
+    await tester.pump();
     await tester.tap(find.text('Plus Code'));
     await tester.pump();
     expect(copied, isNotNull);
