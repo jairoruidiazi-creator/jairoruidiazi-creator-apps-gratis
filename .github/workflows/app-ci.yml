@@ -148,10 +148,12 @@ jobs:
           set -eo pipefail
           APPDIR=build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
           plutil -lint "$APPDIR/Info.plist" "$APPDIR/PrivacyInfo.xcprivacy" | tee ios-check.log
-          for l in es en; do plutil -lint "$APPDIR/$l.lproj/InfoPlist.strings" | tee -a ios-check.log; done
+          # Solo los idiomas que declara la app (Pilas es solo español).
+          LANGS=$(plutil -extract CFBundleLocalizations json -o - "$APPDIR/Info.plist" | tr -d '[]" ' | tr ',' ' ')
+          for l in $LANGS; do plutil -lint "$APPDIR/$l.lproj/InfoPlist.strings" | tee -a ios-check.log; done
           plutil -p "$APPDIR/Info.plist" | grep -E "CFBundleShortVersionString|CFBundleVersion\"|CFBundleLocalizations|MinimumOSVersion|ITSAppUsesNonExemptEncryption|UIDeviceFamily" -A3 | tee -a ios-check.log
           plutil -p "$APPDIR/PrivacyInfo.xcprivacy" | tee -a ios-check.log
-          plutil -p "$APPDIR/en.lproj/InfoPlist.strings" | tee -a ios-check.log
+          for l in $LANGS; do plutil -p "$APPDIR/$l.lproj/InfoPlist.strings" | tee -a ios-check.log; done
           # Sin texto para la ubicación «siempre», el binario no puede llamar a esa
           # petición: App Store Connect lo detecta y rechaza la subida (ITMS-90683).
           if ! plutil -extract NSLocationAlwaysAndWhenInUseUsageDescription raw "$APPDIR/Info.plist" > /dev/null 2>&1; then

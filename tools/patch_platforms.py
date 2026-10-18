@@ -9,6 +9,7 @@ script es idempotente: se puede volver a correr sin duplicar nada.
 import hashlib
 import plistlib
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -50,8 +51,18 @@ APPS = {
         "ios_plist": {
             "CFBundleDisplayName": "Pilas",
             "ITSAppUsesNonExemptEncryption": False,
+            # Solo aparece si un adulto, al compartir un dibujo, elige "Guardar imagen" (M21).
+            "NSPhotoLibraryAddUsageDescription": "Pilas usa este permiso solo si un adulto, al compartir un dibujo, elige guardarlo en las fotos del teléfono.",
         },
-        "ios_strings_en": {"CFBundleDisplayName": "Pilas"},
+        "ios_strings_en": {
+            "CFBundleDisplayName": "Pilas",
+            "NSPhotoLibraryAddUsageDescription": "Pilas only uses this permission if an adult, when sharing a drawing, chooses to save it to the phone's photos.",
+        },
+        # La app solo está en español: la App Store no debe listar el inglés (M2).
+        "ios_localizations": ["es"],
+        # Sin acciones de texto de otras apps (buscar, traducir) que saquen al niño
+        # de la app sin la puerta para adultos (G15).
+        "android_remove_process_text": True,
         # Los niños juegan en tabletas y teléfonos en cualquier posición.
         "iphone_orientations": ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"],
         "ios_privacy_collected": [],
@@ -385,6 +396,8 @@ def patch_android(cfg: dict) -> None:
         tag = f'<uses-feature android:name="{feature}" android:required="{"true" if required else "false"}"/>'
         if feature not in text:
             text = text.replace("<application", f"    {tag}\n    <application", 1)
+    if cfg.get("android_remove_process_text"):
+        text = re.sub(r"\n?[ \t]*<intent>\s*<action android:name=\"android\.intent\.action\.PROCESS_TEXT\"\s*/>\s*<data android:mimeType=\"text/plain\"\s*/>\s*</intent>", "", text)
     queries = cfg["android_queries"]
     if queries:
         if "<queries>" not in text:
@@ -463,7 +476,7 @@ def patch_ios(cfg: dict) -> None:
     for key in cfg.get("ios_plist_remove", []):
         plist.pop(key, None)
     # Idiomas que la App Store muestra en la ficha y que iOS usa para los textos del sistema.
-    plist["CFBundleLocalizations"] = ["es", "en"]
+    plist["CFBundleLocalizations"] = cfg.get("ios_localizations", ["es", "en"])
     if "iphone_orientations" in cfg:
         plist["UISupportedInterfaceOrientations"] = cfg["iphone_orientations"]
     with plist_path.open("wb") as f:
@@ -568,18 +581,28 @@ def strings_file(values: dict) -> str:
 def add_infoplist_strings(t: str, cfg: dict, plist: dict) -> str:
     """InfoPlist.strings en español e inglés (nombre y textos de permisos)."""
     keys = [k for k in plist if k == "CFBundleDisplayName" or k.endswith("UsageDescription")]
+    langs = cfg.get("ios_localizations", ["es", "en"])
     es = {k: plist[k] for k in keys}
     en = dict(cfg.get("ios_strings_en", {}))
     missing = [k for k in keys if k not in en]
-    if missing:
+    if "en" in langs and missing:
         raise SystemExit(f"Faltan traducciones al inglés en ios_strings_en: {missing}")
+    if "en" not in langs:
+        # Sin carpeta en.lproj: la App Store lista los idiomas por las carpetas del paquete.
+        shutil.rmtree("ios/Runner/en.lproj", ignore_errors=True)
+        t = t.replace("developmentRegion = en;", "developmentRegion = es;")
+        # Y fuera del proyecto la referencia a en.lproj/InfoPlist.strings.
+        en_ref = pbx_id("InfoPlist.strings.en")
+        t = "".join(line for line in t.splitlines(keepends=True) if en_ref not in line)
     for lang, values in (("es", es), ("en", en)):
+        if lang not in langs:
+            continue
         d = Path(f"ios/Runner/{lang}.lproj")
         d.mkdir(parents=True, exist_ok=True)
         (d / "InfoPlist.strings").write_text(strings_file(values), encoding="utf-8")
     group = pbx_id("InfoPlist.strings.group")
     build = pbx_id("InfoPlist.strings.build")
-    refs = {lang: pbx_id(f"InfoPlist.strings.{lang}") for lang in ("es", "en")}
+    refs = {lang: pbx_id(f"InfoPlist.strings.{lang}") for lang in ("es", "en") if lang in langs}
     if group not in t:
         for lang, ref in refs.items():
             t = pbx_insert(t, "PBXFileReference", f"\t\t{ref} /* {lang} */ = {{isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = {lang}; path = {lang}.lproj/InfoPlist.strings; sourceTree = \"<group>\"; }};\n")
