@@ -294,8 +294,10 @@ void main() {
       await tester.pump();
       // La copia corre con E/S real; mientras tanto la pantalla muestra el indicador.
       await waitFor(tester, () => find.byType(CircularProgressIndicator).evaluate().isEmpty, maxTenths: 80);
-      await tester.scrollUntilVisible(find.textContaining('.json.enc'), 200, scrollable: find.byType(Scrollable).first);
-      expect(find.textContaining('plata-'), findsWidgets);
+      // La copia aparece en la lista con su fecha, no con el nombre del archivo.
+      await tester.scrollUntilVisible(find.byIcon(Icons.restore_page_outlined), 200, scrollable: find.byType(Scrollable).first);
+      expect(find.byIcon(Icons.restore_page_outlined), findsWidgets);
+      expect(find.textContaining('.json.enc'), findsNothing);
       await tester.tap(find.byType(BackButton));
       await settle(tester);
       expect(errors, isEmpty, reason: 'ajustes: ${report()}');
