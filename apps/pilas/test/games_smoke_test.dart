@@ -86,14 +86,19 @@ void main() {
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
         // Se guardan los errores completos (con el widget que los causa) en
-        // lugar de solo el mensaje que deja takeException.
-        final List<FlutterErrorDetails> errors = <FlutterErrorDetails>[];
+        // lugar de solo el mensaje que deja takeException, y se siguen
+        // pasando al manejador de la prueba (sin eso el marco se bloquea al
+        // reportar el fallo).
+        final List<String> errors = <String>[];
         final FlutterExceptionHandler? previous = FlutterError.onError;
-        FlutterError.onError = errors.add;
+        FlutterError.onError = (FlutterErrorDetails d) {
+          errors.add(d.toString());
+          previous?.call(d);
+        };
         addTearDown(() => FlutterError.onError = previous);
         void expectNoErrors(String when) {
           if (errors.isNotEmpty) {
-            final String text = errors.map((FlutterErrorDetails d) => d.toString()).join('\n----\n');
+            final String text = errors.join('\n----\n');
             errors.clear();
             fail('${game.id} ${band.id}: errores $when:\n$text');
           }

@@ -415,16 +415,16 @@ class _RompecabezasScreenState extends State<RompecabezasScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          // Wrap: en un teléfono angosto el contador de 9 a 11 años baja de línea.
+          Wrap(
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 4,
             children: <Widget>[
               EmojiImage(p.emoji, size: 44),
-              const SizedBox(width: 12),
               Text('${p.swaps} cambios', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: PilasColors.tintaSuave)),
-              if (widget.launch.band == AgeBand.b9a11) ...<Widget>[
-                const SizedBox(width: 12),
-                Text('Faltan al menos ${p.minSwaps}', style: const TextStyle(fontSize: 16, color: PilasColors.tintaSuave)),
-              ],
+              if (widget.launch.band == AgeBand.b9a11) Text('Faltan al menos ${p.minSwaps}', style: const TextStyle(fontSize: 16, color: PilasColors.tintaSuave)),
             ],
           ),
         ],

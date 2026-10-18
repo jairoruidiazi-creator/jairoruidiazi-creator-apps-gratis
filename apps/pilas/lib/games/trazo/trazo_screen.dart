@@ -183,7 +183,7 @@ class _TrazoScreenState extends State<TrazoScreen> {
                         children: <Widget>[
                           EmojiImage(t.ejemplo!, size: 40),
                           const SizedBox(width: 10),
-                          Text(t.dicho, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: PilasColors.tintaSuave)),
+                          Flexible(child: Text(t.dicho, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: PilasColors.tintaSuave))),
                         ],
                       ),
                     ),

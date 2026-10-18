@@ -228,11 +228,12 @@ class _PixelScreenState extends State<PixelScreen> {
         final bool wide = c.maxWidth > c.maxHeight * 1.15;
         final Widget modes = Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+          // En un teléfono angosto los tres modos van sin ícono para no desbordar.
           child: SegmentedButton<PixelMode>(
-            segments: const <ButtonSegment<PixelMode>>[
-              ButtonSegment<PixelMode>(value: PixelMode.libre, label: Text('Libre'), icon: Icon(Icons.brush_rounded)),
-              ButtonSegment<PixelMode>(value: PixelMode.copiar, label: Text('Copiar'), icon: Icon(Icons.copy_rounded)),
-              ButtonSegment<PixelMode>(value: PixelMode.espejo, label: Text('Espejo'), icon: Icon(Icons.flip_rounded)),
+            segments: <ButtonSegment<PixelMode>>[
+              ButtonSegment<PixelMode>(value: PixelMode.libre, label: const Text('Libre'), icon: c.maxWidth >= 440 ? const Icon(Icons.brush_rounded) : null),
+              ButtonSegment<PixelMode>(value: PixelMode.copiar, label: const Text('Copiar'), icon: c.maxWidth >= 440 ? const Icon(Icons.copy_rounded) : null),
+              ButtonSegment<PixelMode>(value: PixelMode.espejo, label: const Text('Espejo'), icon: c.maxWidth >= 440 ? const Icon(Icons.flip_rounded) : null),
             ],
             selected: <PixelMode>{_mode},
             onSelectionChanged: (Set<PixelMode> s) => _setMode(s.first),

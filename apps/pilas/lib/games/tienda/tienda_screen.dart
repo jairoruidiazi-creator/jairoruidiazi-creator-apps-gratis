@@ -191,97 +191,106 @@ class _TiendaScreenState extends State<TiendaScreen> {
       instruction: pago.instruction,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-        child: Column(
-          children: <Widget>[
-            // Productos y precio
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Dim.radio), border: Border.all(color: PilasColors.borde, width: 2)),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  for (final Producto p in pago.productos) ...<Widget>[
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        EmojiImage(p.item.emoji, size: 64, semanticsLabel: p.item.nombre),
-                        Text(formatPesos(p.precio), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-                      ],
-                    ),
-                    const SizedBox(width: 20),
-                  ],
-                  if (pago.productos.length > 1)
-                    Text('= ${formatPesos(pago.total)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: PilasColors.azul)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Bandeja
-            Expanded(
-              child: Container(
+        child: LayoutBuilder(builder: (BuildContext context, BoxConstraints c) {
+          // El monedero cabe en dos filas como mucho: en un teléfono angosto las
+          // monedas y los billetes se achican en lugar de empujar la bandeja.
+          final int n = pago.denominaciones.length;
+          final int perRow = n <= 1 ? 1 : (n / 2).ceil();
+          final double coinWidth = ((c.maxWidth - (perRow - 1) * 10) / perRow - 16).clamp(56.0, 96.0).toDouble();
+          return Column(
+            children: <Widget>[
+              // Productos y precio
+              Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: PilasColors.verdeClaro,
-                  borderRadius: BorderRadius.circular(Dim.radio),
-                  border: Border.all(color: PilasColors.verde, width: 2),
-                ),
-                child: Column(
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Dim.radio), border: Border.all(color: PilasColors.borde, width: 2)),
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 20,
+                  runSpacing: 8,
                   children: <Widget>[
-                    Text('Llevas ${formatPesos(_suma)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          alignment: WrapAlignment.center,
-                          children: <Widget>[
-                            for (int i = 0; i < _bandeja.length; i++)
-                              GestureDetector(
-                                onTap: () => _quitar(i),
-                                child: Semantics(
-                                  button: true,
-                                  label: 'Quitar ${_bandeja[i].nombre}',
-                                  child: MoneyWidget(denominacion: _bandeja[i], width: 84),
-                                ),
-                              ),
-                          ],
-                        ),
+                    for (final Producto p in pago.productos)
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          EmojiImage(p.item.emoji, size: 64, semanticsLabel: p.item.nombre),
+                          Text(formatPesos(p.precio), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                        ],
                       ),
-                    ),
+                    if (pago.productos.length > 1)
+                      Text('= ${formatPesos(pago.total)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: PilasColors.azul)),
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            // Monedero
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              alignment: WrapAlignment.center,
-              children: <Widget>[
-                for (final Denominacion d in pago.denominaciones)
-                  OptionTile(
-                    padding: const EdgeInsets.all(8),
-                    minHeight: 56,
-                    semanticsLabel: 'Agregar ${d.nombre}',
-                    onTap: () => _agregar(d),
-                    child: MoneyWidget(denominacion: d, width: 96),
+              const SizedBox(height: 12),
+              // Bandeja
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: PilasColors.verdeClaro,
+                    borderRadius: BorderRadius.circular(Dim.radio),
+                    border: Border.all(color: PilasColors.verde, width: 2),
                   ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _bandeja.isEmpty ? null : _pagar,
-                icon: const Icon(Icons.shopping_bag_rounded),
-                label: const Text('Pagar'),
+                  child: Column(
+                    children: <Widget>[
+                      Text('Llevas ${formatPesos(_suma)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 8),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.center,
+                            children: <Widget>[
+                              for (int i = 0; i < _bandeja.length; i++)
+                                GestureDetector(
+                                  onTap: () => _quitar(i),
+                                  child: Semantics(
+                                    button: true,
+                                    label: 'Quitar ${_bandeja[i].nombre}',
+                                    child: MoneyWidget(denominacion: _bandeja[i], width: 84),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ],
-        ),
+              const SizedBox(height: 12),
+              // Monedero
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: WrapAlignment.center,
+                children: <Widget>[
+                  for (final Denominacion d in pago.denominaciones)
+                    OptionTile(
+                      padding: const EdgeInsets.all(8),
+                      minHeight: 56,
+                      semanticsLabel: 'Agregar ${d.nombre}',
+                      onTap: () => _agregar(d),
+                      child: MoneyWidget(denominacion: d, width: coinWidth),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _bandeja.isEmpty ? null : _pagar,
+                  icon: const Icon(Icons.shopping_bag_rounded),
+                  label: const Text('Pagar'),
+                ),
+              ),
+            ],
+          );
+        }),
       ),
     );
   }

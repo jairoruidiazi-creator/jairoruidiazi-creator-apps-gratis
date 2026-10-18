@@ -359,18 +359,15 @@ class _Tools extends StatelessWidget {
           ),
       for (final List<String> s in sellos) _ToolButton(selected: stamp == s[0], label: 'Sello: ${s[1]}', onTap: () => onStamp(s[0]), child: EmojiImage(s[0], size: 30)),
     ];
-    final Widget grosor = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        for (final double w in <double>[5, 10, 20])
-          _ToolButton(
-            selected: width == w,
-            label: 'Grosor $w',
-            onTap: () => onWidth(w),
-            child: Container(width: w + 6, height: w + 6, decoration: const BoxDecoration(color: PilasColors.tinta, shape: BoxShape.circle)),
-          ),
-      ],
-    );
+    final List<Widget> grosores = <Widget>[
+      for (final double w in <double>[5, 10, 20])
+        _ToolButton(
+          selected: width == w,
+          label: 'Grosor $w',
+          onTap: () => onWidth(w),
+          child: Container(width: w + 6, height: w + 6, decoration: const BoxDecoration(color: PilasColors.tinta, shape: BoxShape.circle)),
+        ),
+    ];
     if (vertical) {
       return Container(
         margin: const EdgeInsets.fromLTRB(0, 4, 12, 12),
@@ -381,7 +378,8 @@ class _Tools extends StatelessWidget {
             children: <Widget>[
               Wrap(alignment: WrapAlignment.center, children: items),
               const Divider(),
-              Wrap(alignment: WrapAlignment.center, children: <Widget>[grosor]),
+              // En la columna angosta de apaisado los grosores también se acomodan.
+              Wrap(alignment: WrapAlignment.center, children: grosores),
             ],
           ),
         ),
@@ -403,7 +401,7 @@ class _Tools extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          grosor,
+          Row(mainAxisSize: MainAxisSize.min, children: grosores),
         ],
       ),
     );
