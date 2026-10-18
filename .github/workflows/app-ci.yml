@@ -37,6 +37,10 @@ jobs:
       - name: Fichas de tienda
         working-directory: .
         run: python3 tools/store/check_metadata.py "${{ inputs.app }}" 2>&1 | tee "apps/${{ inputs.app }}/metadata.log"; exit ${PIPESTATUS[0]}
+      # API de «motivo requerido» del código nativo propio declaradas en PrivacyInfo.xcprivacy (ITMS-91053).
+      - name: Manifiesto de privacidad de iOS
+        working-directory: .
+        run: python3 tools/ci/check_privacy_apis.py "${{ inputs.app }}" 2>&1 | tee -a "apps/${{ inputs.app }}/metadata.log"; exit ${PIPESTATUS[0]}
       - uses: subosito/flutter-action@v2
         with:
           channel: stable

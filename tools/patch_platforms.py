@@ -126,6 +126,9 @@ APPS = {
         "ios_files": {
             "native/ios/AppDelegate.swift": "ios/Runner/AppDelegate.swift",
         },
+        # SelloFiles.freeBytes consulta el espacio libre antes de crear o traer la copia
+        # completa (E174.1) y lo muestra en pantalla (85F4.1).
+        "ios_privacy_apis": [("NSPrivacyAccessedAPICategoryDiskSpace", ["E174.1", "85F4.1"])],
         "android_queries": [
             {"action": "android.intent.action.VIEW", "scheme": "geo"},
             {"action": "android.intent.action.VIEW", "scheme": "https"},
@@ -582,9 +585,15 @@ def privacy_manifest(cfg: dict) -> dict:
             }
             for c in cfg.get("ios_privacy_collected", [])
         ],
-        # shared_preferences guarda los ajustes de la app en sus propios UserDefaults.
+        # shared_preferences guarda los ajustes de la app en sus propios UserDefaults; cada
+        # app agrega las API de "motivo requerido" que use su código nativo propio
+        # (tools/ci/check_privacy_apis.py lo comprueba en la CI).
         "NSPrivacyAccessedAPITypes": [
             {"NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults", "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]},
+        ]
+        + [
+            {"NSPrivacyAccessedAPIType": category, "NSPrivacyAccessedAPITypeReasons": reasons}
+            for category, reasons in cfg.get("ios_privacy_apis", [])
         ],
     }
 
