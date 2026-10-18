@@ -3,6 +3,9 @@ name: App (flujo reutilizable)
 # Análisis, pruebas y compilaciones de una app de apps/<app>. Lo llaman los
 # flujos de cada app (pilas.yml, clave.yml, …) con `uses:`.
 #
+# Flutter va fijo en una versión (no "la estable de hoy") para que dos
+# corridas del mismo commit compilen lo mismo; se sube a mano y a propósito.
+#
 # Además de compilar, revisa lo que piden las tiendas:
 # - Android: firma de release (con una llave temporal que prueba la
 #   configuración de key.properties), SDK objetivo, permisos efectivos del APK
@@ -37,9 +40,12 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.7
           cache: true
       - run: flutter --version 2>&1 | tee version.log
       - run: flutter pub get 2>&1 | tee pubget.log; exit ${PIPESTATUS[0]}
+      # Copia de las versiones resueltas, para fijarlas en el repositorio (pubspec.lock).
+      - run: cp pubspec.lock resolved-pubspec.lock
       # Los avisos de estilo (info) se revisan en el registro; errores y warnings sí bloquean.
       - run: flutter analyze --no-fatal-infos 2>&1 | tee analyze.log; exit ${PIPESTATUS[0]}
       - run: flutter test --exclude-tags screenshots 2>&1 | tee test.log; exit ${PIPESTATUS[0]}
@@ -52,6 +58,7 @@ jobs:
           bash tools/ci/publish_logs.sh ci-logs-${{ inputs.app }}-check
           apps/${{ inputs.app }}/version.log apps/${{ inputs.app }}/pubget.log apps/${{ inputs.app }}/analyze.log
           apps/${{ inputs.app }}/test.log apps/${{ inputs.app }}/metadata.log
+          apps/${{ inputs.app }}/resolved-pubspec.lock
 
   android:
     name: APK y AAB Android
@@ -69,6 +76,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.7
           cache: true
       - run: flutter pub get
       - name: Llave temporal para probar la firma de release
@@ -127,6 +135,7 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.47.7
           cache: true
       - run: flutter pub get
       - run: flutter build ipa --release --no-codesign 2>&1 | tee build-ios.log; exit ${PIPESTATUS[0]}
@@ -163,6 +172,7 @@ jobs:
         if: steps.has.outputs.yes == 'true'
         with:
           channel: stable
+          flutter-version: 3.47.7
           cache: true
       - uses: actions/setup-python@v5
         with:
