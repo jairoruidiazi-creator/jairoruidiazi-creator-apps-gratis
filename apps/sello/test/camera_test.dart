@@ -287,7 +287,9 @@ void main() {
     expect(keepAwake.on, isTrue);
     expect(camera.calls.where((String c) => c.startsWith('flash:')).last, 'flash:off');
 
-    // Ajustes encima de la cámara: se libera mientras están abiertos.
+    // Ajustes encima de la cámara: se libera mientras están abiertos. El
+    // engranaje se ve siempre, aunque los chips no quepan.
+    expect(tester.getRect(find.byTooltip('Ajustes')).right, lessThanOrEqualTo(tester.view.physicalSize.width / tester.view.devicePixelRatio));
     await tester.tap(find.byTooltip('Ajustes'));
     await pumpMany(tester, 30);
     expect(find.byType(SettingsScreen), findsOneWidget);

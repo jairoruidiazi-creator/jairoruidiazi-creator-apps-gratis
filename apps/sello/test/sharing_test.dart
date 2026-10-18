@@ -135,6 +135,9 @@ void main() {
   });
 
   testWidgets('Las salidas selladas no llevan originales a escondidas (M3)', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.625;
+    addTearDown(tester.view.reset);
     await tester.runAsync(() async {
       // Una foto que todavía se está sellando: solo tiene el original.
       await services.store.writeBytes('photos/general/b_b-orig.jpg', syntheticJpeg(64, 48));
@@ -213,7 +216,7 @@ void main() {
       // Sin hoja de compartir (que la volvía a copiar a su caché).
       expect(shared, isEmpty);
       // La copia de la app ya sobra.
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await waitReal(tester, () => !File(files.saved.single).existsSync());
       expect(File(files.saved.single).existsSync(), isFalse);
       expect(find.text('Copia guardada.'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -252,8 +255,8 @@ void main() {
       await waitReal(tester, () => find.textContaining('Copia restaurada').evaluate().isNotEmpty);
       expect(services.state.photos.single.id, 'a');
       expect(find.textContaining('Copia restaurada: 1 fotos'), findsOneWidget);
-      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
       final String brought = (await tester.runAsync(() => services.store.absolutePath('exports/restaurar_copia.zip')))!;
+      await waitReal(tester, () => !File(brought).existsSync());
       expect(File(brought).existsSync(), isFalse);
       await tester.pumpWidget(const SizedBox.shrink());
     });

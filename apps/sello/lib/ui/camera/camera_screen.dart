@@ -713,31 +713,38 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       body: SafeArea(
         child: Column(
           children: <Widget>[
-            // Barra superior: proyecto, GPS, rumbo, ajustes. Crece con el texto.
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                children: <Widget>[
-                  _Chip(icon: Icons.folder_outlined, label: '${project.emoji.isNotEmpty ? '${project.emoji} ' : ''}${project.name}', semanticsHint: t(context, 'Proyecto, campos y notas de la próxima foto', 'Project, fields and notes for the next photo'), onTap: () => showPhotoDataSheet(context)),
-                  const SizedBox(width: 6),
-                  _Chip(icon: Icons.gps_fixed, label: gps.label, color: gps.color, semanticsHint: t(context, 'Detalle del GPS y la brújula', 'GPS and compass details'), onTap: () => showGpsSheet(context)),
-                  const SizedBox(width: 6),
-                  _Chip(
-                    icon: Icons.explore_outlined,
-                    label: ori == null ? '—' : '${ori.cameraHeading.toStringAsFixed(0)}° ${Coords.cardinal(ori.cameraHeading, spanish: spanish)}${ori.trueNorth ? '' : t(context, ' magn.', ' magn.')}${ori.flat ? '' : ' · ${ori.pitch.toStringAsFixed(0)}°'}',
-                    semanticsHint: t(context, 'Rumbo de la cámara', 'Camera heading'),
-                    onTap: () => showGpsSheet(context),
+            // Barra superior: proyecto, GPS y rumbo (se desplazan si no caben;
+            // crecen con el texto) y, siempre a la vista, los ajustes.
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.only(left: 8, top: 4, bottom: 4),
+                    child: Row(
+                      children: <Widget>[
+                        _Chip(icon: Icons.folder_outlined, label: '${project.emoji.isNotEmpty ? '${project.emoji} ' : ''}${project.name}', semanticsHint: t(context, 'Proyecto, campos y notas de la próxima foto', 'Project, fields and notes for the next photo'), onTap: () => showPhotoDataSheet(context)),
+                        const SizedBox(width: 6),
+                        _Chip(icon: Icons.gps_fixed, label: gps.label, color: gps.color, semanticsHint: t(context, 'Detalle del GPS y la brújula', 'GPS and compass details'), onTap: () => showGpsSheet(context)),
+                        const SizedBox(width: 6),
+                        _Chip(
+                          icon: Icons.explore_outlined,
+                          label: ori == null ? '—' : '${ori.cameraHeading.toStringAsFixed(0)}° ${Coords.cardinal(ori.cameraHeading, spanish: spanish)}${ori.trueNorth ? '' : t(context, ' magn.', ' magn.')}${ori.flat ? '' : ' · ${ori.pitch.toStringAsFixed(0)}°'}',
+                          semanticsHint: t(context, 'Rumbo de la cámara', 'Camera heading'),
+                          onTap: () => showGpsSheet(context),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(width: 2),
-                  IconButton(
-                    tooltip: t(context, 'Ajustes', 'Settings'),
-                    color: Colors.white,
-                    icon: const Icon(Icons.settings_outlined),
-                    onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
-                  ),
-                ],
-              ),
+                ),
+                IconButton(
+                  tooltip: t(context, 'Ajustes', 'Settings'),
+                  color: Colors.white,
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
+                ),
+                const SizedBox(width: 4),
+              ],
             ),
             Expanded(child: previewArea),
             // Controles secundarios (desplazables en pantallas angostas) y zoom.

@@ -294,7 +294,7 @@ void main() {
       ]) {
         final Size size = Size(wh[0], wh[1]);
         final StampLayout l = StampPainter.layout(size, t, d);
-        expect(l.block!.height, lessThanOrEqualTo(size.height * StampPainter.maxBlockFraction + 1), reason: '$size');
+        expect(l.block!.height, lessThanOrEqualTo(size.height * StampPainter.maxBlockFraction), reason: '$size');
         expect(l.unit, lessThanOrEqualTo(size.shortestSide / 100 + 1e-9), reason: '$size');
       }
       // Con pocas líneas el tamaño es el mismo en vertical y en horizontal.

@@ -82,15 +82,16 @@ class StampPainter extends CustomPainter {
   /// Calcula dónde va cada parte, sin dibujar.
   static StampLayout layout(Size size, StampTemplate t, StampData d, {ui.Image? logo}) {
     StampLayout l = _layoutWithUnit(size, t, d, logo, math.min(size.width, size.height) / 100);
-    // Si el bloque pasa del máximo se achica en proporción (al achicar la
-    // letra pueden caber más palabras por línea; dos vueltas más bastan).
-    for (int i = 0; i < 3; i++) {
+    // Si el bloque pasa del máximo se achica en proporción, con un 2 % de
+    // margen: el alto no es del todo proporcional a la letra (márgenes y
+    // líneas que se reacomodan), así que puede hacer falta otra vuelta.
+    final double maxHeight = size.height * maxBlockFraction;
+    for (int i = 0; i < 6; i++) {
       final Rect? b = l.block;
-      final double maxHeight = size.height * maxBlockFraction;
-      if (b == null || b.height <= maxHeight + 0.5) {
+      if (b == null || b.height <= maxHeight) {
         break;
       }
-      l = _layoutWithUnit(size, t, d, logo, l.unit * maxHeight / b.height);
+      l = _layoutWithUnit(size, t, d, logo, l.unit * maxHeight / b.height * 0.98);
     }
     return l;
   }
