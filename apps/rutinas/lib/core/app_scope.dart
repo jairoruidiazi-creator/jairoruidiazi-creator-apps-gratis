@@ -22,7 +22,7 @@ class Services {
     final ReminderStore reminders = ReminderStore(store)..load();
     final TimerStore timers = TimerStore(store)..load();
     final TimerController timer = TimerController(store: timers, cues: cues, settings: settings, habits: habits, screen: screen);
-    final NoticeService notices = NoticeService(gateway: gateway, settings: settings, habits: habits, reminders: reminders, timers: timers);
+    final NoticeService notices = NoticeService(gateway: gateway, settings: settings, habits: habits, reminders: reminders, timers: timers, store: store);
     habits.onChanged = notices.requestSync;
     reminders.onChanged = notices.requestSync;
     return Services(settings: settings, store: store, habits: habits, reminders: reminders, timers: timers, timer: timer, notices: notices, cues: cues, io: io);

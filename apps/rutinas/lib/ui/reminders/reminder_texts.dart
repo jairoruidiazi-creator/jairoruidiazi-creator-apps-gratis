@@ -63,4 +63,25 @@ class ReminderTexts {
 
   /// "Insiste cada 5 min".
   static String nag(int minutes, bool es) => es ? 'Insiste cada $minutes min' : 'Repeats every $minutes min';
+
+  /// Lo que de verdad hace la insistencia: si la app no está abierta cuando
+  /// suena, el sistema solo guarda [cap] repeticiones; al abrirla, una sola
+  /// solicitud que se repite sigue hasta marcarlo hecho.
+  static String nagLimit(int cap, bool es) => es
+      ? 'Si Rutinas no está abierta cuando suena, repite el aviso hasta $cap veces; al abrirla, sigue hasta que lo marques hecho.'
+      : 'If Rutinas is not open when it rings, the alert repeats up to $cap times; once you open it, it keeps going until you mark it done.';
+
+  /// "Sonando desde las 18:33" / "Sonando desde ayer a las 23:50" (nunca
+  /// "desde hace ahora").
+  static String ringingSince(DateTime alert, DateTime now, bool es) {
+    final String time = formatTime(alert, spanish: es);
+    final int days = daysBetween(alert, now);
+    if (days == 0) {
+      return es ? 'Sonando desde las $time' : 'Ringing since $time';
+    }
+    if (days == 1) {
+      return es ? 'Sonando desde ayer a las $time' : 'Ringing since yesterday at $time';
+    }
+    return es ? 'Sonando desde el ${formatShortDate(alert, spanish: true)} a las $time' : 'Ringing since ${formatShortDate(alert, spanish: false)} at $time';
+  }
 }

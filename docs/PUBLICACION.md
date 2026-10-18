@@ -86,6 +86,9 @@ cada formulario de las tiendas están en `apps/<app>/store/COMPLIANCE.md`.
 2. **Crear cada app en App Store Connect:** plataforma iOS, idioma principal español
    (México), bundle ID `co.appsgratis.<app>` (si no aparece, se registra en Certificates,
    Identifiers & Profiles › Identifiers; no necesita capacidades especiales), SKU libre.
+   Rutinas es la excepción: pide «Time Sensitive Notifications» (`ios/Runner/Runner.entitlements`).
+   La firma automática la activa en el identificador al archivar; si el archivo falla por
+   el perfil, se marca a mano en su identificador.
 3. **Subir la versión y la ficha:** Actions › "Publicar en las tiendas", la app, iOS y
    "Subir". El flujo archiva y firma con la firma automática de Xcode, sube el build a
    App Store Connect (queda en TestFlight) y sube textos y capturas.

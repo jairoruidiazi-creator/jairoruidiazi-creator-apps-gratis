@@ -4,7 +4,7 @@ Effective October 18, 2026.
 
 ## In short
 
-Rutinas does not collect anyone's data. It has no accounts, ads, analytics or tracking tools, and it does not connect to the internet: it does not even request that permission. Your habits, reminders, workouts and settings are stored only on your device.
+Rutinas does not collect anyone's data. It has no accounts, ads, analytics or tracking tools, and it does not connect to the internet: on Android it does not even request that permission. Your habits, reminders, workouts and settings are stored only on your device.
 
 ## Who publishes the app
 
@@ -12,17 +12,18 @@ Rutinas is a free, open-source app published by the apps-gratis team under the d
 
 ## What information the app handles and where it stays
 
-- **Habits:** their name, type, frequency, goal, reminder times and what you log each day (done, amount, minutes, skipped days, slips and notes).
+- **Habits:** their name, type, frequency, goal, reminder times and what you log each day (done, amount, minutes, skipped days, slips and notes). If you change the frequency or the goal, or archive a habit, the day it happened is kept, so earlier days still count as they were.
 - **Reminders and countdowns:** the text, notes, date and time, repetition, repeated alerts and when you marked them done.
 - **Timer:** your workouts and saved countdowns, the history of finished workouts (date and duration) and the stopwatch state.
 - **App settings** (language, theme, sounds, voice, vibration, first day of the week).
+- **Alert log:** which notifications the app scheduled and which ones rang in the last 15 days (only their number, the reminder or habit they belong to and the time), so they can be cleared from the notification shade when you mark something done. It is not included in backups.
 
 All of this lives in the app's private storage on your device. We do not receive it, see it or have any way to recover it.
 
 ## Permissions
 
 - **Notifications:** for reminders, habit alerts and timer interval changes while the screen is off or you use another app. They are requested the first time you need them; without them, the rest of the app works.
-- **Exact alarms (Android):** optional. If you grant it, alerts arrive on time with the screen off; otherwise Android may delay them by a few minutes.
+- **Exact alarms (Android):** optional. If you grant it, alerts arrive on time with the screen off; otherwise Android can deliver them up to an hour late.
 - **Reschedule after restart (Android):** to schedule the alerts again when the phone restarts.
 - **Vibration:** for notifications and interval changes, if you leave it on.
 - **Keep the screen on:** while a timer runs with the app open, if you leave it on.
@@ -45,7 +46,7 @@ Rutinas is a habit, reminder and timer tool for a general audience. It is not di
 
 ## Security
 
-Data stays in the app's private storage, which other apps cannot access. We recommend protecting the device with a screen lock and keeping exported backups somewhere safe, because the file is not encrypted. If system backups are turned on (Google on Android, iCloud on iOS), the system may include the app's data in them; those backups stay in your Google or Apple account, are governed by their terms, and we have no access to them.
+Data stays in the app's private storage, which other apps cannot access. We recommend protecting the device with a screen lock and keeping exported backups somewhere safe, because the file is not encrypted. If system backups are turned on (Google on Android, iCloud on iOS), the system may include the app's data in them; those backups stay in your Google or Apple account, are governed by their terms, and we have no access to them. On Android, the Google backup does not include the alert log or exported backups.
 
 ## Retention and deletion
 

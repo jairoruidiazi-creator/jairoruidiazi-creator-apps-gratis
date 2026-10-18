@@ -6,7 +6,8 @@ import '../model/habit.dart';
 /// Estado de un periodo de un hábito (un día, un bloque, una semana o un mes).
 /// - met: se cumplió la meta del periodo.
 /// - excused: no se cumplió, pero los días saltados a propósito cubren lo que
-///   faltó, o el periodo empezó antes de que existiera el hábito.
+///   faltó, el periodo quedó partido (empezó antes que el hábito o cambió la
+///   regla en medio) o cae en un tramo archivado.
 /// - missed: periodo cerrado sin cumplir.
 /// - open: el periodo de hoy, todavía sin cumplir (no rompe nada).
 enum SlotState { met, excused, missed, open }
@@ -15,10 +16,10 @@ enum SlotState { met, excused, missed, open }
 enum StreakUnit { days, times, weeks, months }
 
 /// Estado de un día para pintar el calendario.
-enum DayStatus { beforeStart, future, done, partial, skipped, missed, notDue, pending, relapse, clean }
+enum DayStatus { beforeStart, future, done, partial, skipped, missed, notDue, pending, relapse, clean, paused }
 
 class HabitSlot {
-  const HabitSlot({required this.start, required this.end, required this.target, required this.done, required this.skipped, required this.state, this.partial = false});
+  const HabitSlot({required this.start, required this.end, required this.target, required this.done, required this.skipped, required this.state, required this.frequency, this.partial = false});
 
   final DateTime start;
 
@@ -29,7 +30,10 @@ class HabitSlot {
   final int skipped;
   final SlotState state;
 
-  /// El periodo empezó antes del hábito (primera semana o primer mes a medias).
+  /// Regla con que se evalúa el periodo.
+  final Frequency frequency;
+
+  /// El periodo quedó partido: empezó antes del hábito o cambió la regla en medio.
   final bool partial;
 
   bool contains(DateTime day) => !day.isBefore(start) && !day.isAfter(end);
@@ -52,25 +56,42 @@ class StreakInfo {
   double? get rate => met + missed == 0 ? null : met / (met + missed);
 }
 
+/// Un tramo de días con la misma estructura de periodos (días sueltos,
+/// bloques de N días, semanas o meses).
+class _Run {
+  _Run(this.start, this.end, this.frequency);
+
+  final DateTime start;
+  DateTime end;
+
+  /// Frecuencia al empezar el tramo (la estructura es la misma en todo el tramo).
+  final Frequency frequency;
+}
+
 class HabitLogic {
   HabitLogic._();
 
-  /// ¿Se dio por hecho el día? (meta diaria alcanzada).
-  static bool isDone(Habit h, HabitEntry? e) {
+  /// ¿Se dio por hecho el día [day]? (la meta de ese día alcanzada).
+  static bool isDone(Habit h, HabitEntry? e, DateTime day) {
     if (e == null || h.isNegative) {
       return false;
     }
-    return e.value >= h.target;
+    return e.value >= h.targetOn(day);
   }
 
-  /// Primer día que cuenta: el inicio del hábito o el primer registro, si hay
-  /// uno anterior (por ejemplo, si se anotaron días pasados).
+  /// Primer día que cuenta: el inicio del hábito o el primer día con algo
+  /// anotado (hecho o a medias), si es anterior. Una nota o un día saltado
+  /// solos no adelantan el inicio, y en los hábitos de dejar algo una recaída
+  /// anotada antes de empezar tampoco.
   static DateTime effectiveStart(Habit h, Map<String, HabitEntry> entries) {
     final DateTime start = dateOnly(h.startDate);
+    if (h.isNegative) {
+      return start;
+    }
     // Las claves `aaaa-mm-dd` se ordenan igual como texto que como fecha.
     String first = dayKey(start);
     for (final MapEntry<String, HabitEntry> e in entries.entries) {
-      if (e.key.compareTo(first) < 0 && !e.value.isEmpty) {
+      if (e.key.compareTo(first) < 0 && e.value.value > 0 && parseDayKey(e.key) != null) {
         first = e.key;
       }
     }
@@ -81,7 +102,7 @@ class HabitLogic {
     if (h.isNegative) {
       return StreakUnit.days;
     }
-    switch (h.frequency.type) {
+    switch (h.frequency.normalized().type) {
       case FrequencyType.daily:
       case FrequencyType.weekdays:
         return StreakUnit.days;
@@ -94,6 +115,54 @@ class HabitLogic {
     }
   }
 
+  /// Clave de la estructura de periodos: dos reglas seguidas con la misma
+  /// clave comparten periodos (por ejemplo, de 3 a 4 veces por semana la
+  /// semana del cambio se evalúa entera con la regla nueva).
+  static String _structure(Frequency f) {
+    switch (f.type) {
+      case FrequencyType.daily:
+      case FrequencyType.weekdays:
+        return 'day';
+      case FrequencyType.everyN:
+        return 'every${f.n}';
+      case FrequencyType.perWeek:
+        return 'week';
+      case FrequencyType.perMonth:
+        return 'month';
+    }
+  }
+
+  /// Tramos de [start] a [end] con la misma estructura de periodos, según las
+  /// reglas que rigieron cada día.
+  static List<_Run> _runs(Habit h, DateTime start, DateTime end) {
+    final List<_Run> out = <_Run>[];
+    void add(DateTime a, DateTime b, Frequency f) {
+      if (b.isBefore(a)) {
+        return;
+      }
+      if (out.isNotEmpty && _structure(out.last.frequency) == _structure(f) && sameDay(addDays(out.last.end, 1), a)) {
+        out.last.end = b;
+      } else {
+        out.add(_Run(a, b, f));
+      }
+    }
+
+    DateTime from = start;
+    for (final PastRule p in h.pastRules) {
+      if (from.isAfter(end)) {
+        break;
+      }
+      if (!p.until.isBefore(from)) {
+        add(from, p.until.isAfter(end) ? end : p.until, p.frequency.normalized());
+        from = addDays(p.until, 1);
+      }
+    }
+    if (!from.isAfter(end)) {
+      add(from, end, h.frequency.normalized());
+    }
+    return out;
+  }
+
   /// Periodos del hábito desde su inicio hasta el que contiene a [today].
   static List<HabitSlot> slots(Habit h, Map<String, HabitEntry> entries, DateTime today, {required int weekStart}) {
     final DateTime end = dateOnly(today);
@@ -102,69 +171,83 @@ class HabitLogic {
     if (h.isNegative || start.isAfter(end)) {
       return out;
     }
-    final Frequency f = h.frequency.normalized();
-    HabitSlot build(DateTime a, DateTime b, int target, bool partial) {
+
+    // Un periodo de [a] a [b] (su forma natural), recortado al tramo [runA, runB].
+    HabitSlot build(DateTime a, DateTime b, DateTime runA, DateTime runB, Frequency f, int Function(DateTime last) targetFor) {
+      final DateTime from = a.isBefore(runA) ? runA : a;
+      final DateTime to = b.isAfter(runB) ? runB : b;
+      final bool cutStart = a.isBefore(runA);
+      // Cortado al final por un cambio de regla (no por hoy).
+      final bool cutEnd = b.isAfter(runB) && runB.isBefore(end);
       int done = 0;
       int skipped = 0;
-      for (DateTime d = a; !d.isAfter(b) && !d.isAfter(end); d = addDays(d, 1)) {
-        if (d.isBefore(start)) {
-          continue;
-        }
+      for (DateTime d = from; !d.isAfter(to) && !d.isAfter(end); d = addDays(d, 1)) {
         final HabitEntry? e = entries[dayKey(d)];
-        if (isDone(h, e)) {
+        if (isDone(h, e, d)) {
           done++;
         } else if (e != null && e.skipped) {
           skipped++;
         }
       }
+      final DateTime last = to.isAfter(end) ? end : to;
+      final int target = targetFor(last);
       SlotState state;
       if (done >= target) {
         state = SlotState.met;
-      } else if (!b.isBefore(end)) {
+      } else if (h.pausedBetween(from, last)) {
+        state = SlotState.excused;
+      } else if (!cutEnd && !b.isBefore(end)) {
         state = SlotState.open;
-      } else if (partial || done + skipped >= target) {
+      } else if (cutStart || cutEnd || done + skipped >= target) {
         state = SlotState.excused;
       } else {
         state = SlotState.missed;
       }
-      return HabitSlot(start: a, end: b, target: target, done: done, skipped: skipped, state: state, partial: partial);
+      // El periodo conserva su forma natural (la semana entera) cuando lo parte
+      // el inicio del hábito o el día de hoy; si lo parte un cambio de regla,
+      // queda recortado para no solaparse con el periodo de la regla vecina.
+      final DateTime shownStart = cutStart && !sameDay(runA, start) ? from : a;
+      final DateTime shownEnd = cutEnd ? to : b;
+      return HabitSlot(start: shownStart, end: shownEnd, target: target, done: done, skipped: skipped, state: state, frequency: f, partial: cutStart || cutEnd);
     }
 
-    switch (f.type) {
-      case FrequencyType.daily:
-        for (DateTime d = start; !d.isAfter(end); d = addDays(d, 1)) {
-          out.add(build(d, d, 1, false));
-        }
-        break;
-      case FrequencyType.weekdays:
-        for (DateTime d = start; !d.isAfter(end); d = addDays(d, 1)) {
-          if (f.weekdays.contains(d.weekday)) {
-            out.add(build(d, d, 1, false));
+    for (final _Run run in _runs(h, start, end)) {
+      switch (run.frequency.type) {
+        case FrequencyType.daily:
+        case FrequencyType.weekdays:
+          // Días sueltos: cada día toca o no según la regla de ese día.
+          for (DateTime d = run.start; !d.isAfter(run.end); d = addDays(d, 1)) {
+            final Frequency f = h.frequencyOn(d);
+            if (f.type == FrequencyType.daily || (f.type == FrequencyType.weekdays && f.weekdays.contains(d.weekday))) {
+              out.add(build(d, d, run.start, run.end, f, (DateTime _) => 1));
+            }
           }
-        }
-        break;
-      case FrequencyType.everyN:
-        for (DateTime a = start; !a.isAfter(end); a = addDays(a, f.n)) {
-          out.add(build(a, addDays(a, f.n - 1), 1, false));
-        }
-        break;
-      case FrequencyType.perWeek:
-        for (DateTime a = startOfWeek(start, weekStart); !a.isAfter(end); a = addDays(a, 7)) {
-          out.add(build(a, addDays(a, 6), f.n, a.isBefore(start)));
-        }
-        break;
-      case FrequencyType.perMonth:
-        for (DateTime a = startOfMonth(start); !a.isAfter(end); a = DateTime(a.year, a.month + 1)) {
-          final int target = math.min(f.n, daysInMonth(a.year, a.month));
-          out.add(build(a, endOfMonth(a), target, a.isBefore(start)));
-        }
-        break;
+          break;
+        case FrequencyType.everyN:
+          final int n = run.frequency.n;
+          for (DateTime a = run.start; !a.isAfter(run.end); a = addDays(a, n)) {
+            out.add(build(a, addDays(a, n - 1), run.start, run.end, run.frequency, (DateTime _) => 1));
+          }
+          break;
+        case FrequencyType.perWeek:
+          for (DateTime a = startOfWeek(run.start, weekStart); !a.isAfter(run.end); a = addDays(a, 7)) {
+            // La meta de la semana es la de la regla que rige su último día.
+            out.add(build(a, addDays(a, 6), run.start, run.end, run.frequency, (DateTime last) => h.frequencyOn(last).n));
+          }
+          break;
+        case FrequencyType.perMonth:
+          for (DateTime a = startOfMonth(run.start); !a.isAfter(run.end); a = DateTime(a.year, a.month + 1)) {
+            out.add(build(a, endOfMonth(a), run.start, run.end, run.frequency, (DateTime last) => math.min(h.frequencyOn(last).n, daysInMonth(a.year, a.month))));
+          }
+          break;
+      }
     }
     return out;
   }
 
   /// Racha actual y mejor racha. La racha no se rompe por los días que no
-  /// tocan, por los saltados a propósito ni por el periodo de hoy sin terminar.
+  /// tocan, por los saltados a propósito, por el periodo de hoy sin terminar
+  /// ni por los tramos archivados.
   static StreakInfo streak(Habit h, Map<String, HabitEntry> entries, DateTime today, {required int weekStart}) {
     if (h.isNegative) {
       return negativeStreak(h, entries, today);
@@ -193,7 +276,7 @@ class HabitLogic {
     final DateTime end = dateOnly(today);
     for (final MapEntry<String, HabitEntry> e in entries.entries) {
       final DateTime? d = parseDayKey(e.key);
-      if (d != null && !d.isAfter(end) && isDone(h, e.value)) {
+      if (d != null && !d.isAfter(end) && isDone(h, e.value, d)) {
         completions++;
       }
     }
@@ -215,23 +298,29 @@ class HabitLogic {
   }
 
   /// Hábitos negativos: días completos sin recaer. Hoy no cuenta hasta que
-  /// termina (el día que se empieza o se recae, la racha es 0).
+  /// termina (el día que se empieza o se recae, la racha es 0). Los días
+  /// archivados no suman ni rompen.
   static StreakInfo negativeStreak(Habit h, Map<String, HabitEntry> entries, DateTime today) {
     final DateTime end = dateOnly(today);
     final DateTime start = effectiveStart(h, entries);
-    DateTime cleanStart = start;
+    final Set<String> relapses = relapseDays(h, entries, today).map(dayKey).toSet();
+    int run = 0;
     int best = 0;
-    final List<DateTime> relapses = relapseDays(h, entries, today).where((DateTime d) => !d.isBefore(start)).toList();
-    for (final DateTime r in relapses) {
-      best = math.max(best, daysBetween(cleanStart, r));
-      cleanStart = addDays(r, 1);
+    int clean = 0;
+    int slips = 0;
+    for (DateTime d = start; d.isBefore(end); d = addDays(d, 1)) {
+      if (relapses.contains(dayKey(d))) {
+        best = math.max(best, run);
+        run = 0;
+        slips++;
+      } else if (!h.pausedOn(d)) {
+        run++;
+        clean++;
+      }
     }
-    final int current = math.max(0, daysBetween(cleanStart, end));
-    best = math.max(best, current);
-    final int elapsed = math.max(0, daysBetween(start, end));
-    final int relapsedPast = relapses.where((DateTime d) => d.isBefore(end)).length;
-    final int clean = math.max(0, elapsed - relapsedPast);
-    return StreakInfo(current: current, best: best, unit: StreakUnit.days, completions: clean, met: clean, missed: relapsedPast);
+    best = math.max(best, run);
+    final int current = relapses.contains(dayKey(end)) ? 0 : run;
+    return StreakInfo(current: current, best: best, unit: StreakUnit.days, completions: clean, met: clean, missed: slips);
   }
 
   /// Periodo que contiene a [day], o null si es anterior al hábito o el día no toca.
@@ -249,16 +338,17 @@ class HabitLogic {
   }
 
   /// ¿Le toca algo al hábito el día [day]? Para la lista de hoy: los de
-  /// frecuencia por bloque, semana o mes tocan mientras su periodo no se cumpla.
+  /// frecuencia por bloque, semana o mes tocan mientras su periodo no esté
+  /// cubierto (con lo hecho y lo saltado a propósito).
   static bool isDueOn(Habit h, Map<String, HabitEntry> entries, DateTime day, DateTime today, {required int weekStart}) {
     final DateTime d = dateOnly(day);
-    if (h.archived || d.isBefore(effectiveStart(h, entries))) {
+    if (h.archived || d.isBefore(effectiveStart(h, entries)) || h.pausedOn(d)) {
       return false;
     }
     if (h.isNegative) {
       return true;
     }
-    final Frequency f = h.frequency.normalized();
+    final Frequency f = h.frequencyOn(d);
     switch (f.type) {
       case FrequencyType.daily:
         return true;
@@ -267,11 +357,11 @@ class HabitLogic {
       case FrequencyType.everyN:
       case FrequencyType.perWeek:
       case FrequencyType.perMonth:
-        if (isDone(h, entries[dayKey(d)])) {
+        if (isDone(h, entries[dayKey(d)], d)) {
           return true;
         }
         final HabitSlot? s = slotFor(h, entries, d, d.isAfter(today) ? d : today, weekStart: weekStart);
-        return s == null || s.done < s.target;
+        return s == null || s.done + s.skipped < s.target;
     }
   }
 
@@ -290,16 +380,22 @@ class HabitLogic {
       if (e != null && e.value > 0) {
         return DayStatus.relapse;
       }
+      if (h.pausedOn(d)) {
+        return DayStatus.paused;
+      }
       return sameDay(d, t) ? DayStatus.pending : DayStatus.clean;
     }
-    if (isDone(h, e)) {
+    if (isDone(h, e, d)) {
       return DayStatus.done;
     }
     if (e != null && e.skipped) {
       return DayStatus.skipped;
     }
     final bool started = e != null && e.value > 0;
-    final Frequency f = h.frequency.normalized();
+    if (h.pausedOn(d)) {
+      return started ? DayStatus.partial : DayStatus.paused;
+    }
+    final Frequency f = h.frequencyOn(d);
     switch (f.type) {
       case FrequencyType.daily:
       case FrequencyType.weekdays:

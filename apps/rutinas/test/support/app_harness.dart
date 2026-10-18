@@ -13,12 +13,12 @@ import 'package:rutinas/state/timer_controller.dart';
 
 /// Servicios de la app con dobles de prueba: notificaciones en memoria, sin
 /// sonido, sin pantalla encendida y sin hoja de compartir.
-Services testServices(Directory dir, {String language = 'es'}) {
+Services testServices(Directory dir, {String language = 'es', bool ios = false}) {
   final AppSettings settings = AppSettings(deviceLanguage: language)..themeMode = 'light';
   return Services.create(
     settings: settings,
     store: JsonStore(root: dir),
-    gateway: FakeNotificationGateway(),
+    gateway: FakeNotificationGateway(ios: ios),
     cues: SilentCuePlayer(),
     screen: FakeScreenWake(),
     io: FakeBackupIO(),

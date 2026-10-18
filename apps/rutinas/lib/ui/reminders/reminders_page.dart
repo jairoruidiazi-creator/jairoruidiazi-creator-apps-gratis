@@ -64,7 +64,8 @@ class _RemindersPageState extends State<RemindersPage> {
     final String title = es ? 'Cuenta regresiva de ${formatDurationShort(minutes * 60, spanish: true)}' : '${formatDurationShort(minutes * 60, spanish: false)} countdown';
     s.reminders.addCountdown(seconds: minutes * 60, title: title, nagMinutes: s.settings.countdownNag);
     unawaited(s.notices.askNotifications());
-    showSnack(context, es ? 'Te aviso en ${formatDurationShort(minutes * 60, spanish: true)} y sigo insistiendo hasta que toques Hecho.' : 'I will remind you in ${formatDurationShort(minutes * 60, spanish: false)} and keep at it until you tap Done.');
+    final int nag = s.settings.countdownNag;
+    showSnack(context, es ? 'Te aviso en ${formatDurationShort(minutes * 60, spanish: true)} y repito el aviso cada $nag min hasta que toques Hecho.' : 'I will remind you in ${formatDurationShort(minutes * 60, spanish: false)} and repeat the alert every $nag min until you tap Done.');
   }
 
   Future<void> _otherCountdown(Services s) async {
@@ -135,6 +136,10 @@ class _RemindersPageState extends State<RemindersPage> {
     }
     final List<Reminder> done = s.reminders.completed;
     final NoticePermissions p = s.notices.permissions;
+    // Si no caben todos los avisos en lo que guarda el teléfono y lo cubierto
+    // no llega a tres días (lo que el cupo de iOS garantiza siempre), se dice
+    // aquí hasta cuándo llegan; Ajustes lo muestra siempre que no cabe todo.
+    final DateTime? covered = s.notices.coveredUntil;
     return ReadableWidth(
       child: ListView(
         padding: const EdgeInsets.only(bottom: 104),
@@ -154,16 +159,23 @@ class _RemindersPageState extends State<RemindersPage> {
           else if (p.exactAlarmsApply && !p.exactAlarms && pending.isNotEmpty)
             _Banner(
               icon: Icons.alarm_off,
-              text: t(context, 'Sin el permiso de alarmas exactas, Android puede retrasar los avisos unos minutos.', 'Without the exact alarms permission, Android may delay alerts by a few minutes.'),
+              text: t(context, 'Sin el permiso «Alarmas y recordatorios», con la pantalla apagada Android puede entregar los avisos hasta una hora tarde.', 'Without the "Alarms & reminders" permission, Android can deliver alerts up to an hour late with the screen off.'),
               action: t(context, 'Permitir', 'Allow'),
-              onAction: s.notices.askExactAlarms,
+              onAction: () => unawaited(s.notices.askExactAlarms()),
             ),
-          _QuickCountdown(onPick: (int m) => _quick(s, m), onOther: () => _otherCountdown(s)),
+          if (covered != null && covered.isBefore(now.add(const Duration(days: 3))))
+            _Banner(
+              icon: Icons.event_busy_outlined,
+              text: es
+                  ? 'Tienes más avisos de los que el teléfono puede guardar: están programados hasta el ${formatShortDate(covered, spanish: true)} a las ${formatTime(covered, spanish: true)}. Abre Rutinas antes de esa hora para que sigan llegando.'
+                  : 'You have more alerts than the phone can hold: they are scheduled until ${formatShortDate(covered, spanish: false)} at ${formatTime(covered, spanish: false)}. Open Rutinas before then so they keep arriving.',
+            ),
+          _QuickCountdown(onPick: (int m) => _quick(s, m), onOther: () => _otherCountdown(s), nag: s.settings.countdownNag, cap: s.notices.limits.nagCap),
           if (pending.isEmpty)
             EmptyState(
               icon: Icons.notifications_none,
               title: t(context, 'Nada pendiente', 'Nothing pending'),
-              message: t(context, 'Crea un recordatorio con su hora y, si quieres, que insista hasta que lo marques hecho.', 'Create a reminder with its time and, if you like, have it repeat until you mark it done.'),
+              message: t(context, 'Crea un recordatorio con su hora y, si quieres, que insista mientras no lo marques hecho.', 'Create a reminder with its time and, if you like, have it repeat while it is not marked done.'),
             ),
           if (overdue.isNotEmpty) ...<Widget>[
             SectionHeader('${t(context, 'Vencidos', 'Overdue')} (${overdue.length})'),
@@ -206,12 +218,12 @@ class _RemindersPageState extends State<RemindersPage> {
 }
 
 class _Banner extends StatelessWidget {
-  const _Banner({required this.icon, required this.text, required this.action, required this.onAction});
+  const _Banner({required this.icon, required this.text, this.action, this.onAction});
 
   final IconData icon;
   final String text;
-  final String action;
-  final VoidCallback onAction;
+  final String? action;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -231,7 +243,7 @@ class _Banner extends StatelessWidget {
                 Expanded(child: Text(text, style: TextStyle(color: cs.onTertiaryContainer))),
               ],
             ),
-            Align(alignment: Alignment.centerRight, child: TextButton(onPressed: onAction, child: Text(action))),
+            if (action != null) Align(alignment: Alignment.centerRight, child: TextButton(onPressed: onAction, child: Text(action!))) else const SizedBox(height: 6),
           ],
         ),
       ),
@@ -241,10 +253,15 @@ class _Banner extends StatelessWidget {
 
 /// "Avísame en 5 · 10 · 15 · 30 · 60 min" y que insista.
 class _QuickCountdown extends StatelessWidget {
-  const _QuickCountdown({required this.onPick, required this.onOther});
+  const _QuickCountdown({required this.onPick, required this.onOther, required this.nag, required this.cap});
 
   final ValueChanged<int> onPick;
   final VoidCallback onOther;
+
+  /// Cada cuántos minutos insiste (Ajustes) y cuántas repeticiones guarda el
+  /// sistema si la app no está abierta.
+  final int nag;
+  final int cap;
 
   @override
   Widget build(BuildContext context) {
@@ -264,7 +281,12 @@ class _QuickCountdown extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.only(top: 2, bottom: 6),
-              child: Text(t(context, 'Una cuenta regresiva que insiste hasta que la apagues.', 'A countdown that keeps alerting until you turn it off.'), style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+              child: Text(
+                isSpanish(context)
+                    ? 'Una cuenta regresiva que suena al terminar y repite el aviso cada $nag min hasta que la apagues. Si Rutinas no está abierta cuando suena, repite hasta $cap veces.'
+                    : 'A countdown that rings when time is up and repeats every $nag min until you turn it off. If Rutinas is not open when it rings, it repeats up to $cap times.',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
             ),
             Wrap(
               spacing: 8,
@@ -305,7 +327,7 @@ class ReminderTile extends StatelessWidget {
       info.add(es ? 'Hecho: ${ReminderTexts.when(r.doneAt!, now, true)}' : 'Done: ${ReminderTexts.when(r.doneAt!, now, false)}');
     } else if (r.isCountdown) {
       final int left = r.alertAt.difference(now).inSeconds;
-      info.add(left > 0 ? (es ? 'Suena en ${formatClock(left)}' : 'Rings in ${formatClock(left)}') : (es ? 'Sonando desde hace ${formatRelative(r.alertAt, now, spanish: true).replaceFirst('hace ', '')}' : 'Ringing since ${formatRelative(r.alertAt, now, spanish: false)}'));
+      info.add(left > 0 ? (es ? 'Suena en ${formatClock(left)}' : 'Rings in ${formatClock(left)}') : ReminderTexts.ringingSince(r.alertAt, now, es));
     } else {
       info.add('${ReminderTexts.when(r.alertAt, now, es)} · ${formatRelative(r.alertAt, now, spanish: es)}');
       if (r.snoozedUntil != null) {
@@ -347,9 +369,9 @@ class ReminderTile extends StatelessWidget {
                   tooltip: r.isCountdown ? t(context, 'Apagar', 'Turn off') : t(context, 'Marcar hecho', 'Mark done'),
                   icon: Icon(r.isCountdown ? Icons.alarm_off : Icons.radio_button_unchecked, color: accent),
                   onPressed: () {
-                    final DateTime alert = r.alertAt;
                     final Map<String, dynamic>? before = s.reminders.complete(r.id);
-                    unawaited(s.notices.dismissReminder(r, alert));
+                    // Fuera del panel todos sus avisos, también los de veces anteriores.
+                    unawaited(s.notices.dismissReminder(r));
                     if (before != null) {
                       showSnack(
                         context,
@@ -377,19 +399,25 @@ class ReminderTile extends StatelessWidget {
                   ),
                 ),
               ),
-              if (!r.done)
+              // Posponer solo lo que ya sonó o suena dentro de una hora: en uno
+              // de dentro de días lo haría sonar antes de tiempo.
+              if (ReminderLogic.canSnooze(r, now))
                 PopupMenuButton<int>(
                   tooltip: t(context, 'Posponer', 'Snooze'),
                   icon: const Icon(Icons.snooze),
                   onSelected: (int minutes) {
-                    final DateTime alert = r.alertAt;
-                    s.reminders.snooze(r.id, minutes);
-                    unawaited(s.notices.dismissReminder(r, alert));
+                    if (minutes == _tomorrow) {
+                      final DateTime n = clock.now();
+                      s.reminders.snoozeUntil(r.id, DateTime(n.year, n.month, n.day + 1, 9));
+                    } else {
+                      s.reminders.snooze(r.id, minutes);
+                    }
+                    unawaited(s.notices.dismissReminder(r));
                   },
                   itemBuilder: (BuildContext context) => <PopupMenuEntry<int>>[
                     for (final int m in const <int>[5, 10, 30, 60, 180])
                       PopupMenuItem<int>(value: m, child: Text(es ? 'Posponer ${formatDurationShort(m * 60, spanish: true)}' : 'Snooze ${formatDurationShort(m * 60, spanish: false)}')),
-                    PopupMenuItem<int>(value: _minutesUntilTomorrow9(), child: Text(t(context, 'Mañana a las 9:00', 'Tomorrow at 9:00 AM'))),
+                    PopupMenuItem<int>(value: _tomorrow, child: Text(es ? 'Mañana a las ${formatTimeOfDay(9, 0, spanish: true)}' : 'Tomorrow at ${formatTimeOfDay(9, 0, spanish: false)}')),
                   ],
                 ),
             ],
@@ -399,9 +427,6 @@ class ReminderTile extends StatelessWidget {
     );
   }
 
-  int _minutesUntilTomorrow9() {
-    final DateTime n = clock.now();
-    final DateTime target = DateTime(n.year, n.month, n.day + 1, 9);
-    return (target.difference(n).inSeconds / 60).ceil();
-  }
+  /// Valor de la opción «Mañana a las 9:00» en el menú de posponer.
+  static const int _tomorrow = -1;
 }

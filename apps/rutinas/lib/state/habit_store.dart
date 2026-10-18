@@ -65,16 +65,49 @@ class HabitStore extends PersistentStore {
     changed();
   }
 
+  /// Archiva o recupera un hábito. Archivado, deja de contar desde hoy; al
+  /// recuperarlo, el tiempo que estuvo archivado queda como pausa.
   void setArchived(String id, bool value) {
     final Habit? h = byId(id);
-    if (h == null) {
+    if (h == null || h.archived == value) {
       return;
     }
-    h.archived = value;
-    if (!value) {
+    final DateTime today = dateOnly(clock.now());
+    if (value) {
+      h.archive(today);
+    } else {
+      h.unarchive(today);
       h.order = habits.map((Habit x) => x.order).reduce(math.max) + 1;
     }
     changed();
+  }
+
+  /// ¿El hábito tiene algo anotado (veces, minutos o recaídas)? Entonces su
+  /// tipo ya no se puede cambiar.
+  bool hasValues(String habitId) {
+    final Map<String, HabitEntry>? map = entries[habitId];
+    if (map == null) {
+      return false;
+    }
+    for (final HabitEntry e in map.values) {
+      if (e.value > 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Reemplaza todo por lo de [other] (al restaurar una copia ya leída entera).
+  void replaceWith(HabitStore other) {
+    habits
+      ..clear()
+      ..addAll(other.habits);
+    entries
+      ..clear()
+      ..addAll(other.entries);
+    damagedCopy = null;
+    changed();
+    flush();
   }
 
   /// Sube (−1) o baja (+1) un hábito en la lista.
@@ -131,7 +164,8 @@ class HabitStore extends PersistentStore {
       return;
     }
     final int now = entry(habitId, day)?.value ?? 0;
-    setValue(habitId, day, now >= h.target ? 0 : h.target);
+    final int target = h.targetOn(dateOnly(day));
+    setValue(habitId, day, now >= target ? 0 : target);
   }
 
   void setSkipped(String habitId, DateTime day, bool skipped) {
@@ -202,6 +236,22 @@ class HabitStore extends PersistentStore {
         if (out.isNotEmpty) {
           entries[h.key] = out;
         }
+      }
+    }
+    // Hábitos archivados con una versión sin fecha de archivo: se toma el día
+    // siguiente al último registro (o el inicio), para que no cuenten como
+    // fallados los días en que ya no se seguían.
+    for (final Habit h in habits) {
+      if (h.archived && h.archivedAt == null) {
+        DateTime? last;
+        for (final String key in (entries[h.id] ?? const <String, HabitEntry>{}).keys) {
+          final DateTime? d = parseDayKey(key);
+          if (d != null && (last == null || d.isAfter(last))) {
+            last = d;
+          }
+        }
+        final DateTime start = dateOnly(h.startDate);
+        h.archivedAt = last == null || last.isBefore(start) ? start : addDays(last, 1);
       }
     }
   }

@@ -17,7 +17,7 @@ import 'timer_texts.dart';
 import 'workout_editor.dart';
 
 /// Pestaña del temporizador: entrenamientos por intervalos, cronómetro y
-/// cuenta atrás.
+/// cuenta regresiva.
 class TimerPage extends StatefulWidget {
   const TimerPage({super.key});
 
@@ -46,7 +46,7 @@ class _TimerPageState extends State<TimerPage> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    final List<String> labels = <String>[t(context, 'Intervalos', 'Intervals'), t(context, 'Cronómetro', 'Stopwatch'), t(context, 'Cuenta atrás', 'Countdown')];
+    final List<String> labels = <String>[t(context, 'Intervalos', 'Intervals'), t(context, 'Cronómetro', 'Stopwatch'), t(context, 'Cuenta regresiva', 'Countdown')];
     return LayoutBuilder(
       builder: (BuildContext context, BoxConstraints box) {
         final bool fixed = _tabsFit(context, labels, box.maxWidth);
@@ -157,7 +157,7 @@ class WorkoutsTab extends StatelessWidget {
 
   Future<void> _start(BuildContext context, Workout w) async {
     final Services s = AppScope.read(context);
-    final bool ok = await RunnerScreen.confirmReplace(context);
+    final bool ok = await RunnerScreen.beforeStart(context);
     if (!ok || !context.mounted) {
       return;
     }

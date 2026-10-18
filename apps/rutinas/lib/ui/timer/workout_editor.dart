@@ -81,7 +81,7 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
       showSnack(context, t(context, 'Agrega al menos un intervalo.', 'Add at least one interval.'));
       return;
     }
-    final bool ok = await RunnerScreen.confirmReplace(context);
+    final bool ok = await RunnerScreen.beforeStart(context);
     if (!ok || !mounted) {
       return;
     }

@@ -166,4 +166,45 @@ void main() {
       expect(s.workouts, 2);
     });
   });
+
+  group('Archivados (G4)', () {
+    // Uno archivado el 1 de agosto y otro hecho todos los días desde junio.
+    final DateTime june = DateTime(2026, 6, 1);
+    Habit archivedHabit() => habit('viejo', from: june)..archive(DateTime(2026, 8, 1));
+    final Habit daily = habit('diario', from: june);
+    Map<String, HabitEntry> every(DateTime a, DateTime b) => <String, HabitEntry>{
+          for (DateTime x = a; !x.isAfter(b); x = addDays(x, 1)) dayKey(x): HabitEntry(value: 1),
+        };
+    Map<String, Map<String, HabitEntry>> data() => <String, Map<String, HabitEntry>>{
+          'viejo': every(june, DateTime(2026, 7, 31)),
+          'diario': every(june, DateTime(2026, 10, 13)),
+        };
+
+    test('no cuentan como fallados después de archivarlos', () {
+      final PeriodSummary week = build(SummaryRange.week, list: <Habit>[archivedHabit(), daily], data: data());
+      expect(week.habits.map((HabitPeriodStats h) => h.habit.id), <String>['diario']);
+      expect(week.missed, 0);
+      expect(week.rate, 1.0);
+      final PeriodSummary year = build(SummaryRange.year, list: <Habit>[archivedHabit(), daily], data: data());
+      expect(year.missed, 0);
+      expect(year.rate, 1.0);
+      final HabitPeriodStats old = statsOf(year, 'viejo');
+      expect(old.met, 61); // junio y julio
+      expect(old.missed, 0);
+      // El mes en que se archivó solo cuenta hasta ese día.
+      final PeriodSummary august = build(SummaryRange.month, anchor: DateTime(2026, 8, 15), list: <Habit>[archivedHabit(), daily], data: data());
+      expect(august.habits.map((HabitPeriodStats h) => h.habit.id), isNot(contains('viejo')));
+      expect(august.missed, 0);
+    });
+
+    test('al recuperarlo, el tiempo archivado no falla pero lo de después sí', () {
+      final Habit h = archivedHabit()..unarchive(DateTime(2026, 10, 12));
+      final PeriodSummary week = build(SummaryRange.week, list: <Habit>[h], data: data());
+      final HabitPeriodStats st = statsOf(week, 'viejo');
+      // Lunes 12 y martes 13 sin hacer; hoy en curso.
+      expect(<int>[st.met, st.missed, st.open], <int>[0, 2, 1]);
+      final PeriodSummary september = build(SummaryRange.month, anchor: DateTime(2026, 9, 10), list: <Habit>[h], data: data());
+      expect(september.habits, isEmpty);
+    });
+  });
 }

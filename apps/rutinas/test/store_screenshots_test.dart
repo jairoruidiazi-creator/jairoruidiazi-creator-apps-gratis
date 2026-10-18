@@ -43,7 +43,8 @@ void main() {
         final DateTime demoNow = DateTime(2026, 10, 14, 18, 40);
         await withClock(Clock.fixed(demoNow), () async {
           final Directory dir = Directory.systemTemp.createTempSync('rutinas_shots');
-          final Services s = testServices(dir, language: lang);
+          // Con los topes de avisos de cada sistema, como en un teléfono de verdad.
+          final Services s = testServices(dir, language: lang, ios: device.isIOS);
           seedRutinasDemo(s, spanish: es, now: demoNow);
           await tester.pumpWidget(storeShotRoot(RutinasApp(services: s, startup: false)));
           await settle(tester);

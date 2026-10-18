@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:clock/clock.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rutinas/core/cues.dart';
 import 'package:rutinas/core/dates.dart';
@@ -137,7 +138,7 @@ void main() {
       expect(rig.controller.snapshot!.index, 2);
       await tester.pump(const Duration(milliseconds: 500));
       expect(rig.cues.log.length, before);
-      // Sigue avisando desde donde va: la cuenta atrás de las flexiones.
+      // Sigue avisando desde donde va: la cuenta regresiva de las flexiones.
       await tester.pump(const Duration(seconds: 11));
       expect(rig.cues.log.sublist(before), <String>['speak:3']);
       rig.controller.stop();
@@ -179,7 +180,7 @@ void main() {
     });
   });
 
-  testWidgets('cuenta atrás libre y reemplazo de un entrenamiento en marcha', (WidgetTester tester) async {
+  testWidgets('cuenta regresiva libre y reemplazo de un entrenamiento en marcha', (WidgetTester tester) async {
     await run(tester, (Rig rig) async {
       rig.controller.startWorkout(WorkoutTemplates.create(WorkoutTemplate.tabata, spanish: true, now: t0));
       await tester.pump(const Duration(seconds: 45));
@@ -218,5 +219,39 @@ void main() {
       expect(rig.cues.log, isEmpty);
       expect(dayKey(done.startedAt), '2026-10-14');
     });
+  });
+
+  testWidgets('los intervalos sin nombre se anuncian con su tipo, como en la pantalla (M17)', (WidgetTester tester) async {
+    await run(tester, (Rig rig) async {
+      final Workout w = Workout(id: 'sin', name: 'Sin nombres', createdAt: t0, nodes: <TimerNode>[
+        IntervalStep(name: '', seconds: 4),
+        IntervalStep(name: ' ', seconds: 4, kind: StepKind.rest),
+      ]);
+      expect(rig.controller.startWorkout(w), isTrue);
+      await tester.pump(const Duration(seconds: 9));
+      expect(rig.cues.log, contains('speak:Trabajo'));
+      expect(rig.cues.log, contains('speak:Último: Descanso'));
+      expect(rig.cues.log.where((String e) => e == 'speak:' || e == 'speak: '), isEmpty);
+    });
+  });
+
+  testWidgets('la vibración usa el motor del teléfono y respeta el ajuste (M17)', (WidgetTester tester) async {
+    final List<MethodCall> calls = <MethodCall>[];
+    const MethodChannel channel = MethodChannel('rutinas/vibracion');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (MethodCall call) async {
+      calls.add(call);
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, null));
+    final AppSettings settings = AppSettings();
+    final DeviceCuePlayer player = DeviceCuePlayer(settings);
+    await player.vibrate();
+    await player.vibrate(strong: true);
+    expect(calls.map((MethodCall c) => c.method), <String>['vibrar', 'vibrar']);
+    expect((calls.first.arguments as Map<Object?, Object?>)['ms'], 300);
+    expect((calls.last.arguments as Map<Object?, Object?>)['ms'], 700);
+    settings.vibration = false;
+    await player.vibrate();
+    expect(calls, hasLength(2));
   });
 }

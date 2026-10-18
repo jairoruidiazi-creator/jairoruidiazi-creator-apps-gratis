@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_scope.dart';
 import '../../core/dates.dart';
 import '../../core/ids.dart';
+import '../../logic/habit_logic.dart';
 import '../../model/habit.dart';
 import '../catalog.dart';
 import '../widgets/common.dart';
@@ -13,12 +14,16 @@ import 'habit_texts.dart';
 
 /// Crear o editar un hábito.
 class HabitEditorScreen extends StatefulWidget {
-  const HabitEditorScreen({super.key, this.habit});
+  const HabitEditorScreen({super.key, this.habit, this.template});
 
   /// Hábito a editar (se trabaja sobre una copia); null para uno nuevo.
   final Habit? habit;
 
-  static Future<void> open(BuildContext context, {Habit? habit}) => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => HabitEditorScreen(habit: habit), fullscreenDialog: true));
+  /// Para uno nuevo: copia el nombre, el ícono, el color y los avisos de otro
+  /// (cuando se quiere medir un hábito de otra forma).
+  final Habit? template;
+
+  static Future<void> open(BuildContext context, {Habit? habit, Habit? template}) => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => HabitEditorScreen(habit: habit, template: template), fullscreenDialog: true));
 
   @override
   State<HabitEditorScreen> createState() => _HabitEditorScreenState();
@@ -73,7 +78,7 @@ class _HabitEditorScreenState extends State<HabitEditorScreen> {
   @override
   void initState() {
     super.initState();
-    final Habit? h = widget.habit;
+    final Habit? h = widget.habit ?? widget.template;
     final DateTime today = dateOnly(clock.now());
     _name = TextEditingController(text: h?.name ?? '');
     _unit = TextEditingController(text: h?.unit ?? '');
@@ -91,7 +96,7 @@ class _HabitEditorScreenState extends State<HabitEditorScreen> {
     }
     _goal = h != null && h.kind == HabitKind.count ? h.goal : 8;
     _minutes = h != null && h.kind == HabitKind.timed ? (h.goal / 60).round().clamp(1, 600) : 10;
-    _start = h?.startDate ?? today;
+    _start = widget.habit?.startDate ?? today;
     _reminders = List<int>.of(h?.reminders ?? const <int>[]);
     _nag = h?.nagMinutes ?? 0;
     _icon = h?.icon ?? 'task_alt';
@@ -152,17 +157,32 @@ class _HabitEditorScreenState extends State<HabitEditorScreen> {
       showSnack(context, t(context, 'Elige al menos un día de la semana.', 'Pick at least one day of the week.'));
       return;
     }
-    final Habit h = widget.habit?.copy() ?? Habit(id: newId(), name: name, startDate: _start, createdAt: clock.now());
+    final Habit? old = widget.habit;
+    final DateTime today = dateOnly(clock.now());
+    final Habit h = old?.copy() ?? Habit(id: newId(), name: name, startDate: _start, createdAt: clock.now());
+    // Con registros, el tipo no cambia: cambiaría lo que significan (veces,
+    // segundos o recaídas). El editor ni lo deja elegir.
+    final HabitKind kind = old != null && s.habits.hasValues(old.id) ? old.kind : _kind;
+    final Frequency frequency = kind == HabitKind.negative ? const Frequency() : _frequency();
+    final int goal = kind == HabitKind.count ? _goal : (kind == HabitKind.timed ? _minutes * 60 : 1);
     h.name = name;
-    h.kind = _kind;
-    h.frequency = _kind == HabitKind.negative ? const Frequency() : _frequency();
-    h.goal = _kind == HabitKind.count ? _goal : (_kind == HabitKind.timed ? _minutes * 60 : 1);
-    h.unit = _kind == HabitKind.count ? _unit.text.trim() : '';
+    h.startDate = dateOnly(_start);
+    if (old == null || kind != old.kind) {
+      // Nuevo, o un tipo distinto sin nada anotado: no hay historia que cuidar.
+      h.kind = kind;
+      h.frequency = frequency;
+      h.goal = goal;
+      h.pastRules.clear();
+    } else {
+      // La frecuencia y la meta nuevas rigen desde hoy: los días anteriores
+      // se siguen evaluando con la regla que tenían.
+      h.changeRule(frequency: frequency, goal: goal, today: today, since: HabitLogic.effectiveStart(h, s.habits.entriesOf(h.id)));
+    }
+    h.unit = kind == HabitKind.count ? _unit.text.trim() : '';
     h.icon = _icon;
     h.color = _color;
-    h.startDate = dateOnly(_start);
     h.reminders = (_reminders.toSet().toList()..sort());
-    h.nagMinutes = _kind == HabitKind.negative ? 0 : _nag;
+    h.nagMinutes = kind == HabitKind.negative ? 0 : _nag;
     h.notes = _notes.text.trim();
     if (_editing) {
       s.habits.update(h);
@@ -251,11 +271,31 @@ class _HabitEditorScreenState extends State<HabitEditorScreen> {
     }
   }
 
+  /// Otra forma de medirlo: un hábito nuevo con el mismo nombre, ícono y
+  /// color; el de ahora se queda con su historia.
+  Future<void> _newInstead() async {
+    final Habit? h = widget.habit;
+    if (h == null) {
+      return;
+    }
+    final NavigatorState nav = Navigator.of(context);
+    nav.pop();
+    await nav.push(MaterialPageRoute<void>(builder: (_) => HabitEditorScreen(template: h), fullscreenDialog: true));
+  }
+
   @override
   Widget build(BuildContext context) {
     final Services s = AppScope.of(context);
     final bool es = s.settings.spanish;
     final ThemeData theme = Theme.of(context);
+    final Habit? old = widget.habit;
+    final bool kindLocked = old != null && s.habits.hasValues(old.id);
+    // ¿Cambia la regla de un hábito que ya tiene días contados?
+    final bool ruleChanged = old != null &&
+        _kind == old.kind &&
+        _kind != HabitKind.negative &&
+        (_frequency() != old.frequency.normalized() || (_kind == HabitKind.count ? _goal : (_kind == HabitKind.timed ? _minutes * 60 : 1)) != old.goal) &&
+        dateOnly(clock.now()).isAfter(HabitLogic.effectiveStart(old, s.habits.entriesOf(old.id)));
     return Scaffold(
       appBar: AppBar(
         title: Text(_editing ? t(context, 'Editar hábito', 'Edit habit') : t(context, 'Nuevo hábito', 'New habit')),
@@ -328,11 +368,16 @@ class _HabitEditorScreenState extends State<HabitEditorScreen> {
                 runSpacing: 4,
                 children: <Widget>[
                   for (final HabitKind k in HabitKind.values)
-                    ChoiceChip(
-                      label: Text(HabitTexts.kind(k, es)),
-                      selected: _kind == k,
-                      onSelected: (_) => setState(() => _kind = k),
-                    ),
+                    if (!kindLocked || k == _kind)
+                      ChoiceChip(
+                        label: Text(HabitTexts.kind(k, es)),
+                        selected: _kind == k,
+                        onSelected: (_) {
+                          if (!kindLocked) {
+                            setState(() => _kind = k);
+                          }
+                        },
+                      ),
                 ],
               ),
             ),
@@ -340,6 +385,20 @@ class _HabitEditorScreenState extends State<HabitEditorScreen> {
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
               child: Text(HabitTexts.kindHelp(_kind, es), style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
             ),
+            if (kindLocked)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      t(context, 'El tipo no se puede cambiar porque el hábito ya tiene días anotados: cambiaría lo que significan. Para medirlo de otra forma, crea un hábito nuevo; este se queda con su historia.', 'The type cannot change because the habit already has days logged: it would change what they mean. To measure it another way, create a new habit; this one keeps its history.'),
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    ),
+                    TextButton.icon(onPressed: _newInstead, icon: const Icon(Icons.add), label: Text(t(context, 'Crear un hábito nuevo', 'Create a new habit'))),
+                  ],
+                ),
+              ),
             if (_kind == HabitKind.count) ...<Widget>[
               LabeledControl(
                 label: t(context, 'Meta diaria', 'Daily goal'),
@@ -382,9 +441,9 @@ class _HabitEditorScreenState extends State<HabitEditorScreen> {
                 ),
               if (_freqType == FrequencyType.everyN)
                 LabeledControl(
-                  label: t(context, 'Cada cuántos días', 'Every how many days'),
+                  label: t(context, 'Cada cuántos días', 'Once every'),
                   help: t(context, 'Basta con una vez en cada bloque de días.', 'Once in each block of days is enough.'),
-                  child: NumberStepper(value: _everyN, min: 2, max: 365, onChanged: (int v) => setState(() => _everyN = v), label: t(context, 'Días', 'Days')),
+                  child: NumberStepper(value: _everyN, min: 2, max: 365, onChanged: (int v) => setState(() => _everyN = v), label: t(context, 'Días del bloque', 'Days in each block'), format: (int v) => es ? '$v días' : '$v days'),
                 ),
               if (_freqType == FrequencyType.perWeek)
                 LabeledControl(
@@ -399,6 +458,14 @@ class _HabitEditorScreenState extends State<HabitEditorScreen> {
                   child: NumberStepper(value: _perMonth, min: 1, max: 31, onChanged: (int v) => setState(() => _perMonth = v), label: t(context, 'Veces al mes', 'Times a month')),
                 ),
             ],
+            if (ruleChanged)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text(
+                  t(context, 'El cambio rige desde hoy: los días anteriores se siguen contando con la frecuencia y la meta que tenían, y la racha no se recalcula.', 'The change applies from today: earlier days still count with the frequency and goal they had, and the streak is not recalculated.'),
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary),
+                ),
+              ),
             ListTile(
               leading: const Icon(Icons.event_outlined),
               title: Text(t(context, 'Empieza', 'Starts')),
@@ -415,7 +482,7 @@ class _HabitEditorScreenState extends State<HabitEditorScreen> {
                 children: <Widget>[
                   for (final int m in _reminders)
                     InputChip(
-                      label: Text(MaterialLocalizations.of(context).formatTimeOfDay(TimeOfDay(hour: m ~/ 60, minute: m % 60), alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context))),
+                      label: Text(formatMinuteOfDay(m, spanish: es)),
                       deleteButtonTooltipMessage: t(context, 'Quitar aviso', 'Remove reminder'),
                       onDeleted: () => setState(() => _reminders.remove(m)),
                     ),
@@ -426,14 +493,18 @@ class _HabitEditorScreenState extends State<HabitEditorScreen> {
             if (_reminders.isNotEmpty && _kind != HabitKind.negative) ...<Widget>[
               SwitchListTile(
                 title: Text(t(context, 'Insistir hasta marcarlo', 'Keep reminding until done')),
-                subtitle: Text(_nag == 0 ? t(context, 'Un solo aviso por hora elegida.', 'One alert per chosen time.') : (es ? 'Repite el aviso cada $_nag min mientras no esté hecho.' : 'Repeats the alert every $_nag min until it is done.')),
+                subtitle: Text(_nag == 0
+                    ? t(context, 'Un solo aviso por hora elegida.', 'One alert per chosen time.')
+                    : (es
+                        ? 'Repite el aviso cada $_nag min mientras no esté hecho, hasta la siguiente hora de aviso o la medianoche. El teléfono guarda hasta ${s.notices.limits.nagCap} repeticiones: si no abres Rutinas, puede parar antes.'
+                        : 'Repeats the alert every $_nag min until it is done, up to the next alert time or midnight. The phone keeps up to ${s.notices.limits.nagCap} repeats: if you do not open Rutinas, it may stop sooner.')),
                 value: _nag > 0,
                 onChanged: (bool v) => setState(() => _nag = v ? 15 : 0),
               ),
               if (_nag > 0)
                 LabeledControl(
-                  label: t(context, 'Cada cuántos minutos', 'Every how many minutes'),
-                  child: NumberStepper(value: _nag, min: 1, max: 60, onChanged: (int v) => setState(() => _nag = v), label: t(context, 'Minutos entre avisos', 'Minutes between alerts')),
+                  label: t(context, 'Cada cuántos minutos', 'Alert every'),
+                  child: NumberStepper(value: _nag, min: 1, max: 60, onChanged: (int v) => setState(() => _nag = v), label: t(context, 'Minutos entre avisos', 'Minutes between alerts'), format: (int v) => '$v min'),
                 ),
             ],
             SectionHeader(t(context, 'Color', 'Color')),

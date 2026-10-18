@@ -9,6 +9,7 @@ import 'app.dart';
 import 'core/app_scope.dart';
 import 'core/backup_io.dart';
 import 'core/cues.dart';
+import 'core/dates.dart';
 import 'core/notifications.dart';
 import 'core/settings.dart';
 import 'core/storage.dart';
@@ -16,6 +17,7 @@ import 'state/timer_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  use24HourClock = PlatformDispatcher.instance.alwaysUse24HourFormat;
   // Las flechas y marcas vienen de un subconjunto de DejaVu Sans: su licencia
   // aparece en Licencias de código abierto.
   LicenseRegistry.addLicense(() async* {

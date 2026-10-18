@@ -154,33 +154,45 @@ class Summaries {
       if (hs.isAfter(lastCounted)) {
         continue; // El hábito todavía no existía en este periodo.
       }
+      // Un hábito archivado deja de contar desde el día en que se archivó.
+      final DateTime? archivedAt = h.archived ? h.archivedAt : null;
+      if (archivedAt != null && archivedAt.isBefore(start)) {
+        continue;
+      }
+      final DateTime habitLast = archivedAt != null && archivedAt.isBefore(lastCounted) ? archivedAt : lastCounted;
       int doneDays = 0;
       int totalValue = 0;
       int skippedDays = 0;
       int relapses = 0;
       int clean = 0;
-      for (DateTime d = start; !d.isAfter(lastCounted); d = addDays(d, 1)) {
+      bool tracked = false;
+      for (DateTime d = start; !d.isAfter(habitLast); d = addDays(d, 1)) {
         if (d.isBefore(hs)) {
           continue;
         }
+        final bool paused = h.pausedOn(d);
+        tracked = tracked || !paused;
         final HabitEntry? x = e[dayKey(d)];
         if (h.isNegative) {
           if (x != null && x.value > 0) {
             relapses++;
-          } else if (d.isBefore(t)) {
+          } else if (d.isBefore(t) && !paused) {
             clean++;
           }
           continue;
         }
         if (x != null) {
           totalValue += x.value;
-          if (HabitLogic.isDone(h, x)) {
+          if (HabitLogic.isDone(h, x, d)) {
             doneDays++;
             doneByDay[dayKey(d)] = (doneByDay[dayKey(d)] ?? 0) + 1;
           } else if (x.skipped) {
             skippedDays++;
           }
         }
+      }
+      if (!tracked && doneDays == 0 && relapses == 0) {
+        continue; // Archivado durante todo el periodo.
       }
       int hMet = 0;
       int hMissed = 0;

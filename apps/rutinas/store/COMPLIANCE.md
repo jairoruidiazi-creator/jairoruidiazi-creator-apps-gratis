@@ -32,14 +32,14 @@ política de privacidad (`assets/legal/privacy_*.md`).
 **Seguridad de los datos (Data safety):**
 
 - ¿Recopila o comparte alguno de los tipos de datos requeridos? **No.**
-- Motivo, para la revisión: hábitos, registros, recordatorios, entrenamientos y ajustes se guardan solo en el almacenamiento privado de la app. La app no tiene permiso de internet (la CI verifica que el APK no declare `INTERNET`). La copia de seguridad sale del teléfono solo cuando el usuario la comparte con la hoja del sistema (transferencia iniciada por el usuario, que Google no cuenta como compartir). La copia automática de Android, si el usuario la tiene activa, va a su cuenta de Google y no llega al desarrollador.
+- Motivo, para la revisión: hábitos, registros, recordatorios, entrenamientos y ajustes se guardan solo en el almacenamiento privado de la app. La app no tiene permiso de internet (la CI verifica que el APK no declare `INTERNET`). La copia de seguridad sale del teléfono solo cuando el usuario la comparte con la hoja del sistema (transferencia iniciada por el usuario, que Google no cuenta como compartir). La copia automática de Android, si el usuario la tiene activa, va a su cuenta de Google y no llega al desarrollador; no incluye la lista de avisos programados, el registro de avisos ni las copias exportadas (`data_extraction_rules.xml` y `backup_rules.xml`), porque las alarmas no viajan con los datos y la app las vuelve a programar al abrirse.
 
 **Permisos:**
 
 | Permiso | Uso | Declaración |
 | --- | --- | --- |
 | `POST_NOTIFICATIONS` | Avisos de hábitos y recordatorios, cuentas regresivas y cambios de intervalo con la pantalla apagada (se pide la primera vez que hace falta) | — |
-| `SCHEDULE_EXACT_ALARM` | Que esos avisos lleguen a la hora exacta con la pantalla apagada. Desde Android 14 está negado de entrada: el usuario lo concede en el ajuste del sistema «Alarmas y recordatorios», que la app abre desde Ajustes › Permisos, donde también muestra si está concedido. Sin él se programan alarmas inexactas y la app lo explica | No hay formulario: el formulario de alarmas exactas es para `USE_EXACT_ALARM`, que la app no usa |
+| `SCHEDULE_EXACT_ALARM` | Que esos avisos lleguen a la hora exacta con la pantalla apagada. Desde Android 14 está negado de entrada: el usuario lo concede en el ajuste del sistema «Alarmas y recordatorios», que la app abre desde Ajustes › Permisos, donde también muestra si está concedido. Sin él se programan alarmas inexactas, que pueden llegar hasta una hora tarde; la app lo explica en Ajustes, en la pestaña de avisos y al empezar el primer temporizador, y al concederlo reprograma todo como exacto | No hay formulario: el formulario de alarmas exactas es para `USE_EXACT_ALARM`, que la app no usa |
 | `RECEIVE_BOOT_COMPLETED` | Volver a programar los avisos al reiniciar el teléfono o actualizar la app | — |
 | `VIBRATE` | Vibración de los avisos y de los cambios de intervalo | — |
 
@@ -51,7 +51,7 @@ No usa servicios en primer plano, intents de pantalla completa, ubicación, cám
 
 **Modos en segundo plano:** ninguno. Con la pantalla bloqueada, el temporizador no corre en segundo plano: su estado sale del reloj y los cambios de intervalo que faltan se programan como notificaciones locales con sonido, que se cancelan al volver a la app.
 
-**Notificaciones:** se piden con alerta y sonido (sin globos de número). Los sonidos propios se copian a `Library/Sounds` para que las notificaciones los usen.
+**Notificaciones:** se piden con alerta y sonido (sin globos de número). Los sonidos propios se copian a `Library/Sounds` para que las notificaciones los usen. Recordatorios, cuentas regresivas y cambios de intervalo usan el nivel «sensible al tiempo» (`InterruptionLevel.timeSensitive`), con el permiso `com.apple.developer.usernotifications.time-sensitive` en `ios/Runner/Runner.entitlements`; el App ID debe tener activada la función «Time Sensitive Notifications» en el portal de desarrolladores. No se usan alertas críticas: con el iPhone en silencio los avisos llegan sin sonido, y la app y la ficha lo dicen.
 
 **Clasificación por edad:** todas las preguntas en "Ninguno"/"No" (sin violencia, contenido sexual, apuestas, contenido médico, acceso web libre, contenido generado por usuarios ni chats). Resultado esperado: 4+.
 

@@ -84,9 +84,11 @@ class HabitTexts {
     return es ? (n == 1 ? 'vez' : 'veces') : (n == 1 ? 'time' : 'times');
   }
 
-  /// Valor de un día: "5 de 8 vasos", "4 de 10 min", "Hecho".
-  static String progress(Habit h, HabitEntry? e, bool es) {
+  /// Valor de un día: "5 de 8 vasos", "4 de 10 min", "Hecho". La meta es la
+  /// que regía ese [day] (la de hoy si es null).
+  static String progress(Habit h, HabitEntry? e, bool es, {DateTime? day}) {
     final int v = e?.value ?? 0;
+    final int target = h.targetOn(day);
     switch (h.kind) {
       case HabitKind.check:
         if (e != null && e.skipped && v < 1) {
@@ -94,11 +96,11 @@ class HabitTexts {
         }
         return v >= 1 ? (es ? 'Hecho' : 'Done') : (es ? 'Pendiente' : 'To do');
       case HabitKind.count:
-        final String base = es ? '$v de ${h.goal} ${unit(h, h.goal, es)}' : '$v of ${h.goal} ${unit(h, h.goal, es)}';
-        return e != null && e.skipped && v < h.target ? '$base · ${es ? 'saltado' : 'skipped'}' : base;
+        final String base = es ? '$v de $target ${unit(h, target, es)}' : '$v of $target ${unit(h, target, es)}';
+        return e != null && e.skipped && v < target ? '$base · ${es ? 'saltado' : 'skipped'}' : base;
       case HabitKind.timed:
-        final String base = es ? '${minutesOf(v, es)} de ${minutesOf(h.target, es)} min' : '${minutesOf(v, es)} of ${minutesOf(h.target, es)} min';
-        return e != null && e.skipped && v < h.target ? '$base · ${es ? 'saltado' : 'skipped'}' : base;
+        final String base = es ? '${minutesOf(v, es)} de ${minutesOf(target, es)} min' : '${minutesOf(v, es)} of ${minutesOf(target, es)} min';
+        return e != null && e.skipped && v < target ? '$base · ${es ? 'saltado' : 'skipped'}' : base;
       case HabitKind.negative:
         return v == 0 ? (es ? 'Sin recaídas' : 'No slips') : (es ? '$v ${v == 1 ? 'recaída' : 'recaídas'}' : '$v ${v == 1 ? 'slip' : 'slips'}');
     }
@@ -118,25 +120,26 @@ class HabitTexts {
   }
 
   /// Fracción del día cumplida (0 a 1), para el anillo.
-  static double fraction(Habit h, HabitEntry? e) {
+  static double fraction(Habit h, HabitEntry? e, {DateTime? day}) {
     final int v = e?.value ?? 0;
     if (h.isNegative) {
       return v == 0 ? 1 : 0;
     }
-    return (v / h.target).clamp(0.0, 1.0).toDouble();
+    return (v / h.targetOn(day)).clamp(0.0, 1.0).toDouble();
   }
 
-  /// "2 de 3 esta semana" ([current]) o "2 de 3 esa semana" (un periodo pasado).
+  /// "2 de 3 esta semana" ([current]) o "2 de 3 esa semana" (un periodo pasado),
+  /// con la regla de ese periodo.
   static String? period(Habit h, HabitSlot? s, bool es, {bool current = true}) {
     if (s == null) {
       return null;
     }
-    switch (h.frequency.type) {
+    switch (s.frequency.type) {
       case FrequencyType.daily:
       case FrequencyType.weekdays:
         return null;
       case FrequencyType.everyN:
-        final int n = h.frequency.n;
+        final int n = s.frequency.n;
         final String block = es ? (current ? 'este bloque de $n días' : 'ese bloque de $n días') : (current ? 'this $n-day block' : 'that $n-day block');
         return s.done >= s.target ? (es ? 'Hecho en $block' : 'Done for $block') : (es ? 'Falta en $block' : 'Due in $block');
       case FrequencyType.perWeek:

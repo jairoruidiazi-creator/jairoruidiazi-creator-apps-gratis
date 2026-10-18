@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:clock/clock.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rutinas/core/backup.dart';
+import 'package:rutinas/core/dates.dart';
 import 'package:rutinas/core/settings.dart';
 import 'package:rutinas/core/storage.dart';
 import 'package:rutinas/logic/templates.dart';
@@ -123,6 +124,8 @@ void main() {
         s.habits.setArchived('a', true);
         expect(s.habits.active.map((Habit h) => h.id), <String>['c', 'b']);
         expect(s.habits.archived.single.id, 'a');
+        // Se anota el día: desde ahí no cuenta como fallado (G4).
+        expect(s.habits.byId('a')!.archivedAt, today);
         // Al recuperarlo vuelve al final.
         s.habits.setArchived('a', false);
         expect(s.habits.active.last.id, 'a');
@@ -300,6 +303,72 @@ void main() {
       });
     });
 
+    test('una copia dañada no toca nada de lo que hay (M1)', () async {
+      await withClock(Clock.fixed(now), () async {
+        final Stores a = open('a');
+        a.habits.add(water());
+        a.habits.setValue('agua', today, 3);
+        a.timers.stopwatch.start(now);
+        final Map<String, dynamic> good = Backups.build(habits: a.habits, reminders: a.reminders, timers: a.timers, settings: AppSettings(), now: now);
+        // Un preajuste sin id, con hábitos y recordatorios válidos delante.
+        final Map<String, dynamic> broken = Map<String, dynamic>.of(good);
+        broken['timers'] = <String, dynamic>{
+          'presets': <Object>[
+            <String, dynamic>{'name': 'Té', 'seconds': 180},
+          ],
+        };
+        expect(() => Backups.decode(Backups.encode(broken)), throwsA(isA<FormatException>().having((FormatException e) => e.message, 'motivo', 'damaged')));
+        // Un hábito que empieza en el año 1 y registros de fechas imposibles:
+        // no se leen como tales (no harían recorrer 740 000 días al dibujar).
+        final Map<String, dynamic> ancient = Map<String, dynamic>.of(good);
+        ancient['habits'] = <String, dynamic>{
+          'habits': <Object>[
+            <String, dynamic>{'id': 'x', 'name': 'X', 'start': '0001-01-01', 'created': '0001-01-01T00:00:00.000'},
+          ],
+          'entries': <String, dynamic>{
+            'x': <String, dynamic>{
+              '0001-01-01': <String, dynamic>{'v': 1},
+            },
+          },
+        };
+        final BackupContents old = Backups.decode(Backups.encode(ancient));
+        expect(isSaneDate(old.habitStore.habits.single.startDate), isTrue);
+        expect(old.days, 0);
+        // Un recordatorio con una fecha imposible.
+        final Map<String, dynamic> farAway = Map<String, dynamic>.of(good);
+        farAway['reminders'] = <String, dynamic>{
+          'reminders': <Object>[
+            <String, dynamic>{'id': 'r', 'title': 'R', 'due': '9999-01-01T08:00:00.000', 'created': '2026-10-01T00:00:00.000'},
+          ],
+        };
+        expect(() => Backups.decode(Backups.encode(farAway)), throwsA(isA<FormatException>()));
+        // Lo de antes sigue intacto, en memoria y en disco.
+        expect(a.habits.entry('agua', today)!.value, 3);
+        expect(a.timers.stopwatch.running, isTrue);
+        a.flush();
+        expect(open('a').habits.entry('agua', today)!.value, 3);
+      });
+    });
+
+    test('restaurar quita el aviso del archivo dañado (M13)', () async {
+      await withClock(Clock.fixed(now), () async {
+        final Stores a = open('a');
+        a.habits.add(water());
+        a.flush();
+        a.file('habits.json').writeAsStringSync('{dañado');
+        final Stores b = open('a');
+        expect(b.habits.damagedCopy, isNotNull);
+        final BackupContents c = Backups.decode(Backups.encode(Backups.build(habits: a.habits, reminders: a.reminders, timers: a.timers, settings: AppSettings(), now: now)));
+        await Backups.restore(c, habits: b.habits, reminders: b.reminders, timers: b.timers, settings: AppSettings());
+        expect(b.habits.damagedCopy, isNull);
+        expect(b.habits.byId('agua'), isNotNull);
+        // También se puede ocultar a mano.
+        b.reminders.damagedCopy = 'x';
+        b.reminders.clearDamaged();
+        expect(b.reminders.damagedCopy, isNull);
+      });
+    });
+
     test('archivos que no son una copia válida', () {
       Object? error(String text) {
         try {
@@ -316,6 +385,35 @@ void main() {
       expect(error('{"format": "rutinas-backup", "version": 2}'), 'newer-version');
       expect(error('{"format": "rutinas-backup", "version": 1, "habits": {"habits": [{"name": "sin id"}]}}'), 'damaged');
       expect(error('{"format": "rutinas-backup", "version": 1}'), isNull);
+    });
+  });
+
+  group('Hábitos con historia', () {
+    test('el tipo se bloquea en cuanto hay algo anotado (G5)', () {
+      withClock(Clock.fixed(now), () {
+        final Stores s = open();
+        s.habits.add(water());
+        expect(s.habits.hasValues('agua'), isFalse);
+        s.habits.setNote('agua', today, 'Solo una nota');
+        s.habits.setSkipped('agua', DateTime(2026, 10, 13), true);
+        expect(s.habits.hasValues('agua'), isFalse);
+        s.habits.addValue('agua', today, 1);
+        expect(s.habits.hasValues('agua'), isTrue);
+      });
+    });
+
+    test('un archivado de una versión anterior toma la fecha de su último registro', () {
+      withClock(Clock.fixed(now), () {
+        final Stores s = open();
+        s.habits.add(water());
+        s.habits.setValue('agua', DateTime(2026, 10, 5), 8);
+        final Map<String, dynamic> json = s.habits.toJson();
+        final Map<String, dynamic> h = (json['habits'] as List<dynamic>).first as Map<String, dynamic>;
+        h['archived'] = true;
+        h.remove('archivedAt');
+        final HabitStore legacy = HabitStore(JsonStore())..fromJson(json);
+        expect(legacy.byId('agua')!.archivedAt, DateTime(2026, 10, 6));
+      });
     });
   });
 }

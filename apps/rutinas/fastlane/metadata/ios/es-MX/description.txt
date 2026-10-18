@@ -7,13 +7,13 @@ HÁBITOS
 • Para dejar algo: cuenta los días sin recaer.
 • Racha actual y mejor racha. Los días que no tocan, los que saltas a propósito y el día de hoy sin terminar no la rompen.
 • Una nota en cada día y un calendario por hábito.
-• Avisos a las horas que elijas, que pueden repetirse hasta que lo marques.
+• Avisos a las horas que elijas, que pueden repetirse mientras no lo marques.
 
 RECORDATORIOS
 • Una vez, cada N días, ciertos días de la semana, cada mes (un día fijo o el último) o cada año.
 • Si el día 31 no existe en un mes, el aviso cae en su último día; el 29 de febrero cae el 28 en los años no bisiestos.
-• Insistencia: el aviso se repite cada 1 a 60 minutos hasta que lo marques hecho.
-• Cuenta regresiva rápida: «avísame en 10 minutos», y suena hasta que la apagas.
+• Insistencia: el aviso se repite cada 1 a 60 minutos. Si Rutinas no está abierta cuando suena, se repite hasta 6 veces; al abrirla, sigue hasta que lo marques hecho.
+• Cuenta regresiva rápida: «avísame en 10 minutos», y vuelve a sonar mientras no la apagues.
 • Hecho y Posponer 10 min desde la misma notificación.
 
 TEMPORIZADOR
@@ -22,9 +22,9 @@ TEMPORIZADOR
 • Pantalla grande con el color de cada intervalo, el que sigue, la ronda en que vas y el tiempo total restante.
 • La voz del sistema anuncia cada intervalo y cuenta 3, 2, 1, en español o en inglés.
 • Sonidos propios: pitido, campana, bocina y gong.
-• Sigue con la pantalla apagada o en otra app: los cambios de intervalo llegan como notificaciones con sonido.
+• Sigue con la pantalla apagada o en otra app: los cambios de intervalo llegan como notificaciones con sonido (con el iPhone en silencio, llegan sin sonido).
 • Candado contra pausas por accidente y pantalla encendida mientras entrenas.
-• Cronómetro con vueltas (la más rápida y la más lenta resaltadas) y cuentas atrás guardadas.
+• Cronómetro con vueltas (la más rápida y la más lenta resaltadas) y cuentas regresivas guardadas.
 
 RESUMEN
 • Semana, mes y año: cumplimiento de cada hábito, días hechos, mejor día, minutos de los hábitos con tiempo y entrenamientos hechos.
@@ -36,4 +36,4 @@ Y ADEMÁS
 • En español y en inglés.
 
 PRIVACIDAD
-Rutinas no tiene cuentas ni servidores y ni siquiera pide permiso de internet: tus hábitos, recordatorios y entrenamientos se quedan en tu dispositivo. No hay publicidad ni herramientas de análisis. Los sonidos se crean en la app, sin muestras de terceros. Rutinas es de código abierto.
+Rutinas no tiene cuentas ni servidores y no se conecta a internet: tus hábitos, recordatorios y entrenamientos se quedan en tu dispositivo. No hay publicidad ni herramientas de análisis. Los sonidos se crean en la app, sin muestras de terceros. Rutinas es de código abierto.

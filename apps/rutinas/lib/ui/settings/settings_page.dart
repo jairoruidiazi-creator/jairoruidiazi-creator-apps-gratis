@@ -103,12 +103,26 @@ class _SettingsPageState extends State<SettingsPage> {
     if (!ok || !mounted) {
       return;
     }
-    await Backups.restore(contents, habits: s.habits, reminders: s.reminders, timers: s.timers, settings: s.settings);
-    await s.notices.sync();
+    try {
+      await Backups.restore(contents, habits: s.habits, reminders: s.reminders, timers: s.timers, settings: s.settings);
+    } catch (e) {
+      // La copia ya se leyó entera antes de confirmar: esto solo pasa si falla
+      // el disco. Lo que había sigue en memoria y se vuelve a guardar.
+      if (mounted) {
+        showSnack(context, t(context, 'No se pudo restaurar la copia: $e', 'The backup could not be restored: $e'));
+      }
+      return;
+    }
+    // Las alarmas de antes no sirven: todo se vuelve a programar desde cero.
+    await s.notices.afterRestore();
     if (mounted) {
       showSnack(context, t(context, 'Copia restaurada.', 'Backup restored.'));
     }
   }
+
+  /// Abre el ajuste de alarmas exactas del sistema; al volver, si se
+  /// concedió, todo se reprograma como alarmas exactas.
+  void _exact(Services s) => unawaited(s.notices.askExactAlarms());
 
   @override
   Widget build(BuildContext context) {
@@ -147,10 +161,27 @@ class _SettingsPageState extends State<SettingsPage> {
             Card(
               color: theme.colorScheme.errorContainer,
               child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Text(
-                  es ? 'Un archivo de datos estaba dañado y no se pudo leer. Se guardó aparte en la carpeta de la app; si tienes una copia de seguridad, restáurala abajo.' : 'A data file was damaged and could not be read. It was set aside in the app folder; if you have a backup, restore it below.',
-                  style: TextStyle(color: theme.colorScheme.onErrorContainer),
+                padding: const EdgeInsets.fromLTRB(14, 14, 8, 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    Text(
+                      es ? 'Un archivo de datos estaba dañado y no se pudo leer. Se guardó aparte en la carpeta de la app; si tienes una copia de seguridad, restáurala abajo.' : 'A data file was damaged and could not be read. It was set aside in the app folder; if you have a backup, restore it below.',
+                      style: TextStyle(color: theme.colorScheme.onErrorContainer),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        style: TextButton.styleFrom(foregroundColor: theme.colorScheme.onErrorContainer),
+                        onPressed: () {
+                          s.habits.clearDamaged();
+                          s.reminders.clearDamaged();
+                          s.timers.clearDamaged();
+                        },
+                        child: Text(t(context, 'Ocultar', 'Dismiss')),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -159,7 +190,8 @@ class _SettingsPageState extends State<SettingsPage> {
           chips<String>(const <String>['es', 'en'], st.language, (String v) => v == 'es' ? 'Español' : 'English', (String v) {
             st.language = v;
             _save(st);
-            s.notices.requestSync();
+            // Canales, botones y textos de los avisos en el idioma nuevo.
+            unawaited(s.notices.languageChanged());
           }),
           label(t(context, 'Tema', 'Theme')),
           chips<String>(const <String>['system', 'light', 'dark'], st.themeMode, (String v) => v == 'system' ? t(context, 'Sistema', 'System') : (v == 'light' ? t(context, 'Claro', 'Light') : t(context, 'Oscuro', 'Dark')), (String v) {
@@ -231,7 +263,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           if (st.voice) ...<Widget>[
             SwitchListTile(
-              title: Text(t(context, 'Cuenta atrás hablada', 'Spoken countdown')),
+              title: Text(t(context, 'Cuenta regresiva hablada', 'Spoken countdown')),
               subtitle: Text(t(context, 'Dice "3, 2, 1" antes de cada cambio; si la apagas, suenan pitidos.', 'Says "3, 2, 1" before each change; if off, beeps play instead.')),
               value: st.voiceCountdown,
               onChanged: (bool v) {
@@ -301,14 +333,25 @@ class _SettingsPageState extends State<SettingsPage> {
               leading: Icon(p.exactAlarms ? Icons.alarm_on : Icons.alarm_off),
               title: Text(t(context, 'Alarmas exactas', 'Exact alarms')),
               subtitle: Text(p.exactAlarms
-                  ? t(context, 'Permitidas: los cambios de intervalo y los recordatorios llegan a la hora exacta con la pantalla apagada.', 'Allowed: interval changes and reminders arrive on time with the screen off.')
-                  : t(context, 'No permitidas: Android puede retrasar los avisos unos minutos con la pantalla apagada. Tócalo para permitirlas en Ajustes del sistema › Alarmas y recordatorios.', 'Not allowed: Android may delay alerts by a few minutes with the screen off. Tap to allow them in System settings › Alarms & reminders.')),
-              trailing: p.exactAlarms ? null : TextButton(onPressed: s.notices.askExactAlarms, child: Text(t(context, 'Permitir', 'Allow'))),
+                  ? t(context, 'Permitidas: los cambios de intervalo y los recordatorios llegan a su hora con la pantalla apagada.', 'Allowed: interval changes and reminders arrive on time with the screen off.')
+                  : t(context, 'No permitidas: con la pantalla apagada, Android puede entregar los avisos hasta una hora tarde. Toca para permitirlas en Configuración › Alarmas y recordatorios.', 'Not allowed: with the screen off, Android can deliver alerts up to an hour late. Tap to allow them in Settings › Alarms & reminders.')),
+              trailing: p.exactAlarms ? null : TextButton(onPressed: () => _exact(s), child: Text(t(context, 'Permitir', 'Allow'))),
+              onTap: p.exactAlarms ? null : () => _exact(s),
+            ),
+          if (s.notices.coveredUntil != null)
+            ListTile(
+              leading: const Icon(Icons.event_busy_outlined),
+              title: Text(t(context, 'Avisos programados', 'Scheduled alerts')),
+              subtitle: Text(es
+                  ? 'Hasta el ${formatShortDate(s.notices.coveredUntil!, spanish: true)}, ${formatTime(s.notices.coveredUntil!, spanish: true)}. El teléfono guarda ${s.notices.limits.budget} avisos a la vez y no caben todos: abre Rutinas antes de esa hora y se programan los siguientes.'
+                  : 'Until ${formatShortDate(s.notices.coveredUntil!, spanish: false)}, ${formatTime(s.notices.coveredUntil!, spanish: false)}. The phone keeps ${s.notices.limits.budget} alerts at a time and they do not all fit: open Rutinas before then and the next ones get scheduled.'),
             ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: Text(
-              t(context, 'Con la pantalla apagada o en otra app, el temporizador sigue: Rutinas programa un aviso con sonido para cada cambio de intervalo y, al volver, lo muestra exacto.', 'With the screen off or in another app, the timer keeps going: Rutinas schedules an alert with sound for each interval change and shows the exact time when you come back.'),
+              s.notices.gateway.isIOS
+                  ? t(context, 'Con la pantalla apagada o en otra app, el temporizador sigue: Rutinas programa un aviso con sonido para cada cambio de intervalo y, al volver, lo muestra exacto. Con el iPhone en silencio, los avisos llegan sin sonido.', 'With the screen off or in another app, the timer keeps going: Rutinas schedules an alert with sound for each interval change and shows the exact time when you come back. With the iPhone on silent, alerts arrive without sound.')
+                  : t(context, 'Con la pantalla apagada o en otra app, el temporizador sigue: Rutinas programa un aviso con sonido para cada cambio de intervalo y, al volver, lo muestra exacto. Sin alarmas exactas, esos avisos pueden llegar hasta una hora tarde.', 'With the screen off or in another app, the timer keeps going: Rutinas schedules an alert with sound for each interval change and shows the exact time when you come back. Without exact alarms, those alerts can arrive up to an hour late.'),
               style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
           ),

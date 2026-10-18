@@ -34,6 +34,16 @@ class _ReminderEditorScreenState extends State<ReminderEditorScreen> {
   late int _nag;
   bool _titleError = false;
 
+  /// Día (y mes) de la regla mensual o anual. Salen de la regla, no de la
+  /// ocurrencia actual: la regla del 31 muestra el 30 de noviembre, y al
+  /// guardar sigue siendo del 31. Solo cambian si se elige otra fecha.
+  late int _ruleDay;
+  late int _ruleMonth;
+
+  /// Cómo estaban la fecha, la hora y la regla al abrir: si no cambian, guardar
+  /// no mueve la ocurrencia actual ni quita lo pospuesto.
+  late String _initialSchedule;
+
   bool get _editing => widget.reminder != null;
 
   @override
@@ -46,13 +56,22 @@ class _ReminderEditorScreenState extends State<ReminderEditorScreen> {
     _title = TextEditingController(text: r?.title ?? '');
     _notes = TextEditingController(text: r?.notes ?? '');
     _date = dateOnly(base);
-    _time = TimeOfDay(hour: base.hour, minute: base.minute);
     final Recurrence rec = (r?.recurrence ?? const Recurrence()).normalized();
+    // La hora de la regla (la ocurrencia de un día con cambio de horario
+    // puede haber quedado corrida).
+    final int? ruleHour = rec.repeats ? rec.hour : null;
+    _time = ruleHour != null ? TimeOfDay(hour: ruleHour, minute: rec.minute ?? 0) : TimeOfDay(hour: base.hour, minute: base.minute);
     _type = rec.type;
     _everyN = rec.type == RecurrenceType.everyNDays ? rec.n : 1;
     _weekdays = rec.type == RecurrenceType.weekdays ? List<int>.of(rec.weekdays) : <int>[base.weekday];
+    _ruleDay = rec.type == RecurrenceType.monthlyDay || rec.type == RecurrenceType.yearly ? rec.day : _date.day;
+    _ruleMonth = rec.type == RecurrenceType.yearly ? rec.month : _date.month;
     _nag = r?.nagMinutes ?? 0;
+    _initialSchedule = _schedule();
   }
+
+  /// Fecha, hora y regla tal como se van a guardar.
+  String _schedule() => '${dayKey(_date)} ${_time.hour}:${_time.minute} ${_recurrence().toJson()}';
 
   @override
   void dispose() {
@@ -63,20 +82,23 @@ class _ReminderEditorScreenState extends State<ReminderEditorScreen> {
 
   DateTime get _when => DateTime(_date.year, _date.month, _date.day, _time.hour, _time.minute);
 
+  /// La regla elegida, con su hora: cada ocurrencia se arma con ella.
   Recurrence _recurrence() {
+    final int h = _time.hour;
+    final int m = _time.minute;
     switch (_type) {
       case RecurrenceType.once:
         return const Recurrence();
       case RecurrenceType.everyNDays:
-        return Recurrence(type: _type, n: _everyN).normalized();
+        return Recurrence(type: _type, n: _everyN, hour: h, minute: m).normalized();
       case RecurrenceType.weekdays:
-        return Recurrence(type: _type, weekdays: _weekdays).normalized();
+        return Recurrence(type: _type, weekdays: _weekdays, hour: h, minute: m).normalized();
       case RecurrenceType.monthlyDay:
-        return Recurrence(type: _type, day: _date.day).normalized();
+        return Recurrence(type: _type, day: _ruleDay, hour: h, minute: m).normalized();
       case RecurrenceType.monthlyLast:
-        return const Recurrence(type: RecurrenceType.monthlyLast);
+        return Recurrence(type: RecurrenceType.monthlyLast, hour: h, minute: m).normalized();
       case RecurrenceType.yearly:
-        return Recurrence(type: _type, month: _date.month, day: _date.day).normalized();
+        return Recurrence(type: _type, month: _ruleMonth, day: _ruleDay, hour: h, minute: m).normalized();
     }
   }
 
@@ -93,23 +115,29 @@ class _ReminderEditorScreenState extends State<ReminderEditorScreen> {
     }
     final DateTime now = clock.now();
     final Recurrence rec = _recurrence();
-    DateTime due = Recurrences.align(rec, _when);
-    if (rec.repeats && !due.isAfter(now)) {
-      // Una serie que empieza en el pasado arranca en su próxima ocurrencia.
-      due = Recurrences.next(rec, due, now) ?? due;
+    final Reminder? old = widget.reminder;
+    // Si solo cambió el título, las notas o la insistencia, la ocurrencia
+    // actual se queda como está (aunque esté vencida o pospuesta).
+    final bool changedTime = old == null || _schedule() != _initialSchedule;
+    DateTime due = old?.dueAt ?? _when;
+    if (changedTime) {
+      due = Recurrences.align(rec, _when);
+      if (rec.repeats && !due.isAfter(now)) {
+        // Una serie que empieza en el pasado arranca en su próxima ocurrencia.
+        due = Recurrences.next(rec, due, now) ?? due;
+      }
+      if (!rec.repeats && !due.isAfter(now)) {
+        showSnack(context, t(context, 'Esa hora ya pasó: elige una hora futura.', 'That time has passed: pick a future time.'));
+        return;
+      }
     }
-    final bool changedTime = widget.reminder == null || widget.reminder!.dueAt != due;
-    if (!rec.repeats && !due.isAfter(now) && changedTime) {
-      showSnack(context, t(context, 'Esa hora ya pasó: elige una hora futura.', 'That time has passed: pick a future time.'));
-      return;
-    }
-    final Reminder r = widget.reminder == null ? Reminder(id: newId(), title: title, dueAt: due, createdAt: now) : Reminder.fromJson(widget.reminder!.toJson());
+    final Reminder r = old == null ? Reminder(id: newId(), title: title, dueAt: due, createdAt: now) : Reminder.fromJson(old.toJson());
     r.title = title;
     r.notes = _notes.text.trim();
-    r.dueAt = due;
-    r.recurrence = rec;
     r.nagMinutes = _nag;
     if (changedTime) {
+      r.dueAt = due;
+      r.recurrence = rec;
       r.snoozedUntil = null;
       r.doneAt = null;
     }
@@ -134,7 +162,7 @@ class _ReminderEditorScreenState extends State<ReminderEditorScreen> {
     if (!ok || !mounted) {
       return;
     }
-    unawaited(s.notices.dismissReminder(r, r.alertAt));
+    unawaited(s.notices.dismissReminder(r));
     s.reminders.remove(r.id);
     Navigator.of(context).pop();
   }
@@ -150,6 +178,9 @@ class _ReminderEditorScreenState extends State<ReminderEditorScreen> {
     if (d != null && mounted) {
       setState(() {
         _date = dateOnly(d);
+        // Otra fecha: la regla mensual o anual pasa a ese día.
+        _ruleDay = _date.day;
+        _ruleMonth = _date.month;
         if (_type != RecurrenceType.weekdays) {
           _weekdays = <int>[_date.weekday];
         }
@@ -169,13 +200,12 @@ class _ReminderEditorScreenState extends State<ReminderEditorScreen> {
     final Services s = AppScope.of(context);
     final bool es = s.settings.spanish;
     final ThemeData theme = Theme.of(context);
-    final MaterialLocalizations ml = MaterialLocalizations.of(context);
     final Recurrence rec = _recurrence();
-    final DateTime preview = Recurrences.align(rec, _when);
+    final DateTime preview = _schedule() == _initialSchedule && widget.reminder != null ? widget.reminder!.dueAt : Recurrences.align(rec, _when);
     String? recHelp;
-    if (_type == RecurrenceType.monthlyDay && _date.day > 28) {
-      recHelp = es ? 'En los meses que no tienen día ${_date.day}, suena el último día del mes.' : 'In months without a day ${_date.day}, it rings on the last day of the month.';
-    } else if (_type == RecurrenceType.yearly && _date.month == 2 && _date.day == 29) {
+    if (_type == RecurrenceType.monthlyDay && _ruleDay > 28) {
+      recHelp = es ? 'En los meses que no tienen día $_ruleDay, suena el último día del mes.' : 'In months without a day $_ruleDay, it rings on the last day of the month.';
+    } else if (_type == RecurrenceType.yearly && _ruleMonth == 2 && _ruleDay == 29) {
       recHelp = es ? 'En los años no bisiestos suena el 28 de febrero.' : 'In non-leap years it rings on February 28.';
     }
     return Scaffold(
@@ -196,7 +226,7 @@ class _ReminderEditorScreenState extends State<ReminderEditorScreen> {
                 controller: _title,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
-                  labelText: t(context, '¿Qué te recuerdo?', 'What should I remind you?'),
+                  labelText: t(context, '¿Qué te recuerdo?', 'What should I remind you about?'),
                   hintText: t(context, 'Tomar la pastilla, pagar el arriendo…', 'Take the pill, pay the rent…'),
                   errorText: _titleError ? t(context, 'Escribe qué hay que hacer', 'Enter what needs doing') : null,
                   border: const OutlineInputBorder(),
@@ -217,7 +247,8 @@ class _ReminderEditorScreenState extends State<ReminderEditorScreen> {
             ListTile(
               leading: const Icon(Icons.schedule),
               title: Text(t(context, 'Hora', 'Time')),
-              subtitle: Text(ml.formatTimeOfDay(_time, alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context))),
+              // El mismo formato que en las listas.
+              subtitle: Text(formatTimeOfDay(_time.hour, _time.minute, spanish: es)),
               onTap: _pickTime,
             ),
             SectionHeader(t(context, 'Repetir', 'Repeat')),
@@ -238,8 +269,8 @@ class _ReminderEditorScreenState extends State<ReminderEditorScreen> {
             ),
             if (_type == RecurrenceType.everyNDays)
               LabeledControl(
-                label: t(context, 'Cada cuántos días', 'Every how many days'),
-                child: NumberStepper(value: _everyN, min: 1, max: 365, onChanged: (int v) => setState(() => _everyN = v), label: t(context, 'Días', 'Days')),
+                label: t(context, 'Cada cuántos días', 'Repeat every'),
+                child: NumberStepper(value: _everyN, min: 1, max: 365, onChanged: (int v) => setState(() => _everyN = v), label: t(context, 'Días entre repeticiones', 'Days between repeats'), format: (int v) => es ? '$v ${v == 1 ? 'día' : 'días'}' : '$v ${v == 1 ? 'day' : 'days'}'),
               ),
             if (_type == RecurrenceType.weekdays)
               Padding(
@@ -261,15 +292,15 @@ class _ReminderEditorScreenState extends State<ReminderEditorScreen> {
             SectionHeader(t(context, 'Insistir', 'Keep reminding')),
             SwitchListTile(
               title: Text(t(context, 'Repetir el aviso hasta marcarlo hecho', 'Repeat the alert until marked done')),
-              subtitle: Text(_nag == 0 ? t(context, 'Un solo aviso a la hora elegida.', 'A single alert at the chosen time.') : ReminderTexts.nag(_nag, es)),
+              subtitle: Text(_nag == 0 ? t(context, 'Un solo aviso a la hora elegida.', 'A single alert at the chosen time.') : '${ReminderTexts.nag(_nag, es)}. ${ReminderTexts.nagLimit(s.notices.limits.nagCap, es)}'),
               value: _nag > 0,
               onChanged: (bool v) => setState(() => _nag = v ? 5 : 0),
             ),
             if (_nag > 0)
               LabeledControl(
-                label: t(context, 'Cada cuántos minutos', 'Every how many minutes'),
+                label: t(context, 'Cada cuántos minutos', 'Alert every'),
                 help: t(context, 'De 1 a 60 minutos.', 'From 1 to 60 minutes.'),
-                child: NumberStepper(value: _nag, min: 1, max: 60, onChanged: (int v) => setState(() => _nag = v), label: t(context, 'Minutos entre avisos', 'Minutes between alerts')),
+                child: NumberStepper(value: _nag, min: 1, max: 60, onChanged: (int v) => setState(() => _nag = v), label: t(context, 'Minutos entre avisos', 'Minutes between alerts'), format: (int v) => '$v min'),
               ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),

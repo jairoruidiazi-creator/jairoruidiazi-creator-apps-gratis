@@ -13,7 +13,7 @@ abstract class CuePlayer {
   /// Suena uno de los sonidos propios (nada si es [CueSound.none]).
   Future<void> sound(CueSound sound);
 
-  /// Pitido corto de la cuenta atrás.
+  /// Pitido corto de la cuenta regresiva.
   Future<void> pip();
 
   /// Habla con la voz del sistema en el idioma de la app.
@@ -186,14 +186,25 @@ class DeviceCuePlayer implements CuePlayer {
     }
   }
 
+  /// Vibración propia (MainActivity.kt y AppDelegate.swift): la respuesta
+  /// táctil de Flutter es un toque muy breve y no se siente si el usuario
+  /// apagó la respuesta táctil del sistema.
+  static const MethodChannel _vibration = MethodChannel('rutinas/vibracion');
+
   @override
   Future<void> vibrate({bool strong = false}) async {
     if (!settings.vibration) {
       return;
     }
     try {
-      await (strong ? HapticFeedback.heavyImpact() : HapticFeedback.mediumImpact());
-    } catch (_) {}
+      await _vibration.invokeMethod<void>('vibrar', <String, Object>{'ms': strong ? 700 : 300});
+    } on MissingPluginException {
+      try {
+        await (strong ? HapticFeedback.heavyImpact() : HapticFeedback.mediumImpact());
+      } catch (_) {}
+    } catch (e) {
+      debugPrint('No se pudo vibrar: $e');
+    }
   }
 
   @override

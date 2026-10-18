@@ -9,7 +9,7 @@ import '../../model/workout.dart';
 import '../widgets/common.dart';
 import 'runner_screen.dart';
 
-/// Cuenta atrás simple con preajustes guardados (té, horno, siesta).
+/// Cuenta regresiva simple con preajustes guardados (té, horno, siesta).
 class CountdownView extends StatefulWidget {
   const CountdownView({super.key});
 
@@ -21,7 +21,7 @@ class _CountdownViewState extends State<CountdownView> {
   int? _seconds;
 
   Future<void> _start(Services s, {required String name, required int seconds, String? presetId}) async {
-    final bool ok = await RunnerScreen.confirmReplace(context);
+    final bool ok = await RunnerScreen.beforeStart(context);
     if (!ok || !mounted) {
       return;
     }
@@ -35,7 +35,7 @@ class _CountdownViewState extends State<CountdownView> {
   Future<void> _savePreset(Services s, int seconds) async {
     final String? value = await askText(
       context,
-      title: t(context, 'Guardar cuenta atrás', 'Save countdown'),
+      title: t(context, 'Guardar cuenta regresiva', 'Save countdown'),
       label: t(context, 'Nombre', 'Name'),
       hint: t(context, 'Té, pasta, siesta…', 'Tea, pasta, nap…'),
       okLabel: t(context, 'Guardar', 'Save'),
@@ -99,7 +99,7 @@ class _CountdownViewState extends State<CountdownView> {
                         children: <Widget>[
                           OutlinedButton.icon(onPressed: () => _savePreset(s, seconds), icon: const Icon(Icons.bookmark_add_outlined), label: Text(t(context, 'Guardar', 'Save'))),
                           FilledButton.icon(
-                            onPressed: () => _start(s, name: es ? 'Cuenta atrás de ${formatDurationShort(seconds, spanish: true)}' : '${formatDurationShort(seconds, spanish: false)} countdown', seconds: seconds),
+                            onPressed: () => _start(s, name: es ? 'Cuenta regresiva de ${formatDurationShort(seconds, spanish: true)}' : '${formatDurationShort(seconds, spanish: false)} countdown', seconds: seconds),
                             icon: const Icon(Icons.play_arrow),
                             label: Text(t(context, 'Iniciar', 'Start')),
                           ),
@@ -125,7 +125,7 @@ class _CountdownViewState extends State<CountdownView> {
                     tooltip: es ? 'Borrar ${p.name}' : 'Delete ${p.name}',
                     icon: const Icon(Icons.delete_outline),
                     onPressed: () async {
-                      final bool ok = await confirm(context, title: t(context, '¿Borrar esta cuenta atrás?', 'Delete this countdown?'), message: p.name, yes: t(context, 'Borrar', 'Delete'), destructive: true);
+                      final bool ok = await confirm(context, title: t(context, '¿Borrar esta cuenta regresiva?', 'Delete this countdown?'), message: p.name, yes: t(context, 'Borrar', 'Delete'), destructive: true);
                       if (ok) {
                         s.timers.removePreset(p.id);
                       }

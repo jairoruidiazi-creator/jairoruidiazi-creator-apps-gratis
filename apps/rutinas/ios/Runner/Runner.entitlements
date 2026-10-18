@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Avisos «sensibles al tiempo»: recordatorios, cuentas regresivas y cambios
+	     de intervalo pasan por encima de los modos de concentración y del
+	     resumen programado si el usuario lo permite (no del modo silencio). -->
+	<key>com.apple.developer.usernotifications.time-sensitive</key>
+	<true/>
+</dict>
+</plist>

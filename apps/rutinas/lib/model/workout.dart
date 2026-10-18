@@ -163,7 +163,7 @@ class Workout {
   }
 }
 
-/// Cuenta atrás guardada (té, siesta, horno).
+/// Cuenta regresiva guardada (té, siesta, horno).
 class CountdownPreset {
   CountdownPreset({required this.id, required this.name, required this.seconds});
 

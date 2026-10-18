@@ -87,6 +87,8 @@ class ReminderStore extends PersistentStore {
     update(Reminder.fromJson(json));
   }
 
+  /// Pospone [minutes] desde que suena (o desde ahora si ya sonó). Solo lo que
+  /// ya sonó o está por sonar; nunca queda antes de su hora.
   void snooze(String id, int minutes) {
     final Reminder? r = byId(id);
     if (r == null || r.done) {
@@ -94,6 +96,26 @@ class ReminderStore extends PersistentStore {
     }
     ReminderLogic.snooze(r, clock.now(), minutes);
     changed();
+  }
+
+  /// Pospone hasta una hora dada (por ejemplo, mañana a las 9:00).
+  void snoozeUntil(String id, DateTime target) {
+    final Reminder? r = byId(id);
+    if (r == null || r.done) {
+      return;
+    }
+    ReminderLogic.snoozeUntil(r, target);
+    changed();
+  }
+
+  /// Reemplaza todo por lo de [other] (al restaurar una copia ya leída entera).
+  void replaceWith(ReminderStore other) {
+    reminders
+      ..clear()
+      ..addAll(other.reminders);
+    damagedCopy = null;
+    changed();
+    flush();
   }
 
   /// Vuelve a dejar pendiente un recordatorio hecho.

@@ -194,8 +194,8 @@ void main() {
       expect(s.best, 1);
       expect(HabitLogic.dayStatus(h, e, d(10, 13), today, weekStart: DateTime.monday), DayStatus.partial);
       expect(HabitLogic.dayStatus(h, e, today, today, weekStart: DateTime.monday), DayStatus.partial);
-      expect(HabitLogic.isDone(h, e[dayKey(d(10, 12))]), isTrue);
-      expect(HabitLogic.isDone(h, e[dayKey(d(10, 13))]), isFalse);
+      expect(HabitLogic.isDone(h, e[dayKey(d(10, 12))], d(10, 12)), isTrue);
+      expect(HabitLogic.isDone(h, e[dayKey(d(10, 13))], d(10, 13)), isFalse);
     });
 
     test('con tiempo: los segundos tienen que llegar a la meta', () {
@@ -234,6 +234,109 @@ void main() {
       final Habit h = habit(kind: HabitKind.negative, start: d(10, 1));
       expect(HabitLogic.isDueOn(h, const <String, HabitEntry>{}, today, today, weekStart: DateTime.monday), isTrue);
       expect(HabitLogic.slots(h, const <String, HabitEntry>{}, today, weekStart: DateTime.monday), isEmpty);
+    });
+  });
+
+  group('Cambios de regla con fecha de vigencia (G5)', () {
+    List<DateTime> weekdaysBetween(DateTime a, DateTime b) => range(a, b).where((DateTime x) => x.weekday <= DateTime.friday).toList();
+
+    test('de lunes a viernes a todos los días: la racha y los fines de semana pasados no cambian', () {
+      final Habit h = habit(start: d(9, 1), frequency: const Frequency(type: FrequencyType.weekdays, weekdays: <int>[1, 2, 3, 4, 5]));
+      final Map<String, HabitEntry> e = log(done(weekdaysBetween(d(9, 1), d(10, 13))));
+      final StreakInfo before = HabitLogic.streak(h, e, today, weekStart: DateTime.monday);
+      expect(before.current, 31);
+      h.changeRule(frequency: const Frequency(), goal: 1, today: today, since: d(9, 1));
+      expect(h.pastRules, hasLength(1));
+      expect(h.pastRules.single.until, d(10, 13));
+      final StreakInfo after = HabitLogic.streak(h, e, today, weekStart: DateTime.monday);
+      expect(after.current, 31);
+      expect(after.best, 31);
+      expect(after.missed, 0);
+      // El sábado pasado no tocaba; desde hoy toca todos los días.
+      expect(HabitLogic.dayStatus(h, e, d(10, 10), today, weekStart: DateTime.monday), DayStatus.notDue);
+      expect(HabitLogic.isDueOn(h, e, d(10, 17), today, weekStart: DateTime.monday), isTrue);
+      // Viaja en JSON.
+      final Habit back = Habit.fromJson(h.toJson());
+      expect(back.pastRules.single.until, d(10, 13));
+      expect(back.frequencyOn(d(10, 10)).type, FrequencyType.weekdays);
+      expect(back.frequencyOn(today).type, FrequencyType.daily);
+    });
+
+    test('subir la meta no deshace los días que ya estaban hechos', () {
+      final Habit h = habit(kind: HabitKind.count, goal: 8, start: d(10, 1));
+      final Map<String, HabitEntry> e = log(<DateTime, int>{for (final DateTime x in range(d(10, 1), d(10, 13))) x: 8, today: 8});
+      h.changeRule(frequency: const Frequency(), goal: 10, today: today, since: d(10, 1));
+      expect(h.targetOn(d(10, 13)), 8);
+      expect(h.targetOn(today), 10);
+      expect(h.target, 10);
+      expect(HabitLogic.isDone(h, e[dayKey(d(10, 13))], d(10, 13)), isTrue);
+      expect(HabitLogic.isDone(h, e[dayKey(today)], today), isFalse);
+      final StreakInfo s = HabitLogic.streak(h, e, today, weekStart: DateTime.monday);
+      expect(s.current, 13);
+      expect(s.missed, 0);
+    });
+
+    test('dos cambios el mismo día que dejan todo como estaba no guardan nada', () {
+      final Habit h = habit(kind: HabitKind.count, goal: 8, start: d(10, 1));
+      h.changeRule(frequency: const Frequency(), goal: 10, today: today, since: d(10, 1));
+      h.changeRule(frequency: const Frequency(), goal: 8, today: today, since: d(10, 1));
+      expect(h.pastRules, isEmpty);
+      expect(h.goal, 8);
+      // Un hábito que empieza hoy no necesita guardar la regla anterior.
+      final Habit fresh = habit(kind: HabitKind.count, goal: 8, start: today);
+      fresh.changeRule(frequency: const Frequency(), goal: 5, today: today, since: today);
+      expect(fresh.pastRules, isEmpty);
+    });
+  });
+
+  group('Archivados (G4)', () {
+    test('desde que se archiva no hay días fallados; al recuperarlo, el tramo queda como pausa', () {
+      final Habit h = habit(start: d(9, 1));
+      final Map<String, HabitEntry> e = log(done(range(d(9, 1), d(9, 30))));
+      h.archive(d(10, 1));
+      StreakInfo s = HabitLogic.streak(h, e, today, weekStart: DateTime.monday);
+      expect(s.current, 30);
+      expect(s.missed, 0);
+      expect(HabitLogic.dayStatus(h, e, d(10, 5), today, weekStart: DateTime.monday), DayStatus.paused);
+      expect(HabitLogic.isDueOn(h, e, today, today, weekStart: DateTime.monday), isFalse);
+      h.unarchive(d(10, 10));
+      expect(h.archived, isFalse);
+      expect(h.pauses.single.start, d(10, 1));
+      expect(h.pauses.single.end, d(10, 9));
+      s = HabitLogic.streak(h, e, today, weekStart: DateTime.monday);
+      // Del 10 al 13 no se hizo: esos sí fallan.
+      expect(s.missed, 4);
+      expect(HabitLogic.dayStatus(h, e, d(10, 5), today, weekStart: DateTime.monday), DayStatus.paused);
+      final Habit back = Habit.fromJson(h.toJson());
+      expect(back.pauses.single.end, d(10, 9));
+    });
+  });
+
+  group('Días saltados y registros sin valor', () {
+    test('un día saltado que cubre la semana la saca de lo pendiente (M11)', () {
+      final Habit h = habit(start: d(9, 28), frequency: const Frequency(type: FrequencyType.perWeek, n: 2));
+      final Map<String, HabitEntry> e = log(done(<DateTime>[d(10, 12)]), skipped: <DateTime>[d(10, 13)]);
+      expect(HabitLogic.isDueOn(h, e, today, today, weekStart: DateTime.monday), isFalse);
+      final Map<String, HabitEntry> notYet = log(done(<DateTime>[d(10, 12)]));
+      expect(HabitLogic.isDueOn(h, notYet, today, today, weekStart: DateTime.monday), isTrue);
+    });
+
+    test('una nota o un día saltado solos no adelantan el inicio (M16)', () {
+      final Habit h = habit(start: d(10, 10), frequency: const Frequency(type: FrequencyType.everyN, n: 3));
+      final Map<String, HabitEntry> e = <String, HabitEntry>{
+        dayKey(d(10, 2)): HabitEntry(note: 'Solo una nota'),
+        dayKey(d(10, 4)): HabitEntry(skipped: true),
+      };
+      expect(HabitLogic.effectiveStart(h, e), d(10, 10));
+      e[dayKey(d(10, 6))] = HabitEntry(value: 1);
+      expect(HabitLogic.effectiveStart(h, e), d(10, 6));
+    });
+
+    test('fechas absurdas de un archivo dañado no se leen (M1)', () {
+      expect(parseDayKey('0001-01-01'), isNull);
+      expect(parseDayKey('2300-01-01'), isNull);
+      final Habit h = Habit.fromJson(<String, dynamic>{'id': 'x', 'name': 'X', 'start': '0001-01-01', 'created': '2026-10-01T00:00:00.000'});
+      expect(h.startDate, d(10, 1));
     });
   });
 

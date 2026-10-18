@@ -149,7 +149,7 @@ class TimerEngine {
   }
 }
 
-/// Qué está corriendo: un entrenamiento, una cuenta atrás o el tiempo de un hábito.
+/// Qué está corriendo: un entrenamiento, una cuenta regresiva o el tiempo de un hábito.
 enum RunKind { workout, countdown, habit }
 
 RunKind runKindFrom(Object? v) {

@@ -18,8 +18,18 @@ String _two(int n) => n.toString().padLeft(2, '0');
 /// Clave de un día para los mapas JSON: `2026-10-18`.
 String dayKey(DateTime d) => '${d.year.toString().padLeft(4, '0')}-${_two(d.month)}-${_two(d.day)}';
 
-/// Lee una clave de día; null si no tiene la forma `aaaa-mm-dd`. Se llama
-/// muchas veces al calcular rachas, por eso no usa expresiones regulares.
+/// Años que la app acepta en sus datos. Fuera de este rango una fecha viene de
+/// un archivo dañado o manipulado: un inicio en el año 1 haría recorrer unos
+/// 740 000 días cada vez que se dibuja la pantalla.
+const int kFirstYear = 2000;
+const int kLastYear = 2199;
+
+/// ¿La fecha cae en los años que la app acepta?
+bool isSaneDate(DateTime d) => d.year >= kFirstYear && d.year <= kLastYear;
+
+/// Lee una clave de día; null si no tiene la forma `aaaa-mm-dd` o el año está
+/// fuera de [kFirstYear]…[kLastYear]. Se llama muchas veces al calcular
+/// rachas, por eso no usa expresiones regulares.
 DateTime? parseDayKey(String key) {
   if (key.length != 10 || key.codeUnitAt(4) != 45 || key.codeUnitAt(7) != 45) {
     return null;
@@ -39,7 +49,7 @@ DateTime? parseDayKey(String key) {
   final int y = digits(0, 4);
   final int mo = digits(5, 7);
   final int d = digits(8, 10);
-  if (y < 0 || mo < 1 || mo > 12 || d < 1 || d > daysInMonth(y, mo)) {
+  if (y < kFirstYear || y > kLastYear || mo < 1 || mo > 12 || d < 1 || d > daysInMonth(y, mo)) {
     return null;
   }
   return DateTime(y, mo, d);
@@ -118,10 +128,20 @@ String formatDayRange(DateTime a, DateTime b, {required bool spanish}) {
   return '${monthShort(a.month, spanish: false)} ${a.day} – ${b.day}, ${b.year}';
 }
 
-/// Hora del día: 24 horas en español ("18:30") y 12 en inglés ("6:30 PM").
+/// El teléfono muestra la hora en 24 horas. La app lo lee al abrir y al volver
+/// (PlatformDispatcher.alwaysUse24HourFormat), y las pruebas lo fijan.
+bool use24HourClock = false;
+
+/// Hora del día con el mismo formato que el selector de hora de la app: en
+/// español siempre 24 horas ("7:30", "18:30"), como lo hace Material en
+/// español; en inglés, 12 horas ("6:30 PM") salvo que el teléfono use 24 horas
+/// ("07:30", "18:30").
 String formatTimeOfDay(int hour, int minute, {required bool spanish}) {
   if (spanish) {
     return '$hour:${_two(minute)}';
+  }
+  if (use24HourClock) {
+    return '${_two(hour)}:${_two(minute)}';
   }
   final int h = hour % 12 == 0 ? 12 : hour % 12;
   return '$h:${_two(minute)} ${hour < 12 ? 'AM' : 'PM'}';

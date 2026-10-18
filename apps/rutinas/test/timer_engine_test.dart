@@ -202,7 +202,7 @@ void main() {
       ]);
     });
 
-    test('los intervalos de menos de 5 s no tienen cuenta atrás', () {
+    test('los intervalos de menos de 5 s no tienen cuenta regresiva', () {
       final TimerRun r = TimerRun(kind: RunKind.workout, name: 'Corto', segments: TimerEngine.flatten(<TimerNode>[step('A', 4), step('B', 3)]), startedAt: t0);
       final CueTracker c = CueTracker();
       final List<CueType> types = <CueType>[];
@@ -224,7 +224,7 @@ void main() {
       expect(c.update(r.snapshot(at(40.1))), isEmpty);
     });
 
-    test('en pausa no cuenta atrás', () {
+    test('en pausa no cuenta regresiva', () {
       final TimerRun r = simple();
       final CueTracker c = CueTracker();
       c.update(r.snapshot(at(0)));

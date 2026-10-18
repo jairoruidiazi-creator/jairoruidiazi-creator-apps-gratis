@@ -19,7 +19,7 @@ class TimerStore extends PersistentStore {
   /// Temporizador en marcha (se guarda para seguir si el sistema cierra la app).
   TimerRun? run;
 
-  /// Última cuenta atrás libre que se usó, en segundos.
+  /// Última cuenta regresiva libre que se usó, en segundos.
   int lastCountdownSeconds = 300;
 
   List<Workout> get sortedWorkouts {
@@ -98,6 +98,24 @@ class TimerStore extends PersistentStore {
         'run': run?.toJson(),
         'lastCountdown': lastCountdownSeconds,
       };
+
+  /// Reemplaza lo que viaja en las copias por lo de [other] (al restaurar una
+  /// copia ya leída entera). El cronómetro y el temporizador en marcha se quedan.
+  void replaceBackupWith(TimerStore other) {
+    workouts
+      ..clear()
+      ..addAll(other.workouts);
+    presets
+      ..clear()
+      ..addAll(other.presets);
+    sessions
+      ..clear()
+      ..addAll(other.sessions);
+    lastCountdownSeconds = other.lastCountdownSeconds;
+    damagedCopy = null;
+    changed();
+    flush();
+  }
 
   /// Lo que viaja en la copia de seguridad: sin el temporizador en marcha.
   Map<String, dynamic> toBackupJson() {

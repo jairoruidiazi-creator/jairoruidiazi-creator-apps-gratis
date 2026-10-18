@@ -301,11 +301,10 @@ class TimerController extends ChangeNotifier {
         final TimerSegment seg = r.segments[e.index];
         unawaited(cues.sound(seg.sound));
         unawaited(cues.vibrate());
-        final String name = seg.name.trim();
+        // Sin nombre, la voz dice el tipo ("Trabajo", "Descanso"), como la pantalla.
+        final String name = seg.name.trim().isEmpty ? _kindName(seg.kind, es) : seg.name.trim();
         final bool last = r.segments.length > 1 && e.index == r.segments.length - 1;
-        if (name.isNotEmpty) {
-          unawaited(cues.speak(last ? (es ? 'Último: $name' : 'Last one: $name') : name));
-        }
+        unawaited(cues.speak(last ? (es ? 'Último: $name' : 'Last one: $name') : name));
         break;
       case CueType.countdown:
         if (r.kind != RunKind.workout) {
@@ -334,6 +333,22 @@ class TimerController extends ChangeNotifier {
         }
         unawaited(cues.speak(text));
         break;
+    }
+  }
+
+  /// Nombre del tipo de intervalo (el mismo que muestra la pantalla).
+  static String _kindName(StepKind k, bool es) {
+    switch (k) {
+      case StepKind.prepare:
+        return es ? 'Preparación' : 'Get ready';
+      case StepKind.warmup:
+        return es ? 'Calentamiento' : 'Warm-up';
+      case StepKind.work:
+        return es ? 'Trabajo' : 'Work';
+      case StepKind.rest:
+        return es ? 'Descanso' : 'Rest';
+      case StepKind.cooldown:
+        return es ? 'Enfriamiento' : 'Cool-down';
     }
   }
 

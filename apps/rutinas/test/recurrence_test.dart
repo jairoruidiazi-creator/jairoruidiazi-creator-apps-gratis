@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rutinas/logic/recurrence.dart';
 import 'package:rutinas/model/reminder.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 
 DateTime at(int y, int m, int d, [int h = 8, int min = 0]) => DateTime(y, m, d, h, min);
 
@@ -125,6 +127,39 @@ void main() {
       expect(r.dueAt, at(2026, 10, 14, 8));
     });
 
+    test('posponer solo lo que ya sonó o suena dentro de una hora (G1)', () {
+      // Semanal del sábado 17 a las 8:00; es miércoles 14 a las 9:00.
+      final Reminder r = make(at(2026, 10, 17, 8), rec: const Recurrence(type: RecurrenceType.weekdays, weekdays: <int>[6]));
+      final DateTime wed = at(2026, 10, 14, 9);
+      expect(ReminderLogic.canSnooze(r, wed), isFalse);
+      // Si igual se pide, cuenta desde su hora: nunca suena antes.
+      ReminderLogic.snooze(r, wed, 5);
+      expect(r.alertAt, at(2026, 10, 17, 8, 5));
+      expect(ReminderLogic.isOverdue(r, wed), isFalse);
+      // «Mañana a las 9:00» sobre uno de dentro de tres días no lo adelanta.
+      ReminderLogic.snoozeUntil(r, at(2026, 10, 15, 9));
+      expect(r.alertAt, at(2026, 10, 17, 8));
+      // Al marcarlo hecho pasa a la semana siguiente sin perder la del 17.
+      r.snoozedUntil = null;
+      ReminderLogic.complete(r, at(2026, 10, 17, 8, 1));
+      expect(r.dueAt, at(2026, 10, 24, 8));
+      // Ya sonó o suena dentro de la hora: sí se puede.
+      final Reminder soon = make(at(2026, 10, 14, 9, 40));
+      expect(ReminderLogic.canSnooze(soon, wed), isTrue);
+      expect(ReminderLogic.canSnooze(make(at(2026, 10, 14, 8)), wed), isTrue);
+      ReminderLogic.snooze(soon, wed, 10);
+      expect(soon.alertAt, at(2026, 10, 14, 9, 50));
+    });
+
+    test('la regla guarda su hora (G8)', () {
+      final Reminder r = make(at(2026, 10, 14, 7, 45), rec: const Recurrence(type: RecurrenceType.everyNDays));
+      expect(r.recurrence.hour, 7);
+      expect(r.recurrence.minute, 45);
+      expect(Reminder.fromJson(r.toJson()).recurrence, r.recurrence);
+      // Las de una vez no llevan hora en la regla.
+      expect(make(at(2026, 10, 14, 7, 45)).recurrence.hour, isNull);
+    });
+
     test('viaja en JSON', () {
       final Reminder r = make(at(2026, 10, 14, 8), rec: const Recurrence(type: RecurrenceType.yearly, month: 10, day: 14), nag: 15)
         ..notes = 'Con agua'
@@ -138,5 +173,65 @@ void main() {
       expect(back.isCountdown, isTrue);
       expect(back.alertAt, at(2026, 10, 14, 8, 10));
     });
+  });
+
+  group('Cambio de horario (G8)', () {
+    setUpAll(tzdata.initializeTimeZones);
+
+    LocalTime zone(String name) {
+      final tz.Location loc = tz.getLocation(name);
+      return (int y, int m, int d, int h, int mi) => tz.TZDateTime(loc, y, m, d, h, mi);
+    }
+
+    test('Nueva York: el día que no existe las 2:30 suena a las 3:30 y al otro día vuelve a las 2:30', () {
+      final LocalTime ny = zone('America/New_York');
+      final Reminder r = Reminder(id: 'r', title: 'Pastilla', dueAt: ny(2026, 3, 7, 2, 30), recurrence: const Recurrence(type: RecurrenceType.everyNDays), createdAt: ny(2026, 3, 1, 9, 0));
+      ReminderLogic.complete(r, r.dueAt.add(const Duration(minutes: 1)), local: ny);
+      // 8 de marzo de 2026: el reloj salta de 2:00 a 3:00.
+      expect(r.dueAt.day, 8);
+      expect(r.dueAt.hour, 3);
+      ReminderLogic.complete(r, r.dueAt.add(const Duration(minutes: 1)), local: ny);
+      expect(r.dueAt.day, 9);
+      expect(r.dueAt.hour, 2);
+      expect(r.dueAt.minute, 30);
+      // También al pasar solo a la ocurrencia siguiente (sin marcarlo).
+      r.dueAt = ny(2026, 3, 7, 2, 30);
+      ReminderLogic.rollOver(r, ny(2026, 3, 10, 12, 0), local: ny);
+      expect(r.dueAt.day, 10);
+      expect(r.dueAt.hour, 2);
+      expect(r.dueAt.minute, 30);
+    });
+
+    for (final List<Object> c in <List<Object>>[
+      <Object>['America/New_York', 2, 30],
+      <Object>['America/Santiago', 0, 30],
+      <Object>['Europe/Madrid', 2, 30],
+    ]) {
+      test('${c[0]}: un año de ocurrencias diarias sin correrse', () {
+        final String name = c[0] as String;
+        final int h = c[1] as int;
+        final int m = c[2] as int;
+        final LocalTime local = zone(name);
+        final tz.Location loc = tz.getLocation(name);
+        final Recurrence rule = const Recurrence(type: RecurrenceType.everyNDays).withTime(h, m);
+        DateTime cursor = local(2026, 1, 1, h, m);
+        int shifted = 0;
+        for (int i = 0; i < 400; i++) {
+          final DateTime next = Recurrences.next(rule, cursor, cursor, local: local)!;
+          final tz.TZDateTime asked = tz.TZDateTime(loc, next.year, next.month, next.day, h, m);
+          if (asked.hour == h && asked.minute == m) {
+            // La hora existe ese día: suena justo a la hora de la regla.
+            expect(next.hour, h, reason: '$name ${next.toIso8601String()}');
+            expect(next.minute, m);
+          } else {
+            shifted++;
+          }
+          cursor = next;
+        }
+        // Hubo un día sin esa hora y la serie no quedó corrida.
+        expect(shifted, greaterThanOrEqualTo(1));
+        expect(cursor.hour, h);
+      });
+    }
   });
 }

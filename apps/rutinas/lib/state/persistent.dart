@@ -49,6 +49,16 @@ abstract class PersistentStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Olvida el aviso del archivo dañado (se restauró una copia o el usuario ya
+  /// lo vio). El archivo apartado sigue en la carpeta de la app.
+  void clearDamaged() {
+    if (damagedCopy == null) {
+      return;
+    }
+    damagedCopy = null;
+    notifyListeners();
+  }
+
   /// Marca un cambio: avisa a la interfaz y programa el guardado.
   void changed() {
     _dirty = true;

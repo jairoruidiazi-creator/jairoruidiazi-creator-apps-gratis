@@ -10,7 +10,11 @@ import 'timer_texts.dart';
 /// Barra del temporizador en marcha (sobre la navegación), para volver a él
 /// desde cualquier pestaña.
 class RunBar extends StatelessWidget {
-  const RunBar({super.key});
+  const RunBar({super.key, this.bottomSafeArea = false});
+
+  /// Deja el margen de la barra del sistema (o del indicador de inicio) cuando
+  /// no hay barra de navegación debajo, como en las tabletas.
+  final bool bottomSafeArea;
 
   @override
   Widget build(BuildContext context) {
@@ -31,45 +35,49 @@ class RunBar extends StatelessWidget {
         final String line = r.kind == RunKind.workout ? '$segName · ${formatClock(snap.segmentRemainingSeconds)}' : formatClock(snap.segmentRemainingSeconds);
         return Material(
           color: bg,
-          child: Row(
-            children: <Widget>[
-              Expanded(
-                child: Semantics(
-                  button: true,
-                  label: es ? 'Temporizador en marcha: ${r.name}, $line. Abrir.' : 'Timer running: ${r.name}, $line. Open.',
-                  child: InkWell(
-                    onTap: () => RunnerScreen.open(context),
-                    child: ExcludeSemantics(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-                        child: Row(
-                          children: <Widget>[
-                            Icon(snap.paused ? Icons.pause_circle : Icons.timer, color: fg),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: <Widget>[
-                                  Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
-                                  Text(snap.paused ? '${t(context, 'En pausa', 'Paused')} · $line' : line, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg)),
-                                ],
+          child: SafeArea(
+            top: false,
+            bottom: bottomSafeArea,
+            child: Row(
+              children: <Widget>[
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    label: es ? 'Temporizador en marcha: ${r.name}, $line. Abrir.' : 'Timer running: ${r.name}, $line. Open.',
+                    child: InkWell(
+                      onTap: () => RunnerScreen.open(context),
+                      child: ExcludeSemantics(
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                          child: Row(
+                            children: <Widget>[
+                              Icon(snap.paused ? Icons.pause_circle : Icons.timer, color: fg),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: <Widget>[
+                                    Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
+                                    Text(snap.paused ? '${t(context, 'En pausa', 'Paused')} · $line' : line, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: fg)),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              IconButton(
-                tooltip: snap.paused ? t(context, 'Seguir', 'Resume') : t(context, 'Pausar', 'Pause'),
-                color: fg,
-                onPressed: s.timer.locked ? null : (snap.paused ? s.timer.resume : s.timer.pause),
-                icon: Icon(snap.paused ? Icons.play_arrow : Icons.pause),
-              ),
-            ],
+                IconButton(
+                  tooltip: snap.paused ? t(context, 'Seguir', 'Resume') : t(context, 'Pausar', 'Pause'),
+                  color: fg,
+                  onPressed: s.timer.locked ? null : (snap.paused ? s.timer.resume : s.timer.pause),
+                  icon: Icon(snap.paused ? Icons.play_arrow : Icons.pause),
+                ),
+              ],
+            ),
           ),
         );
       },

@@ -30,6 +30,10 @@ class AppSettings extends ChangeNotifier {
   /// Ya se pidió el permiso de notificaciones una vez (para no insistir).
   bool askedNotifications = false;
 
+  /// Ya se explicó, al empezar el primer temporizador, para qué sirven las
+  /// alarmas exactas (Android 12 o superior). Es del teléfono: no viaja en la copia.
+  bool askedExactForTimer = false;
+
   String get language => _language ?? (deviceLanguage == 'es' ? 'es' : 'en');
 
   set language(String value) => _language = value;
@@ -52,6 +56,7 @@ class AppSettings extends ChangeNotifier {
     countdownNag = p.getInt('countdownNag') ?? 1;
     lastExportAt = DateTime.tryParse(p.getString('lastExportAt') ?? '');
     askedNotifications = p.getBool('askedNotifications') ?? false;
+    askedExactForTimer = p.getBool('askedExactForTimer') ?? false;
     _sanitize();
     notifyListeners();
   }
@@ -97,6 +102,7 @@ class AppSettings extends ChangeNotifier {
     await p.setInt('countdownNag', countdownNag);
     await p.setString('lastExportAt', lastExportAt?.toIso8601String() ?? '');
     await p.setBool('askedNotifications', askedNotifications);
+    await p.setBool('askedExactForTimer', askedExactForTimer);
   }
 
   /// Lo que viaja en la copia de seguridad (no el estado de los permisos).

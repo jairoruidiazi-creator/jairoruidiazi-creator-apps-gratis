@@ -138,8 +138,9 @@ class TileGrid extends StatelessWidget {
   }
 }
 
-/// Diálogo de confirmación. Devuelve true si se aceptó.
-Future<bool> confirm(BuildContext context, {required String title, required String message, required String yes, bool destructive = false}) async {
+/// Diálogo de confirmación. Devuelve true si se aceptó. [no] es el texto del
+/// botón que no acepta (por defecto, Cancelar).
+Future<bool> confirm(BuildContext context, {required String title, required String message, required String yes, String? no, bool destructive = false}) async {
   final ThemeData theme = Theme.of(context);
   final bool? ok = await showDialog<bool>(
     context: context,
@@ -147,7 +148,7 @@ Future<bool> confirm(BuildContext context, {required String title, required Stri
       title: Text(title),
       content: SingleChildScrollView(child: Text(message)),
       actions: <Widget>[
-        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(t(context, 'Cancelar', 'Cancel'))),
+        TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(no ?? t(context, 'Cancelar', 'Cancel'))),
         FilledButton(
           style: destructive ? FilledButton.styleFrom(backgroundColor: theme.colorScheme.error, foregroundColor: theme.colorScheme.onError) : null,
           onPressed: () => Navigator.of(ctx).pop(true),
@@ -171,8 +172,9 @@ void showSnack(BuildContext context, String text, {String? actionLabel, VoidCall
   ));
 }
 
-/// Número con botones − y + de 48 dp. Para lectores de pantalla se anuncia
-/// como un valor ajustable.
+/// Número con botones − y + de 48 dp. Tocar el número deja escribirlo (para
+/// no tener que tocar cien veces un botón). Para lectores de pantalla se
+/// anuncia como un valor ajustable que también se puede escribir.
 class NumberStepper extends StatelessWidget {
   const NumberStepper({super.key, required this.value, required this.min, required this.max, required this.onChanged, required this.label, this.step = 1, this.format});
 
@@ -186,6 +188,13 @@ class NumberStepper extends StatelessWidget {
   final String label;
   final String Function(int value)? format;
 
+  Future<void> _type(BuildContext context) async {
+    final int? typed = await askNumber(context, title: label, value: value, min: min, max: max, step: step);
+    if (typed != null && typed != value) {
+      onChanged(typed);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final String shown = format == null ? '$value' : format!(value);
@@ -194,10 +203,12 @@ class NumberStepper extends StatelessWidget {
     return Semantics(
       label: label,
       value: shown,
+      hint: t(context, 'Toca dos veces para escribir el número', 'Double-tap to type the number'),
       increasedValue: canUp ? (format == null ? '${value + step}' : format!(value + step)) : null,
       decreasedValue: canDown ? (format == null ? '${value - step}' : format!(value - step)) : null,
       onIncrease: canUp ? () => onChanged(value + step) : null,
       onDecrease: canDown ? () => onChanged(value - step) : null,
+      onTap: () => _type(context),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
@@ -208,10 +219,20 @@ class NumberStepper extends StatelessWidget {
             ),
           ),
           Flexible(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 56),
-              child: ExcludeSemantics(
-                child: Text(shown, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+            child: ExcludeSemantics(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _type(context),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 56, minHeight: 48),
+                  child: Center(
+                    widthFactor: 1,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Text(shown, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700, decoration: TextDecoration.underline, decorationStyle: TextDecorationStyle.dotted)),
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -223,6 +244,71 @@ class NumberStepper extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Pide un número entre [min] y [max] (múltiplo de [step] desde [min]).
+/// Devuelve null si se cancela.
+Future<int?> askNumber(BuildContext context, {required String title, required int value, required int min, required int max, int step = 1}) {
+  return showDialog<int>(
+    context: context,
+    builder: (BuildContext ctx) => _NumberPrompt(title: title, value: value, min: min, max: max, step: step, spanish: isSpanish(context)),
+  );
+}
+
+class _NumberPrompt extends StatefulWidget {
+  const _NumberPrompt({required this.title, required this.value, required this.min, required this.max, required this.step, required this.spanish});
+
+  final String title;
+  final int value;
+  final int min;
+  final int max;
+  final int step;
+  final bool spanish;
+
+  @override
+  State<_NumberPrompt> createState() => _NumberPromptState();
+}
+
+class _NumberPromptState extends State<_NumberPrompt> {
+  late final TextEditingController _c = TextEditingController(text: '${widget.value}');
+  String? _error;
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  void _accept() {
+    final bool es = widget.spanish;
+    final int? v = int.tryParse(_c.text.trim());
+    if (v == null || v < widget.min || v > widget.max) {
+      setState(() => _error = es ? 'Escribe un número de ${widget.min} a ${widget.max}.' : 'Enter a number from ${widget.min} to ${widget.max}.');
+      return;
+    }
+    // Se ajusta al paso (por ejemplo, de 5 en 5).
+    final int snapped = widget.step <= 1 ? v : (widget.min + ((v - widget.min) / widget.step).round() * widget.step).clamp(widget.min, widget.max);
+    Navigator.of(context).pop(snapped);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool es = widget.spanish;
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _c,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        decoration: InputDecoration(helperText: es ? 'De ${widget.min} a ${widget.max}' : 'From ${widget.min} to ${widget.max}', errorText: _error),
+        onSubmitted: (_) => _accept(),
+      ),
+      actions: <Widget>[
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(es ? 'Cancelar' : 'Cancel')),
+        FilledButton(onPressed: _accept, child: Text(es ? 'Aceptar' : 'OK')),
+      ],
     );
   }
 }
@@ -319,6 +405,17 @@ class WeekdayChoice extends StatelessWidget {
   final ValueChanged<List<int>> onChanged;
   final int weekStart;
 
+  void _toggle(int d, bool on) {
+    final List<int> next = List<int>.of(selected);
+    if (on) {
+      next.add(d);
+    } else {
+      next.remove(d);
+    }
+    next.sort();
+    onChanged(next);
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool es = isSpanish(context);
@@ -327,25 +424,19 @@ class WeekdayChoice extends StatelessWidget {
       runSpacing: 6,
       children: <Widget>[
         for (final int d in orderedWeekdays(weekStart))
+          // El nombre completo del día para los lectores de pantalla, con su
+          // acción de toque (TalkBack, VoiceOver, Switch Access y Voice Access).
           Semantics(
             label: weekdayName(d, spanish: es),
             selected: selected.contains(d),
             button: true,
+            onTap: () => _toggle(d, !selected.contains(d)),
             excludeSemantics: true,
             child: FilterChip(
               label: Text(weekdayShort(d, spanish: es)),
               selected: selected.contains(d),
               showCheckmark: false,
-              onSelected: (bool on) {
-                final List<int> next = List<int>.of(selected);
-                if (on) {
-                  next.add(d);
-                } else {
-                  next.remove(d);
-                }
-                next.sort();
-                onChanged(next);
-              },
+              onSelected: (bool on) => _toggle(d, on),
             ),
           ),
       ],

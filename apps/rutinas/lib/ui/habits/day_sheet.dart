@@ -62,7 +62,8 @@ class _DayEditorState extends State<_DayEditor> {
   void _save() {
     final Services s = AppScope.read(context);
     final Habit h = widget.habit;
-    final bool done = !h.isNegative && _value >= h.target;
+    // La meta que regía ese día (pudo cambiar después).
+    final bool done = !h.isNegative && _value >= h.targetOn(widget.day);
     s.habits.setDay(h.id, widget.day, value: _value, skipped: _skipped && !done, note: _note.text);
     if (done) {
       unawaited(s.notices.dismissHabit(h, widget.day));
@@ -75,7 +76,8 @@ class _DayEditorState extends State<_DayEditor> {
     final bool es = isSpanish(context);
     final ThemeData theme = Theme.of(context);
     final Habit h = widget.habit;
-    final bool done = !h.isNegative && _value >= h.target;
+    final int target = h.targetOn(widget.day);
+    final bool done = !h.isNegative && _value >= target;
     Widget valueControl;
     switch (h.kind) {
       case HabitKind.check:
@@ -88,7 +90,7 @@ class _DayEditorState extends State<_DayEditor> {
       case HabitKind.count:
         valueControl = LabeledControl(
           label: HabitTexts.unit(h, 2, es),
-          help: es ? 'Meta: ${h.goal}' : 'Goal: ${h.goal}',
+          help: es ? 'Meta: $target' : 'Goal: $target',
           child: NumberStepper(value: _value, min: 0, max: 9999, onChanged: (int v) => setState(() => _value = v), label: HabitTexts.unit(h, 2, es)),
         );
         break;
@@ -96,7 +98,7 @@ class _DayEditorState extends State<_DayEditor> {
         final int minutes = (_value / 60).round();
         valueControl = LabeledControl(
           label: t(context, 'Minutos', 'Minutes'),
-          help: es ? 'Meta: ${HabitTexts.minutesOf(h.target, true)} min' : 'Goal: ${HabitTexts.minutesOf(h.target, false)} min',
+          help: es ? 'Meta: ${HabitTexts.minutesOf(target, true)} min' : 'Goal: ${HabitTexts.minutesOf(target, false)} min',
           child: NumberStepper(value: minutes, min: 0, max: 24 * 60, onChanged: (int v) => setState(() => _value = v * 60), label: t(context, 'Minutos', 'Minutes')),
         );
         break;
@@ -194,5 +196,7 @@ String dayStatusLabel(DayStatus s, bool es) {
       return es ? 'antes de empezar' : 'before the start';
     case DayStatus.future:
       return es ? 'todavía no llega' : 'not yet';
+    case DayStatus.paused:
+      return es ? 'archivado' : 'archived';
   }
 }

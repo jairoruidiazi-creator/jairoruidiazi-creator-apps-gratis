@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
 import '../../core/dates.dart';
+import '../../core/notifications.dart';
 import '../../logic/timer_engine.dart';
 import '../../model/habit.dart';
 import '../../model/workout.dart';
@@ -31,6 +34,36 @@ class RunnerScreen extends StatefulWidget {
       message: s.settings.spanish ? '"${r.name}" sigue en marcha. Si empiezas otro, se detiene y lo hecho queda guardado.' : '"${r.name}" is still running. If you start another, it stops and what you did is saved.',
       yes: t(context, 'Empezar otro', 'Start another'),
     );
+  }
+
+  /// Antes de empezar un temporizador: si ya hay uno en marcha, pregunta. Y la
+  /// primera vez, en Android 12 o superior sin alarmas exactas, explica qué
+  /// pasa con la pantalla apagada y ofrece el permiso. Devuelve si se empieza.
+  static Future<bool> beforeStart(BuildContext context) async {
+    if (!await confirmReplace(context) || !context.mounted) {
+      return false;
+    }
+    final Services s = AppScope.read(context);
+    final NoticePermissions p = s.notices.permissions;
+    if (p.exactAlarmsApply && !p.exactAlarms && !s.settings.askedExactForTimer) {
+      s.settings.askedExactForTimer = true;
+      unawaited(s.settings.save());
+      final bool ok = await confirm(
+        context,
+        title: t(context, 'Avisos a tiempo con la pantalla apagada', 'On-time alerts with the screen off'),
+        message: t(
+          context,
+          'Con la pantalla apagada o en otra app, cada cambio de intervalo llega como una notificación con sonido. Para que suenen a su hora, Android necesita el permiso «Alarmas y recordatorios»: sin él pueden llegar hasta una hora tarde. Con la app a la vista no hace falta.',
+          'With the screen off or in another app, each interval change arrives as a notification with sound. For them to ring on time, Android needs the "Alarms & reminders" permission: without it they can arrive up to an hour late. With the app on screen it is not needed.',
+        ),
+        yes: t(context, 'Permitir', 'Allow'),
+        no: t(context, 'Ahora no', 'Not now'),
+      );
+      if (ok) {
+        await s.notices.askExactAlarms();
+      }
+    }
+    return context.mounted;
   }
 
   @override
@@ -94,7 +127,7 @@ class _RunnerScreenState extends State<RunnerScreen> {
   Widget build(BuildContext context) {
     final Services s = AppScope.of(context);
     return ListenableBuilder(
-      listenable: s.timer,
+      listenable: Listenable.merge(<Listenable>[s.timer, s.notices]),
       builder: (BuildContext context, Widget? _) {
         final TimerController c = s.timer;
         final TimerRun? run = c.run;
@@ -138,7 +171,40 @@ class _Running extends StatelessWidget {
       iconButtonTheme: IconButtonThemeData(style: IconButton.styleFrom(foregroundColor: fg, disabledForegroundColor: fg.withValues(alpha: 0.4))),
     );
 
+    // Lo que pasa con la pantalla bloqueada, dicho antes de bloquearla.
+    final NoticePermissions perm = s.notices.permissions;
+    final bool lateRisk = perm.exactAlarmsApply && !perm.exactAlarms;
+    final int capacity = s.notices.limits.timerCapacity;
+    // Cambios que faltan: el inicio de cada intervalo que sigue y el final.
+    final int changesLeft = (workout ? run.segments.length - 1 - snap.index : 0) + 1;
+    String? budgetNote;
+    if (!snap.paused && changesLeft > capacity) {
+      final int last = snap.index + capacity;
+      final String at = formatTime(run.wallTimeOf(run.startOf(last)), spanish: es);
+      budgetNote = es
+          ? 'Si bloqueas la pantalla, los avisos llegan hasta el intervalo ${last + 1} de ${run.segments.length} (a las $at). Para los siguientes, vuelve a abrir Rutinas antes.'
+          : 'If you lock the screen, alerts arrive up to interval ${last + 1} of ${run.segments.length} (at $at). For the rest, open Rutinas again before then.';
+    }
+    Widget note(String text, {String? action, VoidCallback? onAction}) => Container(
+          margin: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          decoration: BoxDecoration(border: Border.all(color: fg.withValues(alpha: 0.7)), borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            children: <Widget>[
+              Text(text, textAlign: TextAlign.center, style: tt.bodyMedium?.copyWith(color: fg)),
+              if (action != null) TextButton(onPressed: onAction, style: TextButton.styleFrom(foregroundColor: fg), child: Text(action)),
+            ],
+          ),
+        );
+
     final List<Widget> info = <Widget>[
+      if (lateRisk)
+        note(
+          t(context, 'Sin el permiso «Alarmas y recordatorios», con la pantalla apagada los cambios de intervalo pueden llegar hasta una hora tarde.', 'Without the "Alarms & reminders" permission, interval changes can arrive up to an hour late with the screen off.'),
+          action: t(context, 'Permitir', 'Allow'),
+          onAction: s.notices.askExactAlarms,
+        ),
+      if (budgetNote != null) note(budgetNote),
       if (seg.rounds.isNotEmpty) Text(TimerTexts.rounds(seg.rounds, es), textAlign: TextAlign.center, style: tt.titleMedium?.copyWith(color: fg, fontWeight: FontWeight.w600)),
       if (workout && next != null)
         Text(

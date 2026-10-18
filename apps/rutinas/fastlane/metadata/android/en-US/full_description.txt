@@ -7,13 +7,13 @@ HABITS
 • Habits to quit: count the days without a slip.
 • Current and best streak. Days that are not due, days you skip on purpose and an unfinished today never break it.
 • A note on each day and a calendar for every habit.
-• Alerts at the times you choose, which can repeat until you check the habit off.
+• Alerts at the times you choose, which can repeat while the habit is not checked off.
 
 REMINDERS
 • Once, every N days, on certain weekdays, every month (on a fixed day or the last day) or every year.
 • When a month has no 31st, the alert falls on its last day; February 29 falls on the 28th in non-leap years.
-• Nagging: the alert repeats every 1 to 60 minutes until you mark it done.
-• Quick countdown: "remind me in 10 minutes", and it keeps ringing until you stop it.
+• Nagging: the alert repeats every 1 to 60 minutes. If Rutinas is not open when it rings, it repeats up to 30 times; once you open it, it keeps going until you mark it done.
+• Quick countdown: "remind me in 10 minutes", and it rings again while you have not turned it off.
 • Done and Snooze 10 min right from the notification.
 
 TIMER
@@ -22,7 +22,7 @@ TIMER
 • A big screen with each interval's color, what comes next, the current round and the total time left.
 • The system voice announces every interval and counts down 3, 2, 1, in English or Spanish.
 • Built-in sounds: beep, bell, horn and gong.
-• Keeps going with the screen off or in another app: interval changes arrive as notifications with sound.
+• Keeps going with the screen off or in another app: interval changes arrive as notifications with sound, on time if you allow "Alarms & reminders" (without it, Android can deliver them up to an hour late).
 • A lock against accidental pauses, and the screen stays on while you train.
 • Stopwatch with laps (fastest and slowest highlighted) and saved countdowns.
 

@@ -86,9 +86,11 @@ def render(size: int, scale: float, background: bool) -> Image.Image:
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     render(1024, 1.0, True).save(OUT / "icon-1024.png", optimize=True)
-    # El primer plano adaptativo deja margen: Android recorta el borde exterior
-    # (la zona segura es el círculo central del 61 %).
-    render(1024, 0.80, False).save(OUT / "icon-foreground-1024.png", optimize=True)
+    # Primer plano adaptativo: flutter_launcher_icons lo mete con un margen del
+    # 16 % (queda en 73 de los 108 dp) y Android muestra el círculo central de
+    # 66 dp. A 1,15 el anillo mide unos 58 dp: tan grande como el de las demás
+    # apps y sin que la máscara lo recorte.
+    render(1024, 1.15, False).save(OUT / "icon-foreground-1024.png", optimize=True)
     print(f"Íconos escritos en {OUT}")
 
 

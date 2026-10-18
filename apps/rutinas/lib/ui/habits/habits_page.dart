@@ -42,6 +42,13 @@ class _HabitsPageState extends State<HabitsPage> {
       appBar: AppBar(
         title: Text(t(context, 'Hábitos', 'Habits')),
         actions: <Widget>[
+          // Arriba y no como botón flotante: abajo taparía el botón de hecho del
+          // último hábito a la vista, que es lo que más se toca en esta lista.
+          IconButton(
+            tooltip: t(context, 'Nuevo hábito', 'New habit'),
+            icon: const Icon(Icons.add),
+            onPressed: () => HabitEditorScreen.open(context),
+          ),
           ListenableBuilder(
             listenable: s.habits,
             builder: (BuildContext context, Widget? _) => s.habits.archived.isEmpty
@@ -53,12 +60,6 @@ class _HabitsPageState extends State<HabitsPage> {
                   ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'fab-habit',
-        onPressed: () => HabitEditorScreen.open(context),
-        icon: const Icon(Icons.add),
-        label: Text(t(context, 'Hábito', 'Habit')),
       ),
       body: ListenableBuilder(
         listenable: Listenable.merge(<Listenable>[s.habits, s.settings]),
@@ -86,16 +87,21 @@ class _HabitsPageState extends State<HabitsPage> {
     }
     final List<Habit> pending = <Habit>[];
     final List<Habit> done = <Habit>[];
+    final List<Habit> skipped = <Habit>[];
     final List<Habit> quitting = <Habit>[];
     final List<Habit> other = <Habit>[];
     for (final Habit h in habits) {
       final Map<String, HabitEntry> e = s.habits.entriesOf(h.id);
+      final HabitEntry? entry = e[dayKey(_day)];
       if (_day.isBefore(HabitLogic.effectiveStart(h, e))) {
         other.add(h);
       } else if (h.isNegative) {
         quitting.add(h);
-      } else if (HabitLogic.isDone(h, e[dayKey(_day)])) {
+      } else if (HabitLogic.isDone(h, entry, _day)) {
         done.add(h);
+      } else if (entry != null && entry.skipped) {
+        // Saltado a propósito: ya no está por hacer.
+        skipped.add(h);
       } else if (HabitLogic.isDueOn(h, e, _day, today, weekStart: weekStart)) {
         pending.add(h);
       } else {
@@ -106,7 +112,7 @@ class _HabitsPageState extends State<HabitsPage> {
     final String dayTitle = isToday ? '${t(context, 'Hoy', 'Today')} · ${formatWeekdayDate(_day, spanish: es)}' : formatWeekdayDate(_day, spanish: es);
     return ReadableWidth(
       child: ListView(
-        padding: const EdgeInsets.only(bottom: 104),
+        padding: const EdgeInsets.only(bottom: 24),
         children: <Widget>[
           _DayStrip(
             day: _day,
@@ -149,6 +155,10 @@ class _HabitsPageState extends State<HabitsPage> {
             SectionHeader('${t(context, 'Hechos', 'Done')} (${done.length})'),
             for (final Habit h in done) HabitTile(habit: h, day: _day, today: today),
           ],
+          if (skipped.isNotEmpty) ...<Widget>[
+            SectionHeader('${t(context, 'Saltados', 'Skipped')} (${skipped.length})'),
+            for (final Habit h in skipped) HabitTile(habit: h, day: _day, today: today),
+          ],
           if (quitting.isNotEmpty) ...<Widget>[
             SectionHeader(t(context, 'Sin recaer', 'Quitting')),
             for (final Habit h in quitting) HabitTile(habit: h, day: _day, today: today),
@@ -171,7 +181,7 @@ class _HabitsPageState extends State<HabitsPage> {
         continue;
       }
       final Map<String, HabitEntry> e = s.habits.entriesOf(h.id);
-      final bool isDone = HabitLogic.isDone(h, e[dayKey(d)]);
+      final bool isDone = HabitLogic.isDone(h, e[dayKey(d)], d);
       if (isDone) {
         doneCount++;
         due++;
@@ -298,10 +308,10 @@ class HabitTile extends StatelessWidget {
     if (h.isNegative) {
       lines.add(es ? '${streak.current} ${HabitTexts.streakUnit(streak.unit, streak.current, es)} sin recaer' : '${streak.current} ${HabitTexts.streakUnit(streak.unit, streak.current, es)} without a slip');
       if ((entry?.value ?? 0) > 0) {
-        lines.add(HabitTexts.progress(h, entry, es));
+        lines.add(HabitTexts.progress(h, entry, es, day: day));
       }
     } else {
-      lines.add(beforeStart ? (es ? 'Empieza el ${formatShortDate(h.startDate, spanish: true)}' : 'Starts ${formatShortDate(h.startDate, spanish: false)}') : HabitTexts.progress(h, entry, es));
+      lines.add(beforeStart ? (es ? 'Empieza el ${formatShortDate(h.startDate, spanish: true)}' : 'Starts ${formatShortDate(h.startDate, spanish: false)}') : HabitTexts.progress(h, entry, es, day: day));
       final HabitSlot? slot = HabitLogic.slotFor(h, entries, day, today, weekStart: s.settings.weekStart);
       final String? period = HabitTexts.period(h, slot, es, current: slot == null || slot.contains(today));
       if (period != null) {
@@ -319,7 +329,7 @@ class HabitTile extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
           child: Row(
             children: <Widget>[
-              HabitAvatar(icon: h.icon, color: h.color, progress: showRing ? HabitTexts.fraction(h, entry) : null),
+              HabitAvatar(icon: h.icon, color: h.color, progress: showRing ? HabitTexts.fraction(h, entry, day: day) : null),
               const SizedBox(width: 12),
               Expanded(
                 child: Semantics(
@@ -366,6 +376,7 @@ class _QuickAction extends StatelessWidget {
     final Habit h = habit;
     final Color color = Color(h.color);
     final int value = entry?.value ?? 0;
+    final int target = h.targetOn(day);
     switch (h.kind) {
       case HabitKind.check:
         final bool done = value >= 1;
@@ -388,16 +399,16 @@ class _QuickAction extends StatelessWidget {
           tooltip: es ? 'Sumar 1 ($unit)' : 'Add 1 ($unit)',
           icon: const Icon(Icons.add),
           onPressed: () {
-            final bool wasDone = value >= h.target;
+            final bool wasDone = value >= target;
             s.habits.addValue(h.id, day, 1);
-            if (!wasDone && value + 1 >= h.target) {
+            if (!wasDone && value + 1 >= target) {
               unawaited(s.notices.dismissHabit(h, day));
             }
           },
         );
       case HabitKind.timed:
         final bool isToday = sameDay(day, today);
-        final int left = value >= h.target ? h.target : h.target - value;
+        final int left = value >= target ? target : target - value;
         return IconButton.filledTonal(
           tooltip: isToday ? (es ? 'Iniciar temporizador de ${HabitTexts.minutesOf(left, true)} min' : 'Start ${HabitTexts.minutesOf(left, false)} min timer') : t(context, 'Anotar minutos', 'Log minutes'),
           icon: Icon(isToday ? Icons.play_arrow : Icons.edit),
@@ -406,7 +417,7 @@ class _QuickAction extends StatelessWidget {
               await DaySheet.show(context, h, day);
               return;
             }
-            final bool ok = await RunnerScreen.confirmReplace(context);
+            final bool ok = await RunnerScreen.beforeStart(context);
             if (!ok || !context.mounted) {
               return;
             }

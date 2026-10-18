@@ -113,6 +113,8 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
                     if (h.kind == HabitKind.count) Text(es ? 'Meta: ${h.goal} ${HabitTexts.unit(h, h.goal, es)} al día' : 'Goal: ${h.goal} ${HabitTexts.unit(h, h.goal, es)} a day', style: theme.textTheme.bodyMedium),
                     if (h.kind == HabitKind.timed) Text(es ? 'Meta: ${HabitTexts.minutesOf(h.target, true)} min al día' : 'Goal: ${HabitTexts.minutesOf(h.target, false)} min a day', style: theme.textTheme.bodyMedium),
                     Text(es ? 'Desde el ${formatLongDate(HabitLogic.effectiveStart(h, entries), spanish: true)}' : 'Since ${formatLongDate(HabitLogic.effectiveStart(h, entries), spanish: false)}', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+                    if (h.archived && h.archivedAt != null)
+                      Text(es ? 'Archivado desde el ${formatLongDate(h.archivedAt!, spanish: true)}: esos días no cuentan como fallados.' : 'Archived since ${formatLongDate(h.archivedAt!, spanish: false)}: those days do not count as missed.', style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
                     if (h.notes.trim().isNotEmpty) Padding(padding: const EdgeInsets.only(top: 4), child: Text(h.notes.trim(), style: theme.textTheme.bodyMedium?.copyWith(fontStyle: FontStyle.italic))),
                   ],
                 ),
@@ -243,7 +245,7 @@ class _TodayCard extends StatelessWidget {
         final int left = value >= h.target ? h.target : h.target - value;
         controls.add(FilledButton.icon(
           onPressed: () async {
-            final bool ok = await RunnerScreen.confirmReplace(context);
+            final bool ok = await RunnerScreen.beforeStart(context);
             if (!ok || !context.mounted) {
               return;
             }
@@ -361,6 +363,10 @@ class _MonthCalendar extends StatelessWidget {
             border = Border.all(color: cs.outline, width: 1.5);
             break;
           case DayStatus.notDue:
+            fg = cs.onSurfaceVariant;
+            break;
+          case DayStatus.paused:
+            // Archivado ese día: ni hecho ni fallado.
             fg = cs.onSurfaceVariant;
             break;
           case DayStatus.beforeStart:

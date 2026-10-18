@@ -94,6 +94,59 @@ class Frequency {
   }
 }
 
+/// Un tramo de días, del [start] al [end] (los dos incluidos).
+class DaySpan {
+  const DaySpan(this.start, this.end);
+
+  final DateTime start;
+  final DateTime end;
+
+  bool contains(DateTime day) => !day.isBefore(start) && !day.isAfter(end);
+
+  /// ¿Comparte algún día con el tramo del [a] al [b]?
+  bool overlaps(DateTime a, DateTime b) => !b.isBefore(start) && !a.isAfter(end);
+
+  Map<String, dynamic> toJson() => <String, dynamic>{'from': dayKey(start), 'to': dayKey(end)};
+
+  /// Null si el tramo no se puede leer o termina antes de empezar.
+  static DaySpan? fromJson(Object? j) {
+    if (j is! Map<String, dynamic>) {
+      return null;
+    }
+    final DateTime? a = parseDayKey(j['from'] as String? ?? '');
+    final DateTime? b = parseDayKey(j['to'] as String? ?? '');
+    if (a == null || b == null || b.isBefore(a)) {
+      return null;
+    }
+    return DaySpan(a, b);
+  }
+}
+
+/// La frecuencia y la meta que rigieron hasta el día [until] (incluido). Al
+/// cambiar la regla de un hábito, la anterior se guarda así y los días
+/// pasados se siguen evaluando con ella: un cambio rige desde ese día.
+class PastRule {
+  const PastRule({required this.until, required this.frequency, required this.goal});
+
+  final DateTime until;
+  final Frequency frequency;
+  final int goal;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{'until': dayKey(until), 'frequency': frequency.toJson(), 'goal': goal};
+
+  static PastRule? fromJson(Object? j) {
+    if (j is! Map<String, dynamic>) {
+      return null;
+    }
+    final DateTime? until = parseDayKey(j['until'] as String? ?? '');
+    final Object? f = j['frequency'];
+    if (until == null) {
+      return null;
+    }
+    return PastRule(until: until, frequency: f is Map<String, dynamic> ? Frequency.fromJson(f) : const Frequency(), goal: (j['goal'] as num?)?.toInt() ?? 1);
+  }
+}
+
 class Habit {
   Habit({
     required this.id,
@@ -108,17 +161,28 @@ class Habit {
     List<int>? reminders,
     this.nagMinutes = 0,
     this.archived = false,
+    this.archivedAt,
+    List<DaySpan>? pauses,
+    List<PastRule>? pastRules,
     this.order = 0,
     required this.createdAt,
     this.notes = '',
-  }) : reminders = reminders ?? <int>[];
+  })  : reminders = reminders ?? <int>[],
+        pauses = pauses ?? <DaySpan>[],
+        pastRules = pastRules ?? <PastRule>[];
 
   final String id;
   String name;
+
+  /// No cambia si el hábito ya tiene registros: cambiaría lo que significan
+  /// (veces, segundos o recaídas). El editor ofrece crear uno nuevo.
   HabitKind kind;
+
+  /// Frecuencia vigente (la de hoy). Las anteriores están en [pastRules].
   Frequency frequency;
 
-  /// Meta diaria: veces (count) o segundos (timed). Sin uso en check y negative.
+  /// Meta diaria vigente: veces (count) o segundos (timed). Sin uso en check y
+  /// negative. Las anteriores están en [pastRules].
   int goal;
 
   /// Unidad de las veces (count): "vasos", "páginas".
@@ -135,6 +199,16 @@ class Habit {
   /// Repetir el aviso cada tantos minutos hasta marcarlo hecho (0 = no).
   int nagMinutes;
   bool archived;
+
+  /// Día en que se archivó (null si no está archivado). Desde ese día sus
+  /// periodos no cuentan como fallados.
+  DateTime? archivedAt;
+
+  /// Tramos en que estuvo archivado y luego se recuperó: tampoco fallan.
+  List<DaySpan> pauses;
+
+  /// Reglas anteriores (frecuencia y meta), de la más vieja a la más nueva.
+  List<PastRule> pastRules;
   int order;
   DateTime createdAt;
 
@@ -143,16 +217,112 @@ class Habit {
 
   bool get isNegative => kind == HabitKind.negative;
 
-  /// Lo que hay que juntar en un día para darlo por hecho.
-  int get target {
+  /// Meta diaria vigente.
+  int get target => targetOn(null);
+
+  /// Regla que rige el día [day] (la vigente si [day] es null o posterior a
+  /// los cambios).
+  PastRule? _ruleOn(DateTime? day) {
+    if (day == null) {
+      return null;
+    }
+    for (final PastRule p in pastRules) {
+      if (!day.isAfter(p.until)) {
+        return p;
+      }
+    }
+    return null;
+  }
+
+  /// Frecuencia que regía el día [day].
+  Frequency frequencyOn(DateTime day) => (_ruleOn(day)?.frequency ?? frequency).normalized();
+
+  /// Lo que había que juntar el día [day] para darlo por hecho (con la meta
+  /// que regía ese día).
+  int targetOn(DateTime? day) {
     switch (kind) {
       case HabitKind.check:
       case HabitKind.negative:
         return 1;
       case HabitKind.count:
       case HabitKind.timed:
-        return goal < 1 ? 1 : goal;
+        final int g = _ruleOn(day)?.goal ?? goal;
+        return g < 1 ? 1 : g;
     }
+  }
+
+  /// ¿El día [day] cae en un tramo archivado (el actual o uno ya recuperado)?
+  bool pausedOn(DateTime day) {
+    final DateTime? a = archivedAt;
+    if (archived && a != null && !day.isBefore(a)) {
+      return true;
+    }
+    for (final DaySpan p in pauses) {
+      if (p.contains(day)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// ¿Algún día del [a] al [b] cae en un tramo archivado?
+  bool pausedBetween(DateTime a, DateTime b) {
+    final DateTime? at = archivedAt;
+    if (archived && at != null && !b.isBefore(at)) {
+      return true;
+    }
+    for (final DaySpan p in pauses) {
+      if (p.overlaps(a, b)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Archiva el hábito desde [today].
+  void archive(DateTime today) {
+    archived = true;
+    archivedAt = dateOnly(today);
+  }
+
+  /// Lo recupera desde [today]: el tramo archivado queda como pausa.
+  void unarchive(DateTime today) {
+    final DateTime? from = archivedAt;
+    archived = false;
+    archivedAt = null;
+    if (from != null) {
+      final DateTime to = addDays(dateOnly(today), -1);
+      if (!to.isBefore(from)) {
+        pauses.add(DaySpan(from, to));
+      }
+    }
+  }
+
+  /// Cambia la frecuencia o la meta desde [today]: los días anteriores siguen
+  /// evaluándose con la regla que tenían. [since] es el primer día que cuenta
+  /// del hábito; si el cambio es antes de ese día, no hace falta guardar nada.
+  void changeRule({required Frequency frequency, required int goal, required DateTime today, required DateTime since}) {
+    final Frequency f = frequency.normalized();
+    final DateTime day = dateOnly(today);
+    final DateTime yesterday = addDays(day, -1);
+    // Un reloj que se atrasó no deja reglas que terminen hoy o después.
+    pastRules.removeWhere((PastRule p) => !p.until.isBefore(day));
+    if (f == this.frequency.normalized() && goal == this.goal) {
+      return;
+    }
+    final bool changedToday = pastRules.isNotEmpty && sameDay(pastRules.last.until, yesterday);
+    if (changedToday) {
+      // Segundo cambio del mismo día: la regla de ayer ya quedó guardada. Si el
+      // cambio deja todo como estaba ayer, la marca sobra.
+      final PastRule last = pastRules.last;
+      if (last.frequency.normalized() == f && last.goal == goal) {
+        pastRules.removeLast();
+      }
+    } else if (!yesterday.isBefore(dateOnly(since))) {
+      pastRules.add(PastRule(until: yesterday, frequency: this.frequency.normalized(), goal: this.goal));
+    }
+    this.frequency = f;
+    this.goal = goal;
   }
 
   Habit copy() => Habit.fromJson(toJson());
@@ -170,6 +340,9 @@ class Habit {
         'reminders': reminders,
         'nag': nagMinutes,
         'archived': archived,
+        if (archivedAt != null) 'archivedAt': dayKey(archivedAt!),
+        if (pauses.isNotEmpty) 'pauses': pauses.map((DaySpan p) => p.toJson()).toList(),
+        if (pastRules.isNotEmpty) 'rules': pastRules.map((PastRule p) => p.toJson()).toList(),
         'order': order,
         'created': createdAt.toIso8601String(),
         'notes': notes,
@@ -179,7 +352,13 @@ class Habit {
     final DateTime created = DateTime.tryParse(j['created'] as String? ?? '') ?? DateTime(2026);
     final Object? rem = j['reminders'];
     final Object? freq = j['frequency'];
+    final Object? pauses = j['pauses'];
+    final Object? rules = j['rules'];
     final HabitKind kind = habitKindFrom(j['kind']);
+    final bool archived = (j['archived'] as bool?) ?? false;
+    final DateTime start = parseDayKey(j['start'] as String? ?? '') ?? (isSaneDate(created) ? dateOnly(created) : DateTime(2026));
+    final List<PastRule> past = rules is List ? rules.map(PastRule.fromJson).whereType<PastRule>().toList() : <PastRule>[];
+    past.sort((PastRule a, PastRule b) => a.until.compareTo(b.until));
     return Habit(
       id: j['id'] as String,
       name: (j['name'] as String?) ?? '',
@@ -189,10 +368,13 @@ class Habit {
       unit: (j['unit'] as String?) ?? '',
       icon: (j['icon'] as String?) ?? 'task_alt',
       color: (j['color'] as num?)?.toInt() ?? 0xFF3949AB,
-      startDate: parseDayKey(j['start'] as String? ?? '') ?? dateOnly(created),
+      startDate: start,
       reminders: rem is List ? (rem.whereType<num>().map((num m) => m.toInt()).where((int m) => m >= 0 && m < 24 * 60).toSet().toList()..sort()) : <int>[],
       nagMinutes: ((j['nag'] as num?)?.toInt() ?? 0).clamp(0, 60),
-      archived: (j['archived'] as bool?) ?? false,
+      archived: archived,
+      archivedAt: archived ? parseDayKey(j['archivedAt'] as String? ?? '') : null,
+      pauses: pauses is List ? pauses.map(DaySpan.fromJson).whereType<DaySpan>().toList() : <DaySpan>[],
+      pastRules: past,
       order: (j['order'] as num?)?.toInt() ?? 0,
       createdAt: created,
       notes: (j['notes'] as String?) ?? '',
