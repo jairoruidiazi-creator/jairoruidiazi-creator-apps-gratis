@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../audio/click_synth.dart';
 import '../../audio/sequencer.dart';
 
 /// Qué pulsos destellan.
