@@ -5,12 +5,14 @@ library;
 // test/store/clave_demo.dart, en teléfono y tableta de Android y en iPhone y
 // iPad, en español e inglés. Se ejecutan con `flutter test --tags screenshots`.
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:clave/app.dart';
 import 'package:clave/audio/click_synth.dart';
 import 'package:clave/audio/sequencer.dart';
 import 'package:clave/core/settings.dart';
+import 'package:clave/model/models.dart';
 import 'package:clave/music/notes.dart';
 import 'package:clave/ui/metronome/metronome_screen.dart';
 import 'package:clock/clock.dart';
@@ -134,7 +136,12 @@ void main() {
           await _goTab(tester, tr('Grabar', 'Record'));
           await takeStoreShot(tester, device, lang, '05-grabadora');
 
-          // 6. Registro de práctica.
+          // 6. Registro de práctica: solo la semana de ejemplo, sin los
+          // segundos de uso de esta misma prueba.
+          // Cerrar es inmediato; la escritura en disco no se espera (vive en
+          // la zona de tiempo simulado).
+          unawaited(t.services.practice.closeAll());
+          t.services.practice.sessions.removeWhere((PracticeSession p) => !p.start.isBefore(now));
           await _goTab(tester, tr('Práctica', 'Practice'));
           await takeStoreShot(tester, device, lang, '06-practica');
 

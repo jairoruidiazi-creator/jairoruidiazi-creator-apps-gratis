@@ -365,7 +365,7 @@ class _TempoPanel extends StatelessWidget {
                           style: TextStyle(fontSize: 76 * scale, fontWeight: FontWeight.w800, height: 1, color: trainerActive ? pal.accent : cs.onSurface, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()]),
                         ),
                       ),
-                      Text(trainerActive ? 'BPM · ${t(context, 'meta', 'target')} ${(target ?? bpm).toStringAsFixed(0)}' : 'BPM', style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
+                      Text(trainerActive ? 'BPM · ${t(context, 'meta', 'target')} ${target.toStringAsFixed(0)}' : 'BPM', style: TextStyle(fontSize: 14, color: cs.onSurfaceVariant)),
                     ],
                   ),
                 ),
