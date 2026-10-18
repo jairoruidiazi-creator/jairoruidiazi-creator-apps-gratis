@@ -61,6 +61,47 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
+  testWidgets('Sin permiso de fototeca se avisa una sola vez, con el botón a los ajustes (M15)', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.625;
+    addTearDown(tester.view.reset);
+    late Services services;
+    late RecordingPipeline pipeline;
+    final FakeLocationBackend backend = FakeLocationBackend();
+    await tester.runAsync(() async {
+      final AppSettings settings = await testSettings();
+      final AppState state = await testState(tmp);
+      for (final String id in <String>['p1', 'p2', 'p3']) {
+        await state.addPhoto(PhotoRecord(id: id, projectId: 'general', originalFile: 'photos/general/$id-orig.jpg', stampedFile: 'photos/general/$id.jpg', takenAt: DateTime.utc(2026, 3, 9, 19), status: PhotoStatus.pending));
+      }
+      pipeline = RecordingPipeline(store: state.store, state: state, settings: settings)..galleryDenied = true;
+      services = Services(settings: settings, state: state, store: state.store, location: LocationService(backend: backend), heading: HeadingService(useSystemHeading: false), pipeline: pipeline);
+    });
+    await tester.pumpWidget(SelloApp(services: services, cameraEnabled: false));
+    await tester.pump();
+    services.queue.resumePending();
+    await waitReal(tester, () => pipeline.stamped.length == 3 && find.textContaining('fototeca').evaluate().isNotEmpty);
+    expect(pipeline.stamped.length, 3);
+    expect(find.textContaining('fototeca'), findsOneWidget);
+    // "Ajustes" abre los ajustes del teléfono.
+    await tester.pump(const Duration(seconds: 1));
+    await tester.tap(find.widgetWithText(SnackBarAction, 'Ajustes'));
+    await tester.pump();
+    expect(backend.appSettingsOpened, 1);
+    // Las otras dos fotos no repiten el aviso.
+    await tester.pump(const Duration(seconds: 1));
+    int seen = 0;
+    for (int i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 500));
+      if (find.textContaining('fototeca').evaluate().isNotEmpty) {
+        seen++;
+      }
+    }
+    expect(seen, 0);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   testWidgets('Al abrir con el índice dañado se dice qué se recuperó', (WidgetTester tester) async {
     late Services services;
     await tester.runAsync(() async {

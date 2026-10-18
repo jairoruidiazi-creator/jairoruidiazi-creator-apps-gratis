@@ -274,7 +274,7 @@ class _CoordRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: <Widget>[
-            SizedBox(width: 104, child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
+            SizedBox(width: 102, child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
             const SizedBox(width: 8),
             Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontFeatures: <FontFeature>[FontFeature.tabularFigures()]))),
             const Icon(Icons.copy_rounded, size: 16),

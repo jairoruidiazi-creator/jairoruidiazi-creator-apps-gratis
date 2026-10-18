@@ -187,6 +187,20 @@ void main() {
       expect(polar.weakField, isTrue);
       expect(Wmm.compute(4.7, -74, at: DateTime.utc(2031)).extrapolated, isTrue);
     });
+
+    test('Los valores de Colombia que cita Ajustes salen del modelo (M8)', () {
+      // Referencia: pygeomag con WMM_2025.COF el 18-oct-2026.
+      final DateTime at = DateTime.utc(2026, 10, 18);
+      // Extremos: San Andrés y Tumaco, unos −5°; Puerto Carreño, −13°.
+      expect(Wmm.declination(12.58, -81.70, at: at), closeTo(-4.859, 0.01));
+      expect(Wmm.declination(1.80, -78.76, at: at), closeTo(-5.213, 0.01));
+      expect(Wmm.declination(6.19, -67.49, altitudeMeters: 50, at: at), closeTo(-12.982, 0.01));
+      // Ciudades: Bogotá ≈ −9°, Medellín ≈ −8°, Cali ≈ −7°, Barranquilla ≈ −9°.
+      expect(Wmm.declination(4.711, -74.072, altitudeMeters: 2600, at: at), closeTo(-8.806, 0.01));
+      expect(Wmm.declination(6.2442, -75.5812, altitudeMeters: 1500, at: at), closeTo(-7.974, 0.01));
+      expect(Wmm.declination(3.4516, -76.5320, altitudeMeters: 1000, at: at), closeTo(-6.994, 0.01));
+      expect(Wmm.declination(10.9685, -74.7813, at: at), closeTo(-8.979, 0.01));
+    });
   });
 
   group('Brújula', () {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -11,11 +12,14 @@ import 'package:sello/core/storage.dart';
 import 'package:sello/geo/heading.dart';
 import 'package:sello/geo/location_service.dart';
 import 'package:sello/model/models.dart';
+import 'package:sello/ui/gallery/gallery_screen.dart';
 import 'package:sello/ui/map/map_screen.dart';
 import 'package:sello/ui/projects/project_editor.dart';
 import 'package:sello/ui/projects/template_editor.dart';
 import 'package:sello/ui/settings/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'support/fakes.dart';
 
 /// pumpAndSettle con un tope corto: si algo anima sin parar, la prueba falla
 /// en segundos (con su pila) en vez de colgarse diez minutos.
@@ -280,6 +284,27 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 2));
   }, timeout: const Timeout(Duration(minutes: 3)));
+
+  testWidgets('Volver a sellar olvida también las miniaturas en caché (M11)', (WidgetTester tester) async {
+    final File file = File('${tmp.path}/m11.jpg')..writeAsBytesSync(syntheticJpeg(64, 48));
+    final List<Object> keys = <Object>[];
+    await tester.runAsync(() async {
+      // Las miniaturas usan cacheWidth: otra clave de caché que la imagen completa.
+      for (final ImageProvider<Object> provider in <ImageProvider<Object>>[FileImage(file), for (final int w in kThumbWidths) ResizeImage(FileImage(file), width: w)]) {
+        keys.add(await provider.obtainKey(ImageConfiguration.empty));
+        final Completer<void> loaded = Completer<void>();
+        final ImageStream stream = provider.resolve(ImageConfiguration.empty);
+        final ImageStreamListener listener = ImageStreamListener((ImageInfo info, bool sync) => loaded.complete(), onError: (Object e, StackTrace? s) => loaded.completeError(e, s));
+        stream.addListener(listener);
+        await loaded.future;
+        stream.removeListener(listener);
+      }
+    });
+    expect(keys.length, 1 + kThumbWidths.length);
+    expect(keys.every(imageCache.containsKey), isTrue);
+    await tester.runAsync(() => evictPhotoImages(file));
+    expect(keys.any(imageCache.containsKey), isFalse);
+  });
 
   test('Los ajustes se guardan en preferencias', () async {
     final AppSettings s = services.settings;

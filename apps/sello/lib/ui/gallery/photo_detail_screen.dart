@@ -472,7 +472,7 @@ class _Row extends StatelessWidget {
           children: <Widget>[
             // Separación fija: una etiqueta larga ("Degrees and decimal minutes")
             // no debe quedar pegada al valor.
-            SizedBox(width: 112, child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
+            SizedBox(width: 110, child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
             const SizedBox(width: 10),
             Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500))),
             if (copyable) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.copy_rounded, size: 16)),

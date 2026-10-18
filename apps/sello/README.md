@@ -38,5 +38,6 @@ flutter run
 - Código: Apache-2.0. Sin paquetes GPL.
 - Datos incluidos: coeficientes WMM2025 (NOAA/NCEI y BGS, dominio público) en `lib/geo/wmm.dart`; rejillas del geoide EGM96 (NGA, dominio público) en `assets/geoid/`, generadas con `tools/gen_sello_geoid.py`.
 - Ícono generado con `tools/gen_sello_assets.py`.
-- Código nativo propio (ver `native/`): en Android, la altura elipsoidal del GPS (canal `co.appsgratis.sello/altitude`); en iPhone, el rumbo calibrado del sistema (canal `co.appsgratis.sello/heading`). `tools/patch_platforms.py` los copia a `android/` e `ios/`.
+- Código nativo propio (ver `native/`): en Android, la altura elipsoidal del GPS (canal `co.appsgratis.sello/altitude`) y las reglas de copia de seguridad; en iPhone, el rumbo calibrado del sistema (canal `co.appsgratis.sello/heading`). Las carpetas `android/` e `ios/` del repositorio ya los llevan; si se regeneran con `flutter create`, `tools/patch_platforms.py` debe volver a copiarlos.
+- El iOS para la tienda debe compilarse con `BYPASS_PERMISSION_LOCATION_ALWAYS=1 flutter build ipa` (la variable también en el `xcodebuild archive` de la firma): así `geolocator_apple` no enlaza la petición de ubicación "siempre", que Sello no usa, y App Store Connect no exige su texto de uso.
 - Decisiones de diseño: `docs/DECISIONES.md`.

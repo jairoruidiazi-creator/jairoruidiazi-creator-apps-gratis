@@ -276,6 +276,9 @@ class RecordingPipeline extends CapturePipeline {
   int maxRunning = 0;
   Future<void> Function(PhotoRecord p)? onStamp;
 
+  /// Simula que la copia a la fototeca no tiene permiso.
+  bool galleryDenied = false;
+
   @override
   Future<StampOutcome> stamp(PhotoRecord p, {ui.Image? logo, bool copyToGallery = false}) async {
     running++;
@@ -291,7 +294,7 @@ class RecordingPipeline extends CapturePipeline {
         ..error = ''
         ..version = p.version + 1;
       await state.savePhotos();
-      return StampOutcome(record: p);
+      return StampOutcome(record: p, galleryDenied: galleryDenied, galleryError: galleryDenied ? 'sin permiso' : null);
     } finally {
       running--;
     }
