@@ -161,23 +161,29 @@ void main() {
           if (!device.isIOS) {
             await _openMore(tester, tr('Avisos bancarios', 'Bank notices'));
             await takeStoreShot(tester, device, lang, '07-avisos');
+            debugPrint('[cierre] volver de avisos');
             await _back(tester);
           }
 
+          debugPrint('[cierre] avisos');
           await s.notices.stop();
           // El guardado diferido se dispara con el reloj falso y escribe con
           // tiempo real; no se espera dentro de runAsync un futuro creado afuera.
+          debugPrint('[cierre] guardado pendiente: ${s.ledger.busy}');
           await tester.pump(const Duration(milliseconds: 500));
           for (int i = 0; i < 50 && s.ledger.busy; i++) {
             await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
             await tester.pump();
           }
-          s.ledger.dispose();
+          debugPrint('[cierre] guardado: ${s.ledger.busy ? 'sigue pendiente' : 'listo'}');
           await tester.pumpWidget(const SizedBox.shrink());
+          debugPrint('[cierre] árbol desmontado');
+          s.ledger.dispose();
           await tester.runAsync(() => dir.delete(recursive: true));
+          debugPrint('[cierre] listo');
         });
         expect(errors, isEmpty, reason: errors.map((FlutterErrorDetails d) => d.toString()).join('\n----\n'));
-      }, variant: TargetPlatformVariant.only(device.platform), timeout: const Timeout(Duration(minutes: 4)));
+      }, variant: TargetPlatformVariant.only(device.platform), timeout: const Timeout(Duration(minutes: 3)));
     }
   }
 }

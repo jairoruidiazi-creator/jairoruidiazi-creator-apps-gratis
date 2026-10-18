@@ -105,6 +105,23 @@ class _NoticesScreenState extends State<NoticesScreen> with WidgetsBindingObserv
                   onChanged: _supported == null
                       ? null
                       : (bool v) async {
+                          // Aviso destacado antes de pedir el acceso especial (política
+                          // de datos de usuario de Google Play): qué se lee y para qué.
+                          if (v && !_enabledInSystem) {
+                            final bool ok = await confirm(
+                              context,
+                              t(context, '¿Permitir que Plata lea los avisos de tus bancos?', 'Allow Plata to read your bank notifications?'),
+                              t(
+                                context,
+                                'Plata leerá el título y el texto de las notificaciones de las apps de bancos y billeteras de su lista para sugerirte el movimiento con el monto y el comercio. Las notificaciones de otras apps se ignoran. Todo se procesa en el teléfono y no se envía a ningún servidor. Puedes quitar el acceso cuando quieras.\n\nEn la siguiente pantalla busca Plata en "Acceso a notificaciones" y actívalo.',
+                                'Plata will read the title and text of notifications from the bank and wallet apps on its list to suggest the transaction with its amount and merchant. Notifications from other apps are ignored. Everything is processed on the phone and nothing is sent to any server. You can revoke access at any time.\n\nOn the next screen, find Plata under "Notification access" and turn it on.',
+                              ),
+                              yes: t(context, 'Continuar', 'Continue'),
+                            );
+                            if (!ok) {
+                              return;
+                            }
+                          }
                           s.settings.noticesEnabled = v;
                           await s.settings.save();
                           if (v) {

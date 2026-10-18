@@ -1,0 +1,299 @@
+name: Publicar en las tiendas
+
+# Compila una app firmada, arma su ficha (textos, capturas, gráfico de
+# funciones e ícono) y, si se pide y están los secretos, la sube a Google Play
+# y a App Store Connect. Se lanza a mano desde la pestaña Actions.
+#
+# Secretos (Settings › Secrets and variables › Actions), ver docs/PUBLICACION.md:
+#   Android: ANDROID_UPLOAD_KEYSTORE_BASE64, ANDROID_UPLOAD_KEYSTORE_PASSWORD,
+#            ANDROID_UPLOAD_KEY_ALIAS, ANDROID_UPLOAD_KEY_PASSWORD,
+#            PLAY_SERVICE_ACCOUNT_JSON
+#   iOS:     APPLE_TEAM_ID, ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8_BASE64
+#
+# Sin "subir", el flujo solo compila y deja los paquetes y la ficha como
+# artefactos; si faltan las llaves de Android, firma con una llave temporal
+# solo para comprobar que todo compila (ese AAB no sirve para Google Play).
+
+on:
+  workflow_dispatch:
+    inputs:
+      app:
+        description: App
+        type: choice
+        options: [pilas, clave, sello, plata]
+        required: true
+      android:
+        description: Android (AAB para Google Play)
+        type: boolean
+        default: true
+      ios:
+        description: iOS (IPA para App Store Connect)
+        type: boolean
+        default: true
+      track:
+        description: Pista de Google Play
+        type: choice
+        options: [internal, alpha, beta, production]
+        default: internal
+      upload:
+        description: Subir a las tiendas (si no, solo compila y prepara la ficha)
+        type: boolean
+        default: false
+      play_status:
+        description: Estado de la versión en Google Play (draft obligatorio mientras la app no tenga una versión publicada)
+        type: choice
+        options: [draft, completed]
+        default: draft
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ inputs.app }}
+  cancel-in-progress: false
+
+env:
+  APP: ${{ inputs.app }}
+
+jobs:
+  listing:
+    name: Ficha de tienda
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/${{ inputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Revisar textos de la ficha
+        working-directory: .
+        run: python3 tools/store/check_metadata.py "$APP"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 -m pip install --quiet pillow
+      - run: python3 ../../tools/store/app_icons.py "$APP"
+      - run: flutter pub get
+      - name: Dibujar las capturas
+        env:
+          TZ: America/Bogota
+        run: flutter test --tags screenshots
+      - name: Componer capturas, gráfico de funciones e ícono
+        run: python3 ../../tools/store/compose_screenshots.py "$APP"
+      - name: Armar la carpeta de fastlane
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/ficha"
+          mkdir -p "$OUT"
+          cp -r fastlane/metadata "$OUT/metadata"
+          # Google Play: imágenes dentro de metadata/android/<idioma>/images.
+          for dir in build/store_listing/android/*/; do
+            loc="$(basename "$dir")"
+            mkdir -p "$OUT/metadata/android/$loc"
+            cp -r "$dir/images" "$OUT/metadata/android/$loc/"
+          done
+          # App Store: capturas en screenshots/<idioma>/ (deliver detecta el dispositivo por el tamaño).
+          for dir in build/store_listing/ios/*/; do
+            loc="$(basename "$dir")"
+            mkdir -p "$OUT/screenshots/$loc"
+            cp "$dir"*.png "$OUT/screenshots/$loc/"
+          done
+          find "$OUT" -type f | sort | sed "s|$OUT/||"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.app }}-ficha
+          path: ${{ runner.temp }}/ficha
+          retention-days: 30
+
+  android:
+    name: Google Play
+    if: inputs.android
+    needs: listing
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/${{ inputs.app }}
+    env:
+      KEYSTORE_B64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+      PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Llave de subida
+        run: |
+          set -euo pipefail
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/upload.jks"
+            printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=%s\n' "$KEYSTORE_PASSWORD" "$KEY_PASSWORD" "$KEY_ALIAS" "$RUNNER_TEMP/upload.jks" > android/key.properties
+            echo "SIGNING=real" >> "$GITHUB_ENV"
+            echo "Firma con la llave de subida de los secretos."
+          elif [ "${{ inputs.upload }}" = "true" ]; then
+            echo "::error::Faltan los secretos ANDROID_UPLOAD_* (ver docs/PUBLICACION.md)."
+            exit 1
+          else
+            keytool -genkeypair -keystore "$RUNNER_TEMP/temp.jks" -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 \
+              -alias temp -storepass temp-pass -keypass temp-pass -dname "CN=apps-gratis prueba, C=CO"
+            printf 'storePassword=temp-pass\nkeyPassword=temp-pass\nkeyAlias=temp\nstoreFile=%s\n' "$RUNNER_TEMP/temp.jks" > android/key.properties
+            echo "SIGNING=temporal" >> "$GITHUB_ENV"
+            echo "::warning::Sin llave de subida: el AAB se firma con una llave temporal y no sirve para Google Play."
+          fi
+      - run: flutter build appbundle --release
+      - name: Revisar el paquete
+        run: |
+          set -euo pipefail
+          AAB=build/app/outputs/bundle/release/app-release.aab
+          jarsigner -verify "$AAB" | tee signing.log
+          grep -q "jar verified" signing.log
+          python3 ../../tools/ci/check_android_package.py "$AAB"
+          ls -l "$AAB"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.app }}-aab-${{ env.SIGNING }}
+          path: apps/${{ inputs.app }}/build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+      - uses: actions/download-artifact@v4
+        if: inputs.upload
+        with:
+          name: ${{ inputs.app }}-ficha
+          path: ${{ runner.temp }}/ficha
+      - uses: ruby/setup-ruby@v1
+        if: inputs.upload
+        with:
+          ruby-version: "3.3"
+      - name: Subir a Google Play
+        if: inputs.upload
+        run: |
+          set -euo pipefail
+          if [ -z "$PLAY_JSON" ]; then
+            echo "::error::Falta el secreto PLAY_SERVICE_ACCOUNT_JSON (ver docs/PUBLICACION.md)."
+            exit 1
+          fi
+          gem install fastlane --no-document
+          echo "$PLAY_JSON" > "$RUNNER_TEMP/play.json"
+          PKG="co.appsgratis.$APP"
+          fastlane supply \
+            --package_name "$PKG" \
+            --json_key "$RUNNER_TEMP/play.json" \
+            --aab build/app/outputs/bundle/release/app-release.aab \
+            --track "${{ inputs.track }}" \
+            --release_status "${{ inputs.play_status }}" \
+            --metadata_path "$RUNNER_TEMP/ficha/metadata/android" \
+            --skip_upload_changelogs false
+          rm -f "$RUNNER_TEMP/play.json"
+
+  ios:
+    name: App Store Connect
+    if: inputs.ios
+    needs: listing
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: apps/${{ inputs.app }}
+    env:
+      TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_B64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: ¿Hay credenciales de Apple?
+        run: |
+          if [ -n "$TEAM_ID" ] && [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER_ID" ] && [ -n "$ASC_KEY_B64" ]; then
+            echo "SIGNED=1" >> "$GITHUB_ENV"
+            mkdir -p "$RUNNER_TEMP/asc"
+            echo "$ASC_KEY_B64" | base64 --decode > "$RUNNER_TEMP/asc/AuthKey_$ASC_KEY_ID.p8"
+            echo "ASC_KEY_PATH=$RUNNER_TEMP/asc/AuthKey_$ASC_KEY_ID.p8" >> "$GITHUB_ENV"
+          elif [ "${{ inputs.upload }}" = "true" ]; then
+            echo "::error::Faltan APPLE_TEAM_ID y los secretos ASC_* (ver docs/PUBLICACION.md)."
+            exit 1
+          else
+            echo "SIGNED=0" >> "$GITHUB_ENV"
+            echo "::warning::Sin credenciales de Apple: solo se compila el archivo sin firma."
+          fi
+      - name: Compilar sin firma (comprobación)
+        if: env.SIGNED == '0'
+        run: flutter build ipa --release --no-codesign
+      - name: Archivar y firmar con firma automática de Xcode
+        if: env.SIGNED == '1'
+        run: |
+          set -euo pipefail
+          flutter build ios --release --no-codesign
+          cd ios
+          xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Automatic \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            archive | tee "$RUNNER_TEMP/archive.log" | tail -40
+          DEST=export
+          if [ "${{ inputs.upload }}" = "true" ]; then DEST=upload; fi
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>$DEST</string>
+            <key>teamID</key><string>$TEAM_ID</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Runner.xcarchive" \
+            -exportPath "$RUNNER_TEMP/export" -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID"
+          ls -l "$RUNNER_TEMP/export" || true
+      - uses: actions/upload-artifact@v4
+        if: env.SIGNED == '1' && !inputs.upload
+        with:
+          name: ${{ inputs.app }}-ipa
+          path: ${{ runner.temp }}/export/*.ipa
+          retention-days: 30
+      - uses: actions/download-artifact@v4
+        if: inputs.upload
+        with:
+          name: ${{ inputs.app }}-ficha
+          path: ${{ runner.temp }}/ficha
+      - name: Subir textos y capturas a App Store Connect
+        if: inputs.upload
+        run: |
+          set -euo pipefail
+          gem install fastlane --no-document
+          cat > "$RUNNER_TEMP/asc/api_key.json" <<JSON
+          {"key_id": "$ASC_KEY_ID", "issuer_id": "$ASC_ISSUER_ID", "key_filepath": "$ASC_KEY_PATH", "in_house": false}
+          JSON
+          fastlane deliver \
+            --api_key_path "$RUNNER_TEMP/asc/api_key.json" \
+            --app_identifier "co.appsgratis.$APP" \
+            --metadata_path "$RUNNER_TEMP/ficha/metadata/ios" \
+            --screenshots_path "$RUNNER_TEMP/ficha/screenshots" \
+            --skip_binary_upload true \
+            --overwrite_screenshots true \
+            --submit_for_review false \
+            --automatic_release false \
+            --force true
+      - name: Borrar la llave
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/asc"
