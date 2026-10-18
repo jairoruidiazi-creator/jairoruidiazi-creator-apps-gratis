@@ -52,7 +52,7 @@ Future<void> _start() async {
     ));
   } catch (e, st) {
     debugPrint('Arranque: $e\n$st');
-    runApp(StartupErrorApp(problem: StartupProblem.unexpected, onRetry: _start));
+    runApp(const StartupErrorApp(problem: StartupProblem.unexpected, onRetry: _start));
   }
 }
 

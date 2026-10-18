@@ -303,7 +303,7 @@ void main() {
   });
 
   test('M7: la división en categorías define el total y cada parte cuenta en su categoría', () async {
-    final Tx t = await l.addTx(Tx(id: 'd', kind: TxKind.expense, amountMinor: 999, accountId: 'a_cash', date: d(2026, 10, 5), splits: <TxSplit>[TxSplit(categoryId: 'c_food', amountMinor: 3000000), TxSplit(categoryId: 'c_transport', amountMinor: 2000000)]));
+    final Tx t = await l.addTx(Tx(id: 'd', kind: TxKind.expense, amountMinor: 999, accountId: 'a_cash', date: d(2026, 10, 5), splits: <TxSplit>[const TxSplit(categoryId: 'c_food', amountMinor: 3000000), const TxSplit(categoryId: 'c_transport', amountMinor: 2000000)]));
     expect(t.amountMinor, 5000000);
     expect(t.categoryId, isNull);
     final Period oct = l.periodSpec.containing(d(2026, 10, 16));

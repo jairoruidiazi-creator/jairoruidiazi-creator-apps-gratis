@@ -279,7 +279,7 @@ class _TxEditorState extends State<TxEditor> {
   }
 
   /// El selector deja la foto en la caché de la app y, cuando la reduce
-  /// ("scaled_<nombre>"), también la original. Solo se borra lo que está
+  /// (`scaled_` delante del nombre), también la original. Solo se borra lo que está
   /// dentro de la carpeta privada de la app: nunca la foto de la galería.
   Future<void> _deletePickerCopies(XFile f) async {
     try {

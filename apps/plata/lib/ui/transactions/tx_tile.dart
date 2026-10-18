@@ -63,7 +63,7 @@ class TxTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
               Text('$sign${money(context, tx.amountMinor, tx.currency)}', style: TextStyle(fontWeight: FontWeight.w700, color: color, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
-              if (crossCurrency && to != null) Text('→ ${money(context, l.receivedMinor(tx), to.currency)}', style: TextStyle(fontSize: 12, color: color)),
+              if (crossCurrency) Text('→ ${money(context, l.receivedMinor(tx), to.currency)}', style: TextStyle(fontSize: 12, color: color)),
               if (marks.isNotEmpty) Row(mainAxisSize: MainAxisSize.min, children: marks),
             ],
           ),
