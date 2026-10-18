@@ -25,7 +25,13 @@ void expectHittable(WidgetTester tester, Finder finder, String reason) {
   expect(box.hasSize && !box.size.isEmpty, isTrue, reason: '$reason: sin tamaño');
   final Offset center = box.localToGlobal(box.size.center(Offset.zero));
   final HitTestResult result = tester.hitTestOnBinding(center);
-  expect(result.path.any((HitTestEntry e) => e.target == box), isTrue, reason: '$reason: un toque en el centro no le llega');
+  final bool hit = result.path.any((HitTestEntry e) => e.target == box);
+  if (!hit) {
+    final Rect rect = box.localToGlobal(Offset.zero) & box.size;
+    final String path = result.path.take(14).map((HitTestEntry e) => e.target.runtimeType.toString()).join(' > ');
+    fail('$reason: un toque en el centro no le llega (caja $rect en pantalla ${tester.view.physicalSize / tester.view.devicePixelRatio}; '
+        'el toque llega a: $path)');
+  }
 }
 
 /// Abre cada juego en cada tramo que soporta, comprueba que el marco y las
@@ -73,27 +79,43 @@ void main() {
         continue;
       }
       testWidgets('${game.id} abre y responde en ${band.id}', (WidgetTester tester) async {
-        tester.view.physicalSize = const Size(1080, 1920);
-        tester.view.devicePixelRatio = 2.5;
+        // Teléfono pequeño (360 × 740 dp), el caso más estrecho y común.
+        tester.view.physicalSize = const Size(1080, 2220);
+        tester.view.devicePixelRatio = 3;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
+        // Se guardan los errores completos (con el widget que los causa) en
+        // lugar de solo el mensaje que deja takeException.
+        final List<FlutterErrorDetails> errors = <FlutterErrorDetails>[];
+        final FlutterExceptionHandler? previous = FlutterError.onError;
+        FlutterError.onError = errors.add;
+        addTearDown(() => FlutterError.onError = previous);
+        void expectNoErrors(String when) {
+          if (errors.isNotEmpty) {
+            final String text = errors.map((FlutterErrorDetails d) => d.toString()).join('\n----\n');
+            errors.clear();
+            fail('${game.id} ${band.id}: errores $when:\n$text');
+          }
+        }
+
+        final Finder exit = find.byWidgetPredicate((Widget w) => w is RoundIconButton && w.tooltip == S.salir);
         services.state.current = profiles[band];
         await tester.pumpWidget(host(game, band));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        expect(tester.takeException(), isNull, reason: '${game.id} ${band.id}: excepción al abrir');
+        expectNoErrors('al abrir');
         expect(find.text(game.nombre), findsWidgets);
-        expectHittable(tester, find.byWidgetPredicate((Widget w) => w is RoundIconButton && w.tooltip == S.salir), '${game.id} ${band.id}: botón de salir');
+        expectHittable(tester, exit, '${game.id} ${band.id}: botón de salir');
 
         // Si hay opciones, toca la primera y deja pasar la celebración o la pista.
         final Finder tiles = find.byType(OptionTile);
         if (tiles.evaluate().isNotEmpty) {
           expectHittable(tester, tiles, '${game.id} ${band.id}: primera opción');
-          await tester.tap(tiles.first, warnIfMissed: false);
+          await tester.tap(tiles.first);
           await tester.pump(const Duration(milliseconds: 200));
           await tester.pump(const Duration(seconds: 3));
           await tester.pump(const Duration(seconds: 3));
-          expect(tester.takeException(), isNull, reason: '${game.id} ${band.id}: excepción al responder');
+          expectNoErrors('al responder');
           // Segunda ronda o segunda oportunidad: toca otra vez.
           final Finder again = find.byType(OptionTile);
           if (again.evaluate().isNotEmpty) {
@@ -101,19 +123,19 @@ void main() {
             await tester.pump(const Duration(milliseconds: 200));
             await tester.pump(const Duration(seconds: 3));
             await tester.pump(const Duration(seconds: 3));
-            expect(tester.takeException(), isNull, reason: '${game.id} ${band.id}: excepción en la segunda respuesta');
+            expectNoErrors('en la segunda respuesta');
           }
         }
         // Apaisado: la pantalla se reacomoda sin desbordes.
-        tester.view.physicalSize = const Size(1920, 1080);
+        tester.view.physicalSize = const Size(2220, 1080);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        expect(tester.takeException(), isNull, reason: '${game.id} ${band.id}: excepción en apaisado');
-        expectHittable(tester, find.byWidgetPredicate((Widget w) => w is RoundIconButton && w.tooltip == S.salir), '${game.id} ${band.id}: botón de salir en apaisado');
+        expectNoErrors('en apaisado');
+        expectHittable(tester, exit, '${game.id} ${band.id}: botón de salir en apaisado');
 
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump();
-        expect(tester.takeException(), isNull, reason: '${game.id} ${band.id}: excepción al cerrar');
+        expectNoErrors('al cerrar');
       });
     }
   }
