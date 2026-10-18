@@ -84,7 +84,12 @@ class S {
   static const String masTiempoRazon = 'Dar 10 minutos más de juego';
   static String quedan(int min, int seg) => 'Faltan ${min.toString()}:${seg.toString().padLeft(2, '0')}';
 
+  /// Lo que anuncia el lector de pantalla en el descanso: solo los minutos
+  /// (redondeados hacia arriba), para no repetir la cuenta cada segundo.
+  static String quedanMinutos(int min) => min <= 1 ? 'Falta menos de un minuto de descanso.' : 'Faltan ${Es.numero(min)} minutos de descanso.';
+
   // Puerta parental
+  static const String otraOperacion = 'Otra operación';
   static const String paraAdultos = 'Para adultos';
   static const String esParaUnAdulto = 'Esto es para un adulto.';
   static const String resuelveParaEntrar = 'Escribe en cifras el resultado de la operación.';
@@ -115,8 +120,12 @@ class S {
   static const String sinLimite = 'Sin límite';
   static String minutos(int n) => n == 1 ? '1 minuto' : '$n minutos';
   static const String textoGrande = 'Texto grande';
-  static const String textoGrandeDetalle = 'Agranda la letra un 25\u00A0% sobre el tamaño elegido en el teléfono, con un tope de 1,5 veces.';
-  static const String fuenteDislexia = 'Fuente para dislexia';
+  static const String textoGrandeDetalle = 'Agranda la letra un 25\u00A0% sobre el tamaño elegido en el teléfono, hasta el doble del tamaño normal.';
+  /// Andika es una tipografía de SIL pensada para quien empieza a leer. No
+  /// se anuncia como ayuda para la dislexia: los estudios no encuentran que
+  /// las tipografías "para dislexia" mejoren la lectura.
+  static const String letraLectores = 'Letra para los que empiezan a leer';
+  static const String letraLectoresDetalle = 'Usa en toda la app la tipografía Andika, de letras claras y fáciles de distinguir.';
   static const String altoContraste = 'Alto contraste';
   static const String altoContrasteDetalle = 'Fondo blanco, texto negro y bordes marcados en toda la app y en los juegos; las figuras de colores llevan además una marca propia de cada color.';
   static const String hoy = 'Hoy';

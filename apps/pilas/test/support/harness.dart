@@ -18,10 +18,7 @@ class FakeVoice extends Voice {
   int paradas = 0;
 
   @override
-  Future<void> say(String text) async => dicho.add(text);
-
-  @override
-  void sayLater(String text) => dicho.add(text);
+  Future<void> hablar(String text) async => dicho.add(text);
 
   @override
   Future<void> stop() async => paradas += 1;

@@ -293,8 +293,11 @@ class Dim {
   static const double tapMin = 64;
   static const double radio = 24;
 
-  /// Tope del tamaño de letra: escala del sistema por la de la app.
-  static const double maxTextScale = 1.5;
+  /// Tope del tamaño de letra: escala del sistema por la de la app. Es el
+  /// 200 % que pide la WCAG (1.4.4) y el máximo de la letra de Android 14;
+  /// test/games_smoke_test.dart y test/texto_grande_test.dart comprueban que
+  /// con ×2 nada se desborda en un teléfono de 360 dp.
+  static const double maxTextScale = 2.0;
 
   /// Lado mínimo de una casilla de tablero en un teléfono.
   static const double minCell = 24;

@@ -87,6 +87,19 @@ class RoundEngine extends ChangeNotifier {
     _notify();
   }
 
+  /// Deja el motor quieto y sin capas, sin empezar otra ronda: al terminar
+  /// una carrera, el resumen queda a la vista y se puede tocar. Se llama
+  /// desde [onNextRound], cuando ya no queda ninguna espera pendiente.
+  void settle() {
+    attempts = 0;
+    hintText = null;
+    revealText = null;
+    overlayTitle = null;
+    sticker = null;
+    phase = RoundPhase.playing;
+    _notify();
+  }
+
   /// Dice la instrucción de la ronda.
   void say(String text) {
     voice.sayLater(text);

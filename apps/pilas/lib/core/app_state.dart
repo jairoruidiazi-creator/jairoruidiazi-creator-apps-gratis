@@ -739,7 +739,9 @@ class AppState extends ChangeNotifier {
   }
 
   /// Importa perfiles, grupos y avance de otra tableta. Un perfil que ya
-  /// existe (mismo id) conserva sus datos y suma el avance importado; los
+  /// existe (mismo id) conserva sus datos y junta el avance importado
+  /// ([ProfileProgress.mergeFrom]: sesiones, pegatinas y habilidades sin
+  /// repetir, y de cada juego el registro más avanzado); los
   /// grupos con el mismo id juntan sus integrantes. Lanza [FormatException]
   /// con un mensaje para el adulto si el archivo no sirve.
   Future<int> importAll(Map<String, dynamic> data) async {

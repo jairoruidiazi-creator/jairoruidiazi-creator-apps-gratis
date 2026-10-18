@@ -49,8 +49,10 @@ class TiendaGenerator {
   /// Productos de la tienda (palabras sueltas).
   static List<VocabItem> get productos => Vocab.all.where((VocabItem v) => (v.has('comida') || v.has('juguete') || v.has('escuela')) && !v.nombre.contains(' ')).toList();
 
-  /// Productos que se cuentan uno por uno ("cada manzana", "tres balones").
-  static List<VocabItem> get contables => productos.where((VocabItem v) => !v.plural && !v.has('bebida') && v.id != 'arroz' && v.id != 'miel' && v.id != 'sopa').toList();
+  /// Productos que se cuentan uno por uno ("cada manzana", "tres balones"):
+  /// solo los que tienen un pictograma de un solo objeto entero
+  /// ([Vocab.unObjeto]), porque las rondas dibujan uno por cada unidad.
+  static List<VocabItem> get contables => productos.where((VocabItem v) => Vocab.unObjeto.contains(v.id)).toList();
 
   /// Precio razonable de cada producto en pesos colombianos (mínimo y máximo,
   /// por unidad o por la porción del dibujo), para que la tienda no venda una
@@ -58,7 +60,7 @@ class TiendaGenerator {
   /// los primeros niveles son de monedas de 100: ahí salen las cosas baratas.
   static const Map<String, List<int>> rangoPrecio = <String, List<int>>{
     // Frutas y verduras.
-    'banano': <int>[200, 1000], 'fresa': <int>[200, 1000], 'cereza': <int>[100, 800], 'limon': <int>[200, 1000],
+    'banano': <int>[200, 1000], 'fresa': <int>[200, 1000], 'cereza': <int>[500, 3000], 'limon': <int>[200, 1000],
     'manzana': <int>[800, 3000], 'naranja': <int>[500, 2000], 'pera': <int>[800, 3000], 'durazno': <int>[800, 3000],
     'kiwi': <int>[800, 3000], 'mango': <int>[1000, 4000], 'uvas': <int>[3000, 9000], 'coco': <int>[2500, 7000],
     'pina': <int>[3000, 9000], 'melon': <int>[3000, 9000], 'sandia': <int>[6000, 18000],
@@ -100,9 +102,9 @@ class TiendaGenerator {
     return mejor;
   }
 
-  /// Frutas que se cuentan una por una en el dibujo (no las uvas: cada
-  /// pictograma es un racimo).
-  static List<VocabItem> get frutasContables => Vocab.withTag('fruta').where((VocabItem v) => !v.plural).toList();
+  /// Frutas que se cuentan una por una en el dibujo: cada pictograma es una
+  /// fruta entera (no las uvas ni las cerezas, ni una tajada de sandía).
+  static List<VocabItem> get frutasContables => Vocab.contables.where((VocabItem v) => v.has('fruta')).toList();
 
   TiendaRound next(Rng rng, AgeBand band, int level) {
     switch (band) {

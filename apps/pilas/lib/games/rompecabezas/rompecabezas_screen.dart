@@ -46,12 +46,22 @@ class EncajeRound {
   /// Si hay figuras iguales en dos tamaños (hay que fijarse en el tamaño).
   final bool porTamano;
 
+  /// Errores con los que el tablero todavía cuenta como bien resuelto.
+  static const int erroresPermitidos = 1;
+
+  /// Si [pieza] encaja en la silueta [silueta].
+  static bool encaja(EncajePiece pieza, EncajePiece silueta) => pieza.kind == silueta.kind && pieza.scale == silueta.scale;
+
   static const List<ShapeKind> kinds = <ShapeKind>[ShapeKind.circle, ShapeKind.square, ShapeKind.triangle, ShapeKind.star, ShapeKind.heart, ShapeKind.hexagon, ShapeKind.rectangle, ShapeKind.oval];
 
   static EncajeRound generate(Rng rng, AgeBand band, int level) {
-    // 3-4: 2, 3, 3, 4 piezas; 5-6: 4, 5, 5, 6, con distractores desde el nivel 2.
-    final int n = band == AgeBand.b3a4 ? <int>[2, 3, 3, 4][level - 1] : <int>[4, 5, 5, 6][level - 1];
-    final int distractores = band == AgeBand.b3a4 ? (level >= 3 ? 1 : 0) : (level >= 2 ? 2 : 1);
+    // 3-4: 3, 4, 4 y 5 piezas; 5-6: 4, 5, 5 y 6. Siempre sobra alguna pieza
+    // que no encaja: con dos piezas y sin sobrantes, tocar al azar daba el
+    // tablero bien resuelto (un error como mucho) tres de cada cuatro veces.
+    // Así, al azar se logra en menos del 6 % de los tableros y la regla de
+    // dominio casi nunca sube de nivel (test/random_player_test.dart).
+    final int n = band == AgeBand.b3a4 ? <int>[3, 4, 4, 5][level - 1] : <int>[4, 5, 5, 6][level - 1];
+    final int distractores = band == AgeBand.b3a4 ? <int>[2, 1, 2, 2][level - 1] : (level >= 2 ? 2 : 1);
     final bool porTamano = band != AgeBand.b3a4 && level >= 3;
     final List<ShapeKind> ks = rng.sample(kinds, porTamano ? (n / 2).ceil() : n + distractores);
     final List<EncajePiece> targets = <EncajePiece>[];
@@ -287,14 +297,14 @@ class _RompecabezasScreenState extends State<RompecabezasScreen> {
       return;
     }
     final Services s = AppScope.read(context);
-    final bool ok = piece.kind == target.kind && piece.scale == target.scale;
+    final bool ok = EncajeRound.encaja(piece, target);
     setState(() => _pieceSelected = null);
     if (!ok) {
       _errors += 1;
       unawaited(s.sfx.play(SfxId.hint));
       final String porque = piece.kind == target.kind
           ? 'Es la misma figura, pero de otro tamaño.'
-          : 'Mira los lados y las puntas: esa silueta es de ${Es.articulo(generoForma(target.kind), definido: false)} ${nombreForma(target.kind)}.';
+          : 'Mira los lados y las puntas: esa silueta es de ${Es.con(generoForma(target.kind), nombreForma(target.kind), definido: false)}.';
       s.voice.sayLater('Ahí no encaja. $porque');
       return;
     }
@@ -302,7 +312,7 @@ class _RompecabezasScreenState extends State<RompecabezasScreen> {
     s.voice.sayLater('${Es.cap(piece.nombre(conTamano: r.porTamano))}.');
     setState(() => _placed.add(target.id));
     if (_placed.length == r.targets.length) {
-      final bool bien = _errors <= 1;
+      final bool bien = _errors <= EncajeRound.erroresPermitidos;
       unawaited(_engine.finishBoard(success: bien, message: bien ? '¡Todas las figuras en su lugar!' : '¡Lo lograste! Fíjate en las puntas, los lados y el tamaño antes de soltar la pieza.'));
     }
   }

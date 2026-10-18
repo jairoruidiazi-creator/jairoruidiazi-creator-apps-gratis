@@ -87,7 +87,7 @@ class _PixelScreenState extends State<PixelScreen> {
   }
 
   /// Casillas distintas que todavía cuentan como primera comparación buena.
-  int get _tolerance => _n >= 12 ? 2 : (_n >= 10 ? 1 : 0);
+  int get _tolerance => PixelPatterns.tolerancia(_n);
 
   String get _instruction {
     switch (_mode) {

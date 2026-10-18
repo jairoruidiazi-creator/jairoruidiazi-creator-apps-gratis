@@ -77,6 +77,10 @@ class PixelPatterns {
     return sizes[(level - 1).clamp(0, sizes.length - 1)];
   }
 
+  /// Casillas distintas del modelo que se perdonan en la primera
+  /// comparación de una cuadrícula de lado [n].
+  static int tolerancia(int n) => n >= 12 ? 2 : (n >= 10 ? 1 : 0);
+
   static List<PixelPattern> ofSize(int n) => all.where((PixelPattern p) => p.size == n).toList();
 
   static List<PixelPattern> symmetricOfSize(int n) => all.where((PixelPattern p) => p.size == n && p.symmetric).toList();

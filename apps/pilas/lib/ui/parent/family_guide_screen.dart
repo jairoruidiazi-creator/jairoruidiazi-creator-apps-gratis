@@ -48,7 +48,7 @@ class FamilyGuideScreen extends StatelessWidget {
     ]),
     const GuideSection('Accesibilidad', <String>[
       'Alto contraste: fondo blanco, texto negro y bordes marcados en toda la app; las figuras de colores llevan además una marca propia de cada color.',
-      'Texto grande: agranda la letra sobre el tamaño elegido en el teléfono, con un tope para que todo siga cabiendo. Fuente para dislexia: usa la tipografía Andika.',
+      'Texto grande: agranda la letra sobre el tamaño elegido en el teléfono, con un tope para que todo siga cabiendo. Letra para los que empiezan a leer: usa en toda la app la tipografía Andika, de letras claras y fáciles de distinguir.',
       'Modo zurdo (en el perfil de cada niño): los botones y las herramientas de los juegos quedan a la izquierda, y en los trazos de pre-escritura las líneas acostadas empiezan por la derecha.',
     ]),
     const GuideSection('Privacidad', <String>[

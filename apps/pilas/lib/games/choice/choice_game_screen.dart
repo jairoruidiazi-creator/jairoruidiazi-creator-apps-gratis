@@ -77,6 +77,9 @@ class _ChoiceGameScreenState extends State<ChoiceGameScreen> {
       _nextRound();
       return;
     }
+    if (_raceDone) {
+      return;
+    }
     _raceIndex += 1;
     if (_engine.lastSuccess == true) {
       _raceCorrect += 1;
@@ -88,16 +91,18 @@ class _ChoiceGameScreenState extends State<ChoiceGameScreen> {
     unawaited(_finishRace(race));
   }
 
+  /// La carrera terminó: el motor queda quieto (sin la capa de la última
+  /// ronda, que tapaba el resumen y, tras un error, no dejaba tocar «Otra
+  /// carrera») y se muestra el resumen enseguida; la marca llega después.
   Future<void> _finishRace(RaceConfig race) async {
     final Services s = AppScope.read(context);
+    _engine.settle();
+    setState(() => _raceDone = true);
     final bool nueva = await s.state.saveRecord(RaceConfig.recordKey(widget.launch.game, widget.launch.band), _raceCorrect);
-    if (!mounted) {
+    if (!mounted || !_raceDone) {
       return;
     }
-    setState(() {
-      _raceDone = true;
-      _newRecord = nueva;
-    });
+    setState(() => _newRecord = nueva);
     s.voice.sayLater('${S.terminasteCarrera} ${S.acertasteDe(_raceCorrect, race.length)}${nueva ? ' ${S.nuevaMarca}' : ''}');
   }
 
@@ -228,9 +233,9 @@ class _ChoiceGameScreenState extends State<ChoiceGameScreen> {
       return GameFrame(launch: widget.launch, engine: _engine, child: const SizedBox.shrink());
     }
     if (_raceDone) {
+      // Sin motor: el marco no pone ninguna capa encima del resumen.
       return GameFrame(
         launch: widget.launch,
-        engine: _engine,
         instruction: S.terminasteCarrera,
         onRepeat: () => AppScope.read(context).voice.sayLater(S.acertasteDe(_raceCorrect, widget.race!.length)),
         child: _raceSummary(pal),

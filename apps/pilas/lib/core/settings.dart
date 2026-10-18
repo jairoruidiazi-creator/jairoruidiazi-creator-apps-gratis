@@ -17,6 +17,7 @@ class AppSettings extends ChangeNotifier {
   static const String _kOnboarded = 'onboarded';
   static const String _kGateFails = 'gateFails';
   static const String _kGateLockedUntil = 'gateLockedUntil';
+  static const String _kGateLastFail = 'gateLastFail';
 
   /// Cuánto agranda la letra el ajuste "Texto grande" (se multiplica por la
   /// escala del sistema, con un tope en Dim.maxTextScale).
@@ -43,6 +44,9 @@ class AppSettings extends ChangeNotifier {
   int gateFails = 0;
   DateTime? gateLockedUntil;
 
+  /// Cuándo fue el último error en la puerta (para reiniciar el contador).
+  DateTime? gateLastFail;
+
   Future<void> load() async {
     final SharedPreferences p = await SharedPreferences.getInstance();
     _prefs = p;
@@ -59,6 +63,8 @@ class AppSettings extends ChangeNotifier {
     gateFails = p.getInt(_kGateFails) ?? 0;
     final int? locked = p.getInt(_kGateLockedUntil);
     gateLockedUntil = locked == null ? null : DateTime.fromMillisecondsSinceEpoch(locked);
+    final int? lastFail = p.getInt(_kGateLastFail);
+    gateLastFail = lastFail == null ? null : DateTime.fromMillisecondsSinceEpoch(lastFail);
     notifyListeners();
   }
 
@@ -127,10 +133,16 @@ class AppSettings extends ChangeNotifier {
   }
 
   /// Guarda el estado de la puerta parental (sobrevive a cerrar la app).
-  Future<void> setGateState({required int fails, DateTime? lockedUntil}) async {
+  Future<void> setGateState({required int fails, DateTime? lockedUntil, DateTime? lastFail}) async {
     gateFails = fails;
     gateLockedUntil = lockedUntil;
+    gateLastFail = lastFail;
     await _prefs?.setInt(_kGateFails, fails);
+    if (lastFail == null) {
+      await _prefs?.remove(_kGateLastFail);
+    } else {
+      await _prefs?.setInt(_kGateLastFail, lastFail.millisecondsSinceEpoch);
+    }
     if (lockedUntil == null) {
       await _prefs?.remove(_kGateLockedUntil);
     } else {

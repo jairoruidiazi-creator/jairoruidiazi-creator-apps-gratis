@@ -66,10 +66,7 @@ class _SudokuScreenState extends State<SudokuScreen> {
   }
 
   /// Errores que todavía cuentan como tablero resuelto con eficiencia.
-  int get _allowedErrors {
-    final int n = _board?.size ?? 4;
-    return n == 4 ? 1 : (n == 6 ? 2 : 3);
-  }
+  int get _allowedErrors => _board?.erroresPermitidos ?? 1;
 
   void _newBoard() {
     if (!mounted) {

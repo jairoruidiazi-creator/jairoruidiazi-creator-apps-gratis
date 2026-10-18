@@ -225,7 +225,7 @@ class IntrusoGenerator implements ChoiceGenerator {
       options.add(Opt.shape('intruso', other, c, formaConColor(other, c)));
       final String g = generoForma(k);
       hint = 'Fíjate en la forma. ¿Qué forma tienen casi todos?';
-      explain = '${g == 'f' ? 'Todas' : 'Todos'} son ${pluralForma(k)} menos ${g == 'f' ? 'una' : 'uno'}, que es ${Es.articulo(generoForma(other), definido: false)} ${nombreForma(other)}.';
+      explain = '${g == 'f' ? 'Todas' : 'Todos'} son ${pluralForma(k)} menos ${g == 'f' ? 'una' : 'uno'}, que es ${Es.con(generoForma(other), nombreForma(other), definido: false)}.';
     }
     rng.shuffle(options);
     return ChoiceRound(

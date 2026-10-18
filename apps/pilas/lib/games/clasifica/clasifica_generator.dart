@@ -41,7 +41,7 @@ class GrupoAnimal {
   final String dato;
 
   /// "es un mamífero", "es un ave".
-  String get esUn => 'es ${Es.articulo(genero, definido: false)} $nombre';
+  String get esUn => 'es ${Es.con(genero, nombre, definido: false)}';
 }
 
 /// Clasifica seres vivos: dónde viven (3 a 6 años), a qué grupo pertenecen y

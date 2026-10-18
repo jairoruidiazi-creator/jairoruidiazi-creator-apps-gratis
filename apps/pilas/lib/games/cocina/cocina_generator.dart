@@ -22,8 +22,8 @@ class Ingrediente {
   String cantidad(int n) => Es.cantidadEnPalabras(n, singular, genero: genero, pluralForm: plural);
 }
 
-/// Cocina de medidas: lleno y vacío, tazas y balanza (5-6), fracciones de
-/// pizza y de taza (7-8), fracciones equivalentes y sumas (9-11).
+/// Cocina de medidas: lleno y vacío, contar huevos y balanza (3-6),
+/// fracciones de pizza y de círculos (7-8), fracciones equivalentes y sumas (9-11).
 class CocinaGenerator implements ChoiceGenerator {
   /// Peso aproximado en gramos de lo que sale en la balanza. Solo se comparan
   /// cosas que pesan claramente distinto (cuatro veces o más) o casi igual.
@@ -55,7 +55,7 @@ class CocinaGenerator implements ChoiceGenerator {
           return medioVacio(rng);
         }
         if (level == 3) {
-          return cuantasTazas(rng);
+          return cuantosHuevos(rng);
         }
         return balanza(rng);
       case AgeBand.b7a8:
@@ -138,22 +138,27 @@ class CocinaGenerator implements ChoiceGenerator {
     );
   }
 
-  ChoiceRound cuantasTazas(Rng rng) {
+  /// Pictograma de lo que se cuenta en [cuantosHuevos]: un huevo entero (está
+  /// en [Vocab.unObjeto]).
+  static const String huevo = '1f95a';
+
+  /// Cuántos huevos van al tazón de la receta (contar hasta cinco).
+  ChoiceRound cuantosHuevos(Rng rng) {
     final int n = rng.range(2, 5);
     final List<ChoiceOption> options = <ChoiceOption>[for (final int o in <int>[n - 1, n, n + 1]) Opt.number(o)];
     rng.shuffle(options);
     return ChoiceRound(
-      instruction: '¿Cuántas tazas de harina se echaron al tazón?',
+      instruction: '¿Cuántos huevos van al tazón?',
       prompt: (BuildContext context) => BigPrompt(
         child: Semantics(
-          label: '${Es.cantidadEnPalabras(n, 'taza', genero: 'f')} y un tazón',
-          child: Wrap(spacing: 6, alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center, children: <Widget>[for (int i = 0; i < n; i++) const EmojiImage('1f375', size: 44), const SizedBox(width: 12), const EmojiImage('1f963', size: 56)]),
+          label: '${Es.cantidadEnPalabras(n, 'huevo', genero: 'm')} y un tazón',
+          child: Wrap(spacing: 6, alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center, children: <Widget>[for (int i = 0; i < n; i++) const EmojiImage(huevo, size: 44), const SizedBox(width: 12), const EmojiImage('1f963', size: 56)]),
         ),
       ),
       options: options,
       correctId: 'n$n',
-      hint: 'Cuenta las tazas una por una tocándolas con el dedo.',
-      explain: 'Se echaron ${Es.cantidadEnPalabras(n, 'taza', genero: 'f')}.',
+      hint: 'Cuenta los huevos uno por uno tocándolos con el dedo.',
+      explain: 'Van ${Es.cantidadEnPalabras(n, 'huevo', genero: 'm')} al tazón.',
       readOptionsAloud: true,
     );
   }
@@ -313,10 +318,10 @@ class CocinaGenerator implements ChoiceGenerator {
     ];
     rng.shuffle(options);
     return ChoiceRound(
-      instruction: mayor ? '¿Cuál es la cantidad más grande de la taza?' : '¿Cuál es la cantidad más pequeña de la taza?',
+      instruction: mayor ? '¿Qué fracción es la más grande?' : '¿Qué fracción es la más pequeña?',
       options: options,
       correctId: '${objetivo[0]}/${objetivo[1]}',
-      hint: mismoNum ? 'Todas tienen una sola parte de color: entre más partes se parte la taza, más pequeña es cada parte.' : 'Las tres tazas están partidas igual: mira cuántas partes de color tiene cada una.',
+      hint: mismoNum ? 'Todas tienen una sola parte de color: entre más partes tenga el círculo, más pequeña es cada parte.' : 'Los tres círculos están partidos igual: mira cuántas partes de color tiene cada uno.',
       explain: '${objetivo[0]}/${objetivo[1]} es la ${mayor ? 'más grande' : 'más pequeña'}.',
       optionSize: 110,
     );
@@ -431,7 +436,7 @@ class CocinaGenerator implements ChoiceGenerator {
     rng.shuffle(options);
     return ChoiceRound(
       instruction: 'La receta lleva $total cucharadas de azúcar, pero solo quieres hacer ${f[0]}/${f[1]} de la receta. ¿Cuántas cucharadas usas?',
-      spoken: 'La receta lleva $total cucharadas de azúcar, pero solo quieres hacer ${Es.fraccion(f[0], f[1])} de la receta. ¿Cuántas cucharadas usas?',
+      spoken: 'La receta lleva $total cucharadas de azúcar, pero solo quieres hacer ${f[0] == 1 && f[1] == 2 ? 'la mitad' : Es.fraccion(f[0], f[1])} de la receta. ¿Cuántas cucharadas usas?',
       prompt: (BuildContext context) => BigPrompt(child: FractionPie(num: f[0], den: f[1], size: 96, color: PilasColors.verde), caption: '${f[0]}/${f[1]} de $total'),
       options: options,
       correctId: 'n$r',

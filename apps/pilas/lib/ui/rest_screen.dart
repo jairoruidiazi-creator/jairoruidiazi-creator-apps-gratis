@@ -35,7 +35,7 @@ class _RestScreenState extends State<RestScreen> {
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        AppScope.read(context).voice.sayLater(S.horaDeDescansar);
+        AppScope.read(context).voice.sayAlways(S.horaDeDescansar);
       }
     });
   }
@@ -51,6 +51,7 @@ class _RestScreenState extends State<RestScreen> {
     await s.state.finishRest();
     if (mounted) {
       Navigator.of(context).pop();
+      s.voice.soltarRetenido();
     }
   }
 
@@ -59,9 +60,11 @@ class _RestScreenState extends State<RestScreen> {
     if (!ok || !mounted) {
       return;
     }
-    await AppScope.read(context).state.grantExtraTime();
+    final Services s = AppScope.read(context);
+    await s.state.grantExtraTime();
     if (mounted) {
       Navigator.of(context).pop();
+      s.voice.soltarRetenido();
     }
   }
 
@@ -71,7 +74,9 @@ class _RestScreenState extends State<RestScreen> {
       return;
     }
     final NavigatorState nav = Navigator.of(context);
-    await AppScope.read(context).state.selectProfile(null);
+    final Services s = AppScope.read(context);
+    s.voice.descartarRetenido();
+    await s.state.selectProfile(null);
     nav.popUntil((Route<dynamic> r) => r.isFirst);
   }
 
@@ -84,7 +89,7 @@ class _RestScreenState extends State<RestScreen> {
     final bool done = left == Duration.zero;
     if (done && !_announcedEnd) {
       _announcedEnd = true;
-      s.voice.sayLater(S.descansoTerminado);
+      s.voice.sayAlways(S.descansoTerminado);
     }
     final int secs = left.inSeconds + (left.inMilliseconds % 1000 > 0 ? 1 : 0);
     return PopScope(
@@ -107,8 +112,13 @@ class _RestScreenState extends State<RestScreen> {
                     if (!done) ...<Widget>[
                       const BigText(S.descansoTexto, size: 20, weight: FontWeight.w500),
                       const SizedBox(height: 20),
+                      // El lector de pantalla anuncia solo cuando cambia el
+                      // minuto, no cada segundo de la cuenta regresiva.
                       Semantics(
+                        key: const ValueKey<String>('descanso-cuenta'),
                         liveRegion: true,
+                        label: S.quedanMinutos((secs + 59) ~/ 60),
+                        excludeSemantics: true,
                         child: Text(S.quedan(secs ~/ 60, secs % 60), style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: pal.tinta)),
                       ),
                     ],

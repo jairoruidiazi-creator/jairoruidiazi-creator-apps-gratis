@@ -33,7 +33,7 @@ class SkillCatalog {
 
   static const List<Skill> all = <Skill>[
     // Razonamiento y lógica
-    Skill(id: 'logica.3-4.emparejar', area: Area.logica, band: AgeBand.b3a4, nombre: 'Emparejar y recordar', descripcion: 'Encuentra parejas iguales entre cuatro y ocho cartas recordando dónde estaban.'),
+    Skill(id: 'logica.3-4.emparejar', area: Area.logica, band: AgeBand.b3a4, nombre: 'Emparejar y recordar', descripcion: 'Encuentra parejas iguales entre ocho y diez cartas recordando dónde estaban.'),
     Skill(id: 'logica.3-4.secuencias', area: Area.logica, band: AgeBand.b3a4, nombre: 'Secuencias', descripcion: 'Continúa patrones de colores y figuras como rojo, azul, rojo, azul.'),
     Skill(id: 'logica.3-4.clasificar', area: Area.logica, band: AgeBand.b3a4, nombre: 'Clasificar', descripcion: 'Encuentra el que no va con los demás por su color, su forma o el tipo de cosa que es.'),
     Skill(id: 'logica.3-4.caminos', area: Area.logica, band: AgeBand.b3a4, nombre: 'Seguir un camino', descripcion: 'Lleva a un personaje por un laberinto pequeño hasta la meta.'),
@@ -62,7 +62,7 @@ class SkillCatalog {
     Skill(id: 'mate.5-6.dinero', area: Area.matematicas, band: AgeBand.b5a6, nombre: 'Monedas y precios', descripcion: 'Paga precios exactos con monedas y billetes de hasta 2.000 pesos y suma dos precios.'),
     Skill(id: 'mate.5-6.sumas20', area: Area.matematicas, band: AgeBand.b5a6, nombre: 'Sumas y restas hasta 20', descripcion: 'Suma y resta hasta 20 contando hacia adelante y hacia atrás.'),
     Skill(id: 'mate.5-6.reloj', area: Area.matematicas, band: AgeBand.b5a6, nombre: 'Reloj en punto y media', descripcion: 'Lee las horas en punto y las medias en un reloj de manecillas.'),
-    Skill(id: 'mate.5-6.medidas', area: Area.matematicas, band: AgeBand.b5a6, nombre: 'Medidas comparadas', descripcion: 'Compara cuánto hay en un vaso, cuenta tazas y lee una balanza.'),
+    Skill(id: 'mate.5-6.medidas', area: Area.matematicas, band: AgeBand.b5a6, nombre: 'Medidas comparadas', descripcion: 'Compara cuánto hay en un vaso, cuenta los huevos de una receta y lee una balanza.'),
     Skill(id: 'mate.5-6.figuras', area: Area.matematicas, band: AgeBand.b5a6, nombre: 'Lados y longitudes', descripcion: 'Cuenta lados, compara longitudes y cuenta los cuadritos de una figura.'),
     Skill(id: 'mate.7-8.dinero', area: Area.matematicas, band: AgeBand.b7a8, nombre: 'Dinero en pesos', descripcion: 'Paga con billetes, calcula las vueltas y multiplica precios.'),
     Skill(id: 'mate.7-8.calculo', area: Area.matematicas, band: AgeBand.b7a8, nombre: 'Cálculo hasta 100 y tablas', descripcion: 'Suma y resta hasta 100 con llevadas, usa las tablas de multiplicar y divide sin resto.'),

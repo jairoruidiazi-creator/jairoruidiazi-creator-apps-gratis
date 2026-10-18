@@ -64,9 +64,10 @@ class Config {
 }
 
 /// Teléfono de 360 × 740 dp de pie y acostado, tableta de 1024 × 768, con la
-/// letra normal, la del ajuste "Texto grande" con la del sistema (×1,3) y el
-/// tope (×1,5). Las casillas de los tableros deben medir 24 dp o más hasta
-/// ×1,3; con ×1,5 basta con que nada se desborde.
+/// letra normal, la del ajuste "Texto grande" con la del sistema (×1,3), ×1,5
+/// y el tope (×2, el 200 % de la WCAG). Las casillas de los tableros deben
+/// medir 24 dp o más hasta ×1,3; con más letra basta con que nada se
+/// desborde.
 const List<Config> configs = <Config>[
   Config(360, 740, 1.0),
   Config(740, 360, 1.0),
@@ -74,6 +75,8 @@ const List<Config> configs = <Config>[
   Config(360, 740, 1.3),
   Config(740, 360, 1.3),
   Config(360, 740, 1.5),
+  Config(360, 740, 2.0),
+  Config(740, 360, 2.0),
 ];
 
 /// Abre cada juego en cada tramo y nivel, en varios tamaños de pantalla y de

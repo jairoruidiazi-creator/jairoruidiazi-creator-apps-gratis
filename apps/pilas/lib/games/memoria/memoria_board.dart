@@ -41,13 +41,22 @@ class MemoryBoard {
 
   bool get done => cards.every((MemoryCard c) => c.matched);
 
+  /// Fallos con los que el tablero todavía cuenta como bien resuelto: con
+  /// cuatro parejas o menos, uno menos que las parejas; desde cinco, uno más.
+  /// Quien recuerda cada carta que ya vio siempre lo logra; quien toca al
+  /// azar, en menos del 12 % de los tableros, y la regla de dominio casi
+  /// nunca le sube de nivel (test/random_player_test.dart).
+  static int fallosPermitidos(int pairs) => pairs <= 4 ? pairs - 1 : pairs + 1;
+
   /// Eficiencia: termina con pocos fallos para la cantidad de parejas.
-  bool get efficient => mismatches <= pairs + 1;
+  bool get efficient => mismatches <= fallosPermitidos(pairs);
 
   static int pairsFor(AgeBand band, int level) {
     switch (band) {
       case AgeBand.b3a4:
-        return <int>[2, 3, 4, 4][level.clamp(1, 4).toInt() - 1];
+        // Con dos o tres parejas, tocar al azar se parece demasiado a
+        // recordar: desde el primer nivel hay cuatro (y una vista previa).
+        return <int>[4, 4, 4, 5][level.clamp(1, 4).toInt() - 1];
       case AgeBand.b5a6:
         return <int>[4, 5, 6, 6][level.clamp(1, 4).toInt() - 1];
       case AgeBand.b7a8:
@@ -59,7 +68,7 @@ class MemoryBoard {
 
   static int previewFor(AgeBand band, int level) {
     if (band == AgeBand.b3a4) {
-      return <int>[3, 3, 2, 0][level.clamp(1, 4).toInt() - 1];
+      return <int>[4, 3, 0, 0][level.clamp(1, 4).toInt() - 1];
     }
     if (band == AgeBand.b5a6 && level == 1) {
       return 2;
@@ -162,7 +171,7 @@ class MemoryBoard {
     } else if (total <= 8) {
       columns = total == 6 ? 3 : 4;
     } else if (total <= 12) {
-      columns = 4;
+      columns = total == 10 ? 5 : 4;
     } else if (total <= 16) {
       columns = 4;
     } else {

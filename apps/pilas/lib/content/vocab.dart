@@ -37,9 +37,9 @@ class VocabItem {
   final String emoji;
   final List<String> tags;
 
-  String get articulo => Es.articulo(genero, plural: plural);
+  String get articulo => Es.articulo(genero, plural: plural, ante: nombre);
 
-  String get articuloIndef => Es.articulo(genero, plural: plural, definido: false);
+  String get articuloIndef => Es.articulo(genero, plural: plural, definido: false, ante: nombre);
 
   String get conArticulo => '$articulo $nombre';
 
@@ -107,7 +107,7 @@ class Vocab {
     VocabItem('cerdo', 'cerdo', 'm', <String>['cer', 'do'], '1f416', <String>['animal', 'mamifero', 'hab:granja', 'mov:camina', 'no:vuela', 'no:salta', 'no:repta', 'no:trepa']),
     VocabItem('gallina', 'gallina', 'f', <String>['ga', 'lli', 'na'], '1f414', <String>['animal', 'ave', 'hab:granja', 'mov:camina', 'no:nada', 'no:repta', 'no:trepa']),
     VocabItem('gallo', 'gallo', 'm', <String>['ga', 'llo'], '1f413', <String>['animal', 'ave', 'hab:granja', 'mov:camina', 'no:nada', 'no:repta', 'no:trepa']),
-    VocabItem('pollito', 'pollito', 'm', <String>['po', 'lli', 'to'], '1f423', <String>['animal', 'ave', 'hab:granja', 'mov:camina', 'no:vuela', 'no:nada', 'no:repta', 'no:trepa']),
+    VocabItem('pollito', 'pollito', 'm', <String>['po', 'lli', 'to'], '1f425', <String>['animal', 'ave', 'hab:granja', 'mov:camina', 'no:vuela', 'no:nada', 'no:repta', 'no:trepa']),
     VocabItem('oveja', 'oveja', 'f', <String>['o', 've', 'ja'], '1f411', <String>['animal', 'mamifero', 'hab:granja', 'mov:camina', 'no:vuela', 'no:repta', 'no:trepa']),
     VocabItem('cabra', 'cabra', 'f', <String>['ca', 'bra'], '1f410', <String>['animal', 'mamifero', 'hab:granja', 'hab:montana', 'mov:camina', 'mov:trepa', 'no:vuela', 'no:repta']),
     VocabItem('caballo', 'caballo', 'm', <String>['ca', 'ba', 'llo'], '1f40e', <String>['animal', 'mamifero', 'hab:granja', 'mov:camina', 'no:vuela', 'no:repta', 'no:trepa']),
@@ -182,7 +182,8 @@ class Vocab {
     VocabItem('mango', 'mango', 'm', <String>['man', 'go'], '1f96d', <String>['comida', 'fruta']),
     VocabItem('pera', 'pera', 'f', <String>['pe', 'ra'], '1f350', <String>['comida', 'fruta']),
     VocabItem('limon', 'limón', 'm', <String>['li', 'món'], '1f34b', <String>['comida', 'fruta']),
-    VocabItem('cereza', 'cereza', 'f', <String>['ce', 're', 'za'], '1f352', <String>['comida', 'fruta']),
+    // El pictograma trae dos cerezas: la palabra va en plural, como las uvas.
+    VocabItem('cereza', 'cerezas', 'f', <String>['ce', 're', 'zas'], '1f352', <String>['comida', 'fruta'], plural: true),
     VocabItem('coco', 'coco', 'm', <String>['co', 'co'], '1f965', <String>['comida', 'fruta']),
     VocabItem('kiwi', 'kiwi', 'm', <String>['ki', 'wi'], '1f95d', <String>['comida', 'fruta']),
     VocabItem('durazno', 'durazno', 'm', <String>['du', 'raz', 'no'], '1f351', <String>['comida', 'fruta']),
@@ -345,8 +346,31 @@ class Vocab {
     VocabItem('volcan', 'volcán', 'm', <String>['vol', 'cán'], '1f30b', <String>['naturaleza', 'lugar']),
     VocabItem('isla', 'isla', 'f', <String>['is', 'la'], '1f3dd', <String>['naturaleza', 'lugar']),
     VocabItem('tierra', 'planeta Tierra', 'm', <String>['pla', 'ne', 'ta', 'tie', 'rra'], '1f30d', <String>['naturaleza']),
-    VocabItem('semilla', 'semilla', 'f', <String>['se', 'mi', 'lla'], '1f331', <String>['naturaleza']),
+    VocabItem('semilla', 'semilla', 'f', <String>['se', 'mi', 'lla'], '1f330', <String>['naturaleza']),
   ];
+
+  /// Pictogramas que muestran exactamente un objeto entero, revisados uno
+  /// por uno rasterizando el SVG. Solo estos se usan cuando un juego dibuja
+  /// varias copias para que el niño cuente cuántas hay. Quedan fuera, entre
+  /// otros: las cerezas (el dibujo trae dos), las uvas (un racimo), la
+  /// sandía y la pizza (una tajada), el coco, el kiwi y el aguacate
+  /// (partidos), el pollo (una presa), el queso (un pedazo), la lechuga
+  /// (hojas sueltas), el melón (se confunde con un repollo), el rompecabezas
+  /// (una ficha) y los libros (una pila). test/content_test.dart compara la
+  /// lista con lo que dibujan las rondas de contar.
+  static const Set<String> unObjeto = <String>{
+    // Frutas.
+    'manzana', 'banano', 'naranja', 'fresa', 'pina', 'mango', 'pera', 'limon', 'durazno',
+    // Verduras.
+    'zanahoria', 'maiz', 'tomate', 'papa', 'cebolla', 'brocoli', 'aji', 'berenjena', 'pepino',
+    // Otras comidas.
+    'pan', 'huevo', 'helado', 'galleta', 'torta', 'chocolate', 'arepa',
+    // Escuela y juguetes.
+    'lapiz', 'regla', 'crayon', 'libro', 'pincel', 'maleta', 'balon', 'cometa', 'globo', 'dado', 'yoyo', 'patineta',
+  };
+
+  /// Las palabras cuyo pictograma se puede contar (ver [unObjeto]).
+  static List<VocabItem> get contables => all.where((VocabItem v) => unObjeto.contains(v.id)).toList();
 
   static VocabItem? byId(String id) {
     for (final VocabItem v in all) {

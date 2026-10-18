@@ -18,8 +18,10 @@ class LaboratorioBank {
   static const List<BankQuestion> all = <BankQuestion>[
     // ---------------------------------------------------------- 3 a 4: día y noche, naturaleza
     BankQuestion(AgeBand.b3a4, 1, '¿Qué vemos en el cielo de noche?', <String>['la luna', 'el sol', 'un arcoíris'], 0, 'De noche vemos la luna y las estrellas; el sol se ve de día.', emojis: <String>['1f319', '2600', '1f308'], promptEmoji: '1f303'),
-    BankQuestion(AgeBand.b3a4, 1, '¿Qué vemos en el cielo de día?', <String>['las estrellas', 'el sol', 'la luna'], 1, 'De día el sol ilumina todo.', emojis: <String>['2b50', '2600', '1f319'], promptEmoji: '1f305'),
-    BankQuestion(AgeBand.b3a4, 1, '¿Cuándo dormimos?', <String>['al mediodía', 'en el desayuno', 'de noche'], 2, 'Dormimos de noche, cuando está oscuro.', emojis: <String>['2600', '1f95e', '1f319'], promptEmoji: '1f634'),
+    // (La luna también se ve muchas veces de día: la pregunta es por la luz y el calor.)
+    BankQuestion(AgeBand.b3a4, 1, '¿Qué nos da luz y calor de día?', <String>['las estrellas', 'el sol', 'la luna'], 1, 'De día el sol nos da luz y calor.', emojis: <String>['2b50', '2600', '1f319'], promptEmoji: '1f305'),
+    // (Sin «al mediodía» entre las opciones: a esa edad muchos hacen siesta.)
+    BankQuestion(AgeBand.b3a4, 1, '¿Cuándo dormimos?', <String>['mientras jugamos fútbol', 'en el desayuno', 'de noche'], 2, 'Dormimos de noche, cuando está oscuro.', emojis: <String>['26bd', '1f95e', '1f319'], promptEmoji: '1f634'),
     BankQuestion(AgeBand.b3a4, 2, '¿Qué animal sale de noche?', <String>['el búho', 'la gallina', 'la mariposa'], 0, 'El búho caza de noche; por eso tiene ojos tan grandes.', emojis: <String>['1f989', '1f414', '1f98b'], promptEmoji: '1f319'),
     BankQuestion(AgeBand.b3a4, 2, 'Si dejas una planta sin agua muchos días, ¿qué pasa?', <String>['crece más', 'se marchita', 'cambia de color a azul'], 1, 'Las plantas necesitan agua; sin ella se marchitan.', emojis: <String>['1f331', '1f342', '1f535'], promptEmoji: '1fab4'),
     BankQuestion(AgeBand.b3a4, 2, '¿Qué necesita una semilla para crecer?', <String>['dulces', 'juguetes', 'agua y sol'], 2, 'La semilla necesita tierra, agua y luz del sol.', emojis: <String>['1f36c', '1f9f8', '1f4a7'], promptEmoji: '1f331'),

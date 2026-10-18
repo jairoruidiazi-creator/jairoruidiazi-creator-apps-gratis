@@ -12,32 +12,38 @@ import 'strings.dart';
 import 'theme.dart';
 
 /// Pregunta de la puerta parental: una multiplicación de dos cifras por dos
-/// cifras (factores de 13 a 39 que no son múltiplos de 10), escrita en
-/// palabras y sin leerla en voz alta. Ningún juego de Pilas practica esa
-/// operación (la carrera de 9 a 11 años multiplica por una cifra).
+/// cifras, escrita en palabras y sin leerla en voz alta. Uno de los factores
+/// es "amable" (15 o 25) y el otro va de 13 a 39 sin ser múltiplo de 10, así
+/// que un adulto la resuelve de cabeza en dos pasos, sin papel:
+/// - por 15: diez veces el número más su mitad (15 × 24 = 240 + 120 = 360);
+/// - por 25: el número por cien, dividido entre cuatro (25 × 36 = 3600 ÷ 4 =
+///   900).
+/// Ningún juego de Pilas pide multiplicar dos números de dos cifras (la
+/// carrera de 9 a 11 años multiplica uno de dos cifras por uno de una y llega
+/// a la tabla del 12), y la pregunta en palabras pide leer con soltura
+/// números grandes.
 class GateChallenge {
   GateChallenge._(this.a, this.b);
 
   factory GateChallenge.random([Random? random]) {
     final Random r = random ?? Random();
-    int pick() {
-      while (true) {
-        final int v = 13 + r.nextInt(27); // 13..39
-        if (v % 10 != 0) {
-          return v;
-        }
-      }
-    }
-
-    return GateChallenge._(pick(), pick());
+    final int amable = amables[r.nextInt(amables.length)];
+    int otro;
+    do {
+      otro = 13 + r.nextInt(27); // 13..39
+    } while (otro % 10 == 0 || amables.contains(otro));
+    return r.nextBool() ? GateChallenge._(amable, otro) : GateChallenge._(otro, amable);
   }
+
+  /// Factores que se multiplican de cabeza con un truco de dos pasos.
+  static const List<int> amables = <int>[15, 25];
 
   final int a;
   final int b;
 
   int get answer => a * b;
 
-  /// La pregunta en palabras ("¿Cuánto es veintitrés por diecisiete?").
+  /// La pregunta en palabras ("¿Cuánto es quince por veintitrés?").
   String get question => '¿Cuánto es ${Es.numero(a)} por ${Es.numero(b)}?';
 
   bool check(String text) {
@@ -47,12 +53,26 @@ class GateChallenge {
   }
 }
 
-/// Espera tras los errores: desde el tercer error seguido, 60 s, luego 120 s,
-/// 240 s… (hasta 15 minutos).
+/// Espera tras los errores: los dos primeros errores seguidos no tienen
+/// espera; desde el tercero, 60 s, luego 120 s, 240 s… (hasta 15 minutos).
+/// El contador vuelve a cero con un acierto o tras [reinicio] sin errores,
+/// para que errores sueltos de días distintos no se acumulen.
 class GateLock {
   GateLock._();
 
   static const int freeTries = 2;
+
+  /// Tiempo sin errores tras el cual el contador vuelve a cero.
+  static const Duration reinicio = Duration(minutes: 15);
+
+  /// Errores que todavía cuentan: los guardados, o cero si el último fue
+  /// hace [reinicio] o más (o no se sabe cuándo fue).
+  static int vigentes(int fails, DateTime? lastFail, DateTime now) {
+    if (fails <= 0 || lastFail == null || now.difference(lastFail) >= reinicio) {
+      return 0;
+    }
+    return fails;
+  }
 
   static Duration waitAfter(int fails) {
     if (fails <= freeTries) {
@@ -68,7 +88,7 @@ class GateLock {
 Future<bool> showParentalGate(BuildContext context, {String? reason}) async {
   final Services s = AppScope.read(context);
   // Para los que todavía no leen: la voz avisa que esto es para un adulto.
-  s.voice.sayLater(S.esParaUnAdulto);
+  s.voice.sayAlways(S.esParaUnAdulto);
   final bool? ok = await showDialog<bool>(
     context: context,
     barrierDismissible: true,
@@ -130,6 +150,16 @@ class _GateDialogState extends State<_GateDialog> {
     }
   }
 
+  /// Otra operación, sin contar error (por si la que salió no le gusta al
+  /// adulto). Todas son del mismo tipo.
+  void _otra() {
+    setState(() {
+      _challenge = GateChallenge.random();
+      _error = false;
+      _ctrl.clear();
+    });
+  }
+
   Future<void> _submit() async {
     if (_remaining > Duration.zero) {
       return;
@@ -141,9 +171,10 @@ class _GateDialogState extends State<_GateDialog> {
       }
       return;
     }
-    final int fails = widget.settings.gateFails + 1;
+    final DateTime now = clock.now();
+    final int fails = GateLock.vigentes(widget.settings.gateFails, widget.settings.gateLastFail, now) + 1;
     final Duration wait = GateLock.waitAfter(fails);
-    await widget.settings.setGateState(fails: fails, lockedUntil: wait == Duration.zero ? null : clock.now().add(wait));
+    await widget.settings.setGateState(fails: fails, lockedUntil: wait == Duration.zero ? null : now.add(wait), lastFail: now);
     if (!mounted) {
       return;
     }
@@ -198,7 +229,16 @@ class _GateDialogState extends State<_GateDialog> {
             if (locked) ...<Widget>[
               const SizedBox(height: 10),
               Text(S.esperaPuerta(remaining.inSeconds + 1), style: TextStyle(fontSize: 15, color: pal.error, fontWeight: FontWeight.w600)),
-            ],
+            ] else
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  key: const ValueKey<String>('puerta-otra'),
+                  onPressed: _otra,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text(S.otraOperacion),
+                ),
+              ),
           ],
         ),
       ),

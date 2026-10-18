@@ -17,7 +17,7 @@ void main() {
       for (final Pagina p in c.paginas) {
         expect(p.texto.trim(), isNotEmpty);
         expect(p.escena, isNotEmpty);
-        expect(p.escena.length, lessThanOrEqualTo(3));
+        expect(p.escena.length, lessThanOrEqualTo(4));
       }
       for (final PreguntaCuento q in c.preguntas) {
         expect(q.opciones.length, 3, reason: '${c.id}: ${q.texto}');

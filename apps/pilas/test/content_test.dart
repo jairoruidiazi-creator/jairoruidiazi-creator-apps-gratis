@@ -85,7 +85,7 @@ void main() {
     expect(g.check('${g.answer}'), isTrue);
     expect(g.check('${g.answer + 1}'), isFalse);
     expect(g.check('abc'), isFalse);
-    expect(g.answer, greaterThanOrEqualTo(13 * 13));
+    expect(g.answer, greaterThanOrEqualTo(15 * 13));
   });
 
   test('los números en palabras llevan sus tildes y su género', () {

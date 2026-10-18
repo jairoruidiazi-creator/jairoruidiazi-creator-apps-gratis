@@ -25,20 +25,100 @@ class Es {
         .replaceAllMapped(RegExp(r'\b([Dd])e el\b'), (Match m) => m.group(1) == 'D' ? 'Del' : 'del');
   }
 
-  /// Artículo según género ('m' o 'f') y número.
-  static String articulo(String genero, {bool plural = false, bool definido = true}) {
+  /// Artículo según género ('m' o 'f') y número. Con [ante] (el sustantivo
+  /// que sigue), los femeninos que empiezan con *a* tónica llevan "el" y "un"
+  /// en singular: "el águila", "un ave", "el agua" (pero "las águilas", "la
+  /// abeja").
+  static String articulo(String genero, {bool plural = false, bool definido = true, String? ante}) {
     final bool f = genero == 'f';
+    if (f && !plural && ante != null && aTonica(ante)) {
+      return definido ? 'el' : 'un';
+    }
     if (definido) {
       return f ? (plural ? 'las' : 'la') : (plural ? 'los' : 'el');
     }
     return f ? (plural ? 'unas' : 'una') : (plural ? 'unos' : 'un');
   }
 
-  /// "a" + artículo + nombre, contraído si hace falta: "al gato", "a la vaca".
-  static String aEl(String genero, String nombre, {bool plural = false}) => contraer('a ${articulo(genero, plural: plural)} $nombre');
+  /// Artículo y sustantivo: "la vaca", "el águila", "un ave", "unas tijeras".
+  static String con(String genero, String nombre, {bool plural = false, bool definido = true}) =>
+      '${articulo(genero, plural: plural, definido: definido, ante: nombre)} $nombre';
 
-  /// "de" + artículo + nombre, contraído si hace falta: "del libro", "de la casa".
-  static String deEl(String genero, String nombre, {bool plural = false}) => contraer('de ${articulo(genero, plural: plural)} $nombre');
+  /// Demostrativo según el género y el número del sustantivo al que se
+  /// refiere: "Esta es la estrella", "Este es el círculo", "Esta es el
+  /// águila" (el demostrativo no cambia ante la *a* tónica: "esta agua").
+  static String este(String genero, {bool plural = false}) {
+    final bool f = genero == 'f';
+    return plural ? (f ? 'estas' : 'estos') : (f ? 'esta' : 'este');
+  }
+
+  /// Palabras que empiezan con *a* (o *ha*) pero no la llevan tónica en el
+  /// sentido de la regla: los nombres de las letras, los nombres propios y
+  /// "app" (abreviatura de "aplicación": "la app").
+  static const Set<String> _noATonica = <String>{'a', 'hache', 'ana', 'app'};
+
+  /// Si la palabra empieza con el sonido *a* acentuado: "águila", "ave",
+  /// "agua", "hacha", "aula", "hambre" (sí); "abeja", "araña", "arepa",
+  /// "aguja", "ambulancia" (no). Sirve para los sustantivos femeninos, que
+  /// en singular llevan "el" y "un" en ese caso.
+  static bool aTonica(String palabra) {
+    final String p = palabra.trim().toLowerCase().split(' ').first;
+    if (p.isEmpty || _noATonica.contains(p)) {
+      return false;
+    }
+    final String s = p.startsWith('h') ? p.substring(1) : p;
+    if (s.startsWith('á')) {
+      return true;
+    }
+    if (!s.startsWith('a')) {
+      return false;
+    }
+    // Una tilde en otra sílaba lleva el acento allá: "acción", "anís".
+    if (RegExp('[éíóú]').hasMatch(s) || s.substring(1).contains('á')) {
+      return false;
+    }
+    final int silabas = _silabas(s);
+    if (silabas == 1) {
+      return true;
+    }
+    // Sin tilde, las de dos sílabas terminadas en vocal, n o s son graves:
+    // el acento cae en la primera ("a-ve", "ha-cha", "al-ma").
+    return silabas == 2 && 'aeiouns'.contains(s[s.length - 1]);
+  }
+
+  /// Número de sílabas (núcleos vocálicos) de una palabra: dos vocales
+  /// fuertes seguidas van en sílabas distintas ("al-de-a"); una fuerte y una
+  /// débil sin tilde forman diptongo ("au-la", "a-gua").
+  static int _silabas(String s) {
+    const String fuertes = 'aeoáéóíú';
+    int n = 0;
+    String? prev;
+    for (int i = 0; i < s.length; i++) {
+      final String ch = s[i];
+      final bool vocal = 'aeiouáéíóúü'.contains(ch);
+      if (!vocal) {
+        prev = null;
+        continue;
+      }
+      // La u de "gue", "gui", "que", "qui" no suena.
+      if (ch == 'u' && i > 0 && 'gq'.contains(s[i - 1]) && i + 1 < s.length && 'eiéí'.contains(s[i + 1])) {
+        continue;
+      }
+      if (prev == null || (fuertes.contains(prev) && fuertes.contains(ch))) {
+        n += 1;
+      }
+      prev = ch;
+    }
+    return n;
+  }
+
+  /// "a" + artículo + nombre, contraído si hace falta: "al gato", "a la vaca",
+  /// "al águila".
+  static String aEl(String genero, String nombre, {bool plural = false}) => contraer('a ${con(genero, nombre, plural: plural)}');
+
+  /// "de" + artículo + nombre, contraído si hace falta: "del libro", "de la
+  /// casa", "del águila".
+  static String deEl(String genero, String nombre, {bool plural = false}) => contraer('de ${con(genero, nombre, plural: plural)}');
 
   static const String _vocales = 'aeiouáéíóú';
 
@@ -103,7 +183,7 @@ class Es {
   /// "un vaso", "dos vasos", "una manzana", "tres manzanas" (en palabras).
   static String cantidadEnPalabras(int n, String singular, {required String genero, String? pluralForm}) {
     if (n == 1) {
-      return '${genero == 'f' ? 'una' : 'un'} $singular';
+      return con(genero, singular, definido: false);
     }
     return '${numero(n, femenino: genero == 'f', apocope: true)} ${pluralForm ?? plural(singular)}';
   }

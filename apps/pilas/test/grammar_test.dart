@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pilas/content/cuentos.dart';
 import 'package:pilas/content/vocab.dart';
@@ -6,7 +8,9 @@ import 'package:pilas/core/rng.dart';
 import 'package:pilas/core/strings.dart';
 import 'package:pilas/engine/game_registry.dart';
 import 'package:pilas/games/choice/choice_round.dart';
+import 'package:pilas/games/clasifica/clasifica_generator.dart';
 import 'package:pilas/games/emociones/emociones_generator.dart';
+import 'package:pilas/games/figuras/figuras_generator.dart';
 import 'package:pilas/games/laberinto/maze.dart';
 import 'package:pilas/games/memoria/memoria_board.dart';
 import 'package:pilas/games/oracion/oracion_generator.dart';
@@ -14,6 +18,7 @@ import 'package:pilas/games/palabra/palabra_round.dart';
 import 'package:pilas/games/rutinas/rutinas_generator.dart';
 import 'package:pilas/games/shell/order_game_screen.dart';
 import 'package:pilas/games/shell/tile_order_board.dart';
+import 'package:pilas/games/shell/widgets.dart';
 import 'package:pilas/games/tienda/tienda_generator.dart';
 import 'package:pilas/model/age_band.dart';
 import 'package:pilas/ui/parent/family_guide_screen.dart';
@@ -28,10 +33,92 @@ const Set<String> _singularesConS = <String>{
   'es', 'más', 'menos',
 };
 
+/// Palabras que empiezan con *a* tónica pero no son sustantivos: con ellas
+/// "la" y "una" sí van ("la alta montaña", "la ata a la silla").
+const Set<String> _aTonicaNoSustantivos = <String>{
+  'alta', 'altas', 'ancha', 'agria', 'árida', 'ávida', 'áspera', 'ágil', 'árabe', 'ácida', 'ata', 'alza', 'asa', 'ama', 'abre', 'arma', 'anda', 'habla',
+  'ha', 'has', 'han', 'hay', 'hace', 'hago', 'hacen', 'halla',
+};
+
+/// Género de los sustantivos de la app (vocabulario, figuras, objetos y
+/// grupos de animales), para revisar artículos y demostrativos.
+final Map<String, String> generos = () {
+  final Map<String, String> g = <String, String>{'agua': 'f', 'hada': 'f', 'hacha': 'f', 'ala': 'f', 'arpa': 'f', 'aula': 'f', 'hambre': 'f'};
+  for (final VocabItem v in Vocab.all) {
+    if (!v.plural) {
+      g[v.nombre.toLowerCase()] = v.genero;
+    }
+  }
+  for (final ShapeKind k in ShapeKind.values) {
+    g[nombreForma(k)] = generoForma(k);
+  }
+  for (final ObjetoForma o in FigurasGenerator.objetos) {
+    g[o.nombre] = o.genero;
+  }
+  for (final GrupoAnimal a in ClasificaGenerator.grupos.values) {
+    g[a.nombre] = a.genero;
+  }
+  return g;
+}();
+
+/// Reglas de concordancia que valen también para pedazos de texto (los
+/// literales del código, que se completan con otros datos): artículos,
+/// demostrativos, contracciones y la *a* tónica.
+List<String> concordancia(String texto) {
+  final List<String> out = <String>[];
+  final String t = texto.toLowerCase();
+  void no(Pattern p, String que) {
+    final Iterable<Match> ms = p.allMatches(t);
+    if (ms.isNotEmpty) {
+      out.add('$que: «${ms.first.group(0)}»');
+    }
+  }
+
+  const String l = 'a-záéíóúñü';
+  // Contracciones obligatorias: "al" y "del".
+  no(RegExp('(^|[^$l])a el\\b'), 'falta contraer "al"');
+  no(RegExp('(^|[^$l])de el\\b'), 'falta contraer "del"');
+  // Femeninos con a tónica: "el águila", "un ave" (no "la águila", "una ave").
+  for (final Match m in RegExp('(^|[^$l])(la|una) (h?[aá][$l]*)').allMatches(t)) {
+    final String w = m.group(3)!;
+    if (Es.aTonica(w) && !_aTonicaNoSustantivos.contains(w)) {
+      out.add('ante "a" tónica va "el" o "un": «${m.group(0)!.trim()}»');
+    }
+  }
+  // El demostrativo concuerda con el sustantivo: "Esta es la estrella".
+  no(RegExp('(^|[^$l])(este|ese|aquel) (es|era|fue) (la|una|las|unas)(?![$l])'), 'demostrativo masculino con un sustantivo femenino');
+  no(RegExp('(^|[^$l])(estos|esos|aquellos) (son|eran) (la|las|una|unas)(?![$l])'), 'demostrativo masculino con un sustantivo femenino');
+  no(RegExp('(^|[^$l])(estas|esas|aquellas) (son|eran) (el|los|un|unos)(?![$l])'), 'demostrativo femenino con un sustantivo masculino');
+  for (final Match m in RegExp('(^|[^$l])(esta|esa|aquella|este|ese|aquel) (es|era|fue) (el|un) ([$l]+)').allMatches(t)) {
+    final bool demFem = m.group(2)!.endsWith('a');
+    final String w = m.group(5)!;
+    final String? g = generos[w];
+    final bool nombreFem = g == 'f';
+    if (g == null && demFem && !Es.aTonica(w)) {
+      out.add('demostrativo femenino con un sustantivo masculino: «${m.group(0)!.trim()}»');
+    } else if (g != null && demFem != nombreFem) {
+      out.add('el demostrativo no concuerda con "$w": «${m.group(0)!.trim()}»');
+    }
+  }
+  // Artículos y demostrativos pegados a un sustantivo conocido.
+  for (final MapEntry<String, String> e in generos.entries) {
+    final String n = RegExp.escape(e.key);
+    final String fin = '(?![$l])';
+    if (e.value == 'f' && Es.aTonica(e.key)) {
+      no(RegExp('(^|[^$l])(la|una|este|ese|aquel) $n$fin'), '"${e.key}" lleva "el" o "un" y demostrativo femenino');
+    } else if (e.value == 'f') {
+      no(RegExp('(^|[^$l])(el|un|del|al|este|ese|aquel) $n$fin'), '"${e.key}" es femenino');
+    } else {
+      no(RegExp('(^|[^$l])(la|una|esta|esa|aquella) $n$fin'), '"${e.key}" es masculino');
+    }
+  }
+  return out;
+}
+
 /// Revisa un texto que la app muestra o lee en voz alta. Devuelve los
 /// problemas encontrados (vacío = bien).
 List<String> problemas(String texto, {bool frase = true}) {
-  final List<String> out = <String>[];
+  final List<String> out = concordancia(texto);
   final String t = texto.toLowerCase();
   void no(Pattern p, String que, {bool tal = false}) {
     final Iterable<Match> ms = p.allMatches(tal ? texto : t);
@@ -40,9 +127,6 @@ List<String> problemas(String texto, {bool frase = true}) {
     }
   }
 
-  // Contracciones obligatorias: "al" y "del".
-  no(RegExp(r'(^|[^a-záéíóúñü])a el\b'), 'falta contraer "al"');
-  no(RegExp(r'(^|[^a-záéíóúñü])de el\b'), 'falta contraer "del"');
   // Número: "1 manzanas", "1 pasos".
   for (final Match m in RegExp(r'(^|[^0-9.,])1 ([a-záéíóúñü]+s)\b').allMatches(t)) {
     if (!_singularesConS.contains(m.group(2))) {
@@ -111,6 +195,11 @@ void revisar(String texto, String donde, {bool frase = true}) {
   }
 }
 
+/// Anota un hallazgo ya revisado (una sola vez por texto).
+void revisarHallazgo(String texto, String detalle) {
+  _hallazgos.putIfAbsent(texto, () => '$detalle\n  «$texto»');
+}
+
 /// Falla con todos los problemas encontrados (hasta 40) en lugar de solo el
 /// primero, para poder corregirlos de una vez.
 void sinHallazgos() {
@@ -164,6 +253,23 @@ void main() {
     expect(problemas('Muy bien. pinta otra zona.'), isNotEmpty);
     expect(problemas('Le preguntó a su perro Max. Max movió la cola.'), isEmpty);
     expect(problemas('Los monos trajeron hojas... y entre todos apagaron el fuego.'), isEmpty);
+    // Demostrativos y a tónica (segunda ronda de la auditoría).
+    expect(problemas('Este es la estrella.'), isNotEmpty);
+    expect(problemas('Esta es la estrella.'), isEmpty);
+    expect(problemas('Este es el círculo.'), isEmpty);
+    expect(problemas('Esta es el círculo.'), isNotEmpty);
+    expect(problemas('Estos son las estrellas.'), isNotEmpty);
+    expect(problemas('¿Cuál es una ave?'), isNotEmpty);
+    expect(problemas('El pato es un ave.'), isEmpty);
+    expect(problemas('La águila es un ave.'), isNotEmpty);
+    expect(problemas('El águila vuela alto.'), isEmpty);
+    expect(problemas('Esta es el águila.'), isEmpty);
+    expect(problemas('Este es el águila.'), isNotEmpty);
+    expect(problemas('Las águilas vuelan y la abeja también.'), isEmpty);
+    expect(problemas('El abeja vuela.'), isNotEmpty);
+    expect(problemas('La gato duerme.'), isNotEmpty);
+    expect(problemas('Lleva al águila hasta su nido.'), isEmpty);
+    expect(problemas('Subimos a la alta montaña.'), isEmpty);
     // Concordancia con sujetos compuestos.
     expect(problemas('El camarón, el delfín y la tortuga viven en el mar.'), isEmpty);
     expect(problemas('La tortuga viven en el mar.'), isNotEmpty);
@@ -280,6 +386,9 @@ void main() {
       S.acertasteDe(1, 10),
       S.acertasteDe(7, 10),
       S.acertasteDe(10, 10),
+      S.letraLectoresDetalle,
+      S.quedanMinutos(1),
+      S.quedanMinutos(7),
     ]) {
       revisar(s, 'texto fijo');
     }
@@ -294,6 +403,64 @@ void main() {
         revisarRonda(EmocionesGenerator().next(Rng(seed), band, 1 + seed % 4), 'emociones ${band.id}');
       }
     }
+    sinHallazgos();
+  });
+
+  test('Es pone «el» y «un» ante la a tónica, y el demostrativo según el género', () {
+    for (final String w in <String>['águila', 'ave', 'agua', 'hacha', 'hada', 'aula', 'hambre', 'ala', 'alma', 'arpa', 'área', 'ancla', 'haba']) {
+      expect(Es.aTonica(w), isTrue, reason: w);
+    }
+    for (final String w in <String>['abeja', 'araña', 'arepa', 'aguja', 'ambulancia', 'ardilla', 'arena', 'harina', 'hamaca', 'aldea', 'hormiga', 'a', 'hache', 'Ana', 'acción', 'abuela']) {
+      expect(Es.aTonica(w), isFalse, reason: w);
+    }
+    expect(Es.con('f', 'águila'), 'el águila');
+    expect(Es.con('f', 'ave', definido: false), 'un ave');
+    expect(Es.con('f', 'águilas', plural: true), 'las águilas');
+    expect(Es.con('f', 'abeja'), 'la abeja');
+    expect(Es.aEl('f', 'águila'), 'al águila');
+    expect(Es.deEl('f', 'águila'), 'del águila');
+    expect(Es.cantidadEnPalabras(1, 'ave', genero: 'f'), 'un ave');
+    expect(Es.cantidadEnPalabras(2, 'ave', genero: 'f'), 'dos aves');
+    expect(Es.este('f'), 'esta');
+    expect(Es.este('m'), 'este');
+    expect(Es.este('f', plural: true), 'estas');
+    final VocabItem aguila = Vocab.all.firstWhere((VocabItem v) => v.id == 'aguila');
+    expect(aguila.conArticulo, 'el águila');
+    expect(aguila.aEl, 'al águila');
+    expect(ClasificaGenerator.grupos['ave']!.esUn, 'es un ave');
+  });
+
+  test('Barrido de los textos escritos en el código: artículos, demostrativos y contracciones', () {
+    // Cada literal de lib/ (sin comentarios ni el propio motor de gramática)
+    // se parte donde lleva datos (\$x, \${…}) y cada pedazo pasa por las reglas
+    // de concordancia. Así se revisan también los textos que ningún generador
+    // de las pruebas produce (tableros, ajustes, panel de adultos).
+    final RegExp literal = RegExp(r'''(?<![rA-Za-z0-9_])'((?:[^'\\\n]|\\.)*)'|(?<![rA-Za-z0-9_])"((?:[^"\\\n]|\\.)*)"''');
+    final RegExp dato = RegExp(r'\$\{[^}]*\}|\$[A-Za-z_][A-Za-z0-9_.]*');
+    int literales = 0;
+    for (final FileSystemEntity f in Directory('lib').listSync(recursive: true)) {
+      if (f is! File || !f.path.endsWith('.dart') || f.path.endsWith('core/es.dart')) {
+        continue;
+      }
+      final List<String> lineas = f.readAsLinesSync();
+      for (int i = 0; i < lineas.length; i++) {
+        final String linea = lineas[i].trimLeft();
+        if (linea.startsWith('//')) {
+          continue;
+        }
+        for (final Match m in literal.allMatches(linea)) {
+          final String texto = (m.group(1) ?? m.group(2) ?? '').replaceAll(r"\'", "'");
+          for (final String pedazo in texto.split(dato)) {
+            literales += 1;
+            final List<String> p = concordancia(pedazo);
+            if (p.isNotEmpty) {
+              revisarHallazgo(pedazo, '${f.path}:${i + 1}: ${p.join('; ')}');
+            }
+          }
+        }
+      }
+    }
+    expect(literales, greaterThan(3000));
     sinHallazgos();
   });
 }

@@ -109,7 +109,11 @@ void main() {
     expect(escala(1.0, false), closeTo(1.0, 0.001));
     expect(escala(1.0, true), closeTo(1.25, 0.001));
     expect(escala(1.2, false), closeTo(1.2, 0.001));
-    expect(escala(1.3, true), closeTo(1.5, 0.001));
+    expect(escala(1.3, true), closeTo(1.625, 0.001));
+    // M11: el tope es el doble (200 %), como pide la WCAG.
+    expect(escala(1.6, true), closeTo(2.0, 0.001));
+    expect(escala(2.0, false), closeTo(2.0, 0.001));
+    expect(escala(3.1, false), closeTo(2.0, 0.001));
     expect(escala(0.5, false), closeTo(0.8, 0.001));
   });
 

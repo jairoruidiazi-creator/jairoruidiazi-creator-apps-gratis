@@ -69,7 +69,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               const Divider(),
               SwitchListTile(value: st.largeText, onChanged: st.setLargeText, title: const Text(S.textoGrande), subtitle: const Text(S.textoGrandeDetalle)),
-              SwitchListTile(value: st.dyslexiaFont, onChanged: st.setDyslexiaFont, title: const Text(S.fuenteDislexia), subtitle: const Text('Usa la tipografía Andika en toda la app.')),
+              SwitchListTile(value: st.dyslexiaFont, onChanged: st.setDyslexiaFont, title: const Text(S.letraLectores), subtitle: const Text(S.letraLectoresDetalle)),
               SwitchListTile(value: st.highContrast, onChanged: st.setHighContrast, title: const Text(S.altoContraste), subtitle: const Text(S.altoContrasteDetalle)),
               const SizedBox(height: 8),
               Text('El modo zurdo se elige en el perfil de cada niño.', style: TextStyle(color: pal.tintaSuave, fontSize: 13)),

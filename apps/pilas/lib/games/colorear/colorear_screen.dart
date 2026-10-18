@@ -66,6 +66,10 @@ class ColoringSession {
   /// Veces que se tocó una zona con un color que no era el suyo.
   int errors = 0;
 
+  /// Errores con los que una lámina por números todavía cuenta como bien
+  /// resuelta.
+  static const int erroresPermitidos = 2;
+
   bool get canUndo => _history.isNotEmpty;
 
   bool get isEmpty => fills.isEmpty;
@@ -275,7 +279,7 @@ class _ColorearScreenState extends State<ColorearScreen> {
     // mientras se celebra.
     unawaited(_guardar(silencioso: true));
     // Eficiente: la lámina terminada con dos colores equivocados como mucho.
-    final bool ok = session.errors <= 2;
+    final bool ok = session.errors <= ColoringSession.erroresPermitidos;
     await _engine.finishBoard(
       success: ok,
       message: ok ? '¡Terminaste la lámina! Quedó guardada en Mis dibujos.' : '¡Terminaste la lámina! La próxima vez mira bien ${_letras ? 'la letra' : 'el número'} de cada zona antes de pintar.',

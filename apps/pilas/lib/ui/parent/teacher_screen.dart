@@ -118,7 +118,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           Text(
-            'Crea un grupo por curso y agrega los perfiles de los niños que usan esta tableta. Para juntar varias tabletas, exporta los datos de cada una e impórtalos aquí: el avance de cada niño se suma, no se reemplaza.',
+            'Crea un grupo por curso y agrega los perfiles de los niños que usan esta tableta. Para juntar varias tabletas, exporta los datos de cada una e impórtalos aquí: se juntan con lo que ya hay, sin borrar nada. Las sesiones, pegatinas y habilidades de las dos tabletas quedan todas, y de cada juego queda el nivel más avanzado.',
             style: TextStyle(color: pal.tintaSuave),
           ),
           const SizedBox(height: 12),
@@ -148,7 +148,7 @@ class _TeacherScreenState extends State<TeacherScreen> {
 }
 
 /// Importar los datos exportados desde otra tableta: se elige el archivo (o
-/// se pega su contenido) y se suma al avance de esta tableta.
+/// se pega su contenido) y se junta con el avance de esta tableta.
 class ImportScreen extends StatefulWidget {
   const ImportScreen({super.key});
 
@@ -253,7 +253,7 @@ class _ImportScreenState extends State<ImportScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               Text(
-                '1. En la otra tableta, entra a Modo docente y toca Exportar datos; guarda el archivo o envíalo a esta tableta.\n2. Aquí, toca Elegir archivo y busca ese archivo (o copia su contenido y toca Pegar e Importar).\n3. Los perfiles nuevos se agregan y el avance de los que ya existen se suma.',
+                '1. En la otra tableta, entra a Modo docente y toca Exportar datos; guarda el archivo o envíalo a esta tableta.\n2. Aquí, toca Elegir archivo y busca ese archivo (o copia su contenido y toca Pegar e Importar).\n3. Los perfiles nuevos se agregan. En los que ya existen se juntan las sesiones, las pegatinas y las habilidades de las dos tabletas, y de cada juego queda el nivel más avanzado.',
                 style: TextStyle(color: pal.tinta, height: 1.4),
               ),
               const SizedBox(height: 12),

@@ -248,15 +248,20 @@ class _CuentosScreenState extends State<CuentosScreen> {
                   children: <Widget>[
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 250),
-                      child: Row(
+                      // Con cuatro pictogramas en un teléfono angosto, la
+                      // escena se achica en lugar de salirse.
+                      child: FittedBox(
                         key: ValueKey<int>(_page),
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: <Widget>[
-                          for (int i = 0; i < p.escena.length; i++) ...<Widget>[
-                            if (i > 0) const SizedBox(width: 14),
-                            EmojiImage(p.escena[i], size: p.escena.length == 1 ? 110 : 76),
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            for (int i = 0; i < p.escena.length; i++) ...<Widget>[
+                              if (i > 0) const SizedBox(width: 14),
+                              EmojiImage(p.escena[i], size: p.escena.length == 1 ? 110 : 76),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 16),

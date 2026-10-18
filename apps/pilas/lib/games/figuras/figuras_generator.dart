@@ -18,7 +18,7 @@ class ObjetoForma {
   final String genero;
   final ShapeKind forma;
 
-  String get conArticulo => '${Es.articulo(genero)} $nombre';
+  String get conArticulo => Es.con(genero, nombre);
 }
 
 /// Figuras y medidas: reconocer formas (3-4), lados y longitudes (5-6),
@@ -119,9 +119,9 @@ class FigurasGenerator implements ChoiceGenerator {
 
   ChoiceOption _shapeOpt(ShapeKind k, NamedColor c) => Opt.shape(k.name, k, c, nombreForma(k));
 
-  static String elNombre(ShapeKind k) => '${Es.articulo(generoForma(k))} ${nombreForma(k)}';
+  static String elNombre(ShapeKind k) => Es.con(generoForma(k), nombreForma(k));
 
-  static String unNombre(ShapeKind k) => '${Es.articulo(generoForma(k), definido: false)} ${nombreForma(k)}';
+  static String unNombre(ShapeKind k) => Es.con(generoForma(k), nombreForma(k), definido: false);
 
   ChoiceRound cualEs(Rng rng, int n) {
     final List<ShapeKind> ks = rng.sample(_basicas, n);
@@ -134,7 +134,7 @@ class FigurasGenerator implements ChoiceGenerator {
       options: options,
       correctId: objetivo.name,
       hint: pistaForma(objetivo),
-      explain: 'Este es ${elNombre(objetivo)}. ${pistaForma(objetivo)}',
+      explain: '${Es.cap(Es.este(generoForma(objetivo)))} es ${elNombre(objetivo)}. ${pistaForma(objetivo)}',
       praise: Es.cap('${elNombre(objetivo)}.'),
     );
   }
@@ -327,6 +327,22 @@ class FigurasGenerator implements ChoiceGenerator {
     );
   }
 
+  /// Cuadritos de ancho y alto con que se dibuja un rectángulo de [w] por
+  /// [h] (con [w] ≥ [h] y ambos hasta [max]): la misma escala en los dos
+  /// lados, así que un cuadrado se ve cuadrado y un rectángulo nunca se ve
+  /// como cuadrado. Caben en 5 × 4 cuadritos.
+  static List<int> dibujoRectangulo(int w, int h, int max) {
+    final double escala = 4 / max;
+    final int sh = (h * escala).round().clamp(1, 4).toInt();
+    int sw = (w * escala).round().clamp(1, 5).toInt();
+    if (w == h) {
+      sw = sh;
+    } else if (sw <= sh) {
+      sw = sh + 1;
+    }
+    return <int>[sw, sh];
+  }
+
   ChoiceRound perimetroMedidas(Rng rng, int min, int max) {
     final int a = rng.range(min, max);
     final int b = rng.range(min, max);
@@ -335,8 +351,9 @@ class FigurasGenerator implements ChoiceGenerator {
     final int p = 2 * (w + h);
     final List<ChoiceOption> options = <ChoiceOption>[for (final int v in tresOpciones(rng, p, <int>[w + h, w * h, p + 2])) Opt.number(v)];
     rng.shuffle(options);
-    final int sw = (w * 5 / max).round().clamp(1, 5).toInt();
-    final int sh = (h * 4 / max).round().clamp(1, 4).toInt();
+    final List<int> dibujo = dibujoRectangulo(w, h, max);
+    final int sw = dibujo[0];
+    final int sh = dibujo[1];
     return ChoiceRound(
       instruction: w == h ? 'Un cuadrado tiene lados de $w cm. ¿Cuánto mide su perímetro?' : 'Un rectángulo mide $w cm de largo y $h cm de ancho. ¿Cuánto mide su perímetro?',
       prompt: (BuildContext context) => BigPrompt(child: GridFigure(cells: _rect(sw, sh, x: 1, y: 1), cols: 7, rows: 6, size: 230, color: PilasColors.azul, showGrid: false, labels: <String, String>{'top': '$w cm', 'left': '$h cm'})),

@@ -11,14 +11,14 @@ las dos tiendas antes de publicar.
 | --- | --- |
 | Paquete / Bundle ID | `co.appsgratis.pilas` |
 | Categoría | Google Play: Educación · App Store: Educación (secundaria: Juegos), categoría Niños |
-| Idioma de la ficha y de la app | Español (Google Play es-419, App Store es-MX). La app no tiene inglés: no se publica ficha en inglés y el paquete de iOS declara solo español (`CFBundleLocalizations = [es]`). La carpeta `en.lproj` que todavía lleva el paquete solo existe porque la revisión compartida de la CI la lee; hay que quitarla junto con ese cambio para que la App Store no liste el inglés. |
+| Idioma de la ficha y de la app | Español (Google Play es-419, App Store es-MX). La app no tiene inglés: no se publica ficha en inglés y el paquete de iOS declara solo español (`CFBundleLocalizations = [es]`) y solo lleva la carpeta `es.lproj` (la CI de iOS lo comprueba en el paquete compilado). |
 | Política de privacidad | `https://github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/blob/main/apps/pilas/assets/legal/privacy_es.md` (también dentro de la app, en el panel de adultos) |
 | Soporte | `https://github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/blob/main/docs/SOPORTE.md` (reportes de GitHub, que sirven desde Android, iPhone o un computador, y un canal para asuntos privados) |
 | Precio | Gratis, sin compras dentro de la app |
 
 ## La puerta para adultos
 
-Pide escribir el resultado de una multiplicación de dos cifras por dos cifras (factores de 13 a 39 que no son múltiplos de 10), escrita en palabras, por ejemplo "¿Cuánto es veintitrés por diecisiete?". Ningún juego de la app practica esa operación. Tras dos errores seguidos hay que esperar 60 s, luego 120 s, 240 s… hasta 15 minutos. La voz solo dice "Esto es para un adulto" (no lee la pregunta), y el campo de respuesta no tiene menú de texto, así que no ofrece "Buscar en la web".
+Pide escribir el resultado de una multiplicación de dos cifras por dos cifras, escrita en palabras, por ejemplo "¿Cuánto es quince por veintitrés?". Un factor es 15 o 25 y el otro va de 13 a 39 sin ser múltiplo de 10: un adulto la hace de cabeza en dos pasos, sin papel. Ningún juego de la app pide multiplicar dos números de dos cifras. El botón "Otra operación" cambia la pregunta sin contar error. Los dos primeros errores seguidos no tienen espera; desde el tercero hay que esperar 60 s, luego 120 s, 240 s… hasta 15 minutos. El contador vuelve a cero con un acierto o tras 15 minutos sin errores. La voz solo dice "Esto es para un adulto" (no lee la pregunta), y el campo de respuesta no tiene menú de texto, así que no ofrece "Buscar en la web".
 
 Protege: el panel de adultos (ajustes, informes, modo docente, guía para familias, política de privacidad, créditos), crear un perfil (también el primero), editar o borrar perfiles, compartir dibujos, informes o datos, importar datos, dar más tiempo y cambiar de jugador mientras otro está en su descanso.
 

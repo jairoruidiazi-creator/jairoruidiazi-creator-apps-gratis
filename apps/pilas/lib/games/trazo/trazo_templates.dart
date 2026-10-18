@@ -134,8 +134,8 @@ class TraceCatalog {
     TraceTemplate('V', 've mayúscula', 'La ve, como en vaca.', <List<Offset>>[_l(<double>[20, 15, 50, 85, 80, 15])], ejemplo: '1f404'),
     TraceTemplate('W', 'doble ve', 'La doble ve, como en wafle.', <List<Offset>>[_l(<double>[12, 15, 30, 85, 50, 35, 70, 85, 88, 15])], ejemplo: '1f9c7'),
     TraceTemplate('X', 'equis', 'La equis, como en taxi.', <List<Offset>>[_l(<double>[22, 15, 78, 85]), _l(<double>[78, 15, 22, 85])], ejemplo: '1f695'),
-    TraceTemplate('Y', 'ye', 'La ye, como en yoyo.', <List<Offset>>[_l(<double>[22, 15, 50, 52]), _l(<double>[78, 15, 50, 52, 50, 85])], ejemplo: '1fa80'),
-    TraceTemplate('Z', 'zeta', 'La zeta, como en zapato.', <List<Offset>>[_l(<double>[22, 15, 78, 15, 22, 85, 78, 85])], ejemplo: '1f45f'),
+    TraceTemplate('Y', 'ye', 'La ye, como en yoyó.', <List<Offset>>[_l(<double>[22, 15, 50, 52]), _l(<double>[78, 15, 50, 52, 50, 85])], ejemplo: '1fa80'),
+    TraceTemplate('Z', 'zeta', 'La zeta, como en zapato.', <List<Offset>>[_l(<double>[22, 15, 78, 15, 22, 85, 78, 85])], ejemplo: '1f45e'),
   ];
 
   static final List<TraceTemplate> minusculas = <TraceTemplate>[

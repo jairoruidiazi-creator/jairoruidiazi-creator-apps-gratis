@@ -10,6 +10,7 @@ import 'package:pilas/games/banco/decisiones_bank.dart';
 import 'package:pilas/games/banco/laboratorio_bank.dart';
 import 'package:pilas/games/choice/choice_body.dart';
 import 'package:pilas/games/choice/choice_round.dart';
+import 'package:pilas/games/figuras/figuras_generator.dart';
 import 'package:pilas/games/memoria/memoria_board.dart';
 import 'package:pilas/games/reloj/reloj_generator.dart';
 import 'package:pilas/games/tienda/tienda_generator.dart';
@@ -204,6 +205,23 @@ void main() {
         }
         expect(count.values.every((int n) => n == 2), isTrue);
         expect(b.pairs, MemoryBoard.pairsFor(band, level));
+      }
+    }
+  });
+
+  test('M8: el cuadrado del perímetro se dibuja cuadrado y el rectángulo, rectángulo', () {
+    for (final int max in <int>[9, 12, 20]) {
+      for (int w = 1; w <= max; w++) {
+        for (int h = 1; h <= w; h++) {
+          final List<int> d = FigurasGenerator.dibujoRectangulo(w, h, max);
+          expect(d[0], inInclusiveRange(1, 5));
+          expect(d[1], inInclusiveRange(1, 4));
+          if (w == h) {
+            expect(d[0], d[1], reason: 'cuadrado de $w');
+          } else {
+            expect(d[0], greaterThan(d[1]), reason: 'rectángulo de $w por $h');
+          }
+        }
       }
     }
   });

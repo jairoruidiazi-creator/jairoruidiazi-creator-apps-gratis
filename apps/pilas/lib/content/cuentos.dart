@@ -6,7 +6,9 @@ class Pagina {
 
   final String texto;
 
-  /// Códigos Twemoji que componen la escena (de uno a tres).
+  /// Códigos Twemoji que componen la escena (de uno a cuatro). Si el texto
+  /// dice cuántos hay de algo, la escena muestra exactamente esos
+  /// (test/content_test.dart lo revisa).
   final List<String> escena;
 }
 
@@ -57,13 +59,13 @@ class CuentoBank {
       portada: '1f414',
       valor: 'Cuidar a otros',
       paginas: <Pagina>[
-        Pagina('La gallina Pepa tenía tres pollitos amarillos.', <String>['1f414', '1f423', '1f423']),
+        Pagina('La gallina Pepa tenía tres pollitos amarillos.', <String>['1f414', '1f425', '1f425', '1f425']),
         Pagina('De pronto empezó a llover. ¡Plic, plac, plic!', <String>['1f327', '1f414']),
-        Pagina('Pepa abrió sus alas y los pollitos se taparon debajo.', <String>['1f414', '2614']),
-        Pagina('Cuando salió el sol, los pollitos salieron a jugar.', <String>['2600', '1f423', '1f423']),
+        Pagina('Pepa abrió sus alas y los pollitos se taparon debajo.', <String>['1f327', '1f414']),
+        Pagina('Cuando salió el sol, los pollitos salieron a jugar.', <String>['2600', '1f425', '1f425', '1f425']),
       ],
       preguntas: <PreguntaCuento>[
-        PreguntaCuento('¿Cuántos pollitos tenía Pepa?', <OpcionCuento>[OpcionCuento('Tres', '1f423'), OpcionCuento('Uno', '1f95a'), OpcionCuento('Muchos', '1f414')], 0, 'Pepa tenía tres pollitos amarillos.', pista: 'Al principio del cuento se dijo el número.'),
+        PreguntaCuento('¿Cuántos pollitos tenía Pepa?', <OpcionCuento>[OpcionCuento('Tres', '33-20e3'), OpcionCuento('Dos', '32-20e3'), OpcionCuento('Cinco', '35-20e3')], 0, 'Pepa tenía tres pollitos amarillos.', pista: 'Al principio del cuento se dijo el número.'),
         PreguntaCuento('¿Qué pasó de pronto?', <OpcionCuento>[OpcionCuento('Nevó', '2744'), OpcionCuento('Llovió', '1f327'), OpcionCuento('Hizo viento', '1f32c')], 1, 'Empezó a llover: plic, plac, plic.'),
         PreguntaCuento('¿Con qué tapó Pepa a los pollitos?', <OpcionCuento>[OpcionCuento('Con un paraguas', '2602'), OpcionCuento('Con una hoja', '1f343'), OpcionCuento('Con sus alas', '1f414')], 2, 'Pepa abrió sus alas y los pollitos se taparon debajo.'),
       ],
@@ -90,16 +92,16 @@ class CuentoBank {
       id: 'bota_perdida',
       titulo: 'La bota perdida',
       band: AgeBand.b3a4,
-      portada: '1f462',
+      portada: '1f97e',
       valor: 'Pedir ayuda',
       paginas: <Pagina>[
-        Pagina('Sara iba a salir a jugar, pero solo encontró una bota.', <String>['1f467', '1f462']),
+        Pagina('Sara iba a salir a jugar, pero solo encontró una bota.', <String>['1f467', '1f97e']),
         Pagina('Buscó debajo de la cama. ¡No estaba!', <String>['1f6cf', '2753']),
         Pagina('Le preguntó a su perro Max. Max movió la cola y corrió al jardín.', <String>['1f415', '1f33f']),
-        Pagina('¡La bota estaba en la casita de Max! Sara se rio mucho.', <String>['1f462', '1f415', '1f602']),
+        Pagina('¡La bota estaba en la casita de Max! Sara se rio mucho.', <String>['1f97e', '1f415', '1f602']),
       ],
       preguntas: <PreguntaCuento>[
-        PreguntaCuento('¿Qué buscaba Sara?', <OpcionCuento>[OpcionCuento('Una bota', '1f462'), OpcionCuento('Un sombrero', '1f452'), OpcionCuento('Una pelota', '26bd')], 0, 'Sara buscaba su otra bota.'),
+        PreguntaCuento('¿Qué buscaba Sara?', <OpcionCuento>[OpcionCuento('Una bota', '1f97e'), OpcionCuento('Un sombrero', '1f452'), OpcionCuento('Una pelota', '26bd')], 0, 'Sara buscaba su otra bota.'),
         PreguntaCuento('¿Dónde buscó primero?', <OpcionCuento>[OpcionCuento('En la cocina', '1f373'), OpcionCuento('Debajo de la cama', '1f6cf'), OpcionCuento('En el jardín', '1f33f')], 1, 'Primero buscó debajo de la cama y no estaba.'),
         PreguntaCuento('¿Quién tenía la bota?', <OpcionCuento>[OpcionCuento('Su mamá', '1f469'), OpcionCuento('Un gato', '1f408'), OpcionCuento('Max, el perro', '1f415')], 2, 'La bota estaba en la casita de Max, el perro.'),
       ],

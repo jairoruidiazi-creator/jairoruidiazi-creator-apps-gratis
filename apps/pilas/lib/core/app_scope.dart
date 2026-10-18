@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../model/profile.dart';
 import 'app_state.dart';
 import 'settings.dart';
 import 'sfx.dart';
@@ -16,7 +17,15 @@ class Services {
     required this.store,
     required this.state,
     Sharer? sharer,
-  }) : sharer = sharer ?? Sharer();
+  }) : sharer = sharer ?? Sharer() {
+    // Durante el descanso los juegos siguen debajo (sus temporizadores pasan
+    // a la ronda siguiente), pero la voz no lee nada de ellos encima de
+    // «¡Hora de descansar!».
+    voice.callada = () {
+      final Profile? p = state.current;
+      return p != null && state.isResting(p.id);
+    };
+  }
 
   final AppSettings settings;
   final Voice voice;

@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pilas/core/parental_gate.dart';
 import 'package:pilas/core/share.dart';
@@ -41,21 +42,37 @@ void main() {
   });
 
   group('G14: puerta para adultos', () {
-    test('Pide una multiplicación de dos cifras por dos cifras, en palabras', () {
+    test('Pide una multiplicación de dos cifras por dos cifras, en palabras, con un factor amable', () {
+      final Set<int> amables = <int>{};
       for (int seed = 0; seed < 2000; seed++) {
         final GateChallenge g = GateChallenge.random(Random(seed));
         expect(g.a, inInclusiveRange(13, 39));
         expect(g.b, inInclusiveRange(13, 39));
         expect(g.a % 10, isNot(0));
         expect(g.b % 10, isNot(0));
+        // Exactamente un factor es 15 o 25: se resuelve de cabeza en dos pasos.
+        expect(GateChallenge.amables.contains(g.a) != GateChallenge.amables.contains(g.b), isTrue, reason: '${g.a} × ${g.b}');
+        amables.add(GateChallenge.amables.contains(g.a) ? g.a : g.b);
+        expect(g.answer, inInclusiveRange(100, 999));
         expect(g.question, isNot(matches(RegExp(r'\d'))), reason: 'la pregunta va en palabras');
         expect(g.check('${g.answer}'), isTrue);
         expect(g.check('${g.answer + 1}'), isFalse);
       }
       expect(GateChallenge.random(Random(1)).check('abc'), isFalse);
+      expect(amables, GateChallenge.amables.toSet());
     });
 
-    test('Después de dos errores, espera de 60 s, luego 120 s, 240 s…', () {
+    test('M9: el contador de errores vuelve a cero tras 15 minutos sin errores', () {
+      final DateTime ahora = DateTime(2026, 10, 18, 12);
+      expect(GateLock.vigentes(3, ahora.subtract(const Duration(minutes: 5)), ahora), 3);
+      expect(GateLock.vigentes(3, ahora.subtract(const Duration(minutes: 15)), ahora), 0);
+      expect(GateLock.vigentes(5, ahora.subtract(const Duration(days: 2)), ahora), 0);
+      expect(GateLock.vigentes(2, null, ahora), 0);
+      // El bloqueo más largo (15 min) termina cuando el contador ya volvió a cero.
+      expect(GateLock.waitAfter(99), lessThanOrEqualTo(GateLock.reinicio));
+    });
+
+    test('Dos errores sin espera; desde el tercero, 60 s, luego 120 s, 240 s…', () {
       expect(GateLock.waitAfter(1), Duration.zero);
       expect(GateLock.waitAfter(2), Duration.zero);
       expect(GateLock.waitAfter(3), const Duration(seconds: 60));
@@ -76,12 +93,21 @@ void main() {
       final TextField campo = tester.widget<TextField>(find.byKey(const ValueKey<String>('puerta-respuesta')));
       expect(campo.contextMenuBuilder, isNull);
       expect(campo.enableInteractiveSelection, isFalse);
+      // Pedir otra operación no cuenta como error.
+      final String antes = tester.widgetList<Text>(find.byType(Text)).map((Text t) => t.data ?? '').firstWhere((String t) => t.startsWith('¿Cuánto es'));
+      await tester.tap(find.byKey(const ValueKey<String>('puerta-otra')));
+      await tester.pump();
+      expect(h.services.settings.gateFails, 0);
+      expect(find.textContaining('¿Cuánto es'), findsOneWidget);
+      expect(antes, startsWith('¿Cuánto es'));
       for (int i = 0; i < 3; i++) {
         await tester.enterText(find.byKey(const ValueKey<String>('puerta-respuesta')), '1');
         await tester.tap(find.text(S.entrar));
         await tester.pump();
       }
       expect(find.textContaining('Demasiados intentos'), findsOneWidget);
+      expect(h.services.settings.gateFails, 3);
+      expect(h.services.settings.gateLastFail, isNotNull);
       // Se cierra el diálogo para no dejar el temporizador corriendo.
       await tester.tap(find.text(S.cancelar));
       await tester.pumpAndSettle();
@@ -175,6 +201,44 @@ void main() {
       expect(find.byType(RestScreen), findsOneWidget);
       // El temporizador de la cuenta regresiva se detiene al cerrar la prueba.
       await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    testWidgets('M5: el lector de pantalla oye los minutos, no cada segundo', (WidgetTester tester) async {
+      final SemanticsHandle sem = tester.ensureSemantics();
+      late Profile ana;
+      await tester.runAsync(() async {
+        ana = await h.state.addProfile(nombre: 'Ana', avatar: '1f431', birthYear: 2019, birthMonth: 1);
+      });
+      h.state.current = ana;
+      h.state.progressOf(ana.id).restUntil = clock.now().add(const Duration(minutes: 9, seconds: 30));
+      await tester.pumpWidget(h.app(const RestScreen()));
+      await tester.pump();
+      final SemanticsNode n = tester.getSemantics(find.byKey(const ValueKey<String>('descanso-cuenta')));
+      expect(n.label, S.quedanMinutos(10));
+      expect(n.label, isNot(contains(':')));
+      expect(S.quedanMinutos(10), 'Faltan diez minutos de descanso.');
+      expect(S.quedanMinutos(1), 'Falta menos de un minuto de descanso.');
+      await tester.pumpWidget(const SizedBox.shrink());
+      sem.dispose();
+    });
+
+    test('M4: durante el descanso la voz no lee el juego que quedó debajo', () async {
+      final Profile ana = await h.state.addProfile(nombre: 'Ana', avatar: '1f431', birthYear: 2019, birthMonth: 1);
+      h.state.current = ana;
+      h.state.progressOf(ana.id).restUntil = clock.now().add(const Duration(minutes: 10));
+      h.voice.dicho.clear();
+      h.voice.sayLater('¿Cuál es el círculo?');
+      await h.voice.say('¡Excelente!');
+      expect(h.voice.dicho, isEmpty);
+      // La pantalla de descanso y la puerta sí hablan.
+      h.voice.sayAlways(S.horaDeDescansar);
+      expect(h.voice.dicho, <String>[S.horaDeDescansar]);
+      // Al volver, se dice lo último que se calló.
+      h.state.progressOf(ana.id).restUntil = null;
+      h.voice.soltarRetenido();
+      expect(h.voice.dicho.last, '¡Excelente!');
+      h.voice.sayLater('¿Cuál es el cuadrado?');
+      expect(h.voice.dicho.last, '¿Cuál es el cuadrado?');
     });
   });
 

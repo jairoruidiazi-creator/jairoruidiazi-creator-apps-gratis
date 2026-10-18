@@ -16,13 +16,13 @@ class MazeTheme {
   final String metaGenero;
 
   /// "el conejo", "la abeja".
-  String get heroeConArticulo => '${Es.articulo(heroeGenero)} $heroeNombre';
+  String get heroeConArticulo => Es.con(heroeGenero, heroeNombre);
 
   /// "al conejo", "a la abeja".
   String get aHeroe => Es.aEl(heroeGenero, heroeNombre);
 
   /// "la zanahoria", "el mar".
-  String get metaConArticulo => '${Es.articulo(metaGenero)} $metaNombre';
+  String get metaConArticulo => Es.con(metaGenero, metaNombre);
 
   /// "a la zanahoria", "al mar".
   String get aMeta => Es.aEl(metaGenero, metaNombre);
@@ -119,6 +119,11 @@ class Maze {
     return -1;
   }
 
+  /// Si [steps] pasos cuentan como un recorrido eficiente: hasta un 60 % más
+  /// que el mínimo, y dos pasos de gracia. Caminar al azar casi nunca lo
+  /// logra (test/random_player_test.dart).
+  bool eficiente(int steps) => steps <= optimalSteps * 1.6 + 2;
+
   /// Pasos mínimos para resolverlo (pasando por la llave si la hay).
   int get optimalSteps => keyCell < 0 ? shortest(start, goal) : shortest(start, keyCell) + shortest(keyCell, goal);
 
@@ -128,7 +133,7 @@ class Maze {
   /// es el mismo laberinto con el mismo camino.
   static List<int> sizeFor(AgeBand band, int level) {
     const Map<AgeBand, List<List<int>>> tamanos = <AgeBand, List<List<int>>>{
-      AgeBand.b3a4: <List<int>>[<int>[3, 3], <int>[4, 4], <int>[5, 4], <int>[6, 4]],
+      AgeBand.b3a4: <List<int>>[<int>[4, 4], <int>[5, 4], <int>[6, 4], <int>[6, 5]],
       AgeBand.b5a6: <List<int>>[<int>[6, 4], <int>[7, 5], <int>[8, 6], <int>[9, 7]],
       AgeBand.b7a8: <List<int>>[<int>[9, 7], <int>[10, 8], <int>[12, 8], <int>[13, 9]],
       AgeBand.b9a11: <List<int>>[<int>[13, 9], <int>[14, 10], <int>[15, 11], <int>[16, 12]],

@@ -228,7 +228,7 @@ class GameRegistry {
         AgeBand.b7a8: 'mate.7-8.fracciones',
         AgeBand.b9a11: 'mate.9-11.fracciones',
       },
-      descripcion: 'Medidas y fracciones con cosas de cocina: lleno y vacío, tazas, balanza, porciones de pizza, fracciones equivalentes y recetas.',
+      descripcion: 'Medidas y fracciones con cosas de cocina: lleno y vacío, contar ingredientes, balanza, porciones de pizza, fracciones equivalentes y recetas.',
       enCasa: 'Cocinen juntos: que mida las tazas, parta la arepa en cuatro y diga qué fracción se comió.',
       pregunta: 'Si partes una pizza en 8 y te comes 2 pedazos, ¿qué fracción comiste? ¿Y cuánta queda?',
       build: (BuildContext context, GameLaunch launch) => ChoiceGameScreen(launch: launch, generator: CocinaGenerator()),

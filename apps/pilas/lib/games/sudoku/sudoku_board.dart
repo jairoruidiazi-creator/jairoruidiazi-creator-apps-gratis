@@ -37,6 +37,10 @@ class SudokuBoard {
 
   bool get complete => !cells.contains(0);
 
+  /// Errores (choques y callejones) que todavía cuentan como tablero
+  /// resuelto con eficiencia.
+  int get erroresPermitidos => size == 4 ? 1 : (size == 6 ? 2 : 3);
+
   /// Pictograma del valor (solo en el sudoku de dibujos).
   String emojiOf(int value) => symbols!.emojis[value - 1];
 

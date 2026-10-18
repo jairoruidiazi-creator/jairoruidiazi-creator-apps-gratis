@@ -122,8 +122,48 @@ class Voice extends ChangeNotifier {
     return t.replaceAll(' × ', ' por ').replaceAll(' ÷ ', ' dividido entre ').replaceAll(' = ', ' es igual a ').replaceAll(' + ', ' más ').replaceAll(' − ', ' menos ');
   }
 
-  /// Dice un texto. Interrumpe lo que se estuviera diciendo.
+  /// Si devuelve true, la voz no lee lo que piden los juegos (el niño está
+  /// en su descanso). Lo conecta [Services].
+  bool Function()? callada;
+
+  /// Lo último que se calló durante el descanso (casi siempre la pregunta
+  /// siguiente del juego que quedó debajo).
+  String? _retenido;
+
+  /// Dice un texto. Interrumpe lo que se estuviera diciendo. Durante el
+  /// descanso no dice nada (lo guarda para [soltarRetenido]).
   Future<void> say(String text) async {
+    if (callada?.call() ?? false) {
+      if (text.trim().isNotEmpty) {
+        _retenido = text;
+      }
+      return;
+    }
+    await hablar(text);
+  }
+
+  /// Dice un texto aunque el niño esté en su descanso (la pantalla de
+  /// descanso y la puerta para adultos).
+  void sayAlways(String text) {
+    unawaited(hablar(text));
+  }
+
+  /// Al volver del descanso, dice lo que se calló (la pregunta que quedó en
+  /// pantalla), para que el niño que no lee sepa qué hacer.
+  void soltarRetenido() {
+    final String? t = _retenido;
+    _retenido = null;
+    if (t != null) {
+      sayLater(t);
+    }
+  }
+
+  /// Olvida lo que se calló (al cambiar de jugador).
+  void descartarRetenido() => _retenido = null;
+
+  /// Habla de verdad con la voz del sistema.
+  @protected
+  Future<void> hablar(String text) async {
     if (!settings.voiceEnabled || text.trim().isEmpty) {
       return;
     }
