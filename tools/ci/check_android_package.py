@@ -13,6 +13,9 @@ Comprueba, sin dependencias externas:
 3. Opcionalmente, con --badging <archivo>, lee la salida de
    `aapt2 dump badging` y exige un targetSdkVersion mínimo y que no se
    declaren permisos prohibidos (por ejemplo AD_ID en apps para niños).
+4. Opcionalmente, con --manifest-tree <archivo> (salida de
+   `aapt2 dump xmltree --file AndroidManifest.xml`), exige atributos de
+   <application> como android:allowBackup=false (config "application").
 
 Uso:
     check_android_package.py app-release.apk [--badging badging.txt]
@@ -141,6 +144,46 @@ def check_badging(path: str, min_target: int | None, forbid: list[str], allow: l
     return problems, report
 
 
+def check_manifest_tree(path: str, required: dict[str, str]) -> tuple[list[str], list[str]]:
+    """Atributos de <application> en el manifiesto compilado.
+
+    Valores en la config: "false"/"true" para booleanos, "@ref" para exigir
+    que el atributo apunte a un recurso, o un texto literal.
+    """
+    problems: list[str] = []
+    report: list[str] = []
+    text = open(path, encoding="utf-8", errors="replace").read()
+    m = re.search(r"^(\s*)E: application\b.*$", text, re.M)
+    if not m:
+        return ["no se encontró <application> en el manifiesto"], report
+    indent = len(m.group(1))
+    attrs: dict[str, str] = {}
+    for line in text[m.end():].splitlines()[1:]:
+        stripped = line.lstrip()
+        depth = len(line) - len(stripped)
+        if depth <= indent or stripped.startswith("E: "):
+            break
+        a = re.match(r'A: (?:http://schemas\.android\.com/apk/res/android:|android:)(\w+)\(0x[0-9a-f]+\)=(.*)$', stripped)
+        if a:
+            # aapt2 escribe `=false`; aapt (v1) escribe `=(type 0x12)0x0`.
+            attrs[a.group(1)] = re.sub(r"^\(type 0x[0-9a-f]+\)", "", a.group(2).strip())
+    for name, want in required.items():
+        got = attrs.get(name)
+        if got is None:
+            problems.append(f"<application> no declara android:{name}")
+            continue
+        if want in ("false", "true"):
+            ok = got.lower() in ((want, "0x0", "0") if want == "false" else (want, "0xffffffff", "-1", "1"))
+        elif want == "@ref":
+            ok = got.startswith("@")
+        else:
+            ok = got.strip('"').split('" (Raw')[0] == want
+        report.append(f"application android:{name} = {got}")
+        if not ok:
+            problems.append(f"android:{name} vale {got}, se esperaba {want}")
+    return problems, report
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("package", help="APK o AAB")
@@ -148,7 +191,8 @@ def main() -> int:
     ap.add_argument("--min-target-sdk", type=int)
     ap.add_argument("--forbid-permission", action="append", default=[])
     ap.add_argument("--allow-permission", action="append", default=None, help="si se da, todo permiso fuera de la lista falla")
-    ap.add_argument("--config", help="JSON con min_target_sdk, forbid y allow por app (tools/store/android.json)")
+    ap.add_argument("--manifest-tree", help="salida de `aapt2 dump xmltree --file AndroidManifest.xml` del APK")
+    ap.add_argument("--config", help="JSON con min_target_sdk, forbid, allow y application por app (tools/store/android.json)")
     ap.add_argument("--app", help="app dentro del JSON de --config")
     args = ap.parse_args()
     if args.config:
@@ -160,12 +204,21 @@ def main() -> int:
         args.forbid_permission += common.get("forbid", []) + app.get("forbid", [])
         if args.allow_permission is None and "allow" in app:
             args.allow_permission = app["allow"]
+        application = app.get("application", {})
+    else:
+        application = {}
 
     problems, report = check_archive(args.package)
     if args.badging:
         p2, r2 = check_badging(args.badging, args.min_target_sdk, args.forbid_permission, args.allow_permission)
         problems += p2
         report = r2 + report
+    if args.manifest_tree and application:
+        p3, r3 = check_manifest_tree(args.manifest_tree, application)
+        problems += p3
+        report = r3 + report
+    elif application:
+        problems.append("la config exige atributos de <application> pero falta --manifest-tree")
     print(f"== {args.package}")
     for line in report:
         print("  " + line)

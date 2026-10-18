@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/app_info.dart';
 import '../../core/app_scope.dart';
 import '../../core/settings.dart';
+import '../legal/legal_document.dart';
 
 /// Ajustes de la app.
 class SettingsScreen extends StatelessWidget {
@@ -215,14 +217,22 @@ class SettingsScreen extends StatelessWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.approval_outlined),
-                title: const Text('Sello 0.1.0'),
+                title: const Text('$kAppName $kAppVersion'),
                 subtitle: Text(t(context, 'Cámara de campo con sello de GPS, hora y rumbo. Gratis, sin anuncios y sin cuentas. Las fotos nunca salen del teléfono salvo que las compartas. El sello informa, no prueba: la hora y el GPS de un teléfono se pueden alterar.', 'Field camera with GPS, time and heading stamp. Free, no ads, no accounts. Photos never leave the phone unless you share them. The stamp informs; it is not proof: a phone\'s time and GPS can be altered.')),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.privacy_tip_outlined),
+                title: Text(t(context, 'Política de privacidad', 'Privacy policy')),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => PrivacyPolicyScreen(spanish: s.settings.spanish))),
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.description_outlined),
                 title: Text(t(context, 'Licencias de código abierto', 'Open-source licenses')),
-                onTap: () => showLicensePage(context: context, applicationName: 'Sello', applicationVersion: '0.1.0'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => showLicensePage(context: context, applicationName: kAppName, applicationVersion: kAppVersion),
               ),
               Padding(
                 padding: const EdgeInsets.only(top: 8),

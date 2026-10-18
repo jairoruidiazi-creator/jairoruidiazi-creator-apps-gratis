@@ -94,7 +94,10 @@ class CryptoBox {
   static final Chacha20 _algo = Chacha20.poly1305Aead();
   static const List<int> magic = <int>[0x50, 0x4C, 0x41, 0x54, 0x41, 0x31]; // PLATA1
 
-  static Future<CryptoBox> fromKeyStore(KeyStore ks, {String name = 'ledger-key'}) async {
+  /// Nombre de la llave del libro en el llavero.
+  static const String keyName = 'ledger-key';
+
+  static Future<CryptoBox> fromKeyStore(KeyStore ks, {String name = keyName}) async {
     final String? stored = await ks.read(name);
     if (stored != null && stored.isNotEmpty) {
       return CryptoBox(SecretKey(base64Decode(stored)));
@@ -155,9 +158,13 @@ class EncryptedStore {
     try {
       final Uint8List clear = CryptoBox.isEncrypted(data) ? await box.decrypt(data) : data;
       final dynamic decoded = jsonDecode(utf8.decode(clear));
-      return decoded is Map<String, dynamic> ? decoded : null;
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+      throw DecryptException(relativePath);
     } on FormatException {
-      return null;
+      // Archivo dañado: tampoco se trata como vacío, por la misma razón.
+      throw DecryptException(relativePath);
     } on SecretBoxAuthenticationError {
       // Llave distinta o archivo alterado: no se devuelve "vacío" para que
       // nadie sobrescriba los datos cifrados con otros nuevos.
@@ -168,5 +175,26 @@ class EncryptedStore {
   Future<void> writeJson(String relativePath, Map<String, dynamic> data) async {
     final Uint8List cipher = await box.encrypt(utf8.encode(jsonEncode(data)));
     await store.writeBytes(relativePath, cipher);
+  }
+
+  /// Guarda un archivo binario cifrado (por ejemplo la foto de un recibo).
+  Future<void> writeBytes(String relativePath, List<int> data) async {
+    await store.writeBytes(relativePath, await box.encrypt(data));
+  }
+
+  /// Lee un archivo binario; si no está cifrado lo devuelve tal cual.
+  Future<Uint8List?> readBytes(String relativePath) async {
+    final Uint8List? data = await store.readBytes(relativePath);
+    if (data == null || data.isEmpty) {
+      return null;
+    }
+    if (!CryptoBox.isEncrypted(data)) {
+      return data;
+    }
+    try {
+      return await box.decrypt(data);
+    } on SecretBoxAuthenticationError {
+      throw DecryptException(relativePath);
+    }
   }
 }

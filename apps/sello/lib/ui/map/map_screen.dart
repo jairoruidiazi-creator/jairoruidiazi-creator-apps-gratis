@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/app_info.dart';
 import '../../core/app_scope.dart';
 import '../../core/app_state.dart';
 import '../../core/maps_links.dart';
@@ -19,7 +20,7 @@ class MapScreen extends StatefulWidget {
   /// Falso en pruebas: no se descargan teselas.
   static bool tilesEnabled = true;
 
-  static const String userAgent = 'Sello/1.0 (co.appsgratis.sello; +https://github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis)';
+  static const String userAgent = '$kAppName/$kAppVersion (co.appsgratis.sello; +$kRepoUrl)';
 
   @override
   State<MapScreen> createState() => _MapScreenState();

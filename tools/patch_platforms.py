@@ -104,7 +104,7 @@ APPS = {
             "NSPhotoLibraryUsageDescription": "Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges.",
             "NSMotionUsageDescription": "Sello usa los sensores de movimiento para calcular el rumbo de la cámara.",
             "LSApplicationQueriesSchemes": ["comgooglemaps", "maps", "waze"],
-            # La carpeta de la app (fotos, exportaciones) se ve en Archivos y en iCloud Drive del usuario.
+            # La carpeta de la app (fotos y exportaciones) se ve en la app Archivos, en "En mi iPhone".
             "UIFileSharingEnabled": True,
             "LSSupportsOpeningDocumentsInPlace": True,
         },
@@ -147,10 +147,20 @@ APPS = {
             '<receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"/>',
             '<receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">\n            <intent-filter>\n                <action android:name="android.intent.action.BOOT_COMPLETED"/>\n                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>\n                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>\n                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>\n            </intent-filter>\n        </receiver>',
         ],
-        # Código nativo propio: la actividad (FlutterFragmentActivity por local_auth) y el lector de avisos.
+        # Código nativo propio: la actividad (FlutterFragmentActivity por local_auth), el lector de
+        # avisos y las reglas que dejan los datos cifrados fuera de la copia de Google y del traspaso.
         "android_files": {
             "native/android/MainActivity.kt": "android/app/src/main/kotlin/co/appsgratis/plata/MainActivity.kt",
             "native/android/BankNoticeListener.kt": "android/app/src/main/kotlin/co/appsgratis/plata/BankNoticeListener.kt",
+            "native/android/data_extraction_rules.xml": "android/app/src/main/res/xml/data_extraction_rules.xml",
+        },
+        "android_application_attrs": {
+            "android:allowBackup": "false",
+            "android:dataExtractionRules": "@xml/data_extraction_rules",
+        },
+        # La carpeta de datos queda fuera de la copia de iCloud (la llave no viaja).
+        "ios_files": {
+            "native/ios/AppDelegate.swift": "ios/Runner/AppDelegate.swift",
         },
         # flutter_local_notifications 10+ exige desugaring de la biblioteca de Java.
         "android_desugaring": True,
@@ -162,10 +172,9 @@ APPS = {
             "NSFaceIDUsageDescription": "Plata usa Face ID para desbloquear tus cuentas sin escribir la clave.",
             "NSCameraUsageDescription": "Plata usa la cámara para adjuntar la foto de un recibo a un movimiento.",
             "NSPhotoLibraryUsageDescription": "Plata accede a tus fotos para adjuntar un recibo a un movimiento.",
-            # La carpeta de la app (exportaciones y copias) se ve en Archivos y en iCloud Drive del usuario.
-            "UIFileSharingEnabled": True,
-            "LSSupportsOpeningDocumentsInPlace": True,
         },
+        # Los datos viven en Application Support, fuera de la app Archivos: no hay carpeta que mostrar.
+        "ios_plist_remove": ["UIFileSharingEnabled", "LSSupportsOpeningDocumentsInPlace"],
         "ios_strings_en": {
             "CFBundleDisplayName": "Plata",
             "NSFaceIDUsageDescription": "Plata uses Face ID to unlock your accounts without typing the passcode.",
@@ -215,6 +224,16 @@ def patch_android(cfg: dict) -> None:
             intent = f'        <intent>\n            <action android:name="{q["action"]}"/>\n{data}        </intent>\n'
             if intent not in text:
                 text = text.replace("<queries>\n", "<queries>\n" + intent, 1)
+    for attr, value in cfg.get("android_application_attrs", {}).items():
+        m = re.search(r"<application\b[^>]*>", text)
+        if not m:
+            raise SystemExit("No encontré <application> en el manifiesto")
+        tag = m.group(0)
+        if f'{attr}="' in tag:
+            new_tag = re.sub(rf'{re.escape(attr)}="[^"]*"', f'{attr}="{value}"', tag, count=1)
+        else:
+            new_tag = tag.replace("<application", f'<application\n        {attr}="{value}"', 1)
+        text = text[: m.start()] + new_tag + text[m.end():]
     for snippet in cfg.get("android_application_xml", []):
         key = re.search(r'android:name="([^"]+)"', snippet).group(1)
         if key not in text:
@@ -262,12 +281,18 @@ def patch_ios(cfg: dict) -> None:
     with plist_path.open("rb") as f:
         plist = plistlib.load(f)
     plist.update(cfg["ios_plist"])
+    for key in cfg.get("ios_plist_remove", []):
+        plist.pop(key, None)
     # Idiomas que la App Store muestra en la ficha y que iOS usa para los textos del sistema.
     plist["CFBundleLocalizations"] = ["es", "en"]
     if "iphone_orientations" in cfg:
         plist["UISupportedInterfaceOrientations"] = cfg["iphone_orientations"]
     with plist_path.open("wb") as f:
         plistlib.dump(plist, f, sort_keys=False)
+
+    for src, dst in cfg.get("ios_files", {}).items():
+        Path(dst).write_text(Path(src).read_text(encoding="utf-8"), encoding="utf-8")
+        print(f"copiado {src} -> {dst}")
 
     podfile = Path("ios/Podfile")
     if podfile.exists():

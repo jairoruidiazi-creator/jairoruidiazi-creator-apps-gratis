@@ -1,8 +1,10 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../core/app_scope.dart';
 import '../../core/ledger.dart';
@@ -48,6 +50,7 @@ class _TxEditorState extends State<TxEditor> {
   final List<String> _tags = <String>[];
   final List<TxSplit> _splits = <TxSplit>[];
   final List<String> _attachments = <String>[];
+  final Set<String> _savedAttachments = <String>{};
   int _installments = 1;
   bool _reconciled = false;
   bool _keypad = false;
@@ -76,6 +79,7 @@ class _TxEditorState extends State<TxEditor> {
     _tags.addAll(e?.tags ?? tpl?.tags ?? <String>[]);
     _splits.addAll(e?.splits ?? <TxSplit>[]);
     _attachments.addAll(e?.attachments ?? <String>[]);
+    _savedAttachments.addAll(_attachments);
     _installments = e?.installments ?? 1;
     _reconciled = e?.reconciled ?? false;
     _keypad = e == null && _minor == 0;
@@ -124,13 +128,32 @@ class _TxEditorState extends State<TxEditor> {
       if (f == null) {
         return;
       }
-      final String rel = 'attachments/${newId()}.jpg';
-      await _s!.store.writeBytes(rel, await f.readAsBytes());
-      setState(() => _attachments.add(rel));
+      // La foto del recibo se guarda cifrada, igual que el resto del libro, y
+      // la copia sin cifrar que deja el selector se borra.
+      final String rel = 'attachments/${newId()}.jpg.enc';
+      await _s!.ledger.store.writeBytes(rel, await f.readAsBytes());
+      await _deletePickerCopy(f);
+      if (mounted) {
+        setState(() => _attachments.add(rel));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'No se pudo adjuntar', 'Could not attach')}: $e')));
       }
+    }
+  }
+
+  /// El selector de fotos deja una copia en la caché o la carpeta temporal de
+  /// la app. Solo se borra si está dentro de la carpeta privada de la app, así
+  /// que nunca se toca la foto original de la galería.
+  Future<void> _deletePickerCopy(XFile f) async {
+    try {
+      final String container = (await getApplicationDocumentsDirectory()).parent.path;
+      if (f.path.startsWith('$container${Platform.pathSeparator}')) {
+        await File(f.path).delete();
+      }
+    } catch (e) {
+      debugPrint('Copia del selector: $e');
     }
   }
 
@@ -209,6 +232,7 @@ class _TxEditorState extends State<TxEditor> {
     } else {
       l.updateTx(tx);
     }
+    await l.deleteAttachmentFiles(_savedAttachments.difference(_attachments.toSet()));
     _s!.settings.defaultAccountId = _accountId!;
     await _s!.settings.save();
     if (mounted) {
@@ -516,23 +540,39 @@ class _TxEditorState extends State<TxEditor> {
   }
 }
 
-class _AttachmentThumb extends StatelessWidget {
+class _AttachmentThumb extends StatefulWidget {
   const _AttachmentThumb({required this.relative});
 
   final String relative;
 
   @override
+  State<_AttachmentThumb> createState() => _AttachmentThumbState();
+}
+
+class _AttachmentThumbState extends State<_AttachmentThumb> {
+  Future<Uint8List?>? _bytes;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _bytes ??= AppScope.of(context).ledger.store.readBytes(widget.relative);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final Services s = AppScope.of(context);
-    return FutureBuilder<String>(
-      future: s.store.absolutePath(relative),
-      builder: (BuildContext context, AsyncSnapshot<String> snap) {
-        if (!snap.hasData) {
+    return FutureBuilder<Uint8List?>(
+      future: _bytes,
+      builder: (BuildContext context, AsyncSnapshot<Uint8List?> snap) {
+        final Uint8List? bytes = snap.data;
+        if (snap.hasError) {
+          return const Center(child: Icon(Icons.broken_image_outlined));
+        }
+        if (bytes == null) {
           return ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest);
         }
         return GestureDetector(
-          onTap: () => showDialog<void>(context: context, builder: (_) => Dialog(child: InteractiveViewer(child: Image.file(File(snap.data!))))),
-          child: Image.file(File(snap.data!), fit: BoxFit.cover, cacheWidth: 200, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined)),
+          onTap: () => showDialog<void>(context: context, builder: (_) => Dialog(child: InteractiveViewer(child: Image.memory(bytes)))),
+          child: Image.memory(bytes, fit: BoxFit.cover, cacheWidth: 200, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined)),
         );
       },
     );

@@ -379,6 +379,54 @@ void main() {
       l.dispose();
     });
 
+    test('un libro dañado deja la app en solo lectura en vez de empezar de cero', () async {
+      final JsonStore store = JsonStore(root: tmp);
+      await store.writeBytes('ledger.json', <int>[1, 2, 3, 4, 5]);
+      final CryptoBox box = await CryptoBox.fromKeyStore(MemoryKeyStore());
+      final Ledger l = Ledger(EncryptedStore(store, box), clock: () => d(2026, 10, 16));
+      await l.load();
+      expect(l.readOnly, isTrue);
+      await l.addTx(Tx(id: 'x', kind: TxKind.expense, amountMinor: 100, accountId: 'a_cash', date: d(2026, 10, 16)));
+      await l.flush();
+      expect(await store.readBytes('ledger.json'), <int>[1, 2, 3, 4, 5]);
+      l.dispose();
+    });
+
+    test('las fotos de recibos se borran con su movimiento y las huérfanas al abrir', () async {
+      final Ledger l = await newLedger(tmp);
+      final EncryptedStore es = l.store;
+      await es.writeBytes('attachments/a.jpg.enc', <int>[9, 9, 9]);
+      await es.writeBytes('attachments/b.jpg.enc', <int>[8, 8, 8]);
+      await es.writeBytes('attachments/huerfana.jpg.enc', <int>[7]);
+      await l.addTx(Tx(id: 't1', kind: TxKind.expense, amountMinor: 100, accountId: 'a_cash', date: d(2026, 10, 10), attachments: <String>['attachments/a.jpg.enc', 'attachments/no-esta.jpg.enc']));
+      await l.addTx(Tx(id: 't2', kind: TxKind.expense, amountMinor: 200, accountId: 'a_cash', date: d(2026, 10, 11), attachments: <String>['attachments/b.jpg.enc']));
+      expect(await es.readBytes('attachments/a.jpg.enc'), <int>[9, 9, 9]);
+      await l.pruneAttachments();
+      expect(await es.store.list('attachments'), <String>['attachments/a.jpg.enc', 'attachments/b.jpg.enc']);
+      expect(l.tx('t1')!.attachments, <String>['attachments/a.jpg.enc']);
+      await l.deleteTx('t2');
+      expect(await es.store.list('attachments'), <String>['attachments/a.jpg.enc']);
+      l.dispose();
+    });
+
+    test('cambiar la moneda base descarta las tasas viejas', () async {
+      final Ledger l = await newLedger(tmp);
+      await l.addAccount(Account(id: 'usd', name: 'Dólares', type: AccountType.savings, currency: 'USD', initialMinor: 10000));
+      l.rates.rates['USD'] = 4000;
+      await l.addTx(Tx(id: 'u', kind: TxKind.expense, amountMinor: 1000, accountId: 'usd', date: d(2026, 10, 10)));
+      expect(l.tx('u')!.rateToBase, 4000);
+      l.changeBaseCurrency('USD');
+      expect(l.baseCurrency, 'USD');
+      expect(l.rates.rates, isEmpty);
+      expect(l.tx('u')!.rateToBase, isNull);
+      expect(l.toBase(1000, 'USD'), 1000);
+      expect(l.currenciesWithoutRate(), <String>['COP']);
+      l.rates.rates['COP'] = 0.00025;
+      expect(l.currenciesWithoutRate(), isEmpty);
+      expect(l.toBase(400000000, 'COP'), 100000);
+      l.dispose();
+    });
+
     test('plantillas y conversión a moneda base', () async {
       final Ledger l = await newLedger(tmp);
       await l.addAccount(Account(id: 'usd', name: 'Dólares', type: AccountType.savings, currency: 'USD', initialMinor: 10000));

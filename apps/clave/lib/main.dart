@@ -18,6 +18,8 @@ Future<void> main() async {
   final AppSettings settings = AppSettings();
   await settings.load();
   final JsonStore store = JsonStore();
+  // Lo exportado ya se compartió: la copia de la app se borra al abrirla de nuevo.
+  await store.clear('export');
   final AppState state = AppState(store);
   await state.load();
   final AudioEngine engine = SoLoudEngine();

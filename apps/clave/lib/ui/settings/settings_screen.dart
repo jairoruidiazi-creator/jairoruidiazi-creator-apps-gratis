@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/app_info.dart';
 import '../../core/app_scope.dart';
 import '../../core/settings.dart';
+import '../legal/legal_document.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -105,8 +107,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           _header(context, t(context, 'Acerca de', 'About')),
           ListTile(
-            title: const Text('Clave 0.1.0'),
-            subtitle: Text(t(context, 'Gratis, sin anuncios, sin cuenta. Los datos quedan en tu dispositivo. Código Apache-2.0; audio con SoLoud (MIT).', 'Free, no ads, no account. Your data stays on your device. Code Apache-2.0; audio by SoLoud (MIT).')),
+            title: const Text('$kAppName $kAppVersion'),
+            subtitle: Text(t(context, 'Gratis, sin anuncios, sin cuenta y sin internet. Los datos quedan en tu dispositivo. Código Apache-2.0; audio con SoLoud (MIT).', 'Free, no ads, no account and no internet. Your data stays on your device. Code Apache-2.0; audio by SoLoud (MIT).')),
+          ),
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: Text(t(context, 'Política de privacidad', 'Privacy policy')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => PrivacyPolicyScreen(spanish: AppScope.of(context).settings.spanish))),
+          ),
+          ListTile(
+            leading: const Icon(Icons.description_outlined),
+            title: Text(t(context, 'Licencias de código abierto', 'Open-source licenses')),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => showLicensePage(context: context, applicationName: kAppName, applicationVersion: kAppVersion),
           ),
         ],
       ),

@@ -155,7 +155,7 @@ class _BackupScreenState extends State<BackupScreen> {
               children: <Widget>[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Text(t(context, 'Plata no tiene nube: tú decides dónde guardar tus copias (Drive, correo, computador). Recomendación: exporta una copia cifrada cada mes y antes de cambiar de teléfono.', 'Plata has no cloud: you decide where to keep your backups (Drive, email, computer). Tip: export an encrypted copy monthly and before switching phones.'), style: TextStyle(color: cs.onSurface.withValues(alpha: 0.75))),
+                  child: Text(t(context, 'Plata no tiene nube y sus datos no entran en las copias de Google o iCloud (la llave que los abre no sale del teléfono). Tú decides dónde guardar tus copias: Drive, correo o computador. Exporta una copia cifrada cada mes y antes de cambiar de teléfono. Las copias llevan tus datos, no las fotos de recibos.', 'Plata has no cloud and its data is not included in Google or iCloud backups (the key that opens it never leaves the phone). You decide where to keep your backups: Drive, email or computer. Export an encrypted copy every month and before switching phones. Backups carry your data, not receipt photos.'), style: TextStyle(color: cs.onSurface.withValues(alpha: 0.75))),
                 ),
                 ListTile(
                   leading: const Icon(Icons.enhanced_encryption_outlined),

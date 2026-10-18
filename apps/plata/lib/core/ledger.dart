@@ -193,6 +193,7 @@ class Ledger extends ChangeNotifier {
   Future<void> replaceWith(Map<String, dynamic> j) async {
     await store.writeJson(_file, j);
     await load();
+    await pruneAttachments();
   }
 
   /// Guarda con un pequeño retraso para agrupar cambios seguidos.
@@ -315,8 +316,37 @@ class Ledger extends ChangeNotifier {
     return id;
   }
 
+  /// Cambia la moneda base. Las tasas guardadas (en la tabla y en cada
+  /// movimiento) eran relativas a la base anterior, así que se descartan y las
+  /// conversiones usan la tabla nueva cuando se actualice.
+  void changeBaseCurrency(String currency) {
+    if (currency == baseCurrency) {
+      return;
+    }
+    baseCurrency = currency;
+    rates.rates.clear();
+    rates.manual.clear();
+    rates.updatedAt = null;
+    for (final Tx t in txs) {
+      t.rateToBase = null;
+    }
+    save();
+  }
+
   /// Tasa de una moneda a la base (1 unidad = r base), o null si no se conoce.
   double? rateToBase(String currency) => rates.rateFor(currency, baseCurrency);
+
+  /// Monedas de las cuentas activas que no tienen tasa a la base: sus saldos
+  /// se suman 1:1 hasta que se actualicen las tasas o se ponga una a mano.
+  List<String> currenciesWithoutRate() {
+    final Set<String> out = <String>{};
+    for (final Account a in accounts) {
+      if (!a.archived && a.currency != baseCurrency && rateToBase(a.currency) == null) {
+        out.add(a.currency);
+      }
+    }
+    return out.toList()..sort();
+  }
 
   /// Convierte centavos de [currency] a la moneda base (si no hay tasa, devuelve el monto).
   int toBase(int minor, String currency, {double? rate}) {
@@ -403,8 +433,47 @@ class Ledger extends ChangeNotifier {
   }
 
   Future<void> deleteTx(String id) async {
+    final List<String> files = <String>[for (final Tx t in txs.where((Tx t) => t.id == id)) ...t.attachments];
     txs.removeWhere((Tx t) => t.id == id);
     save();
+    await deleteAttachmentFiles(files);
+  }
+
+  /// Borra fotos de recibos que ya no usa ningún movimiento.
+  Future<void> deleteAttachmentFiles(Iterable<String> files) async {
+    final Set<String> used = <String>{for (final Tx t in txs) ...t.attachments};
+    for (final String f in files) {
+      if (!used.contains(f)) {
+        try {
+          await store.store.delete(f);
+        } catch (e) {
+          debugPrint('Adjunto $f: $e');
+        }
+      }
+    }
+  }
+
+  /// Ordena la carpeta de fotos de recibos: borra los archivos que ningún
+  /// movimiento usa (por ejemplo, de un movimiento que no se llegó a guardar) y
+  /// quita las referencias a fotos que no están en este teléfono (al restaurar
+  /// una copia hecha en otro: las copias guardan los datos, no las fotos). Solo
+  /// corre si el libro se leyó bien, para no tocar nada si no se pudo descifrar.
+  Future<void> pruneAttachments() async {
+    if (readOnly || !loaded) {
+      return;
+    }
+    final List<String> files = await store.store.list('attachments');
+    final Set<String> present = files.where((String f) => !f.endsWith('.tmp')).toSet();
+    bool changed = false;
+    for (final Tx t in txs) {
+      final int before = t.attachments.length;
+      t.attachments.removeWhere((String a) => !present.contains(a));
+      changed = changed || t.attachments.length != before;
+    }
+    await deleteAttachmentFiles(files);
+    if (changed) {
+      save();
+    }
   }
 
   void _normalize(Tx t) {

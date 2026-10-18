@@ -90,6 +90,7 @@ jobs:
           AAB=build/app/outputs/bundle/release/app-release.aab
           echo "build-tools: $BT" | tee package.log
           "$BT/aapt2" dump badging "$APK" > badging.txt
+          "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" > manifest.txt
           "$BT/apksigner" verify --print-certs "$APK" | tee signing.log
           grep -q "CN=apps-gratis CI" signing.log
           # Las llaves de subida son autofirmadas (lo normal en Android), así que no se usa -strict.
@@ -99,7 +100,7 @@ jobs:
             "$BT/zipalign" -c -P 16 -v 4 "$APK" > zipalign.log
             tail -1 zipalign.log | tee -a package.log
           fi
-          python3 ../../tools/ci/check_android_package.py "$APK" --badging badging.txt \
+          python3 ../../tools/ci/check_android_package.py "$APK" --badging badging.txt --manifest-tree manifest.txt \
             --config ../../tools/store/android.json --app "${{ inputs.app }}" | tee -a package.log
           python3 ../../tools/ci/check_android_package.py "$AAB" | tee -a package.log
           ls -l "$APK" "$AAB" | tee -a package.log
@@ -116,7 +117,7 @@ jobs:
         run: >-
           bash tools/ci/publish_logs.sh ci-logs-${{ inputs.app }}-android
           apps/${{ inputs.app }}/build-android.log apps/${{ inputs.app }}/badging.txt
-          apps/${{ inputs.app }}/signing.log apps/${{ inputs.app }}/package.log
+          apps/${{ inputs.app }}/manifest.txt apps/${{ inputs.app }}/signing.log apps/${{ inputs.app }}/package.log
 
   ios:
     name: iOS (archivo sin firma)

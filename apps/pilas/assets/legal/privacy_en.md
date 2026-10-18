@@ -1,0 +1,62 @@
+# Pilas privacy policy
+
+Effective October 18, 2026.
+
+## In short
+
+Pilas does not collect anyone's data. It has no accounts, ads, purchases, analytics or tracking tools, and it does not connect to the internet. Everything created in the app (profiles, progress and drawings) is stored on the device and only leaves it if an adult shares it or has system backups turned on.
+
+## Who publishes the app
+
+Pilas is a free, open-source app published by the apps-gratis team under the developer name shown on its Google Play and App Store listings. The source code is at github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis.
+
+## What information the app handles and where it stays
+
+So that each child has their own progress, an adult can create profiles with:
+
+- a name or nickname (a real name is not needed),
+- an avatar chosen from a list of drawings,
+- the year and month of birth, only to suggest games for that age,
+- whether the child is left-handed, to adapt tracing.
+
+The app also stores on the device each profile's progress in the games, the stickers earned, the drawings the child makes and, in teacher mode, classroom groups and their profiles.
+
+All of this lives in the app's private storage on the device. We do not receive it, see it or have any way to recover it.
+
+## What the app does not do
+
+- It does not request camera, microphone, location, contacts or photo permissions.
+- It does not use the internet: nothing is sent to our servers or anyone else's.
+- It shows no advertising and has no in-app purchases.
+- It includes no third-party analytics, advertising or tracking tools.
+- It does not use device identifiers for advertising.
+
+The voice that reads instructions and stories is the device's built-in system voice (Android or iOS), which generates the audio on the phone or tablet itself.
+
+## Sharing and exporting
+
+Only an adult, after passing the parental gate (a question a young child cannot answer), can share a drawing, a child's PDF report, a group's table or a copy of the app's data. This uses the system share sheet, and the adult chooses which app or person receives it. From then on, what was shared is subject to the terms of whoever receives it. The app deletes its own copy of exported files the next time it is opened.
+
+## Children
+
+Pilas is made for children aged 3 to 11 and, by design, collects no data from minors: there is no collection, no transmission and no advertising. Settings, profiles, reports and any action that leaves the app are behind the parental gate. The app follows the Google Play Families policies and the App Store Kids category rules, as well as Colombia's Law 1581 of 2012 (personal data protection) and Law 1098 of 2006 (Code of Childhood and Adolescence).
+
+## Security
+
+Data stays in the app's private storage, which other apps cannot access. We recommend protecting the device with a screen lock. If system backups are turned on (Google on Android, iCloud on iOS), the system may include the app's data in them; those backups stay in the Google or Apple account of the adult who owns the device, are governed by their terms, and we have no access to them.
+
+## Retention and deletion
+
+Information stays on the device until an adult deletes it. A profile can be deleted in the app (behind the parental gate), or everything can be deleted by uninstalling the app or clearing its data in the system settings. Since we keep no copies, there is nothing else to delete on our side.
+
+## Your rights
+
+Because we do not collect or keep personal data, we hold no information about you or your children to access, correct or delete. You control everything directly on the device. If you have a question about this, write to us.
+
+## Changes to this policy
+
+If the app changes how it handles information, we will update this policy and its effective date before publishing the new version. Previous versions remain in the repository history.
+
+## Contact
+
+Write to us by opening an issue at github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/issues or at the developer contact email shown on the app's store listing.

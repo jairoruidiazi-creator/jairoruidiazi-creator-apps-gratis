@@ -136,7 +136,7 @@ Future<void> settleForShot(WidgetTester tester, {Duration extra = const Duration
 Future<void> takeStoreShot(WidgetTester tester, StoreDevice device, String lang, String name) async {
   await settleForShot(tester);
   final RenderRepaintBoundary boundary = storeShotBoundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-  final Uint8List? png = await tester.runAsync(() async {
+  final Uint8List? png = await tester.runAsync<Uint8List?>(() async {
     final ui.Image image = await boundary.toImage(pixelRatio: device.pixelRatio);
     final ByteData? data = await image.toByteData(format: ui.ImageByteFormat.png);
     image.dispose();

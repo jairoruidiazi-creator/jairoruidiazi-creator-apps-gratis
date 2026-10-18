@@ -23,19 +23,31 @@ Future<void> main() async {
   await settings.load();
   final JsonStore store = JsonStore();
 
-  // Llave del libro en el Keystore/Llavero; si falla (ROM rara), llave en archivo privado.
+  // Llave del libro en el Keystore/Llavero; si falla (ROM rara), llave en archivo
+  // privado. Una vez que se usó el archivo, se sigue usando: si el llavero
+  // volviera a funcionar, crearía una llave nueva que no abre los datos.
   KeyStore keys = SecureKeyStore();
   CryptoBox box;
-  try {
+  final FileKeyStore fileKeys = FileKeyStore(store);
+  if (await fileKeys.read(CryptoBox.keyName) != null) {
+    keys = fileKeys;
     box = await CryptoBox.fromKeyStore(keys);
-  } catch (e) {
-    debugPrint('Llavero no disponible, usando llave local: $e');
-    keys = FileKeyStore(store);
-    box = await CryptoBox.fromKeyStore(keys);
+  } else {
+    try {
+      box = await CryptoBox.fromKeyStore(keys);
+    } catch (e) {
+      debugPrint('Llavero no disponible, usando llave local: $e');
+      keys = fileKeys;
+      box = await CryptoBox.fromKeyStore(keys);
+    }
   }
   final EncryptedStore encrypted = EncryptedStore(store, box);
   final Ledger ledger = Ledger(encrypted, spanish: settings.spanish);
   await ledger.load();
+  // Las exportaciones (CSV, Excel, copias) ya se compartieron y no van cifradas;
+  // las fotos de recibos huérfanas se borran.
+  await store.clear('exports');
+  await ledger.pruneAttachments();
 
   final AppLock lock = AppLock(keys, auth: LocalAuthentication());
   await lock.load();

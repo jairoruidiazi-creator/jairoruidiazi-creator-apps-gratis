@@ -113,6 +113,21 @@ class JsonStore {
     return out;
   }
 
+  /// Borra todos los archivos de una carpeta (por ejemplo, las exportaciones
+  /// que ya se compartieron).
+  Future<int> clear(String relativeDir) async {
+    int n = 0;
+    for (final String rel in await list(relativeDir)) {
+      try {
+        await delete(rel);
+        n++;
+      } catch (_) {
+        // Un archivo en uso se borra la próxima vez.
+      }
+    }
+    return n;
+  }
+
   Future<String> absolutePath(String relativePath) async {
     final File file = await _file(relativePath);
     return file.path;

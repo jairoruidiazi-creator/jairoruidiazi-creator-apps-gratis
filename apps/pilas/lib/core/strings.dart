@@ -64,6 +64,8 @@ class S {
   static const String informePdf = 'Informe en PDF';
   static const String modoDocente = 'Modo docente';
   static const String creditos = 'Créditos y licencias';
+  static const String politicaPrivacidad = 'Política de privacidad';
+  static const String licenciasSoftware = 'Licencias de software';
   static const String acercaDe = 'Acerca de Pilas';
   static const String voz = 'Voz que lee las instrucciones';
   static const String velocidadVoz = 'Velocidad de la voz';

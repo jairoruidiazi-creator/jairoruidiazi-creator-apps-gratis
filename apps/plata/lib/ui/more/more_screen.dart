@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
+import '../legal/legal_document.dart';
 import '../widgets/adaptive.dart';
 import 'accounts_screen.dart';
 import 'backup_screen.dart';
@@ -42,6 +43,7 @@ class MoreScreen extends StatelessWidget {
             _tile(context, Icons.backup_outlined, t(context, 'Copias de seguridad', 'Backups'), t(context, 'Exportar, importar y copias automáticas', 'Export, import and automatic copies'), const BackupScreen()),
             _tile(context, Icons.settings_outlined, t(context, 'Ajustes', 'Settings'), t(context, 'Periodo, moneda, recordatorios, tema, idioma', 'Period, currency, reminders, theme, language'), const SettingsScreen()),
             _tile(context, Icons.help_outline, t(context, 'Guía y acerca de', 'Guide and about'), t(context, 'Cómo sacarle provecho a Plata', 'How to get the most out of Plata'), const GuideScreen()),
+            _tile(context, Icons.privacy_tip_outlined, t(context, 'Política de privacidad', 'Privacy policy'), t(context, 'Qué datos maneja Plata y dónde quedan', 'What data Plata handles and where it stays'), PrivacyPolicyScreen(spanish: s.settings.spanish)),
           ],
         ),
       ),

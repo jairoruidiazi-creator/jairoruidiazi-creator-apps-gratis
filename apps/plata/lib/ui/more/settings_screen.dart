@@ -4,7 +4,9 @@ import '../../core/app_scope.dart';
 import '../../core/ledger.dart';
 import '../../core/periods.dart';
 import '../../core/reminders.dart';
+import '../../model/models.dart';
 import '../../model/money.dart';
+import '../widgets/common.dart';
 import '../widgets/adaptive.dart';
 
 /// Ajustes generales.
@@ -44,18 +46,32 @@ class SettingsScreen extends StatelessWidget {
                   value: l.baseCurrency,
                   underline: const SizedBox.shrink(),
                   items: <DropdownMenuItem<String>>[for (final String c in currencies) DropdownMenuItem<String>(value: c, child: Text(c))],
-                  onChanged: (String? v) {
+                  onChanged: (String? v) async {
                     if (v == null || v == l.baseCurrency) {
                       return;
                     }
-                    l.baseCurrency = v;
-                    l.rates.rates.clear();
-                    l.rates.manual.clear();
-                    l.rates.updatedAt = null;
-                    l.save();
-                    if (!s.settings.extraCurrencies.contains(v)) {
-                      s.settings.extraCurrencies = <String>[...s.settings.extraCurrencies, v];
-                      s.settings.save();
+                    final bool ok = await confirm(
+                      context,
+                      t(context, '¿Cambiar la moneda base a $v?', 'Change the base currency to $v?'),
+                      t(context, 'Los totales, informes y presupuestos se mostrarán en $v. Las cuentas en ${l.baseCurrency} se convertirán con la tasa de cambio actual.', 'Totals, reports and budgets will be shown in $v. Accounts in ${l.baseCurrency} will be converted at the current exchange rate.'),
+                      yes: t(context, 'Cambiar', 'Change'),
+                    );
+                    if (!ok) {
+                      return;
+                    }
+                    final String old = l.baseCurrency;
+                    l.changeBaseCurrency(v);
+                    s.settings.extraCurrencies = <String>{...s.settings.extraCurrencies, old}.where((String c) => c != v).toList();
+                    await s.settings.save();
+                    final Set<String> foreign = <String>{...s.settings.extraCurrencies, ...l.accounts.map((Account a) => a.currency)}..remove(v);
+                    if (s.settings.ratesAuto && foreign.isNotEmpty) {
+                      try {
+                        if (await s.rates.refresh(l.rates, base: v, currencies: foreign)) {
+                          l.save();
+                        }
+                      } catch (_) {
+                        // Sin conexión: se intentará de nuevo al abrir la app o desde Más › Monedas.
+                      }
                     }
                   },
                 ),

@@ -7,6 +7,7 @@ import '../../games/shell/widgets.dart';
 import '../../model/age_band.dart';
 import '../../model/profile.dart';
 import '../../model/progress.dart';
+import '../legal/legal_document.dart';
 import '../profile_edit_screen.dart';
 import 'child_report_screen.dart';
 import 'credits_screen.dart';
@@ -58,6 +59,14 @@ class ParentPanel extends StatelessWidget {
                   subtitle: const Text('Grupos, tabla del curso y exportación'),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const TeacherScreen())),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.privacy_tip_outlined),
+                  title: const Text(S.politicaPrivacidad),
+                  subtitle: const Text('Qué datos maneja Pilas y dónde quedan'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PrivacyPolicyScreen(spanish: true))),
                 ),
                 const Divider(height: 1),
                 ListTile(

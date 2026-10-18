@@ -72,10 +72,6 @@
 	<string>Plata usa la cámara para adjuntar la foto de un recibo a un movimiento.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Plata accede a tus fotos para adjuntar un recibo a un movimiento.</string>
-	<key>UIFileSharingEnabled</key>
-	<true/>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<true/>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>es</string>

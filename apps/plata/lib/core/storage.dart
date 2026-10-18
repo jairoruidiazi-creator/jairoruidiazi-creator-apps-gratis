@@ -4,7 +4,9 @@ import 'dart:typed_data';
 
 import 'package:path_provider/path_provider.dart';
 
-/// Guarda y lee archivos JSON y binarios en la carpeta de documentos de la app.
+/// Guarda y lee archivos JSON y binarios en la carpeta privada de la app
+/// (Application Support en iOS, `files` en Android): no se ve en la app
+/// Archivos y el sistema no la copia a la nube (ver docs/DECISIONES.md).
 /// Las escrituras son atómicas: se escribe un archivo temporal y se renombra.
 class JsonStore {
   JsonStore({Directory? root}) : _rootOverride = root;
@@ -16,8 +18,21 @@ class JsonStore {
     if (_root != null) {
       return _root!;
     }
-    final Directory base = _rootOverride ?? await getApplicationDocumentsDirectory();
-    final Directory dir = Directory('${base.path}${Platform.pathSeparator}plata');
+    final String sep = Platform.pathSeparator;
+    final Directory base = _rootOverride ?? await getApplicationSupportDirectory();
+    final Directory dir = Directory('${base.path}${sep}plata');
+    if (_rootOverride == null && !await dir.exists()) {
+      // Las versiones de prueba guardaban en Documentos: se mueve una sola vez.
+      try {
+        final Directory old = Directory('${(await getApplicationDocumentsDirectory()).path}${sep}plata');
+        if (await old.exists()) {
+          await base.create(recursive: true);
+          await old.rename(dir.path);
+        }
+      } catch (_) {
+        // Si no se puede mover, se empieza en la carpeta nueva; la vieja queda intacta.
+      }
+    }
     if (!await dir.exists()) {
       await dir.create(recursive: true);
     }
@@ -111,6 +126,21 @@ class JsonStore {
     }
     out.sort();
     return out;
+  }
+
+  /// Borra todos los archivos de una carpeta (por ejemplo, las exportaciones
+  /// ya compartidas, que no van cifradas).
+  Future<int> clear(String relativeDir) async {
+    int n = 0;
+    for (final String rel in await list(relativeDir)) {
+      try {
+        await delete(rel);
+        n++;
+      } catch (_) {
+        // Un archivo en uso se borra la próxima vez.
+      }
+    }
+    return n;
   }
 
   Future<String> absolutePath(String relativePath) async {

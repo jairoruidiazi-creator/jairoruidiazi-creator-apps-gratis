@@ -19,7 +19,9 @@ class AppSettings extends ChangeNotifier {
   bool noticesAutoPost = false;
   bool ratesAuto = true;
   bool autoBackup = true;
-  List<String> extraCurrencies = <String>['USD'];
+  /// Monedas además de la principal. Vacía al instalar: sin monedas extra la
+  /// app no se conecta a internet.
+  List<String> extraCurrencies = <String>[];
   DateTime? lastBackupAt;
   DateTime? lastRatesAttempt;
   bool hideBalances = false;
@@ -43,7 +45,7 @@ class AppSettings extends ChangeNotifier {
     noticesAutoPost = p.getBool('noticesAutoPost') ?? false;
     ratesAuto = p.getBool('ratesAuto') ?? true;
     autoBackup = p.getBool('autoBackup') ?? true;
-    extraCurrencies = p.getStringList('extraCurrencies') ?? <String>['USD'];
+    extraCurrencies = p.getStringList('extraCurrencies') ?? <String>[];
     lastBackupAt = DateTime.tryParse(p.getString('lastBackupAt') ?? '');
     lastRatesAttempt = DateTime.tryParse(p.getString('lastRatesAttempt') ?? '');
     hideBalances = p.getBool('hideBalances') ?? false;

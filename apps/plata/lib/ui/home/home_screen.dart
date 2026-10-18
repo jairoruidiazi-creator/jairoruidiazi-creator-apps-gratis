@@ -8,6 +8,7 @@ import '../../core/ledger.dart';
 import '../../core/periods.dart';
 import '../../model/models.dart';
 import '../more/accounts_screen.dart';
+import '../more/currencies_screen.dart';
 import '../more/notices_screen.dart';
 import '../more/scheduled_screen.dart';
 import '../more/templates_screen.dart';
@@ -165,6 +166,7 @@ class HomeScreen extends StatelessWidget {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final int net = l.netWorthMinor();
     final int debt = l.debtMinor();
+    final List<String> missing = l.currenciesWithoutRate();
     return Card(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -177,6 +179,25 @@ class HomeScreen extends StatelessWidget {
                   Text(t(context, 'Patrimonio neto', 'Net worth'), style: TextStyle(color: cs.onSurface.withValues(alpha: 0.65))),
                   Text(money(context, net, l.baseCurrency), style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: net < 0 ? kindColor(context, TxKind.expense) : cs.onSurface, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
                   if (debt > 0) Text('${t(context, 'Deudas', 'Debt')}: ${money(context, debt, l.baseCurrency)}', style: TextStyle(color: kindColor(context, TxKind.expense), fontSize: 13)),
+                  if (missing.isNotEmpty)
+                    InkWell(
+                      onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const CurrenciesScreen())),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Row(
+                          children: <Widget>[
+                            Icon(Icons.warning_amber_rounded, size: 16, color: cs.tertiary),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                t(context, 'Sin tasa para ${missing.join(', ')}: se suma 1:1', 'No rate for ${missing.join(', ')}: counted 1:1'),
+                                style: TextStyle(color: cs.tertiary, fontSize: 12.5, decoration: TextDecoration.underline, decorationColor: cs.tertiary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
