@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sello/core/app_scope.dart';
 import 'package:sello/core/app_state.dart';
 import 'package:sello/core/backup.dart';
+import 'package:sello/core/device_files.dart';
 import 'package:sello/core/exports.dart';
 import 'package:sello/core/settings.dart';
 import 'package:sello/core/sharing.dart';
@@ -30,6 +31,8 @@ void main() {
   late Services services;
   late FakeDeviceFiles files;
   final List<ShareParams> shared = <ShareParams>[];
+  // Si los archivos existían mientras la hoja de compartir estaba abierta.
+  final List<bool> existedWhileSharing = <bool>[];
 
   setUp(() async {
     tmp = await Directory.systemTemp.createTemp('sello_share');
@@ -49,7 +52,9 @@ void main() {
     files = FakeDeviceFiles(picker: false);
     services = Services(settings: settings, state: state, store: state.store, location: LocationService(backend: FakeLocationBackend()), heading: HeadingService(useSystemHeading: false), files: files);
     shared.clear();
+    existedWhileSharing.clear();
     shareSheet = (ShareParams p) async {
+      existedWhileSharing.add((p.files ?? <XFile>[]).every((XFile f) => File(f.path).existsSync()));
       shared.add(p);
       return const ShareResult('ok', ShareResultStatus.success);
     };
@@ -148,7 +153,13 @@ void main() {
     await tester.tap(find.text('Crear'));
     await waitReal(tester, () => shared.isNotEmpty, maxTenths: 150);
     expectAnchoredOn(tester, button);
-    expect(shared.last.files!.single.path, endsWith('.zip'));
+    final String zip = shared.last.files!.single.path;
+    expect(zip, endsWith('.zip'));
+    // La hoja de compartir la tuvo; al cerrarse, la copia de la app se borra
+    // (en iPhone quedaba en Documents/sello/exports: M2 de la ronda 5).
+    expect(existedWhileSharing.last, isTrue);
+    await waitReal(tester, () => !File(zip).existsSync());
+    expect(File(zip).existsSync(), isFalse);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
@@ -286,49 +297,84 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
-    testWidgets('iPhone: la copia que deja el selector en tmp se borra al terminar o al fallar (M4 de la ronda 4)', (WidgetTester tester) async {
+    testWidgets('iPhone: la copia que deja el selector en tmp/…-Inbox se borra al terminar, al fallar o al cancelar (M1 de la ronda 5)', (WidgetTester tester) async {
       final String zip = '${tmp.path}/copia.zip';
       await tester.runAsync(() async {
         await writeZipFile(zip, await Backup.entries(services.state));
         await services.state.deletePhotos(services.state.photos.toList());
       });
-      // Restaurada con éxito.
-      final String copy = '${tmp.path}/tmp/copia-selector.zip';
-      File(copy).parent.createSync(recursive: true);
-      File(zip).copySync(copy);
+      // Como en el teléfono: TMPDIR del contenedor y Library/Caches.
+      final String inbox = '${tmp.path}/tmp/co.appsgratis.sello-Inbox';
+      Directory(inbox).createSync(recursive: true);
       files
         ..picker = false
         ..free = 8 * 1024 * 1024 * 1024
-        ..toPickCopy = copy;
-      await openSettings(tester, 'Restaurar una copia');
-      await waitReal(tester, () => find.text('Restaurar').evaluate().isNotEmpty);
-      await tester.tap(find.text('Restaurar'));
-      await waitReal(tester, () => find.textContaining('Copia restaurada').evaluate().isNotEmpty, maxTenths: 150);
-      await waitReal(tester, () => files.deletedCopies.isNotEmpty);
-      expect(files.deletedCopies, <String>[copy]);
-      expect(File(copy).existsSync(), isFalse);
-      await tester.pumpWidget(const SizedBox.shrink());
-      // Un archivo que no es una copia: falla, y la copia también se borra.
-      final String bad = '${tmp.path}/tmp/otro.zip';
+        ..tempDirs = <String>['${tmp.path}/tmp/', '${tmp.path}/Library/Caches'];
+      Future<void> restore(String picked, String expected, {bool cancel = false}) async {
+        files.toPickCopy = picked;
+        await openSettings(tester, 'Restaurar una copia');
+        if (cancel) {
+          await waitReal(tester, () => find.text('Cancelar').evaluate().isNotEmpty);
+          await tester.tap(find.text('Cancelar'));
+          await waitReal(tester, () => !File(picked).existsSync());
+        } else {
+          await waitReal(tester, () => find.text('Restaurar').evaluate().isNotEmpty);
+          await tester.tap(find.text('Restaurar'));
+          await waitReal(tester, () => find.textContaining(expected).evaluate().isNotEmpty, maxTenths: 150);
+          await waitReal(tester, () => !File(picked).existsSync());
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+
+      // Con éxito.
+      final String ok = '$inbox/copia.zip';
+      File(zip).copySync(ok);
+      await restore(ok, 'Copia restaurada');
+      expect(File(ok).existsSync(), isFalse);
+      // La carpeta del selector quedó vacía y también se borró.
+      expect(Directory(inbox).existsSync(), isFalse);
+      // Un archivo que no es una copia: falla y la copia igual se borra.
+      Directory(inbox).createSync(recursive: true);
+      final String bad = '$inbox/otro.zip';
       await tester.runAsync(() => writeZipFile(bad, <ArchiveEntry>[const ArchiveEntry.bytes('hola.txt', <int>[104, 111, 108, 97])]));
-      files.toPickCopy = bad;
-      await openSettings(tester, 'Restaurar una copia');
-      await waitReal(tester, () => find.text('Restaurar').evaluate().isNotEmpty);
-      await tester.tap(find.text('Restaurar'));
-      await waitReal(tester, () => find.textContaining('no es una copia de Sello').evaluate().isNotEmpty, maxTenths: 150);
-      await waitReal(tester, () => files.deletedCopies.length == 2);
+      await restore(bad, 'no es una copia de Sello');
       expect(File(bad).existsSync(), isFalse);
-      // Y si se cancela en el diálogo.
-      final String third = '${tmp.path}/tmp/tercera.zip';
+      // Cancelar en el diálogo.
+      Directory(inbox).createSync(recursive: true);
+      final String third = '$inbox/tercera.zip';
       File(zip).copySync(third);
-      files.toPickCopy = third;
-      await tester.pumpWidget(const SizedBox.shrink());
+      await restore(third, '', cancel: true);
+      expect(File(third).existsSync(), isFalse);
+      // Un archivo fuera de las carpetas temporales nunca se borra.
+      final String mine = '${tmp.path}/Documents/mia.zip';
+      File(mine).parent.createSync(recursive: true);
+      File(zip).copySync(mine);
+      files.toPickCopy = mine;
       await openSettings(tester, 'Restaurar una copia');
       await waitReal(tester, () => find.text('Cancelar').evaluate().isNotEmpty);
       await tester.tap(find.text('Cancelar'));
-      await waitReal(tester, () => files.deletedCopies.length == 3);
-      expect(File(third).existsSync(), isFalse);
+      await waitReal(tester, () => false, maxTenths: 5);
+      expect(File(mine).existsSync(), isTrue);
       await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    test('Qué cuenta como copia del selector: rutas reales de iOS (M1 de la ronda 5)', () {
+      const String container = '/private/var/mobile/Containers/Data/Application/6F1B2C3D-0000-4E5F-9A8B-1234567890AB';
+      // Directory.systemTemp (TMPDIR) y getTemporaryDirectory() (Library/Caches) en un iPhone.
+      const List<String> dirs = <String>['$container/tmp/', '/var/mobile/Containers/Data/Application/6F1B2C3D-0000-4E5F-9A8B-1234567890AB/Library/Caches'];
+      expect(isPickerCopy('$container/tmp/co.appsgratis.sello-Inbox/sello_copia_20261018_1005.zip', dirs), isTrue);
+      // La misma ruta sin /private delante.
+      expect(isPickerCopy('/var/mobile/Containers/Data/Application/6F1B2C3D-0000-4E5F-9A8B-1234567890AB/tmp/co.appsgratis.sello-Inbox/copia.zip', dirs), isTrue);
+      expect(isPickerCopy('$container/Library/Caches/copia.zip', dirs), isTrue);
+      // Lo que no es temporal: Documents de la app, iCloud Drive, otra app, la carpeta misma, rutas con "..".
+      expect(isPickerCopy('$container/Documents/sello/photos/general/a.jpg', dirs), isFalse);
+      expect(isPickerCopy('/private/var/mobile/Library/Mobile Documents/com~apple~CloudDocs/copia.zip', dirs), isFalse);
+      expect(isPickerCopy('/private/var/mobile/Containers/Data/Application/OTRA/tmp/copia.zip', dirs), isFalse);
+      expect(isPickerCopy('$container/tmp', dirs), isFalse);
+      expect(isPickerCopy('$container/tmp/../Documents/copia.zip', dirs), isFalse);
+      // Sin carpetas temporales no se borra nada.
+      expect(isPickerCopy('$container/tmp/x.zip', const <String>[]), isFalse);
+      expect(isPickerCopy('/x.zip', const <String>['/']), isFalse);
     });
 
     Future<String> backupWithoutPhotos(WidgetTester tester) async {

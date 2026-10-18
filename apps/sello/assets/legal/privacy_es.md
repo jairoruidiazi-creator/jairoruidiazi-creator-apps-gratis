@@ -37,7 +37,7 @@ Ninguno de estos servicios recibe tus fotos, tus proyectos ni tus notas, y nosot
 
 ## Compartir y exportar
 
-Tú decides cuándo compartir una foto o exportar un proyecto (CSV, KML, KMZ, ZIP o PDF). Las fotos compartidas llevan el sello y sus metadatos con la ubicación; si prefieres, la opción "Compartir sin EXIF" quita los metadatos sin tocar el sello dibujado. La copia completa (Ajustes › Copia de seguridad) es un archivo ZIP con todas tus fotos y sus datos, incluida la ubicación, que tú guardas donde quieras para pasarlos a otro teléfono. Lo que compartes queda sujeto a las condiciones de quien lo recibe. La app borra su propio ejemplar de cada exportación la siguiente vez que la abres.
+Tú decides cuándo compartir una foto o exportar un proyecto (CSV, KML, KMZ, ZIP o PDF). Las fotos compartidas llevan el sello y sus metadatos con la ubicación; si prefieres, la opción "Compartir sin EXIF" quita los metadatos sin tocar el sello dibujado. La copia completa (Ajustes › Copia de seguridad) es un archivo ZIP con todas tus fotos y sus datos, incluida la ubicación, que tú guardas donde quieras para pasarlos a otro teléfono. Lo que compartes queda sujeto a las condiciones de quien lo recibe. La app borra su propio ejemplar de la copia completa en cuanto la guardas o cierras la hoja de compartir, y el de las demás exportaciones la siguiente vez que la abres.
 
 ## Niños
 

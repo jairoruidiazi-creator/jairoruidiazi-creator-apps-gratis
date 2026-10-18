@@ -441,19 +441,16 @@ class FakeDeviceFiles extends DeviceFiles {
 
   /// iPhone: la copia que el selector de archivos deja en tmp (null: cancela).
   String? toPickCopy;
-  final List<String> deletedCopies = <String>[];
+
+  /// Carpetas temporales simuladas. Borrar la copia usa la lógica real
+  /// ([DeviceFiles.deletePickedCopy] con [isPickerCopy]).
+  List<String> tempDirs = <String>[];
 
   @override
   Future<String?> pickZipCopy() async => toPickCopy;
 
   @override
-  Future<void> deletePickedCopy(String path) async {
-    deletedCopies.add(path);
-    final File f = File(path);
-    if (f.existsSync()) {
-      f.deleteSync();
-    }
-  }
+  Future<List<String>> temporaryDirs() async => tempDirs;
 
   @override
   Future<PickedDocument?> pickDocument({List<String> mimes = const <String>[]}) async {

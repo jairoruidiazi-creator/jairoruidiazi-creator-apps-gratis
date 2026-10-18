@@ -61,7 +61,7 @@ El permiso de micrófono que declara el complemento de cámara se elimina del ma
 
 ## App Store Connect
 
-**Privacidad de la app:** "Datos recopilados" › **Ubicación precisa** › finalidad **Funcionalidad de la app**, **no vinculada** a la identidad del usuario y **no usada para rastreo**. Cubre también la zona que reciben los servidores de teselas de OpenStreetMap (menos precisa). Coincide con `ios/Runner/PrivacyInfo.xcprivacy` (`NSPrivacyCollectedDataTypePreciseLocation`, sin rastreo).
+**Privacidad de la app:** "Datos recopilados" › **Ubicación precisa** › finalidad **Funcionalidad de la app**, **no vinculada** a la identidad del usuario y **no usada para rastreo**. Cubre también la zona que reciben los servidores de teselas de OpenStreetMap (menos precisa). Coincide con `ios/Runner/PrivacyInfo.xcprivacy` (`NSPrivacyCollectedDataTypePreciseLocation`, sin rastreo). **API de motivo requerido** declaradas en el mismo manifiesto: `NSPrivacyAccessedAPICategoryUserDefaults` (`CA92.1`, los ajustes de la app) y `NSPrivacyAccessedAPICategoryDiskSpace` (`E174.1`, comprobar que haya espacio antes de escribir la copia completa o restaurarla, y `85F4.1`, el diálogo le muestra al usuario cuánto espacio libre hay), por `volumeAvailableCapacityForImportantUsageKey` en `SelloFiles.freeBytes()` (`native/ios/AppDelegate.swift`). La CI comprueba con `tools/ci/check_privacy_apis.py` que cada API de ese tipo que use el código nativo propio esté declarada.
 
 **Clasificación por edad:** todas las preguntas en "Ninguno"/"No". Resultado esperado: 4+.
 

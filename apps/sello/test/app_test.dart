@@ -400,6 +400,56 @@ void main() {
     });
   }
 
+  testWidgets('Con la app abierta sigue el cambio de idioma del teléfono, y «Idioma del teléfono» vuelve a seguirlo (M3 de la ronda 5)', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.625;
+    addTearDown(tester.view.reset);
+    tester.platformDispatcher.localeTestValue = const Locale('en', 'US');
+    tester.platformDispatcher.localesTestValue = const <Locale>[Locale('en', 'US')];
+    addTearDown(tester.platformDispatcher.clearLocaleTestValue);
+    addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final AppSettings settings = AppSettings.forDevice();
+    await settings.load();
+    final LocationService location = LocationService();
+    final Services s = Services(settings: settings, state: services.state, store: services.store, location: location, heading: HeadingService());
+    await tester.pumpWidget(SelloApp(services: s, cameraEnabled: false));
+    await tester.pump();
+    expect(find.widgetWithText(NavigationDestination, 'Gallery'), findsOneWidget);
+    // El usuario pone el teléfono en español sin cerrar la app (Android no la reinicia).
+    tester.platformDispatcher.localeTestValue = const Locale('es', 'CO');
+    tester.platformDispatcher.localesTestValue = const <Locale>[Locale('es', 'CO')];
+    await tester.pump();
+    expect(find.widgetWithText(NavigationDestination, 'Galería'), findsOneWidget);
+    expect(location.localeIdentifier, 'es_CO');
+    // Elige inglés en Ajustes: queda fijo aunque el teléfono siga en español.
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Galería'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: find.byType(AppBar), matching: find.byTooltip('Ajustes')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('English'));
+    await tester.pumpAndSettle();
+    expect(settings.language, 'en');
+    expect(settings.followsDeviceLanguage, isFalse);
+    expect((await SharedPreferences.getInstance()).getString('language'), 'en');
+    tester.platformDispatcher.localeTestValue = const Locale('es', 'MX');
+    await tester.pump();
+    expect(settings.language, 'en');
+    // «Idioma del teléfono»: vuelve a seguirlo y se borra lo elegido.
+    await tester.tap(find.text('Phone language'));
+    await tester.pumpAndSettle();
+    expect(settings.followsDeviceLanguage, isTrue);
+    expect(settings.language, 'es');
+    expect(location.localeIdentifier, 'es_CO');
+    expect(find.text('Idioma del teléfono'), findsOneWidget);
+    expect((await SharedPreferences.getInstance()).getString('language'), isNull);
+    final AppSettings again = AppSettings.forDevice();
+    await again.load();
+    expect(again.followsDeviceLanguage, isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   test('Los ajustes se guardan en preferencias', () async {
     final AppSettings s = services.settings;
     // Sin ajuste guardado, la resolución máxima (M15).

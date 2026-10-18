@@ -37,11 +37,19 @@ class SettingsScreen extends StatelessWidget {
             children: <Widget>[
               _Section(t(context, 'Idioma y apariencia', 'Language and appearance')),
               _left(SegmentedButton<String>(
-                segments: const <ButtonSegment<String>>[ButtonSegment<String>(value: 'es', label: Text('Español')), ButtonSegment<String>(value: 'en', label: Text('English'))],
-                selected: <String>{st.language},
+                segments: <ButtonSegment<String>>[
+                  ButtonSegment<String>(value: 'device', label: Text(t(context, 'Idioma del teléfono', 'Phone language'))),
+                  const ButtonSegment<String>(value: 'es', label: Text('Español')),
+                  const ButtonSegment<String>(value: 'en', label: Text('English')),
+                ],
+                selected: <String>{st.followsDeviceLanguage ? 'device' : st.language},
                 showSelectedIcon: false,
                 onSelectionChanged: (Set<String> v) {
-                  st.language = v.first;
+                  if (v.first == 'device') {
+                    st.useDeviceLanguage();
+                  } else {
+                    st.language = v.first;
+                  }
                   s.location.localeIdentifier = st.geocoderLocale;
                   save();
                 },
@@ -472,11 +480,11 @@ Future<void> createBackup(BuildContext buttonContext) async {
     progress.close();
     messenger.showSnackBar(SnackBar(content: Text(isNoSpaceError(e) ? k('No hay espacio para la copia donde elegiste guardarla (o en el teléfono). Libera espacio o elige otro lugar.', 'There is no space for the backup where you chose to save it (or on the phone). Free up space or choose another place.') : '${k('No se pudo crear la copia', 'Could not create the backup')}: ${errorReason(e, spanish: spanish)}.')));
   } finally {
-    // En Android la copia ya quedó donde se eligió: la de la app sobra. En
-    // iPhone la hoja de compartir la necesita; se borra al abrir la app.
-    if (picker) {
-      await _deleteQuietly(path);
-    }
+    // La copia de la app sobra en cuanto queda donde se eligió (Android) o
+    // se cierra la hoja de compartir (iPhone: share_plus espera a que se
+    // cierre, y las acciones ya copiaron el archivo). Así no ocupa el doble
+    // ni queda en Documents, que se ve en Archivos y entra en iCloud.
+    await _deleteQuietly(path);
   }
 }
 

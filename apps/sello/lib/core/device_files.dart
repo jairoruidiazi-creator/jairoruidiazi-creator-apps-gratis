@@ -71,14 +71,33 @@ class DeviceFiles {
     return (await openFile(acceptedTypeGroups: <XTypeGroup>[zip]))?.path;
   }
 
-  /// Borra la copia que dejó [pickZipCopy], solo si está en la carpeta
-  /// temporal de la app (nunca un archivo del usuario).
+  /// Carpetas temporales de la app. En iPhone, la copia del selector queda
+  /// en `tmp/<bundle>-Inbox` del contenedor (TMPDIR, [Directory.systemTemp]);
+  /// `getTemporaryDirectory()` es `Library/Caches`, otra carpeta.
+  Future<List<String>> temporaryDirs() async {
+    final List<String> dirs = <String>[Directory.systemTemp.path];
+    try {
+      dirs.add((await getTemporaryDirectory()).path);
+    } catch (_) {}
+    return dirs;
+  }
+
+  /// Borra la copia que dejó [pickZipCopy], solo si está dentro de una
+  /// carpeta temporal de la app (nunca un archivo del usuario), y la
+  /// carpeta `…-Inbox` que la contenía si quedó vacía.
   Future<void> deletePickedCopy(String path) async {
     try {
-      final String tmp = (await getTemporaryDirectory()).resolveSymbolicLinksSync();
-      final File f = File(File(path).resolveSymbolicLinksSync());
-      if (f.path.startsWith('$tmp${Platform.pathSeparator}') && await f.exists()) {
+      if (!isPickerCopy(path, await temporaryDirs())) {
+        debugPrint('No se borra (no está en una carpeta temporal): $path');
+        return;
+      }
+      final File f = File(path);
+      if (await f.exists()) {
         await f.delete();
+      }
+      final Directory parent = f.parent;
+      if (parent.path.endsWith('-Inbox') && await parent.exists() && await parent.list().isEmpty) {
+        await parent.delete();
       }
     } catch (e) {
       debugPrint('No se pudo borrar la copia del selector: $e');
@@ -139,4 +158,32 @@ class DeviceFiles {
       _onProgress = null;
     }
   }
+}
+
+/// Verdadero si [path] está dentro de alguna de [tempDirs] (y no es la
+/// carpeta misma). Las rutas de iOS llegan a veces con `/private` delante
+/// (`/private/var/mobile/…`) y a veces sin él: se comparan sin ese prefijo.
+bool isPickerCopy(String path, Iterable<String> tempDirs) {
+  String norm(String p) {
+    String s = p.replaceAll('\\', '/');
+    if (s.startsWith('/private/')) {
+      s = s.substring('/private'.length);
+    }
+    while (s.length > 1 && s.endsWith('/')) {
+      s = s.substring(0, s.length - 1);
+    }
+    return s;
+  }
+
+  final String file = norm(path);
+  if (file.split('/').contains('..')) {
+    return false;
+  }
+  for (final String d in tempDirs) {
+    final String dir = norm(d);
+    if (dir.length > 1 && file.startsWith('$dir/')) {
+      return true;
+    }
+  }
+  return false;
 }

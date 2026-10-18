@@ -10,12 +10,15 @@ String appLanguageFor(Locale? device) => device?.languageCode.toLowerCase() == '
 class AppSettings extends ChangeNotifier {
   /// [deviceLocale] es el idioma del teléfono: manda mientras el usuario no
   /// elija otro en Ajustes. Sin él (pruebas), español.
-  AppSettings({this.deviceLocale});
+  AppSettings({Locale? deviceLocale}) : _deviceLocale = deviceLocale;
 
   /// Con el idioma que tiene el teléfono ahora.
   factory AppSettings.forDevice() => AppSettings(deviceLocale: WidgetsBinding.instance.platformDispatcher.locale);
 
-  final Locale? deviceLocale;
+  Locale? _deviceLocale;
+
+  /// Idioma del teléfono que se conoce (null en pruebas: español).
+  Locale? get deviceLocale => _deviceLocale;
   SharedPreferences? _prefs;
 
   String _language = 'es';
@@ -28,6 +31,32 @@ class AppSettings extends ChangeNotifier {
   set language(String v) {
     _language = v;
     _languageChosen = true;
+  }
+
+  /// La app sigue el idioma del teléfono (nadie eligió otro en Ajustes).
+  bool get followsDeviceLanguage => !_languageChosen;
+
+  String get _deviceLanguage => _deviceLocale == null ? 'es' : appLanguageFor(_deviceLocale);
+
+  /// «Idioma del teléfono» en Ajustes: deja de usar el elegido y vuelve a
+  /// seguir al sistema (al guardar se borra la preferencia).
+  void useDeviceLanguage() {
+    _languageChosen = false;
+    _language = _deviceLanguage;
+  }
+
+  /// El usuario cambió el idioma del teléfono con la app abierta
+  /// (`didChangeLocales`): si la app lo sigue, cambia ya, sin reiniciarla.
+  void deviceLocaleChanged(Locale? locale) {
+    _deviceLocale = locale;
+    if (_languageChosen) {
+      return;
+    }
+    final String next = _deviceLanguage;
+    if (next != _language) {
+      _language = next;
+      notifyListeners();
+    }
   }
 
   /// Idioma del geocodificador (dirección aproximada), el mismo de la app.
@@ -69,7 +98,7 @@ class AppSettings extends ChangeNotifier {
     _prefs = p;
     final String? saved = p.getString('language');
     _languageChosen = saved != null;
-    _language = saved ?? (deviceLocale == null ? 'es' : appLanguageFor(deviceLocale));
+    _language = saved ?? _deviceLanguage;
     themeMode = p.getString('themeMode') ?? 'system';
     resolution = p.getString('resolution') ?? 'max';
     jpegQuality = p.getInt('jpegQuality') ?? 92;
@@ -101,6 +130,8 @@ class AppSettings extends ChangeNotifier {
     }
     if (_languageChosen) {
       await p.setString('language', _language);
+    } else {
+      await p.remove('language');
     }
     await p.setString('themeMode', themeMode);
     await p.setString('resolution', resolution);

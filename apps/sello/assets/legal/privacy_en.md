@@ -37,7 +37,7 @@ None of these services receives your photos, projects or notes, and we receive n
 
 ## Sharing and exporting
 
-You decide when to share a photo or export a project (CSV, KML, KMZ, ZIP or PDF). Shared photos carry the stamp and their location metadata; if you prefer, the "Share without EXIF" option removes the metadata without touching the drawn stamp. The full backup (Settings › Backup) is a ZIP file with all your photos and their data, location included, which you keep wherever you like to move them to another phone. Whatever you share is subject to the terms of whoever receives it. The app deletes its own copy of each export the next time you open it.
+You decide when to share a photo or export a project (CSV, KML, KMZ, ZIP or PDF). Shared photos carry the stamp and their location metadata; if you prefer, the "Share without EXIF" option removes the metadata without touching the drawn stamp. The full backup (Settings › Backup) is a ZIP file with all your photos and their data, location included, which you keep wherever you like to move them to another phone. Whatever you share is subject to the terms of whoever receives it. The app deletes its own copy of the full backup as soon as you save it or close the share sheet, and its copy of other exports the next time you open it.
 
 ## Children
 

@@ -137,6 +137,19 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver, Rout
 
   /// En segundo plano se detiene la ubicación (Sello no la usa en segundo
   /// plano) y al volver se retoma si la cámara o el mapa están a la vista.
+  /// El usuario cambió el idioma del teléfono con la app abierta (en
+  /// Android la actividad no se reinicia): si la app sigue al teléfono,
+  /// cambia ya, y la dirección aproximada también.
+  @override
+  void didChangeLocales(List<Locale>? locales) {
+    final Services? s = _services;
+    if (s == null) {
+      return;
+    }
+    s.settings.deviceLocaleChanged(WidgetsBinding.instance.platformDispatcher.locale);
+    s.location.localeIdentifier = s.settings.geocoderLocale;
+  }
+
   /// "inactive" no cuenta: lo provocan los diálogos de permiso.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
