@@ -45,6 +45,17 @@ cada formulario de las tiendas están en `apps/<app>/store/COMPLIANCE.md`.
    `apps/<app>/ios/Runner.xcodeproj/project.pbxproj` y la variable `PKG`/`app_identifier`
    de `release.yml`. El paquete de Kotlin de Plata (`co.appsgratis.plata`) puede quedarse
    igual: Android permite que difiera del `applicationId`.
+6. **Estado de comerciante en la Unión Europea (Ley de Servicios Digitales, DSA):** para
+   publicar en países de la UE (Pilas va a España; las demás apps, a todos los países que
+   se elijan), App Store Connect exige declarar si el titular es «comerciante» (*trader*)
+   en Negocio › Cumplimiento de la DSA. Desde el 17 de febrero de 2025 Apple retira de la
+   App Store de la UE las apps sin esa declaración. Si se declara comerciante, la ficha
+   muestra dirección, teléfono y correo verificados; si no lo es (apps gratuitas sin
+   ánimo comercial, publicadas por una persona), se declara así y no se muestran. Play
+   Console pide una declaración equivalente en los datos de la cuenta: hay que
+   completarla allí también. Es una decisión del titular y conviene tomarla junto con la
+   del correo de soporte del paso 3. Si no se quiere hacer ahora, basta con no elegir
+   países de la UE en la primera versión.
 
 ## Android, paso a paso
 
