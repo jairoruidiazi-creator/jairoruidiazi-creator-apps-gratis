@@ -97,6 +97,7 @@ Pensada para tocar encima de la música de otra app (una pista de acompañamient
 - **Archivos JSON con escritura atómica (M8).** Cada ruta tiene su cola de escrituras; cada escritura va a un temporal con nombre único y se renombra encima del original, que antes se copia a `.bak`; el original nunca se borra antes de tener el nuevo. Un JSON dañado no se pisa: se aparta como `<archivo>.danado-<fecha>`, se recupera el `.bak` si sirve y la app avisa al abrir.
 - **Todo lo que llega de un archivo se valida (G11):** preajustes, setlists, grabaciones, práctica y ajustes guardados pasan por lectores que comprueban el tipo y acotan cada valor (textos con largo máximo, identificadores con formato, rutas de grabación dentro de su carpeta, intervalos de práctica coherentes). Un archivo importado que no es de Clave se rechaza con un aviso.
 - **Ajustes (M10).** Solo se escriben las claves que cambiaron, y solo el idioma y el tema rehacen la app entera; el resto avisa a las pantallas que los usan.
+- **Borrar se puede deshacer.** Borrar un preajuste o una setlist no pide confirmación: se borra al momento y un aviso ofrece "Deshacer", que lo devuelve a su lugar (el preajuste, también a sus setlists; la setlist, también como la activa del metrónomo si lo era). Una toma de la grabadora sí pide confirmación, porque su audio se borra del disco.
 
 ## Accesibilidad (G7)
 

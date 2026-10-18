@@ -174,5 +174,46 @@ void main() {
       expect(reloaded.presets.length, 3);
       expect(reloaded.setlistById('s1')!.presetIds, <String>['p2', 'p1']);
     });
+
+    test('Borrar un preajuste o una setlist se puede deshacer, con su lugar', () async {
+      final AppState st = AppState(JsonStore(root: tmp));
+      for (final String id in <String>['p3', 'p2', 'p1']) {
+        await st.addPreset(Preset(id: id, name: id.toUpperCase(), rhythm: const RhythmConfig()));
+      }
+      final Setlist a = await st.addSetlist('Ensayo');
+      final Setlist b = await st.addSetlist('Concierto');
+      a.presetIds.addAll(<String>['p1', 'p2', 'p3']);
+      b.presetIds.addAll(<String>['p2', 'p1']);
+      await st.savePresets();
+
+      final PresetRemoval? removal = await st.deletePreset('p2');
+      expect(removal, isNotNull);
+      expect(st.presets.map((Preset p) => p.id), <String>['p1', 'p3']);
+      expect(a.presetIds, <String>['p1', 'p3']);
+      expect(b.presetIds, <String>['p1']);
+      expect(await st.deletePreset('no-existe'), isNull);
+      // Una setlist desaparece antes de deshacer: el resto vuelve igual.
+      final int index = await st.deleteSetlist(b.id);
+      expect(index, 1);
+      expect(st.setlists.map((Setlist s) => s.id), <String>[a.id]);
+      await st.restorePreset(removal!);
+      expect(st.presets.map((Preset p) => p.id), <String>['p1', 'p2', 'p3']);
+      expect(a.presetIds, <String>['p1', 'p2', 'p3']);
+      // Deshacer dos veces no duplica.
+      await st.restorePreset(removal);
+      expect(st.presets.length, 3);
+      await st.restoreSetlist(b, index);
+      await st.restoreSetlist(b, index);
+      expect(st.setlists.map((Setlist s) => s.name), <String>['Ensayo', 'Concierto']);
+      expect(st.presetsOf(b).map((Preset p) => p.id), <String>['p1']);
+      expect(await st.deleteSetlist('no-existe'), -1);
+      // Lo restaurado queda guardado.
+      await st.store.flush();
+      final AppState reloaded = AppState(JsonStore(root: tmp));
+      await reloaded.load();
+      expect(reloaded.presets.map((Preset p) => p.id), <String>['p1', 'p2', 'p3']);
+      expect(reloaded.setlists.map((Setlist s) => s.name), <String>['Ensayo', 'Concierto']);
+      expect(reloaded.setlists.first.presetIds, <String>['p1', 'p2', 'p3']);
+    });
   });
 }

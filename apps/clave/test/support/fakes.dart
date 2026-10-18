@@ -193,7 +193,10 @@ class FakeHaptics implements Haptics {
 class TestServices {
   TestServices._(this.services, this.mic, this.capture, this.platform, this.haptics, this.engine, this.dir, this.links);
 
-  factory TestServices({bool micGranted = true, AppSettings? settings}) {
+  /// Con [micEnabled] en falso el afinador nunca abre la captura y las
+  /// muestras llegan solo con [Tuner.feed] (capturas de tienda: la lectura
+  /// no se borra por falta de muestras nuevas mientras se dibuja).
+  factory TestServices({bool micGranted = true, bool micEnabled = true, AppSettings? settings}) {
     final Directory dir = Directory.systemTemp.createTempSync('clave_test');
     final AppSettings st = settings ?? AppSettings();
     final JsonStore store = JsonStore(root: dir);
@@ -211,7 +214,7 @@ class TestServices {
       store: store,
       engine: engine,
       metronome: Metronome(engine, haptics: haptics),
-      tuner: Tuner(mic: mic),
+      tuner: Tuner(mic: mic, microphoneEnabled: micEnabled),
       drone: DroneController(engine),
       recorder: TakeRecorder(store: store, capture: capture),
       platform: platform,

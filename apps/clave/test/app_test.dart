@@ -336,4 +336,54 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await t.shutdown(tester);
   });
+
+  testWidgets('Borrar un preajuste o una setlist se puede deshacer', (WidgetTester tester) async {
+    usePhone(tester);
+    final TestServices t = TestServices();
+    late Setlist sl;
+    await tester.runAsync(() async {
+      await t.services.state.addPreset(Preset(id: 'p2', name: 'Pasillo', rhythm: const RhythmConfig(bpm: 126, beatsPerBar: 3)));
+      await t.services.state.addPreset(Preset(id: 'p1', name: 'Cumbia', rhythm: const RhythmConfig(bpm: 92, beatsPerBar: 2)));
+      sl = await t.services.state.addSetlist('Ensayo');
+      sl.presetIds.addAll(<String>['p1', 'p2']);
+      await t.services.state.savePresets();
+    });
+    await tester.pumpWidget(AppScope(services: t.services, child: const MaterialApp(home: PresetsScreen())));
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('Opciones de Cumbia'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Borrar'));
+    await pumpUntil(tester, () => find.text('Se borró «Cumbia»').evaluate().isNotEmpty);
+    expect(find.text('Se borró «Cumbia»'), findsOneWidget);
+    expect(find.text('Cumbia'), findsNothing);
+    expect(sl.presetIds, <String>['p2']);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Deshacer'));
+    await pumpUntil(tester, () => find.text('Cumbia').evaluate().isNotEmpty);
+    expect(t.services.state.presets.map((Preset p) => p.id), <String>['p1', 'p2']);
+    expect(sl.presetIds, <String>['p1', 'p2']);
+    await tester.pumpAndSettle();
+
+    // La setlist que usa el metrónomo: al deshacer vuelve a quedar activa.
+    t.services.settings
+      ..activeSetlistId = sl.id
+      ..activeSetlistIndex = 1;
+    await tester.tap(find.text('Ensayo (2)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Borrar setlist'));
+    await pumpUntil(tester, () => find.text('Se borró la setlist «Ensayo»').evaluate().isNotEmpty);
+    expect(find.text('Se borró la setlist «Ensayo»'), findsOneWidget);
+    expect(t.services.state.setlists, isEmpty);
+    expect(t.services.settings.activeSetlistId, '');
+    expect(find.text('Ensayo (2)'), findsNothing);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Deshacer'));
+    await pumpUntil(tester, () => find.text('Ensayo (2)').evaluate().isNotEmpty);
+    expect(t.services.state.setlists.single.presetIds, <String>['p1', 'p2']);
+    expect(t.services.settings.activeSetlistId, sl.id);
+    expect(t.services.settings.activeSetlistIndex, 1);
+    await tester.pumpAndSettle();
+    await t.shutdown(tester);
+  });
 }

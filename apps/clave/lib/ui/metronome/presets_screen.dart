@@ -80,24 +80,22 @@ class _PresetsScreenState extends State<PresetsScreen> {
                     child: Row(
                       children: <Widget>[
                         Expanded(
-                          child: Text(
-                            t(context, 'Arrastra ☰ para cambiar el orden. Añade o quita canciones con el menú de cada preajuste en "Todos".', 'Drag ☰ to reorder. Add or remove songs from each preset\'s menu under "All".'),
+                          // El asa se dibuja con el mismo ícono de la lista (un
+                          // signo de texto podría no estar en la fuente).
+                          child: Text.rich(
+                            TextSpan(children: <InlineSpan>[
+                              TextSpan(text: t(context, 'Arrastra ', 'Drag ')),
+                              WidgetSpan(alignment: PlaceholderAlignment.middle, child: Icon(Icons.drag_handle_rounded, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                              TextSpan(text: t(context, ' para cambiar el orden. Añade o quita canciones con el menú de cada preajuste en "Todos".', ' to reorder. Add or remove songs from each preset\'s menu under "All".')),
+                            ]),
+                            semanticsLabel: t(context, 'Arrastra el asa de cada canción para cambiar el orden. Añade o quita canciones con el menú de cada preajuste en "Todos".', 'Drag a song\'s handle to reorder. Add or remove songs from each preset\'s menu under "All".'),
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ),
                         IconButton(
                           tooltip: t(context, 'Borrar setlist', 'Delete setlist'),
                           icon: const Icon(Icons.delete_outline),
-                          onPressed: () async {
-                            await st.deleteSetlist(setlist.id);
-                            if (s.settings.activeSetlistId == setlist.id) {
-                              s.settings.activeSetlistId = '';
-                              await s.settings.save();
-                            }
-                            if (mounted) {
-                              setState(() => _setlistId = null);
-                            }
-                          },
+                          onPressed: () => _deleteSetlist(context, setlist),
                         ),
                       ],
                     ),
@@ -186,7 +184,7 @@ class _PresetsScreenState extends State<PresetsScreen> {
               } else if (v == 'rename') {
                 await _rename(context, p);
               } else if (v == 'delete') {
-                await st.deletePreset(p.id);
+                await _deletePreset(context, p);
               } else if (v == 'up' && setlist != null && i > 0) {
                 _move(setlist, shown, i, i - 1);
                 await st.savePresets();
@@ -270,6 +268,63 @@ class _PresetsScreenState extends State<PresetsScreen> {
       sl.presetIds.add(p.id);
       await s.state.savePresets();
     }
+  }
+
+  /// Borra el preajuste y ofrece deshacerlo (vuelve a su lugar y a sus
+  /// setlists).
+  Future<void> _deletePreset(BuildContext context, Preset p) async {
+    final Services s = AppScope.of(context);
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final String name = p.name.isEmpty ? t(context, 'Sin nombre', 'Untitled') : p.name;
+    final String done = t(context, 'Se borró «$name»', 'Deleted "$name"');
+    final String undo = t(context, 'Deshacer', 'Undo');
+    final PresetRemoval? removal = await s.state.deletePreset(p.id);
+    if (removal == null) {
+      return;
+    }
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(done), action: SnackBarAction(label: undo, onPressed: () => s.state.restorePreset(removal))));
+  }
+
+  /// Borra la setlist (los preajustes se quedan) y ofrece deshacerlo.
+  Future<void> _deleteSetlist(BuildContext context, Setlist setlist) async {
+    final Services s = AppScope.of(context);
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final String done = t(context, 'Se borró la setlist «${setlist.name}»', 'Deleted the "${setlist.name}" setlist');
+    final String undo = t(context, 'Deshacer', 'Undo');
+    final bool wasActive = s.settings.activeSetlistId == setlist.id;
+    final int activeIndex = s.settings.activeSetlistIndex;
+    final int index = await s.state.deleteSetlist(setlist.id);
+    if (wasActive) {
+      s.settings.activeSetlistId = '';
+      await s.settings.save();
+    }
+    if (mounted) {
+      setState(() => _setlistId = null);
+    }
+    if (index < 0) {
+      return;
+    }
+    Future<void> restore() async {
+      await s.state.restoreSetlist(setlist, index);
+      if (s.state.setlistById(setlist.id) == null) {
+        return;
+      }
+      if (wasActive && s.settings.activeSetlistId.isEmpty) {
+        s.settings
+          ..activeSetlistId = setlist.id
+          ..activeSetlistIndex = activeIndex;
+        await s.settings.save();
+      }
+      if (mounted) {
+        setState(() => _setlistId = setlist.id);
+      }
+    }
+
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(done), action: SnackBarAction(label: undo, onPressed: restore)));
   }
 
   Future<void> _rename(BuildContext context, Preset p) async {

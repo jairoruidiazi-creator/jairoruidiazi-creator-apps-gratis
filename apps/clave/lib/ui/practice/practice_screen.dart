@@ -177,7 +177,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
                   color: cs.primary,
                   reached: pal.inTune,
                   goalLine: pal.accent,
-                  label: cs.onSurfaceVariant,
+                  // Con la tipografía del tema (Roboto o la del sistema en
+                  // iOS), no con la fuente por defecto del lienzo.
+                  labelStyle: Theme.of(context).textTheme.labelSmall!.copyWith(fontSize: 11, fontWeight: FontWeight.w500, color: cs.onSurfaceVariant),
                   narrowWeekdays: ml.narrowWeekdays,
                   textScaler: MediaQuery.textScalerOf(context),
                 ),
@@ -441,7 +443,7 @@ class _BarsPainter extends CustomPainter {
     required this.color,
     required this.reached,
     required this.goalLine,
-    required this.label,
+    required this.labelStyle,
     required this.narrowWeekdays,
     required this.textScaler,
   });
@@ -452,7 +454,7 @@ class _BarsPainter extends CustomPainter {
   final Color color;
   final Color reached;
   final Color goalLine;
-  final Color label;
+  final TextStyle labelStyle;
 
   /// Iniciales de los días desde el domingo (MaterialLocalizations).
   final List<String> narrowWeekdays;
@@ -477,7 +479,7 @@ class _BarsPainter extends CustomPainter {
         final DateTime d = days[i];
         final String text = n <= 7 ? narrowWeekdays[d.weekday % 7] : '${d.day}';
         final TextPainter tp = TextPainter(
-          text: TextSpan(text: text, style: TextStyle(fontSize: 11, color: label)),
+          text: TextSpan(text: text, style: labelStyle),
           textDirection: TextDirection.ltr,
           textScaler: textScaler,
         )..layout();

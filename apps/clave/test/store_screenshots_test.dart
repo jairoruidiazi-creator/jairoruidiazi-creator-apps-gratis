@@ -54,15 +54,16 @@ void main() {
         final Clock outer = clock;
         final DateTime fakeStart = outer.now();
         final DateTime demoNow = DateTime(2026, 10, 17, 18, 32);
-        await withClock(Clock(() => demoNow.add(outer.now().difference(fakeStart))), () async {
+        // Con un valor, el reloj de la app se queda quieto en ese instante.
+        DateTime? frozen;
+        await withClock(Clock(() => frozen ?? demoNow.add(outer.now().difference(fakeStart))), () async {
           final AppSettings settings = AppSettings()
             ..language = lang
             ..themeMode = 'light'
             ..instrumentId = 'guitarra'
             ..notation = es ? Notation.solfeo : Notation.english;
-          // El micrófono de prueba tiene permiso: el afinador se muestra
-          // escuchando y las muestras llegan con Tuner.feed.
-          final TestServices t = TestServices(settings: settings);
+          // Las muestras llegan con Tuner.feed, como si vinieran del micrófono.
+          final TestServices t = TestServices(settings: settings, micEnabled: false);
           final DateTime now = clock.now();
           await tester.runAsync(() async {
             await t.services.state.load();
@@ -73,17 +74,22 @@ void main() {
           await _settle(tester);
 
           // 1. Afinador: la cuerda La de la guitarra sube hasta quedar afinada
-          // (de -14 a -1 cents) y se sostiene un momento.
+          // (de -14 a -1 cents) y se sostiene. Llega un bloque de 2048
+          // muestras cada 46 ms, como del micrófono, y la traza se dibuja con
+          // el tiempo simulado.
           const double a2 = 110.0;
           final SustainedString string = SustainedString();
           t.services.tuner.feed(string.next(a2 * math.pow(2, -14 / 1200).toDouble(), 8192));
-          for (int i = 0; i < 40; i++) {
-            final double cents = i < 28 ? -14 + 13 * (i / 27) : -1;
+          for (int i = 0; i < 100; i++) {
+            final double cents = i < 70 ? -14 + 13 * (i / 69) : -1;
+            await tester.pump(const Duration(milliseconds: 46));
             t.services.tuner.feed(string.next(a2 * math.pow(2, cents / 1200).toDouble(), 2048));
-            await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 60)));
-            await tester.pump();
           }
+          // La cuerda sigue sonando mientras se dibuja la captura: el reloj se
+          // detiene en la última muestra para que la traza llegue al borde.
+          frozen = clock.now();
           await takeStoreShot(tester, device, lang, '01-afinador');
+          frozen = null;
 
           // 2. Metrónomo en marcha: 4/4 a 96 con corcheas.
           t.services.metronome.setConfig(const RhythmConfig(bpm: 96, subdivision: 2, beats: <BeatMode>[BeatMode.accent, BeatMode.normal, BeatMode.accent, BeatMode.normal], sound: ClickSound.madera));
@@ -133,7 +139,6 @@ void main() {
           await takeStoreShot(tester, device, lang, '06-practica');
 
           await t.shutdown(tester);
-          await tester.runAsync(() => t.services.store.flush());
         });
         expect(errors, isEmpty, reason: errors.join('\n----\n'));
       }, variant: TargetPlatformVariant.only(device.platform), timeout: const Timeout(Duration(minutes: 4)));

@@ -24,6 +24,8 @@ void main() {
     expect(formatMinutes(59), '0 min');
     expect(formatMinutes(12 * 60), '12 min');
     expect(formatMinutes(3900), '1 h 05 min');
+    expect(formatMinutes(7200), '2 h');
+    expect(formatMinutes(7259), '2 h');
     expect(formatPracticeTime(45), '45 s');
     expect(formatPracticeTime(0), '0 min');
     expect(formatPracticeTime(125), '2 min');

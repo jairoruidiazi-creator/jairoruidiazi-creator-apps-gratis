@@ -69,7 +69,7 @@ bool isSpanish(BuildContext context) {
   return AppScope.of(context).settings.spanish;
 }
 
-/// Formato de minutos como "1 h 05 min" / "12 min".
+/// Formato de minutos como "1 h 05 min" / "12 min" / "2 h".
 String formatMinutes(int seconds) {
   final int m = seconds ~/ 60;
   if (m < 60) {
@@ -77,7 +77,7 @@ String formatMinutes(int seconds) {
   }
   final int h = m ~/ 60;
   final int r = m % 60;
-  return '$h h ${r.toString().padLeft(2, '0')} min';
+  return r == 0 ? '$h h' : '$h h ${r.toString().padLeft(2, '0')} min';
 }
 
 /// Tiempo de práctica: segundos si no llega al minuto ("45 s"), si no como

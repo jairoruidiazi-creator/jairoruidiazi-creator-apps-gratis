@@ -5,6 +5,18 @@ import '../audio/take_recorder.dart';
 import '../model/models.dart';
 import 'storage.dart';
 
+/// Lo que hace falta para deshacer el borrado de un preajuste: dónde estaba
+/// en la lista y en cada setlist.
+class PresetRemoval {
+  const PresetRemoval({required this.preset, required this.index, required this.places});
+
+  final Preset preset;
+  final int index;
+
+  /// Id de la setlist → posición que ocupaba en ella.
+  final Map<String, int> places;
+}
+
 /// Resultado de importar un archivo de preajustes.
 class ImportResult {
   const ImportResult({required this.presets, required this.setlists});
@@ -93,11 +105,39 @@ class AppState extends ChangeNotifier {
     return p;
   }
 
-  Future<void> deletePreset(String id) async {
-    presets.removeWhere((Preset p) => p.id == id);
-    for (final Setlist s in setlists) {
-      s.presetIds.remove(id);
+  /// Borra un preajuste y lo quita de las setlists. Devuelve lo necesario
+  /// para deshacerlo con [restorePreset] (null si no existía).
+  Future<PresetRemoval?> deletePreset(String id) async {
+    final int index = presets.indexWhere((Preset p) => p.id == id);
+    if (index < 0) {
+      return null;
     }
+    final Preset preset = presets.removeAt(index);
+    final Map<String, int> places = <String, int>{};
+    for (final Setlist s in setlists) {
+      final int at = s.presetIds.indexOf(id);
+      if (at >= 0) {
+        places[s.id] = at;
+        s.presetIds.removeWhere((String x) => x == id);
+      }
+    }
+    await savePresets();
+    return PresetRemoval(preset: preset, index: index, places: places);
+  }
+
+  /// Deshace [deletePreset]: el preajuste vuelve a su lugar en la lista y en
+  /// las setlists que sigan existiendo.
+  Future<void> restorePreset(PresetRemoval removal) async {
+    if (presetById(removal.preset.id) != null) {
+      return;
+    }
+    presets.insert(removal.index < presets.length ? removal.index : presets.length, removal.preset);
+    removal.places.forEach((String setlistId, int at) {
+      final Setlist? s = setlistById(setlistId);
+      if (s != null && !s.presetIds.contains(removal.preset.id) && s.presetIds.length < Setlist.maxItems) {
+        s.presetIds.insert(at < s.presetIds.length ? at : s.presetIds.length, removal.preset.id);
+      }
+    });
     await savePresets();
   }
 
@@ -129,8 +169,24 @@ class AppState extends ChangeNotifier {
     return s;
   }
 
-  Future<void> deleteSetlist(String id) async {
-    setlists.removeWhere((Setlist s) => s.id == id);
+  /// Borra una setlist (sus preajustes se quedan). Devuelve la posición que
+  /// tenía, para deshacerlo con [restoreSetlist] (-1 si no existía).
+  Future<int> deleteSetlist(String id) async {
+    final int index = setlists.indexWhere((Setlist s) => s.id == id);
+    if (index < 0) {
+      return -1;
+    }
+    setlists.removeAt(index);
+    await savePresets();
+    return index;
+  }
+
+  /// Deshace [deleteSetlist].
+  Future<void> restoreSetlist(Setlist setlist, int index) async {
+    if (setlistById(setlist.id) != null || setlists.length >= maxSetlists) {
+      return;
+    }
+    setlists.insert(index < 0 ? 0 : (index < setlists.length ? index : setlists.length), setlist);
     await savePresets();
   }
 

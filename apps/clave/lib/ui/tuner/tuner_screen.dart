@@ -126,7 +126,18 @@ class _TunerScreenState extends State<TunerScreen> {
           height: height,
           child: ExcludeSemantics(
             child: CustomPaint(
-              painter: _GaugePainter(cents: r == null ? null : cents, tolerance: tuner.toleranceCents, color: noteColor, onSurface: cs.onSurface, ticks: cs.onSurfaceVariant, ok: pal.inTune, locked: tuner.lockedString >= 0),
+              painter: _GaugePainter(
+                cents: r == null ? null : cents,
+                tolerance: tuner.toleranceCents,
+                color: noteColor,
+                onSurface: cs.onSurface,
+                ticks: cs.onSurfaceVariant,
+                ok: pal.inTune,
+                locked: tuner.lockedString >= 0,
+                // La escala con la tipografía del tema, no con la fuente por
+                // defecto del lienzo.
+                labelStyle: Theme.of(context).textTheme.labelSmall!.copyWith(fontSize: 12, fontWeight: FontWeight.w500, color: cs.onSurfaceVariant),
+              ),
               child: const SizedBox.expand(),
             ),
           ),
@@ -505,7 +516,7 @@ class _StringButton extends StatelessWidget {
 /// Arco de -50 a +50 cents (o ±200 con cuerda fijada) con aguja. Se ajusta
 /// al alto disponible.
 class _GaugePainter extends CustomPainter {
-  _GaugePainter({required this.cents, required this.tolerance, required this.color, required this.onSurface, required this.ticks, required this.ok, required this.locked});
+  _GaugePainter({required this.cents, required this.tolerance, required this.color, required this.onSurface, required this.ticks, required this.ok, required this.locked, required this.labelStyle});
 
   final double? cents;
   final double tolerance;
@@ -514,6 +525,7 @@ class _GaugePainter extends CustomPainter {
   final Color ticks;
   final Color ok;
   final bool locked;
+  final TextStyle labelStyle;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -552,7 +564,7 @@ class _GaugePainter extends CustomPainter {
       if (major && labels) {
         final double value = -range + range * 2 * i / steps;
         final TextPainter tp = TextPainter(
-          text: TextSpan(text: value == 0 ? '0' : '${value > 0 ? '+' : '−'}${value.abs().toInt()}', style: TextStyle(fontSize: 12, color: ticks)),
+          text: TextSpan(text: value == 0 ? '0' : '${value > 0 ? '+' : '−'}${value.abs().toInt()}', style: labelStyle),
           textDirection: TextDirection.ltr,
         )..layout();
         final Offset pos = center + Offset(math.cos(a), math.sin(a)) * (radius - stroke - radius * 0.28);
@@ -575,7 +587,7 @@ class _GaugePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _GaugePainter old) => old.cents != cents || old.color != color || old.locked != locked || old.tolerance != tolerance || old.ticks != ticks;
+  bool shouldRepaint(covariant _GaugePainter old) => old.cents != cents || old.color != color || old.locked != locked || old.tolerance != tolerance || old.ticks != ticks || old.labelStyle != labelStyle;
 }
 
 /// Historial de cents de los últimos segundos.
