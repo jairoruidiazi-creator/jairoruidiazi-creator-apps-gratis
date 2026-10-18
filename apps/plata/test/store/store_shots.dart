@@ -115,8 +115,10 @@ final GlobalKey storeShotBoundary = GlobalKey(debugLabel: 'store_shot');
 Widget storeShotRoot(Widget app) => RepaintBoundary(key: storeShotBoundary, child: app);
 
 /// Termina de decodificar las imágenes visibles (archivos, recursos y memoria),
-/// deja pasar las animaciones y vuelve a dibujar.
-Future<void> settleForShot(WidgetTester tester, {Duration extra = const Duration(milliseconds: 400)}) async {
+/// deja pasar las animaciones y vuelve a dibujar. Con [settle] en falso no
+/// espera a que todo quede quieto (pantallas con animación continua, como un
+/// metrónomo en marcha): solo avanza [extra].
+Future<void> settleForShot(WidgetTester tester, {Duration extra = const Duration(milliseconds: 400), bool settle = true}) async {
   for (int round = 0; round < 3; round++) {
     final List<Future<void>> pending = <Future<void>>[];
     for (final Element e in find.byType(Image).evaluate()) {
@@ -129,12 +131,16 @@ Future<void> settleForShot(WidgetTester tester, {Duration extra = const Duration
     });
     await tester.pump(extra);
   }
-  await tester.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 10));
+  if (settle) {
+    await tester.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 10));
+  } else {
+    await tester.pump(extra);
+  }
 }
 
 /// Guarda la pantalla actual como `<dir>/<dispositivo>/<idioma>/<nombre>.png`.
-Future<void> takeStoreShot(WidgetTester tester, StoreDevice device, String lang, String name) async {
-  await settleForShot(tester);
+Future<void> takeStoreShot(WidgetTester tester, StoreDevice device, String lang, String name, {bool settle = true}) async {
+  await settleForShot(tester, settle: settle);
   final RenderRepaintBoundary boundary = storeShotBoundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
   final Uint8List? png = await tester.runAsync<Uint8List?>(() async {
     final ui.Image image = await boundary.toImage(pixelRatio: device.pixelRatio);

@@ -1,0 +1,152 @@
+@Tags(<String>['screenshots'])
+library;
+
+// Capturas de tienda de Clave: pantallas reales con los datos de ejemplo de
+// test/store/clave_demo.dart, en teléfono y tableta de Android y en iPhone y
+// iPad, en español e inglés. Se ejecutan con `flutter test --tags screenshots`.
+
+import 'dart:io';
+import 'dart:math' as math;
+
+import 'package:clave/app.dart';
+import 'package:clave/audio/audio_engine.dart';
+import 'package:clave/audio/click_synth.dart';
+import 'package:clave/audio/metronome.dart';
+import 'package:clave/audio/sequencer.dart';
+import 'package:clave/audio/tuner.dart';
+import 'package:clave/core/app_scope.dart';
+import 'package:clave/core/app_state.dart';
+import 'package:clave/core/settings.dart';
+import 'package:clave/core/storage.dart';
+import 'package:clave/music/notes.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'store/clave_demo.dart';
+import 'store/store_shots.dart';
+
+Future<void> _settle(WidgetTester tester) => tester.pumpAndSettle(const Duration(milliseconds: 100), EnginePhase.sendSemanticsUpdate, const Duration(seconds: 10));
+
+Future<void> _goTab(WidgetTester tester, String label) async {
+  Finder f = find.descendant(of: find.byType(NavigationBar), matching: find.text(label));
+  if (f.evaluate().isEmpty) {
+    f = find.descendant(of: find.byType(NavigationRail), matching: find.text(label));
+  }
+  await tester.tap(f.first);
+  await _settle(tester);
+}
+
+/// Afinador sin micrófono que se muestra escuchando: las muestras llegan con
+/// [Tuner.feed], como si vinieran del micrófono.
+class _DemoTuner extends Tuner {
+  _DemoTuner() : super(microphoneEnabled: false);
+
+  @override
+  bool get listening => true;
+}
+
+void main() {
+  for (final StoreDevice device in StoreDevice.all) {
+    for (final String lang in storeLanguages) {
+      testWidgets('Capturas de Clave en ${device.id} ($lang)', (WidgetTester tester) async {
+        final bool es = lang == 'es';
+        String tr(String a, String b) => es ? a : b;
+        final List<FlutterErrorDetails> errors = <FlutterErrorDetails>[];
+        final FlutterExceptionHandler? previous = FlutterError.onError;
+        FlutterError.onError = (FlutterErrorDetails d) {
+          errors.add(d);
+          previous?.call(d);
+        };
+        addTearDown(() => FlutterError.onError = previous);
+
+        device.apply(tester);
+        await loadStoreFonts(tester);
+        final Directory dir = (await tester.runAsync(() => Directory.systemTemp.createTemp('clave_shots')))!;
+        final AppSettings settings = AppSettings()
+          ..language = lang
+          ..themeMode = 'light'
+          ..instrumentId = 'guitarra'
+          ..notation = es ? Notation.solfeo : Notation.english;
+        final JsonStore store = JsonStore(root: dir);
+        final AppState state = AppState(store);
+        final DateTime now = DateTime.now();
+        await tester.runAsync(() async {
+          await state.load();
+          await seedClaveDemo(state, spanish: es, now: now);
+        });
+        final AudioEngine engine = SilentEngine();
+        final Metronome metronome = Metronome(engine);
+        final Tuner tuner = _DemoTuner();
+        final Services s = Services(settings: settings, state: state, store: store, engine: engine, metronome: metronome, tuner: tuner);
+
+        await tester.pumpWidget(storeShotRoot(ClaveApp(services: s)));
+        await _settle(tester);
+
+        // 1. Afinador: la cuerda La de la guitarra sube hasta quedar afinada.
+        const double a2 = 110.0;
+        int offset = 0;
+        for (int i = 0; i < 36; i++) {
+          final double cents = -14 + 12 * (i / 35);
+          final double hz = a2 * math.pow(2, cents / 1200).toDouble();
+          tuner.feed(pluckedString(hz, samples: i == 0 ? 8192 : 2048, offset: offset));
+          offset += i == 0 ? 8192 : 2048;
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 70)));
+          await tester.pump();
+        }
+        await takeStoreShot(tester, device, lang, '01-afinador');
+
+        // 2. Metrónomo en marcha: 4/4 a 96 con corcheas.
+        metronome.setConfig(const RhythmConfig(bpm: 96, subdivision: 2, beats: <BeatMode>[BeatMode.accent, BeatMode.normal, BeatMode.accent, BeatMode.normal], sound: ClickSound.madera));
+        await _goTab(tester, tr('Metrónomo', 'Metronome'));
+        await tester.tap(find.text(tr('Iniciar', 'Start')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 1310));
+        await takeStoreShot(tester, device, lang, '02-metronomo', settle: false);
+        await tester.tap(find.text(tr('Parar', 'Stop')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        // 3. Preajustes y setlists.
+        final Finder presets = find.text(tr('Preajustes', 'Presets'));
+        await tester.scrollUntilVisible(presets, 200, scrollable: find.byType(Scrollable).first);
+        await tester.tap(presets);
+        await _settle(tester);
+        await tester.tap(find.textContaining(tr('Ensayo del sábado', 'Saturday rehearsal')));
+        await _settle(tester);
+        await takeStoreShot(tester, device, lang, '03-preajustes');
+        await tester.tap(find.byType(BackButton));
+        await _settle(tester);
+
+        // 4. Bordón en Re con quinta y un acorde de Sol.
+        await _goTab(tester, tr('Tono', 'Drone'));
+        await tester.tap(find.widgetWithText(ChoiceChip, es ? 'Re' : 'D').first);
+        await tester.pump();
+        await tester.tap(find.byType(Switch).first);
+        await tester.pump();
+        await tester.tap(find.text(tr('Sonar', 'Play')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        await takeStoreShot(tester, device, lang, '04-bordon', settle: false);
+        await tester.tap(find.text(tr('Parar', 'Stop')));
+        await tester.pump(const Duration(milliseconds: 300));
+
+        // 5. Grabadora con tomas en carpetas.
+        await _goTab(tester, tr('Grabar', 'Record'));
+        await takeStoreShot(tester, device, lang, '05-grabadora');
+
+        // 6. Registro de práctica.
+        await _goTab(tester, tr('Práctica', 'Practice'));
+        await takeStoreShot(tester, device, lang, '06-practica');
+
+        state.endPractice();
+        await metronome.stop();
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(seconds: 1));
+        metronome.dispose();
+        await tester.runAsync(() => dir.delete(recursive: true));
+        expect(errors, isEmpty, reason: errors.map((FlutterErrorDetails d) => d.toString()).join('\n----\n'));
+      }, variant: TargetPlatformVariant.only(device.platform), timeout: const Timeout(Duration(minutes: 4)));
+    }
+  }
+}

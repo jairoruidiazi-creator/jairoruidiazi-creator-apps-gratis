@@ -6,7 +6,7 @@
   "shots": [
     {"id": "01-afinador", "es": "Afina al cent, con la cuerda a la vista", "en": "Tune to the cent, string by string"},
     {"id": "02-metronomo", "es": "Un metrónomo para cualquier compás", "en": "A metronome for any time signature"},
-    {"id": "03-pulsos", "es": "Acentos, subdivisiones y swing", "en": "Accents, subdivisions and swing"},
+    {"id": "03-preajustes", "es": "Preajustes y setlists para tus ensayos", "en": "Presets and setlists for rehearsals"},
     {"id": "04-bordon", "es": "Bordón y acordes para entrenar el oído", "en": "Drone and chords to train your ear"},
     {"id": "05-grabadora", "es": "Graba tus tomas y escúchalas más lento", "en": "Record takes and play them back slower"},
     {"id": "06-practica", "es": "Tus minutos de práctica, día a día", "en": "Your practice minutes, day by day"}
