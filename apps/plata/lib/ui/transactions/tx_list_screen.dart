@@ -41,42 +41,60 @@ class _TxListScreenState extends State<TxListScreen> {
       builder: (BuildContext context, Widget? _) {
         final Ledger l = s.ledger;
         final List<Tx> all = l.search(_filter);
+        // Sin barra de título propia: en la pestaña el buscador debe quedar
+        // debajo de la barra de estado (al abrirse desde otra pantalla, el
+        // Scaffold de afuera ya quitó ese margen y SafeArea no suma nada).
         return ReadableScaffold(
-          body: Column(
-            children: <Widget>[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-                child: Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: TextField(
-                        controller: _search,
-                        decoration: InputDecoration(
-                          prefixIcon: const Icon(Icons.search),
-                          hintText: t(context, 'Buscar descripción, comercio, nota, monto…', 'Search description, payee, note, amount…'),
-                          isDense: true,
-                          border: const OutlineInputBorder(),
-                          suffixIcon: _filter.text.isEmpty ? null : IconButton(icon: const Icon(Icons.clear), onPressed: () { _search.clear(); setState(() => _filter = _filter.copyWith(text: '')); }),
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: TextField(
+                          controller: _search,
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(Icons.search),
+                            hintText: t(context, 'Buscar descripción, comercio, nota, monto…', 'Search description, payee, note, amount…'),
+                            isDense: true,
+                            border: const OutlineInputBorder(),
+                            suffixIcon: _filter.text.isEmpty ? null : IconButton(icon: const Icon(Icons.clear), onPressed: () { _search.clear(); setState(() => _filter = _filter.copyWith(text: '')); }),
+                          ),
+                          onChanged: (String v) => setState(() => _filter = _filter.copyWith(text: v)),
                         ),
-                        onChanged: (String v) => setState(() => _filter = _filter.copyWith(text: v)),
                       ),
-                    ),
-                    IconButton(
-                      tooltip: t(context, 'Filtros', 'Filters'),
-                      icon: Badge(isLabelVisible: !_filter.copyWith(text: '').isEmpty, child: const Icon(Icons.tune)),
-                      onPressed: () async {
-                        final TxFilter? f = await showFilterSheet(context, _filter);
-                        if (f != null) {
-                          setState(() => _filter = f);
-                        }
-                      },
-                    ),
-                    IconButton(tooltip: _calendar ? t(context, 'Lista', 'List') : t(context, 'Calendario', 'Calendar'), icon: Icon(_calendar ? Icons.view_list_outlined : Icons.calendar_month_outlined), onPressed: () => setState(() => _calendar = !_calendar)),
-                  ],
+                      IconButton(
+                        tooltip: t(context, 'Filtros', 'Filters'),
+                        icon: Badge(isLabelVisible: !_filter.copyWith(text: '').isEmpty, child: const Icon(Icons.tune)),
+                        onPressed: () async {
+                          final TxFilter? f = await showFilterSheet(context, _filter);
+                          if (f != null) {
+                            setState(() => _filter = f);
+                          }
+                        },
+                      ),
+                      IconButton(
+                        tooltip: _calendar ? t(context, 'Lista', 'List') : t(context, 'Calendario', 'Calendar'),
+                        icon: Icon(_calendar ? Icons.view_list_outlined : Icons.calendar_month_outlined),
+                        onPressed: () => setState(() {
+                          _calendar = !_calendar;
+                          // El calendario abre con el día de hoy elegido y sus movimientos abajo.
+                          if (_calendar && _selectedDay == null) {
+                            final DateTime now = clock.now();
+                            _month = DateTime(now.year, now.month);
+                            _selectedDay = dateOnly(now);
+                          }
+                        }),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(child: _calendar ? _calendarView(context, l, all) : _listView(context, l, all)),
-            ],
+                Expanded(child: _calendar ? _calendarView(context, l, all) : _listView(context, l, all)),
+              ],
+            ),
           ),
         );
       },
