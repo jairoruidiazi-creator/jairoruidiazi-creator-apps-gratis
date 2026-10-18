@@ -44,3 +44,30 @@ Future<void> restorePlaybackSession() async {
   }
   await configureAudioSession();
 }
+
+/// Quién tiene el micrófono (afinador y grabadora usan cada uno su propio
+/// `AudioRecorder`). La sesión de reproducción solo se repone cuando el
+/// último lo suelta: si la grabadora empieza mientras el afinador todavía se
+/// está cerrando, la toma no pierde su `playAndRecord`.
+class MicSessionGuard {
+  MicSessionGuard({Future<void> Function()? restore}) : _restore = restore ?? restorePlaybackSession;
+
+  final Future<void> Function() _restore;
+  int _users = 0;
+
+  /// true mientras alguien tiene el micrófono abierto o abriéndose.
+  bool get inUse => _users > 0;
+
+  /// Se llama antes de abrir el micrófono.
+  void acquire() => _users++;
+
+  /// Se llama al soltarlo (también si no se pudo abrir).
+  Future<void> release() async {
+    if (_users > 0) {
+      _users--;
+    }
+    if (_users == 0) {
+      await _restore();
+    }
+  }
+}

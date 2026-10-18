@@ -49,7 +49,7 @@ Data stays in the app's private storage, which other apps cannot access. We reco
 
 ## Retention and deletion
 
-Your data stays on the device until you delete it. You can delete recordings and presets in the app, or delete everything by uninstalling it or clearing its data in the system settings. Since we keep no copies, there is nothing else to delete on our side.
+Your data stays on the device until you delete it, with one exception: the practice log keeps only the last year, and the app discards entries older than 366 days on its own. You can delete recordings and presets in the app, or delete everything by uninstalling it or clearing its data in the system settings. Since we keep no copies, there is nothing else to delete on our side.
 
 ## Your rights
 

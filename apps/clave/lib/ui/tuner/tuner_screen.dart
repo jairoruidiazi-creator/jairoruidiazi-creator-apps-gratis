@@ -561,10 +561,12 @@ class _GaugePainter extends CustomPainter {
       final Offset p1 = center + Offset(math.cos(a), math.sin(a)) * (radius - stroke);
       final Offset p2 = center + Offset(math.cos(a), math.sin(a)) * (radius - stroke - (major ? radius * 0.14 : radius * 0.08));
       canvas.drawLine(p1, p2, tick);
-      if (major && labels) {
-        final double value = -range + range * 2 * i / steps;
+      final double value = -range + range * 2 * i / steps;
+      // El cero no lleva número: la aguja afinada lo taparía, y ya lo marcan
+      // la franja verde y la marca larga del centro.
+      if (major && labels && value != 0) {
         final TextPainter tp = TextPainter(
-          text: TextSpan(text: value == 0 ? '0' : '${value > 0 ? '+' : '−'}${value.abs().toInt()}', style: labelStyle),
+          text: TextSpan(text: '${value > 0 ? '+' : '−'}${value.abs().toInt()}', style: labelStyle),
           textDirection: TextDirection.ltr,
         )..layout();
         final Offset pos = center + Offset(math.cos(a), math.sin(a)) * (radius - stroke - radius * 0.28);

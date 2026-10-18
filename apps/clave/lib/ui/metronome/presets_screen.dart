@@ -13,6 +13,9 @@ import '../../model/models.dart';
 import '../widgets/adaptive.dart';
 
 /// Preajustes (canciones) y setlists del metrónomo.
+/// Nombre del archivo exportado, en el idioma de la app.
+String presetsFileName({required bool spanish}) => spanish ? 'clave-preajustes.json' : 'clave-presets.json';
+
 class PresetsScreen extends StatefulWidget {
   const PresetsScreen({super.key});
 
@@ -394,9 +397,10 @@ class _PresetsScreenState extends State<PresetsScreen> {
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     final String failed = t(context, 'No se pudo compartir el archivo.', 'Could not share the file.');
     final String subject = t(context, 'Clave: preajustes', 'Clave: presets');
+    final String fileName = presetsFileName(spanish: isSpanish(context));
     try {
       final String json = const JsonEncoder.withIndent('  ').convert(s.state.exportPresets());
-      final String path = await s.store.absolutePath('export/clave-preajustes.json');
+      final String path = await s.store.absolutePath('export/$fileName');
       final File f = File(path);
       await f.parent.create(recursive: true);
       await f.writeAsString(json, flush: true);

@@ -201,7 +201,7 @@ class _TunerSettingsSheetState extends State<TunerSettingsSheet> {
                 label: Text(o.value),
                 selected: st.notation == o.key,
                 onSelected: (_) {
-                  st.notation = o.key;
+                  st.chooseNotation(o.key);
                   save();
                 },
               ),

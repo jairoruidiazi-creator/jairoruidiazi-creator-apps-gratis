@@ -273,6 +273,7 @@ void main() {
     expect(p.sharePositionOrigin, isNotNull);
     expect(p.sharePositionOrigin!.width, greaterThan(0));
     expect(p.files!.single.mimeType, 'application/json');
+    expect(p.files!.single.path, endsWith('clave-preajustes.json'));
     final Map<String, dynamic> exported = jsonDecode(File(p.files!.single.path).readAsStringSync()) as Map<String, dynamic>;
     expect(exported['app'], 'clave');
     expect((exported['presets'] as List<dynamic>).length, 1);

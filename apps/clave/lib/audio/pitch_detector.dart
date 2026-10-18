@@ -65,7 +65,24 @@ class PitchDetector {
   static const int _highSpan = 4096;
   static const int _highWindow = 2048;
   static const double _yinThreshold = 0.15;
-  static const double _subharmonicMin = 0.9;
+  /// Periodos más largos (nota más grave): solo con periodicidad muy alta.
+  static const double _superharmonicMin = 0.9;
+
+  /// Periodos más cortos (nota más aguda): basta con que se parezcan al
+  /// candidato. La claridad del candidato estima la relación señal/ruido
+  /// (la NSDF del periodo verdadero vale más o menos S/(S+R)): con ruido
+  /// fuerte todas las NSDF bajan, y un umbral fijo de 0,9 dejaba ganar a la
+  /// octava o la duodécima inferior. Por eso el margen crece con el ruido.
+  static const double _subharmonicFloor = 0.6;
+  static const double _subharmonicNoiseSlack = 0.5;
+  static const int _subharmonicRounds = 3;
+
+  /// Con señal limpia se prueban divisores hasta 8; con un candidato ruidoso
+  /// (claridad menor que [_noisyClarity]), hasta 16: el ruido grave puede
+  /// dejar un candidato 11 o 13 veces más largo que el periodo real.
+  static const double _noisyClarity = 0.92;
+  static const int _cleanMaxDivisor = 8;
+  static const int _noisyMaxDivisor = 16;
   static const double _tieTolerance = 0.02;
   static const double _superGain = 0.06;
   static const double _spectralMinFrequency = 120;
@@ -377,11 +394,21 @@ class PitchDetector {
     }
     _Peak best = first;
     final double minTau = sampleRate / maxFrequency - 0.5;
-    for (int k = 2; k <= 8 && first.tau / k >= minTau; k++) {
-      final double tk = first.tau / k;
-      final _Peak? r = _nsdfPeak(y, p, w, tk, math.max(1.5, tk * 0.02));
-      if (r != null && r.value >= _subharmonicMin && r.value >= first.value - _tieTolerance) {
-        best = r;
+    // Se repite sobre el nuevo periodo: un candidato 10 veces más largo se
+    // corrige en dos pasos (T·10 → T·2 → T).
+    for (int round = 0; round < _subharmonicRounds; round++) {
+      final _Peak base = best;
+      final double slack = _tieTolerance + _subharmonicNoiseSlack * math.max(0.0, 1 - base.value);
+      final int maxDivisor = base.value < _noisyClarity ? _noisyMaxDivisor : _cleanMaxDivisor;
+      for (int k = 2; k <= maxDivisor && base.tau / k >= minTau; k++) {
+        final double tk = base.tau / k;
+        final _Peak? r = _nsdfPeak(y, p, w, tk, math.max(1.5, tk * 0.02));
+        if (r != null && r.value >= _subharmonicFloor && r.value >= base.value - slack) {
+          best = r;
+        }
+      }
+      if (identical(best, base)) {
+        break;
       }
     }
     // Periodos más largos: si m·T es claramente más periódico que T, la nota
@@ -397,7 +424,7 @@ class PitchDetector {
           break;
         }
         final _Peak? r = _nsdfPeak(y, p, w, tm, math.max(3.0, tm * 0.006));
-        if (r != null && r.value >= _subharmonicMin && r.value >= best.value + _superGain) {
+        if (r != null && r.value >= _superharmonicMin && r.value >= best.value + _superGain) {
           best = r;
           changed = true;
           break;

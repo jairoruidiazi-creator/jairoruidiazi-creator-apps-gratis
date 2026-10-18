@@ -60,6 +60,14 @@ class DroneController extends ChangeNotifier {
   final List<_Voice> _chord = <_Voice>[];
   bool _starting = false;
 
+  // Generaciones: cada orden que calla o reemplaza voces sube la suya. Una
+  // llamada que estaba esperando a startTone y ve otra generación descarta
+  // lo que arrancó (dos acordes seguidos no se mezclan y el bordón no queda
+  // sonando tras un stopAll).
+  int _droneGen = 0;
+  int _keysGen = 0;
+  int _chordGen = 0;
+
   /// Peso de cada voz en el reparto de la ganancia.
   static const double _fifthWeight = 0.7;
 
@@ -178,10 +186,21 @@ class DroneController extends ChangeNotifier {
       return;
     }
     _starting = true;
+    final int gen = ++_droneGen;
     try {
-      _drone = await _startVoice(_VoiceKind.drone, droneMidi, frequencyOf(droneMidi));
-      if (_drone != null && _fifth) {
-        _fifthVoice = await _startVoice(_VoiceKind.fifth, droneMidi, fifthFrequency);
+      final _Voice? drone = await _startVoice(_VoiceKind.drone, droneMidi, frequencyOf(droneMidi));
+      if (gen != _droneGen) {
+        await _stopVoices(<_Voice>[if (drone != null) drone]);
+        return;
+      }
+      _drone = drone;
+      if (drone != null && _fifth) {
+        final _Voice? fifth = await _startVoice(_VoiceKind.fifth, droneMidi, fifthFrequency);
+        if (gen != _droneGen) {
+          await _stopVoices(<_Voice>[if (fifth != null) fifth]);
+          return;
+        }
+        _fifthVoice = fifth;
       }
     } finally {
       _starting = false;
@@ -191,6 +210,7 @@ class DroneController extends ChangeNotifier {
   }
 
   Future<void> stopDrone() async {
+    _droneGen++;
     final List<_Voice> old = <_Voice>[if (_drone != null) _drone!, if (_fifthVoice != null) _fifthVoice!];
     _drone = null;
     _fifthVoice = null;
@@ -209,7 +229,13 @@ class DroneController extends ChangeNotifier {
     _fifth = v;
     if (_drone != null) {
       if (v && _fifthVoice == null) {
-        _fifthVoice = await _startVoice(_VoiceKind.fifth, droneMidi, fifthFrequency);
+        final int gen = _droneGen;
+        final _Voice? fifth = await _startVoice(_VoiceKind.fifth, droneMidi, fifthFrequency);
+        if (gen != _droneGen || _drone == null || !_fifth || _fifthVoice != null) {
+          await _stopVoices(<_Voice>[if (fifth != null) fifth]);
+          return;
+        }
+        _fifthVoice = fifth;
       } else if (!v && _fifthVoice != null) {
         final _Voice f = _fifthVoice!;
         _fifthVoice = null;
@@ -236,11 +262,12 @@ class DroneController extends ChangeNotifier {
     if (_keys.containsKey(midi)) {
       return;
     }
+    final int gen = _keysGen;
     final _Voice? v = await _startVoice(_VoiceKind.key, midi, frequencyOf(midi));
     if (v == null) {
       return;
     }
-    if (_keys.containsKey(midi)) {
+    if (gen != _keysGen || _keys.containsKey(midi)) {
       unawaited(engine.stopTone(v.tone));
       return;
     }
@@ -281,6 +308,7 @@ class DroneController extends ChangeNotifier {
   }
 
   Future<void> releaseKeys() async {
+    _keysGen++;
     final List<_Voice> old = _keys.values.toList();
     _keys.clear();
     _rebalance();
@@ -291,22 +319,32 @@ class DroneController extends ChangeNotifier {
   // ------------------------------------------------------------ acordes
 
   Future<void> playChord(int rootMidi, String type) async {
+    final int gen = ++_chordGen;
     final List<_Voice> old = List<_Voice>.from(_chord);
     _chord.clear();
     unawaited(_stopVoices(old));
+    final List<_Voice> started = <_Voice>[];
     for (final int iv in kChordTypes[type] ?? kChordTypes['M']!) {
       final int midi = rootMidi + iv;
       final _Voice? v = await _startVoice(_VoiceKind.chord, midi, frequencyOf(midi));
       if (v != null) {
-        _chord.add(v);
+        started.add(v);
+      }
+      if (gen != _chordGen) {
+        // Otro acorde (o un silencio) llegó mientras tanto: este se descarta.
+        await _stopVoices(started);
+        return;
       }
     }
+    _chord.addAll(started);
     _rebalance();
     notifyListeners();
   }
 
   /// Calla las teclas y el acorde (el bordón sigue).
   Future<void> silenceKeysAndChord() async {
+    _keysGen++;
+    _chordGen++;
     final List<_Voice> old = <_Voice>[..._keys.values, ..._chord];
     _keys.clear();
     _chord.clear();
@@ -317,6 +355,9 @@ class DroneController extends ChangeNotifier {
 
   /// Calla todo (al salir de la app en Android o al cerrarla).
   Future<void> stopAll() async {
+    _droneGen++;
+    _keysGen++;
+    _chordGen++;
     final List<_Voice> old = _all.toList();
     _drone = null;
     _fifthVoice = null;

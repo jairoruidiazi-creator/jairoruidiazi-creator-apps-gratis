@@ -11,6 +11,7 @@ import 'package:clave/core/app_scope.dart';
 import 'package:clave/core/platform_actions.dart';
 import 'package:clave/core/settings.dart';
 import 'package:clave/music/notes.dart';
+import 'package:clave/ui/metronome/presets_screen.dart';
 import 'package:clave/ui/recorder/recorder_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:record/record.dart';
@@ -73,6 +74,11 @@ void main() {
     expect(es.notation, Notation.solfeo);
   });
 
+  test('El archivo de preajustes exportado se nombra en el idioma de la app (2.ª ronda, N-M8)', () {
+    expect(presetsFileName(spanish: true), 'clave-preajustes.json');
+    expect(presetsFileName(spanish: false), 'clave-presets.json');
+  });
+
   test('Importar pide JSON con tipo uniforme y MIME (B4)', () {
     expect(kJsonTypeGroup.extensions, contains('json'));
     expect(kJsonTypeGroup.mimeTypes, contains('application/json'));
@@ -84,6 +90,26 @@ void main() {
     expect(c.iOS.category, AVAudioSessionCategory.playback);
     expect(c.iOS.options, contains(AVAudioSessionOptions.mixWithOthers));
     expect(c.android.audioFocus, AndroidAudioFocus.none);
+  });
+
+  test('La sesión de reproducción vuelve solo cuando afinador y grabadora soltaron el micrófono (2.ª ronda, N-M2)', () async {
+    int restores = 0;
+    final MicSessionGuard g = MicSessionGuard(restore: () async => restores++);
+    // El afinador tiene el micrófono; la grabadora lo pide antes de que el
+    // afinador termine de cerrarse.
+    g.acquire();
+    g.acquire();
+    await g.release();
+    expect(restores, 0, reason: 'la toma sigue en playAndRecord');
+    expect(g.inUse, isTrue);
+    await g.release();
+    expect(restores, 1);
+    expect(g.inUse, isFalse);
+    // Soltar de más no deja la cuenta negativa.
+    await g.release();
+    g.acquire();
+    await g.release();
+    expect(restores, 3);
   });
 
   test('Con el micrófono abierto: sin Bluetooth de llamada, sin cortar otras apps y con vibración (G3, G4)', () {

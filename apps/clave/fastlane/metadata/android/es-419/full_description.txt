@@ -12,7 +12,7 @@ METRÓNOMO
 • De 20 a 400 BPM, tap tempo e indicación italiana del tempo.
 • Compases de 1 a 16 pulsos sobre 2, 4, 8 o 16, con subdivisiones, tresillos, seisillos y swing.
 • Editor de pulsos: acento, normal, silencio o solo subdivisión.
-• 12 sonidos sintetizados con tres variantes cada uno.
+• 12 sonidos sintetizados, con tono distinto para acento, pulso y subdivisión.
 • Entrenador de tempo que sube por pasos y compases mudos para practicar el pulso interno.
 • Péndulo o número grande, destello y vibración sincronizados con lo que se oye, con ajuste del retraso del audio y calibración por toques para audífonos Bluetooth.
 • Conteo hablado, preajustes y setlists que se pueden exportar e importar.

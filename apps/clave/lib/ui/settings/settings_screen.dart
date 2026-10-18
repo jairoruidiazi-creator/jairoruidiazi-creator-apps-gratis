@@ -40,7 +40,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 selected: <String>{st.language},
                 showSelectedIcon: false,
                 onSelectionChanged: (Set<String> v) {
-                  st.language = v.first;
+                  st.setLanguage(v.first);
                   save();
                 },
               )),
@@ -82,7 +82,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             SwitchListTile(
               title: Text(t(context, 'Destello de pantalla', 'Screen flash')),
-              subtitle: Text(t(context, 'La pantalla se ilumina en cada pulso, más en el acento.', 'The screen lights up on each beat, more on the accent.')),
+              subtitle: Text(t(context, 'Un destello suave en cada pulso, como mucho tres por segundo: a tempos rápidos solo en el acento. No se usa si el sistema pide quitar animaciones.', 'A soft flash on each beat, at most three per second: at fast tempos only on the accent. Off when the system asks to remove animations.')),
               value: st.flash,
               onChanged: (bool v) {
                 st.flash = v;

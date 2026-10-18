@@ -43,6 +43,10 @@ class AppSettings extends ChangeNotifier {
   int temperamentRoot = 0;
   List<double> customTemperament = List<double>.filled(12, 0);
   Notation notation = Notation.solfeo;
+
+  /// Si la persona eligió la notación a mano. Mientras no, la notación
+  /// acompaña al idioma (Do Re Mi en español, C D E en inglés).
+  bool notationChosen = false;
   bool flats = false;
   int indianTonic = 0;
   int transposition = 0;
@@ -51,7 +55,8 @@ class AppSettings extends ChangeNotifier {
   double toleranceCents = 5;
   double damping = 0.6;
   bool haptics = false;
-  bool flash = true;
+  /// Destello de pantalla en cada pulso: apagado de entrada (fotosensibilidad).
+  bool flash = false;
   bool keepAwake = true;
 
   /// Retraso del audio en milisegundos (0 a 400): cuánto tarda en oírse el
@@ -79,6 +84,20 @@ class AppSettings extends ChangeNotifier {
   static const int maxAudioDelayMs = 400;
 
   bool get spanish => language == 'es';
+
+  /// Cambia el idioma; la notación lo sigue salvo que se haya elegido a mano.
+  void setLanguage(String lang) {
+    language = lang == 'es' ? 'es' : 'en';
+    if (!notationChosen) {
+      notation = spanish ? Notation.solfeo : Notation.english;
+    }
+  }
+
+  /// Notación elegida a mano: ya no cambia con el idioma.
+  void chooseNotation(Notation n) {
+    notation = n;
+    notationChosen = true;
+  }
 
   PitchSettings get pitch => PitchSettings(
         a4: a4,
@@ -128,6 +147,7 @@ class AppSettings extends ChangeNotifier {
     }
     final int? notationIndex = read<int>('notation');
     notation = notationIndex == null ? (spanish ? Notation.solfeo : Notation.english) : Notation.values[notationIndex.clamp(0, Notation.values.length - 1)];
+    notationChosen = read<bool>('notationChosen') ?? false;
     flats = read<bool>('flats') ?? false;
     indianTonic = (read<int>('indianTonic') ?? 0).clamp(0, 11);
     transposition = (read<int>('transposition') ?? 0).clamp(-12, 14);
@@ -136,7 +156,7 @@ class AppSettings extends ChangeNotifier {
     toleranceCents = _finite(read<double>('toleranceCents'), 5).clamp(1.0, 15.0).toDouble();
     damping = _finite(read<double>('damping'), 0.6).clamp(0.0, 0.95).toDouble();
     haptics = read<bool>('haptics') ?? false;
-    flash = read<bool>('flash') ?? true;
+    flash = read<bool>('flash') ?? false;
     keepAwake = read<bool>('keepAwake') ?? true;
     audioDelayMs = (read<int>('audioDelayMs') ?? 0).clamp(0, maxAudioDelayMs);
     final String? fmt = read<String>('recordingFormat');
@@ -168,6 +188,7 @@ class AppSettings extends ChangeNotifier {
         'temperamentRoot': temperamentRoot,
         'customTemperament': customTemperament.map((double d) => d.toString()).toList(),
         'notation': notation.index,
+        'notationChosen': notationChosen,
         'flats': flats,
         'indianTonic': indianTonic,
         'transposition': transposition,

@@ -1,11 +1,44 @@
 // Bordón, teclado y acordes (M4): quinta pura, ganancia repartida, ondas sin
 // aliasing y notas que siguen la referencia.
 
+import 'dart:async';
+
 import 'package:clave/audio/audio_engine.dart';
 import 'package:clave/audio/drone.dart';
 import 'package:clave/music/notes.dart';
 import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// Motor mudo cuyos tonos tardan en arrancar hasta que la prueba lo permite.
+class SlowEngine extends SilentEngine {
+  final List<Completer<void>> pending = <Completer<void>>[];
+
+  @override
+  Future<Tone?> startTone(double hz, {WaveShape shape = WaveShape.sine, double volume = 0.5}) async {
+    final Completer<void> c = Completer<void>();
+    pending.add(c);
+    await c.future;
+    return super.startTone(hz, shape: shape, volume: volume);
+  }
+
+  /// Deja arrancar el tono más antiguo que espera.
+  void releaseOne(FakeAsync async) {
+    pending.firstWhere((Completer<void> c) => !c.isCompleted).complete();
+    async.flushMicrotasks();
+  }
+
+  /// Deja arrancar todos los tonos pedidos hasta ahora (y los que pidan).
+  void releaseAll(FakeAsync async) {
+    for (int i = 0; i < 20 && pending.any((Completer<void> c) => !c.isCompleted); i++) {
+      for (final Completer<void> c in pending.toList()) {
+        if (!c.isCompleted) {
+          c.complete();
+        }
+      }
+      async.flushMicrotasks();
+    }
+  }
+}
 
 double totalVolume(SilentEngine e) => e.volumes.values.fold<double>(0, (double a, double b) => a + b);
 
@@ -110,6 +143,54 @@ void main() {
       expect(d.pressedKeys, <int>{64});
       async.elapse(const Duration(seconds: 1));
       expect(d.pressedKeys, isEmpty);
+    });
+  });
+
+  test('Dos acordes seguidos no se mezclan y stopAll no deja el bordón sonando (2.ª ronda, N-M3)', () {
+    fakeAsync((FakeAsync async) {
+      final SlowEngine e = SlowEngine();
+      final DroneController d = DroneController(e);
+      // El segundo acorde llega mientras el primero arranca sus voces.
+      d.playChord(60, 'M');
+      async.flushMicrotasks();
+      e.releaseOne(async); // solo la primera voz del primero
+      expect(e.frequencies, hasLength(1));
+      d.playChord(62, 'm');
+      e.releaseAll(async);
+      final List<double> f = e.frequencies.values.toList()..sort();
+      final List<double> want = <double>[d.frequencyOf(62), d.frequencyOf(65), d.frequencyOf(69)]..sort();
+      expect(f, hasLength(3));
+      for (int i = 0; i < 3; i++) {
+        expect(f[i], closeTo(want[i], 1e-9));
+      }
+      // Callar mientras un acorde arranca: no queda nada.
+      d.playChord(64, 'M');
+      async.flushMicrotasks();
+      d.silenceKeysAndChord();
+      e.releaseAll(async);
+      expect(e.frequencies, isEmpty);
+      expect(d.chordSounding, isFalse);
+      // stopAll (salir de la app en Android) mientras arranca el bordón.
+      d.setFifth(true);
+      d.startDrone();
+      async.flushMicrotasks();
+      d.stopAll();
+      e.releaseAll(async);
+      expect(e.frequencies, isEmpty);
+      expect(d.droneOn, isFalse);
+      // Y el bordón vuelve a arrancar normalmente después.
+      d.startDrone();
+      e.releaseAll(async);
+      expect(e.frequencies, hasLength(2));
+      d.stopAll();
+      async.flushMicrotasks();
+      expect(e.frequencies, isEmpty);
+      // Una tecla que arranca justo cuando se sueltan todas tampoco queda.
+      d.keyDown(60);
+      async.flushMicrotasks();
+      d.releaseKeys();
+      e.releaseAll(async);
+      expect(e.frequencies, isEmpty);
     });
   });
 }

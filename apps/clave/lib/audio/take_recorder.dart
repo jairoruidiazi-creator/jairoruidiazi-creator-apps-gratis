@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:record/record.dart';
 
 import '../core/storage.dart';
+import 'audio_session.dart';
 import 'mic_capture.dart';
 
 /// Una toma terminada, con los datos que se fijaron al empezarla.
@@ -58,10 +59,12 @@ abstract class AudioFileCapture {
 
 /// Captura con el paquete `record`.
 class RecordFileCapture implements AudioFileCapture {
-  RecordFileCapture({this.onReleased});
+  RecordFileCapture({this.guard});
 
-  /// Se llama al soltar el micrófono (la app restaura su sesión de audio).
-  final Future<void> Function()? onReleased;
+  /// Coordina el micrófono con el afinador y repone la sesión de audio al
+  /// soltarlo.
+  final MicSessionGuard? guard;
+  bool _holding = false;
 
   AudioRecorder? _recorder;
 
@@ -71,32 +74,44 @@ class RecordFileCapture implements AudioFileCapture {
   Future<bool> hasPermission({bool request = true}) => _rec.hasPermission(request: request);
 
   @override
-  Future<void> start(String path, {required String format}) {
+  Future<void> start(String path, {required String format}) async {
     final AudioEncoder enc = format == 'wav' ? AudioEncoder.wav : (format == 'flac' ? AudioEncoder.flac : AudioEncoder.aacLc);
-    return _rec.start(
-      RecordConfig(
-        encoder: enc,
-        sampleRate: 44100,
-        numChannels: 1,
-        bitRate: 160000,
-        androidConfig: kTakeAndroidConfig,
-        iosConfig: kMicIosConfig,
-        // iOS pausa la toma con una llamada o Siri (la app la cierra y la
-        // guarda); en Android no se pide foco de audio.
-        audioInterruption: defaultTargetPlatform == TargetPlatform.iOS ? AudioInterruptionMode.pause : AudioInterruptionMode.none,
-      ),
-      path: path,
-    );
+    if (!_holding) {
+      _holding = true;
+      guard?.acquire();
+    }
+    try {
+      await _rec.start(
+        RecordConfig(
+          encoder: enc,
+          sampleRate: 44100,
+          numChannels: 1,
+          bitRate: 160000,
+          androidConfig: kTakeAndroidConfig,
+          iosConfig: kMicIosConfig,
+          // iOS pausa la toma con una llamada o Siri (la app la cierra y la
+          // guarda); en Android no se pide foco de audio.
+          audioInterruption: defaultTargetPlatform == TargetPlatform.iOS ? AudioInterruptionMode.pause : AudioInterruptionMode.none,
+        ),
+        path: path,
+      );
+    } catch (e) {
+      _holding = false;
+      await guard?.release();
+      rethrow;
+    }
   }
 
   @override
   Future<String?> stop() async {
-    final String? path = await _rec.stop();
-    final Future<void> Function()? released = onReleased;
-    if (released != null) {
-      await released();
+    try {
+      return await _rec.stop();
+    } finally {
+      if (_holding) {
+        _holding = false;
+        await guard?.release();
+      }
     }
-    return path;
   }
 
   @override

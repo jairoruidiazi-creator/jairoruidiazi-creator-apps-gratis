@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:record/record.dart';
 
+import 'audio_session.dart';
+
 /// Captura del micrófono en PCM de 16 bits mono para el afinador. Separada
 /// del afinador para poder probar su ciclo de vida sin micrófono.
 abstract class MicCapture {
@@ -50,10 +52,11 @@ AudioInterruptionMode tunerInterruptionMode() => defaultTargetPlatform == Target
 
 /// Captura con el paquete `record`.
 class RecordMicCapture implements MicCapture {
-  RecordMicCapture({this.onReleased});
+  RecordMicCapture({this.guard});
 
-  /// Se llama al soltar el micrófono (la app restaura su sesión de audio).
-  final Future<void> Function()? onReleased;
+  /// Coordina el micrófono con la grabadora y repone la sesión de audio al
+  /// soltarlo.
+  final MicSessionGuard? guard;
 
   AudioRecorder? _recorder;
   StreamSubscription<RecordState>? _stateSub;
@@ -75,17 +78,24 @@ class RecordMicCapture implements MicCapture {
         _paused.add(s == RecordState.pause);
       }
     });
-    final Stream<Uint8List> stream = await _rec.startStream(RecordConfig(
-      encoder: AudioEncoder.pcm16bits,
-      sampleRate: sampleRate,
-      numChannels: 1,
-      autoGain: false,
-      echoCancel: false,
-      noiseSuppress: false,
-      androidConfig: kTunerAndroidConfig,
-      iosConfig: kMicIosConfig,
-      audioInterruption: tunerInterruptionMode(),
-    ));
+    guard?.acquire();
+    final Stream<Uint8List> stream;
+    try {
+      stream = await _rec.startStream(RecordConfig(
+        encoder: AudioEncoder.pcm16bits,
+        sampleRate: sampleRate,
+        numChannels: 1,
+        autoGain: false,
+        echoCancel: false,
+        noiseSuppress: false,
+        androidConfig: kTunerAndroidConfig,
+        iosConfig: kMicIosConfig,
+        audioInterruption: tunerInterruptionMode(),
+      ));
+    } catch (e) {
+      await guard?.release();
+      rethrow;
+    }
     _running = true;
     return stream;
   }
@@ -101,10 +111,7 @@ class RecordMicCapture implements MicCapture {
     } catch (e) {
       debugPrint('No se pudo cerrar el micrófono: $e');
     }
-    final Future<void> Function()? released = onReleased;
-    if (released != null) {
-      await released();
-    }
+    await guard?.release();
   }
 
   @override

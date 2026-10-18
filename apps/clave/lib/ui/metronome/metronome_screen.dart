@@ -15,6 +15,7 @@ import '../../music/instruments.dart';
 import '../widgets/adaptive.dart';
 import 'presets_screen.dart';
 import 'rhythm_sheets.dart';
+import 'screen_flash.dart';
 
 class MetronomeScreen extends StatefulWidget {
   const MetronomeScreen({super.key, this.active = true});
@@ -222,12 +223,16 @@ class _MetronomeScreenState extends State<MetronomeScreen> {
                 active: widget.active,
                 beat: m.beat,
                 builder: (BuildContext context, BeatState b) {
-                  final bool flashOn = b.running && m.flashEnabled && b.sub == 0 && b.phase < 0.12;
-                  if (!flashOn) {
+                  // Como mucho 3 destellos por segundo, con contraste suave
+                  // y nunca con "quitar animaciones" (WCAG 2.3.1).
+                  if (!b.running || !m.flashEnabled || MediaQuery.disableAnimationsOf(context) || b.sub != 0 || !b.audible || b.phase >= ScreenFlash.onFraction) {
                     return const SizedBox.shrink();
                   }
-                  final Color flash = b.kind == BeatKind.accent ? pal.accent : cs.primary;
-                  return ColoredBox(color: flash.withValues(alpha: b.kind == BeatKind.accent ? 0.22 : 0.12));
+                  if (!ScreenFlash.flashes(ScreenFlash.beatsFor(m.config, b.bpm), b.kind)) {
+                    return const SizedBox.shrink();
+                  }
+                  final Color tint = b.kind == BeatKind.accent ? Color.alphaBlend(pal.accent.withValues(alpha: 0.45), cs.surface) : cs.primaryContainer;
+                  return ColoredBox(key: const ValueKey<String>('destello'), color: ScreenFlash.overlay(tint, cs.surface));
                 },
               ),
             ),

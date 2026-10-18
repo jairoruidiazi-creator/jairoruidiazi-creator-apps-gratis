@@ -12,7 +12,7 @@ METRONOME
 • 20 to 400 BPM, tap tempo and Italian tempo markings.
 • 1 to 16 beats over 2, 4, 8 or 16, with subdivisions, triplets, sextuplets and swing.
 • Beat editor: accent, normal, rest or subdivision only.
-• 12 synthesized sounds with three variants each.
+• 12 synthesized sounds, with a different pitch for accent, beat and subdivision.
 • Tempo trainer that steps up gradually, and muted bars to practice your inner pulse.
 • Pendulum or big number, flash and vibration locked to what you hear, with an audio delay setting and tap calibration for Bluetooth headphones.
 • Spoken count-in, presets and setlists you can export and import.

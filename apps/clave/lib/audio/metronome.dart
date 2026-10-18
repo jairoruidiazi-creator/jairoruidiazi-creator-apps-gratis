@@ -10,7 +10,7 @@ import 'sequencer.dart';
 
 /// Estado visible del pulso actual.
 class BeatState {
-  const BeatState({required this.bar, required this.beat, required this.sub, required this.kind, required this.phase, required this.bpm, required this.running, this.beatCount = 0});
+  const BeatState({required this.bar, required this.beat, required this.sub, required this.kind, required this.phase, required this.bpm, required this.running, this.beatCount = 0, this.audible = true});
 
   final int bar;
   final int beat;
@@ -25,6 +25,9 @@ class BeatState {
   /// Pulsos desde que arrancó: el péndulo va y viene alternando con él,
   /// también en compases de 3, 5 o 7 pulsos.
   final int beatCount;
+
+  /// false en pulsos de silencio y compases mudos (no destellan).
+  final bool audible;
 
   static const BeatState idle = BeatState(bar: 0, beat: 0, sub: 0, kind: BeatKind.accent, phase: 0, bpm: 0, running: false);
 }
@@ -47,7 +50,7 @@ class Metronome extends ChangeNotifier {
   RhythmConfig get config => _config;
 
   bool hapticsEnabled = false;
-  bool flashEnabled = true;
+  bool flashEnabled = false;
 
   /// Retraso del audio en milisegundos (0 a 400): el sonido que el
   /// mezclador ya consumió tarda este tiempo en oírse (salida del teléfono y
@@ -168,7 +171,7 @@ class Metronome extends ChangeNotifier {
       return;
     }
     final double phase = e.beatLength <= 0 ? 0 : ((sample - e.beatStart) / e.beatLength).clamp(0.0, 1.0).toDouble();
-    final BeatState next = BeatState(bar: e.bar, beat: e.beat, sub: e.sub, kind: e.kind, phase: phase, bpm: e.bpm, running: true, beatCount: e.beatCount);
+    final BeatState next = BeatState(bar: e.bar, beat: e.beat, sub: e.sub, kind: e.kind, phase: phase, bpm: e.bpm, running: true, beatCount: e.beatCount, audible: e.audible);
     if (e.sample != _lastHapticSample) {
       _lastHapticSample = e.sample;
       if (hapticsEnabled && e.sub == 0 && e.audible) {

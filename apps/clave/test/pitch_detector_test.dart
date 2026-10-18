@@ -79,6 +79,24 @@ double gauss(math.Random rnd) {
   return math.sqrt(-2 * math.log(u)) * math.cos(2 * math.pi * v);
 }
 
+/// Ruido rosa (filtro de Paul Kellet), [n] muestras.
+Float32List pinkNoise(math.Random rnd, int n) {
+  double b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+  final Float32List out = Float32List(n + 2048);
+  for (int i = 0; i < out.length; i++) {
+    final double white = gauss(rnd);
+    b0 = 0.99886 * b0 + white * 0.0555179;
+    b1 = 0.99332 * b1 + white * 0.0750759;
+    b2 = 0.96900 * b2 + white * 0.1538520;
+    b3 = 0.86650 * b3 + white * 0.3104856;
+    b4 = 0.55000 * b4 + white * 0.5329522;
+    b5 = -0.7616 * b5 - white * 0.0168980;
+    out[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+    b6 = white * 0.115926;
+  }
+  return Float32List.sublistView(out, 2048);
+}
+
 double rmsOf(Float32List x) {
   double s = 0;
   for (final double v in x) {
@@ -198,6 +216,35 @@ void main() {
       }
 
       expect(misses(<int>[for (int m = 40; m <= 96; m += 3) m], gen, tolCents: 5), isEmpty, reason: 'SNR $snr dB');
+    }
+  });
+
+  test('Con ruido fuerte (7 y 5 dB) no da la octava ni la duodécima de abajo (2.ª ronda, N-M1)', () {
+    final math.Random rnd = math.Random(23);
+    Float32List noisy(Float32List s, double snr, {required bool pink}) {
+      final Float32List w = pink ? pinkNoise(rnd, s.length) : Float32List.fromList(<double>[for (int i = 0; i < s.length; i++) gauss(rnd)]);
+      final double k = rmsOf(s) * math.pow(10, -snr / 20).toDouble() / rmsOf(w);
+      return Float32List.fromList(<double>[for (int i = 0; i < s.length; i++) s[i] + k * w[i]]);
+    }
+
+    /// Lecturas que la app mostraría (claridad ≥ 0,6) a más de 50 cents.
+    List<String> wrong(Iterable<int> midis, List<double> amps, double snr, {required bool pink}) {
+      final List<String> out = <String>[];
+      for (final int m in midis) {
+        // Desafinada al azar hasta ±50 cents, como en la auditoría.
+        final double f0 = hzOf(m) * math.pow(2, (rnd.nextDouble() * 100 - 50) / 1200).toDouble();
+        final PitchResult r = det.detect(noisy(tone(rnd, f0, amps), snr, pink: pink));
+        if (r.hasPitch && r.clarity >= 0.6 && centsBetween(r.frequency, f0).abs() > 50) {
+          out.add('midi $m: ${f0.toStringAsFixed(1)} Hz → ${r.frequency.toStringAsFixed(1)} Hz (claridad ${r.clarity.toStringAsFixed(2)})');
+        }
+      }
+      return out;
+    }
+
+    for (final double snr in <double>[7, 5]) {
+      expect(wrong(<int>[for (int m = 80; m <= 108; m++) m], violin, snr, pink: false), isEmpty, reason: 'violín, ruido blanco, $snr dB');
+      expect(wrong(<int>[for (int m = 55; m <= 108; m++) m], violin, snr, pink: true), isEmpty, reason: 'violín, ruido rosa, $snr dB');
+      expect(wrong(<int>[for (int m = 40; m <= 89; m++) m], guitar, snr, pink: true), isEmpty, reason: 'guitarra, ruido rosa, $snr dB');
     }
   });
 

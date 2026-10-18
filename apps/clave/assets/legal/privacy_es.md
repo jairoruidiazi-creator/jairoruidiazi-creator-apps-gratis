@@ -49,7 +49,7 @@ Los datos quedan en el almacenamiento privado de la app, al que otras apps no ti
 
 ## Conservación y borrado
 
-Tus datos permanecen en el dispositivo hasta que los borres. Puedes borrar grabaciones y preajustes desde la app, o borrar todo desinstalándola o limpiando sus datos en los ajustes del sistema. Como no guardamos copias, no hay nada más que borrar de nuestro lado.
+Tus datos permanecen en el dispositivo hasta que los borres, con una excepción: el registro de práctica conserva solo el último año, y la app descarta sola lo que tiene más de 366 días. Puedes borrar grabaciones y preajustes desde la app, o borrar todo desinstalándola o limpiando sus datos en los ajustes del sistema. Como no guardamos copias, no hay nada más que borrar de nuestro lado.
 
 ## Tus derechos
 

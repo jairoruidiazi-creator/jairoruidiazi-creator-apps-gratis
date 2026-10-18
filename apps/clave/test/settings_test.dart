@@ -27,6 +27,42 @@ void main() {
     expect(saved.notation, Notation.german);
   });
 
+  test('Al cambiar el idioma la notación lo sigue, salvo que se haya elegido a mano (2.ª ronda, N-M7)', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final AppSettings st = AppSettings(deviceLocale: const Locale('en', 'US'));
+    await st.load();
+    expect(st.notation, Notation.english);
+    st.setLanguage('es');
+    await st.save();
+    expect(st.notation, Notation.solfeo);
+    st.setLanguage('en');
+    await st.save();
+    expect(st.notation, Notation.english);
+    // Elegida a mano: ya no cambia con el idioma, tampoco al volver a abrir.
+    st.chooseNotation(Notation.german);
+    await st.save();
+    st.setLanguage('es');
+    await st.save();
+    expect(st.notation, Notation.german);
+    final AppSettings again = AppSettings(deviceLocale: const Locale('en', 'US'));
+    await again.load();
+    expect(again.notationChosen, isTrue);
+    again.setLanguage('en');
+    expect(again.notation, Notation.german);
+    // La notación que cambió sola con el idioma no cuenta como elegida.
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final AppSettings auto = AppSettings(deviceLocale: const Locale('en', 'US'));
+    await auto.load();
+    auto.setLanguage('es');
+    await auto.save();
+    final AppSettings reopened = AppSettings(deviceLocale: const Locale('en', 'US'));
+    await reopened.load();
+    expect(reopened.notation, Notation.solfeo);
+    expect(reopened.notationChosen, isFalse);
+    reopened.setLanguage('en');
+    expect(reopened.notation, Notation.english);
+  });
+
   test('Valores guardados fuera de rango o de otro tipo se corrigen (G11)', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       'language': 'fr',

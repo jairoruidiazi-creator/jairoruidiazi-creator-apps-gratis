@@ -48,6 +48,9 @@ Future<void> main() async {
   if (rhythm != null) {
     metronome.setConfig(rhythm);
   }
+  // Afinador y grabadora comparten el micrófono: la sesión de reproducción
+  // vuelve solo cuando los dos lo soltaron.
+  final MicSessionGuard micGuard = MicSessionGuard();
   final Services services = Services(
     settings: settings,
     state: state,
@@ -55,9 +58,9 @@ Future<void> main() async {
     store: store,
     engine: engine,
     metronome: metronome,
-    tuner: Tuner(mic: RecordMicCapture(onReleased: restorePlaybackSession)),
+    tuner: Tuner(mic: RecordMicCapture(guard: micGuard)),
     drone: DroneController(engine),
-    recorder: TakeRecorder(store: store, capture: RecordFileCapture(onReleased: restorePlaybackSession)),
+    recorder: TakeRecorder(store: store, capture: RecordFileCapture(guard: micGuard)),
     platform: const DevicePlatformActions(),
   );
   ServiceLinks(services);
