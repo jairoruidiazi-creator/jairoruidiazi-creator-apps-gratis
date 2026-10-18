@@ -1,2 +1,2 @@
 "CFBundleDisplayName" = "Clave";
-"NSMicrophoneUsageDescription" = "Clave usa el micrófono para afinar tu instrumento y grabar tus tomas. El audio no sale del dispositivo.";
+"NSMicrophoneUsageDescription" = "Clave usa el micrófono para afinar tu instrumento y grabar tus tomas. El audio se analiza en el dispositivo y tus tomas solo salen de él si las compartes.";

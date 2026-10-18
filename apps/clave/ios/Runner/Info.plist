@@ -67,7 +67,7 @@
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Clave usa el micrófono para afinar tu instrumento y grabar tus tomas. El audio no sale del dispositivo.</string>
+	<string>Clave usa el micrófono para afinar tu instrumento y grabar tus tomas. El audio se analiza en el dispositivo y tus tomas solo salen de él si las compartes.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>

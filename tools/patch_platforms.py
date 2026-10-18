@@ -76,12 +76,12 @@ APPS = {
         "ios_plist": {
             "CFBundleDisplayName": "Clave",
             "ITSAppUsesNonExemptEncryption": False,
-            "NSMicrophoneUsageDescription": "Clave usa el micrófono para afinar tu instrumento y grabar tus tomas. El audio no sale del dispositivo.",
+            "NSMicrophoneUsageDescription": "Clave usa el micrófono para afinar tu instrumento y grabar tus tomas. El audio se analiza en el dispositivo y tus tomas solo salen de él si las compartes.",
             "UIBackgroundModes": ["audio"],
         },
         "ios_strings_en": {
             "CFBundleDisplayName": "Clave",
-            "NSMicrophoneUsageDescription": "Clave uses the microphone to tune your instrument and record your takes. The audio never leaves the device.",
+            "NSMicrophoneUsageDescription": "Clave uses the microphone to tune your instrument and record your takes. Audio is analyzed on the device, and your takes leave it only if you share them.",
         },
         "iphone_orientations": ["UIInterfaceOrientationPortrait"],
         "ios_privacy_collected": [],

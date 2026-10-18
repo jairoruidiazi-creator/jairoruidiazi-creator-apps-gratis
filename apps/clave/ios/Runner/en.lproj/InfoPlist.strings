@@ -1,2 +1,2 @@
 "CFBundleDisplayName" = "Clave";
-"NSMicrophoneUsageDescription" = "Clave uses the microphone to tune your instrument and record your takes. The audio never leaves the device.";
+"NSMicrophoneUsageDescription" = "Clave uses the microphone to tune your instrument and record your takes. Audio is analyzed on the device, and your takes leave it only if you share them.";
