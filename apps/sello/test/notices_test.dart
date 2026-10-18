@@ -33,6 +33,9 @@ void main() {
       Services(settings: settings, state: state, store: state.store, location: LocationService(backend: FakeLocationBackend()), heading: HeadingService(useSystemHeading: false), pipeline: pipeline);
 
   testWidgets('Si una foto no se puede sellar, se avisa y se puede ir a ella', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.625;
+    addTearDown(tester.view.reset);
     late Services services;
     late RecordingPipeline pipeline;
     await tester.runAsync(() async {
