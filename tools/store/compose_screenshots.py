@@ -110,10 +110,13 @@ def luminance(img: Image.Image) -> float:
     return sum(px) / len(px)
 
 
-def status_clock(hhmm: str) -> str:
-    """Hora de la barra de estado como la muestran iOS y Android con reloj de
-    12 horas (el habitual en Colombia y en EE. UU.): «18:40» → «6:40»."""
+def status_clock(hhmm: str, lang: str = "en") -> str:
+    """Hora de la barra de estado en el mismo formato que usan las apps: 24 horas
+    en español («18:40») y 12 horas sin a. m./p. m. en inglés («6:40»), como la
+    barra de iOS y Android con ese reloj."""
     h, m = (int(x) for x in hhmm.split(":"))
+    if lang == "es":
+        return f"{h}:{m:02d}"
     return f"{h % 12 or 12}:{m:02d}"
 
 
@@ -324,7 +327,7 @@ def main() -> int:
                     continue
                 n += 1
                 img = Image.open(src).convert("RGB")
-                draw_status_bar(img, device, status_clock(shot.get("status_time", spec.get("status_time", "9:41"))))
+                draw_status_bar(img, device, status_clock(shot.get("status_time", spec.get("status_time", "9:41")), lang))
                 result = compose(img, device, shot[lang], spec["brand"])
                 name = re.sub(r"^\d+-", "", shot["id"])
                 if platform == "android":
