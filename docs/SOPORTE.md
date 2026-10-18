@@ -24,7 +24,7 @@ Las cinco apps son gratuitas, de código abierto y funcionan sin cuenta. Como no
 - **El afinador no reacciona.** El afinador escucha solo con su pestaña a la vista. Si falta el permiso de micrófono, toca «Permitir micrófono» o, si ya lo negaste, «Abrir ajustes» y actívalo en los ajustes del teléfono; luego toca cerca del micrófono. Sin ese permiso funcionan el metrónomo, el bordón y la práctica.
 - **La animación del metrónomo no va con el sonido en audífonos Bluetooth.** Los audífonos inalámbricos retrasan el audio. En Ajustes › Retraso del audio toca «Calibrar con toques» y toca al ritmo del clic, o mueve el valor a mano (con Bluetooth suele estar entre 150 y 300 ms).
 - **En Android, el metrónomo o el bordón se detienen al salir de la app.** Es a propósito en esta versión: Android no deja seguir sonando a una app en segundo plano sin un servicio especial. Si estabas grabando, la toma queda guardada. Mientras practicas con la app abierta, la pantalla se mantiene encendida.
-- **La app se cerró mientras grababa.** Al abrirla otra vez, Clave rescata la toma y la muestra en la Grabadora marcada como «rescatada».
+- **La app se cerró mientras grababa.** Al abrirla otra vez, Clave rescata la toma y la muestra en la Grabadora marcada como «rescatada». Una toma en WAV o FLAC se oye hasta donde llegó; en AAC, si el archivo quedó incompleto, puede no reproducirse.
 
 ### Sello
 
@@ -72,7 +72,7 @@ The five apps are free, open source and work without an account. We have no serv
 - **The tuner does not react.** The tuner only listens while its tab is on screen. If the microphone permission is missing, tap "Allow microphone" or, if you already denied it, "Open settings" and turn it on in the phone settings; then play close to the microphone. Without that permission the metronome, drone and practice log still work.
 - **The metronome animation does not match the sound with Bluetooth headphones.** Wireless headphones delay the audio. In Settings › Audio delay tap "Calibrate by tapping" and tap along with the click, or set the value by hand (with Bluetooth it is usually 150 to 300 ms).
 - **On Android, the metronome or the drone stop when I leave the app.** That is intentional in this version: Android does not let an app keep playing in the background without a special service. If you were recording, the take is saved. While you practice with the app open, the screen stays on.
-- **The app closed while recording.** When you open it again, Clave recovers the take and shows it in the Recorder marked as "recovered".
+- **The app closed while recording.** When you open it again, Clave recovers the take and shows it in the Recorder marked as "recovered". A WAV or FLAC take plays up to where it stopped; an incomplete AAC file may not play.
 
 ### Sello
 

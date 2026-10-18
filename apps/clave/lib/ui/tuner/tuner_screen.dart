@@ -48,7 +48,9 @@ class _TunerScreenState extends State<TunerScreen> {
       case MicStatus.listening:
         return t(context, 'Toca una nota', 'Play a note');
       case MicStatus.off:
-        return t(context, 'Micrófono apagado', 'Microphone off');
+        // Con la pestaña a la vista y el botón encendido, "apagado" solo dura
+        // lo que tarda en abrirse el micrófono: no se anuncia.
+        return tuner.userEnabled && tuner.active ? t(context, 'Toca una nota', 'Play a note') : t(context, 'Micrófono apagado', 'Microphone off');
       case MicStatus.needsPermission:
         return t(context, 'Falta el permiso de micrófono', 'Microphone permission needed');
       case MicStatus.denied:

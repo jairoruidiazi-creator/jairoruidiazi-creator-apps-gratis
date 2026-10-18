@@ -81,7 +81,7 @@ Pensada para tocar encima de la música de otra app (una pista de acompañamient
 ## Grabadora (M7)
 
 - La duración es el tiempo grabado sin pausas; si el sistema pausa la toma (llamada, Siri), la toma se cierra y se guarda.
-- Mientras se graba queda un marcador (`recordings/pending.json`) con el archivo, la hora, la carpeta y el instrumento. Si la app se cierra de golpe, al abrirla se rescata la toma (y cualquier archivo de la carpeta que no esté en la lista) como "Toma N" marcada como rescatada; los archivos vacíos se borran. La duración de una toma rescatada se completa al reproducirla.
+- Mientras se graba queda un marcador (`recordings/pending.json`) con el archivo, la hora, la carpeta y el instrumento. Si la app se cierra de golpe, al abrirla se rescata la toma (y cualquier archivo de la carpeta que no esté en la lista) como "Toma N" marcada como rescatada; los archivos vacíos se borran. La duración de una toma rescatada se completa al reproducirla. Límite: una toma AAC cortada de golpe puede no reproducirse, porque el contenedor M4A se cierra al final de la grabación; WAV y FLAC se leen hasta donde llegaron. Si no se puede reproducir, la app lo dice y la toma se puede borrar.
 - "Toma N" usa un contador guardado que nunca retrocede: borrar tomas no repite números.
 - Compartir una toma prepara una copia con su nombre (sin caracteres que los sistemas de archivos no aceptan) en `export/`, que se vacía al abrir la app; la hoja de compartir sale del botón tocado (necesario en iPad y en iOS 26) y un error se avisa (B4).
 - Formatos por idioma: "44,1 kHz" en español y "44.1 kHz" en inglés; fecha y hora con el formato del idioma de la app.
