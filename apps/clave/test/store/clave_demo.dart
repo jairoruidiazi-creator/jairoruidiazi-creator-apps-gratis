@@ -74,7 +74,8 @@ Future<void> seedClaveDemo(AppState st, {required bool spanish, required DateTim
       continue; // descanso
     }
     final int blocks = back == 0 ? 2 : 1 + rnd.nextInt(3);
-    DateTime start = DateTime(d.year, d.month, d.day, 18 + rnd.nextInt(2), rnd.nextInt(40));
+    // Hoy: afinar y metrónomo en la última media hora; otros días, al final de la tarde.
+    DateTime start = back == 0 ? now.subtract(const Duration(minutes: 26)) : DateTime(d.year, d.month, d.day, 17 + rnd.nextInt(2), rnd.nextInt(40));
     for (int b = 0; b < blocks; b++) {
       final String tool = back == 0 ? (b == 0 ? 'afinador' : 'metronomo') : tools[rnd.nextInt(tools.length)];
       final int minutes = back == 0 ? (b == 0 ? 3 : 15) : (tool == 'afinador' ? 2 + rnd.nextInt(4) : 8 + rnd.nextInt(22));
@@ -89,18 +90,29 @@ Future<void> seedClaveDemo(AppState st, {required bool spanish, required DateTim
   await st.savePractice();
 }
 
-/// Señal de prueba para el afinador: una cuerda pulsada (fundamental y
-/// armónicos con caída suave) en [hz], a 44,1 kHz.
-Float32List pluckedString(double hz, {int samples = 8192, int sampleRate = 44100, int offset = 0}) {
-  final Float32List out = Float32List(samples);
-  const List<double> harmonics = <double>[0.55, 0.3, 0.16, 0.08, 0.04];
-  for (int i = 0; i < samples; i++) {
-    final double t = (i + offset) / sampleRate;
-    double v = 0;
-    for (int h = 0; h < harmonics.length; h++) {
-      v += harmonics[h] * math.sin(2 * math.pi * hz * (h + 1) * t);
+/// Señal de prueba para el afinador: una cuerda sostenida (fundamental y
+/// armónicos) con la fase continua entre bloques, como llega del micrófono.
+class SustainedString {
+  SustainedString({this.sampleRate = 44100});
+
+  final int sampleRate;
+  static const List<double> _harmonics = <double>[0.55, 0.3, 0.16, 0.08, 0.04];
+  final List<double> _phase = List<double>.filled(_harmonics.length, 0);
+
+  /// Los siguientes [samples] valores a [hz].
+  Float32List next(double hz, int samples) {
+    final Float32List out = Float32List(samples);
+    for (int i = 0; i < samples; i++) {
+      double v = 0;
+      for (int h = 0; h < _harmonics.length; h++) {
+        _phase[h] += 2 * math.pi * hz * (h + 1) / sampleRate;
+        if (_phase[h] > 2 * math.pi) {
+          _phase[h] -= 2 * math.pi;
+        }
+        v += _harmonics[h] * math.sin(_phase[h]);
+      }
+      out[i] = v * 0.5;
     }
-    out[i] = (v * 0.6 * math.exp(-t * 0.35)).toDouble();
+    return out;
   }
-  return out;
 }

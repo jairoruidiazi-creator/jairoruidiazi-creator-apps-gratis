@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:record/record.dart';
 import 'package:share_plus/share_plus.dart';
@@ -11,6 +12,7 @@ import '../../core/app_state.dart';
 import '../../core/theme.dart';
 import '../../model/models.dart';
 import '../../music/instruments.dart';
+import '../widgets/adaptive.dart';
 
 /// Grabadora: tomas ilimitadas con carpetas, búsqueda, notas y reproducción
 /// a velocidad variable.
@@ -112,7 +114,7 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
     _recordingFormat = s.settings.recordingFormat;
     final AudioEncoder enc = _recordingFormat == 'wav' ? AudioEncoder.wav : (_recordingFormat == 'flac' ? AudioEncoder.flac : AudioEncoder.aacLc);
     final String ext = _recordingFormat == 'wav' ? 'wav' : (_recordingFormat == 'flac' ? 'flac' : 'm4a');
-    final String rel = 'recordings/${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final String rel = 'recordings/${clock.now().millisecondsSinceEpoch}.$ext';
     final String path = await s.store.absolutePath(rel);
     await File(path).parent.create(recursive: true);
     try {
@@ -123,7 +125,7 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
     }
     _recordingPath = path;
     _recordingFile = rel;
-    _recStart = DateTime.now();
+    _recStart = clock.now();
     _ampSub = _recorder.onAmplitudeChanged(const Duration(milliseconds: 120)).listen((Amplitude a) {
       // dBFS de -60 a 0 → 0 a 1
       final double v = ((a.current + 60) / 60).clamp(0.0, 1.0);
@@ -150,7 +152,7 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
     try {
       path = await _recorder.stop();
     } catch (_) {}
-    final int ms = _recStart == null ? 0 : DateTime.now().difference(_recStart!).inMilliseconds;
+    final int ms = _recStart == null ? 0 : clock.now().difference(_recStart!).inMilliseconds;
     setState(() {
       _recording = false;
       _level = 0;
@@ -166,7 +168,7 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
       file: rel,
       format: _recordingFormat,
       durationMs: ms,
-      createdAt: DateTime.now(),
+      createdAt: clock.now(),
       folder: _folder ?? '',
       instrumentId: s.settings.instrumentId,
       bpm: s.metronome.running ? s.metronome.currentBpm : null,
@@ -317,8 +319,9 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
           }
           return r.name.toLowerCase().contains(q) || r.notes.toLowerCase().contains(q) || r.folder.toLowerCase().contains(q) || Instruments.byId(r.instrumentId).name(spanish).toLowerCase().contains(q);
         }).toList();
-        final int elapsed = _recStart == null ? 0 : DateTime.now().difference(_recStart!).inMilliseconds;
-        return Column(
+        final int elapsed = _recStart == null ? 0 : clock.now().difference(_recStart!).inMilliseconds;
+        return ReadableWidth(
+          child: Column(
           children: <Widget>[
             // Panel de grabación
             Container(
@@ -418,6 +421,7 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
             ),
             if (_playing != null) _playerBar(context, cs),
           ],
+          ),
         );
       },
     );

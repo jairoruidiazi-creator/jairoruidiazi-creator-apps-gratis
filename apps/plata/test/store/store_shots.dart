@@ -59,6 +59,9 @@ class StoreDevice {
     tester.view.padding = padding;
     tester.view.viewPadding = padding;
     addTearDown(tester.view.reset);
+    // Pantalla táctil: sin anillos de foco de teclado en las capturas.
+    FocusManager.instance.highlightStrategy = FocusHighlightStrategy.alwaysTouch;
+    addTearDown(() => FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic);
   }
 }
 

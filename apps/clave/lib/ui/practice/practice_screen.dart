@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
@@ -7,6 +8,7 @@ import '../../core/app_state.dart';
 import '../../core/theme.dart';
 import '../../model/models.dart';
 import '../../music/instruments.dart';
+import '../widgets/adaptive.dart';
 
 /// Registro de práctica: metas, racha, barras por día y desglose.
 class PracticeScreen extends StatefulWidget {
@@ -32,7 +34,7 @@ class _PracticeScreenState extends State<PracticeScreen> with AutomaticKeepAlive
     return ListenableBuilder(
       listenable: st,
       builder: (BuildContext context, Widget? _) {
-        final DateTime now = DateTime.now();
+        final DateTime now = clock.now();
         final DateTime today = DateTime(now.year, now.month, now.day);
         final int todaySec = st.secondsOn(today);
         final DateTime weekStart = today.subtract(Duration(days: today.weekday - 1));
@@ -46,7 +48,8 @@ class _PracticeScreenState extends State<PracticeScreen> with AutomaticKeepAlive
         final int streak = st.streak();
         final List<PracticeSession> recent = st.sessions.reversed.take(30).toList();
 
-        return ListView(
+        return ReadableWidth(
+          child: ListView(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
           children: <Widget>[
             Row(
@@ -114,6 +117,7 @@ class _PracticeScreenState extends State<PracticeScreen> with AutomaticKeepAlive
                 child: Text(t(context, 'Las sesiones se registran solas cuando usas el afinador, el metrónomo, el tono o la grabadora.', 'Sessions are logged automatically when you use the tuner, metronome, drone or recorder.'), style: TextStyle(color: cs.onSurface.withValues(alpha: 0.6))),
               ),
           ],
+          ),
         );
       },
     );

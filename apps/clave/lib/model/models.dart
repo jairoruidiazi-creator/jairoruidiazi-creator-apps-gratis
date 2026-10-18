@@ -1,10 +1,22 @@
+import 'dart:math' as math;
+
+import 'package:clock/clock.dart';
+
 import '../audio/sequencer.dart';
 
-String newId() => '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${(DateTime.now().millisecond * 7919 % 1296).toRadixString(36)}';
+int _idCounter = 0;
+final math.Random _idRandom = math.Random();
+
+/// Identificador único: microsegundos reales + contador + azar (dos llamadas
+/// en el mismo microsegundo no chocan).
+String newId() {
+  _idCounter = (_idCounter + 1) % 1679616; // 36^4
+  return '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${_idCounter.toRadixString(36).padLeft(4, '0')}${_idRandom.nextInt(46656).toRadixString(36)}';
+}
 
 /// Preajuste del metrónomo (una "canción").
 class Preset {
-  Preset({required this.id, required this.name, required this.rhythm, this.notes = '', DateTime? createdAt}) : createdAt = createdAt ?? DateTime.now();
+  Preset({required this.id, required this.name, required this.rhythm, this.notes = '', DateTime? createdAt}) : createdAt = createdAt ?? clock.now();
 
   final String id;
   String name;
@@ -19,7 +31,7 @@ class Preset {
         name: j['name'] as String? ?? '',
         rhythm: j['rhythm'] is Map<String, dynamic> ? RhythmConfig.fromJson(j['rhythm'] as Map<String, dynamic>) : const RhythmConfig(),
         notes: j['notes'] as String? ?? '',
-        createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
+        createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? clock.now(),
       );
 }
 
@@ -87,7 +99,7 @@ class Recording {
         file: j['file'] as String? ?? '',
         format: j['format'] as String? ?? 'aac',
         durationMs: (j['durationMs'] as num?)?.toInt() ?? 0,
-        createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? DateTime.now(),
+        createdAt: DateTime.tryParse(j['createdAt'] as String? ?? '') ?? clock.now(),
         folder: j['folder'] as String? ?? '',
         instrumentId: j['instrumentId'] as String? ?? '',
         notes: j['notes'] as String? ?? '',
@@ -113,8 +125,8 @@ class PracticeSession {
 
   static PracticeSession fromJson(Map<String, dynamic> j) => PracticeSession(
         id: j['id'] as String? ?? newId(),
-        start: DateTime.tryParse(j['start'] as String? ?? '') ?? DateTime.now(),
-        end: DateTime.tryParse(j['end'] as String? ?? '') ?? DateTime.now(),
+        start: DateTime.tryParse(j['start'] as String? ?? '') ?? clock.now(),
+        end: DateTime.tryParse(j['end'] as String? ?? '') ?? clock.now(),
         tool: j['tool'] as String? ?? '',
         instrumentId: j['instrumentId'] as String? ?? '',
       );

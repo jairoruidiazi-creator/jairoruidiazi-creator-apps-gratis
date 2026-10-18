@@ -34,6 +34,14 @@ flutter:
   assets:
     - assets/legal/
     - assets/icon/
+  # Respaldo para ♩ ♪ ♭ ♮ ♯: Roboto y San Francisco no los traen y cada
+  # teléfono los tomaba de una fuente distinta (subconjunto de DejaVu Sans).
+  fonts:
+    - family: ClaveSymbols
+      fonts:
+        - asset: assets/fonts/ClaveSymbols-Regular.ttf
+        - asset: assets/fonts/ClaveSymbols-Bold.ttf
+          weight: 700
 
 flutter_launcher_icons:
   android: true

@@ -10,6 +10,7 @@ import '../../audio/sequencer.dart';
 import '../../core/app_scope.dart';
 import '../../core/theme.dart';
 import '../../music/instruments.dart';
+import '../widgets/adaptive.dart';
 import 'presets_screen.dart';
 import 'rhythm_sheets.dart';
 
@@ -131,6 +132,7 @@ class _MetronomeScreenState extends State<MetronomeScreen> with AutomaticKeepAli
 
     return LayoutBuilder(builder: (BuildContext context, BoxConstraints k) {
       final bool wide = k.maxWidth > k.maxHeight * 1.2;
+      final bool tablet = !wide && isWideLayout(context);
       final Widget tempo = _TempoPanel(
         bpm: c.bpm,
         currentBpm: m.currentBpm,
@@ -144,6 +146,7 @@ class _MetronomeScreenState extends State<MetronomeScreen> with AutomaticKeepAli
         },
         onToggle: _toggle,
         spanish: spanish,
+        scale: tablet ? 1.45 : 1.0,
       );
       final Widget beats = _BeatRow(
         config: c,
@@ -157,7 +160,7 @@ class _MetronomeScreenState extends State<MetronomeScreen> with AutomaticKeepAli
         },
       );
       final Widget pendulum = SizedBox(
-        height: wide ? 90 : 110,
+        height: wide ? 90 : (tablet ? 200 : 110),
         child: CustomPaint(painter: _PendulumPainter(state: b, color: cs.primary, onSurface: cs.onSurface), child: const SizedBox.expand()),
       );
       final Widget controls = _Controls(config: c, onChange: _set, spanish: spanish, onOpenPresets: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PresetsScreen())));
@@ -169,10 +172,21 @@ class _MetronomeScreenState extends State<MetronomeScreen> with AutomaticKeepAli
                 Expanded(child: ListView(padding: const EdgeInsets.all(12), children: <Widget>[beats, const SizedBox(height: 8), controls])),
               ],
             )
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-              children: <Widget>[tempo, pendulum, beats, const SizedBox(height: 8), controls],
-            );
+          : tablet
+              // Tableta en vertical: todo en una columna centrada y más grande.
+              ? Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 680),
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                      child: Column(children: <Widget>[tempo, const SizedBox(height: 16), pendulum, const SizedBox(height: 16), beats, const SizedBox(height: 16), controls]),
+                    ),
+                  ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                  children: <Widget>[tempo, pendulum, beats, const SizedBox(height: 8), controls],
+                );
       return Stack(
         children: <Widget>[
           Positioned.fill(child: body),
@@ -184,7 +198,7 @@ class _MetronomeScreenState extends State<MetronomeScreen> with AutomaticKeepAli
 }
 
 class _TempoPanel extends StatelessWidget {
-  const _TempoPanel({required this.bpm, required this.currentBpm, required this.running, required this.onBpm, required this.onTap, required this.onToggle, required this.spanish});
+  const _TempoPanel({required this.bpm, required this.currentBpm, required this.running, required this.onBpm, required this.onTap, required this.onToggle, required this.spanish, this.scale = 1.0});
 
   final double bpm;
   final double currentBpm;
@@ -193,6 +207,9 @@ class _TempoPanel extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onToggle;
   final bool spanish;
+
+  /// Tamaño del número del tempo (mayor en tabletas).
+  final double scale;
 
   @override
   Widget build(BuildContext context) {
@@ -210,12 +227,12 @@ class _TempoPanel extends StatelessWidget {
             GestureDetector(
               onTap: () => _showBpmDialog(context),
               child: SizedBox(
-                width: 170,
+                width: 170 * scale,
                 child: Column(
                   children: <Widget>[
                     Text(
                       trainerActive ? currentBpm.toStringAsFixed(0) : bpm.toStringAsFixed(bpm == bpm.roundToDouble() ? 0 : 1).replaceAll('.', spanish ? ',' : '.'),
-                      style: TextStyle(fontSize: 76, fontWeight: FontWeight.w800, height: 1, color: trainerActive ? ClaveColors.ambar : cs.onSurface, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()]),
+                      style: TextStyle(fontSize: 76 * scale, fontWeight: FontWeight.w800, height: 1, color: trainerActive ? ClaveColors.ambar : cs.onSurface, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()]),
                     ),
                     Text(trainerActive ? '${t(context, 'meta', 'target')} ${bpm.toStringAsFixed(0)} · BPM' : 'BPM', style: TextStyle(fontSize: 14, color: cs.onSurface.withValues(alpha: 0.6))),
                   ],

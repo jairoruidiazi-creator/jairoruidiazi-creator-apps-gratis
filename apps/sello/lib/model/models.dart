@@ -1,6 +1,16 @@
+import 'dart:math' as math;
+
 import '../geo/coords.dart';
 
-String newId() => '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${(DateTime.now().millisecond * 7919 % 1296).toRadixString(36)}';
+int _idCounter = 0;
+final math.Random _idRandom = math.Random();
+
+/// Identificador único: microsegundos reales + contador + azar (dos llamadas
+/// en el mismo microsegundo no chocan).
+String newId() {
+  _idCounter = (_idCounter + 1) % 1679616; // 36^4
+  return '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${_idCounter.toRadixString(36).padLeft(4, '0')}${_idRandom.nextInt(46656).toRadixString(36)}';
+}
 
 /// Posición del sello dentro de la foto.
 enum StampPosition { bottomLeft, bottomRight, topLeft, topRight, bottomBar }

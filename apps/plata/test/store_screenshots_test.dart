@@ -165,7 +165,13 @@ void main() {
           }
 
           await s.notices.stop();
-          await tester.runAsync(() => s.ledger.flush());
+          // El guardado diferido se dispara con el reloj falso y escribe con
+          // tiempo real; no se espera dentro de runAsync un futuro creado afuera.
+          await tester.pump(const Duration(milliseconds: 500));
+          for (int i = 0; i < 50 && s.ledger.busy; i++) {
+            await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+            await tester.pump();
+          }
           s.ledger.dispose();
           await tester.pumpWidget(const SizedBox.shrink());
           await tester.runAsync(() => dir.delete(recursive: true));

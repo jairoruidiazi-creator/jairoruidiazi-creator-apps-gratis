@@ -183,22 +183,32 @@ class _InboxTile extends StatelessWidget {
     final Ledger l = s.ledger;
     final bool pending = item.status == 'pending';
     final Account? guess = l.account(item.accountId) ?? l.guessAccountForNotice(item);
+    void log() => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => TxEditor(inbox: item)));
     return Card(
-      child: ListTile(
-        leading: CircleAvatar(backgroundColor: kindColor(context, item.kind).withValues(alpha: 0.15), child: Icon(item.kind == TxKind.income ? Icons.south_west : Icons.north_east, color: kindColor(context, item.kind))),
-        title: Text('${item.merchant.isEmpty ? BankRules.displayName(item.bank) : item.merchant} · ${money(context, item.amountMinor, item.currency)}'),
-        subtitle: Text('${BankRules.displayName(item.bank)}${item.last4.isNotEmpty ? ' *${item.last4}' : ''} · ${formatDate(item.receivedAt, 'dd MMM HH:mm', spanish: s.settings.spanish)}${guess != null ? ' → ${guess.name}' : ''}${pending ? '' : ' · ${item.status == 'accepted' ? t(context, 'anotado', 'logged') : t(context, 'descartado', 'dismissed')}'}\n${item.rawText}', maxLines: 3, overflow: TextOverflow.ellipsis),
-        isThreeLine: true,
-        trailing: pending
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          ListTile(
+            leading: CircleAvatar(backgroundColor: kindColor(context, item.kind).withValues(alpha: 0.15), child: Icon(item.kind == TxKind.income ? Icons.south_west : Icons.north_east, color: kindColor(context, item.kind))),
+            title: Text('${item.merchant.isEmpty ? BankRules.displayName(item.bank) : item.merchant} · ${money(context, item.amountMinor, item.currency)}'),
+            subtitle: Text('${BankRules.displayName(item.bank)}${item.last4.isNotEmpty ? ' *${item.last4}' : ''} · ${formatDate(item.receivedAt, 'dd MMM HH:mm', spanish: s.settings.spanish)}${guess != null ? ' → ${guess.name}' : ''}${pending ? '' : ' · ${item.status == 'accepted' ? t(context, 'anotado', 'logged') : t(context, 'descartado', 'dismissed')}'}\n${item.rawText}', maxLines: 3, overflow: TextOverflow.ellipsis),
+            isThreeLine: true,
+            onTap: pending ? log : null,
+          ),
+          // Acciones con texto y tamaño de toque completo (antes eran dos íconos apilados).
+          if (pending)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: OverflowBar(
+                alignment: MainAxisAlignment.end,
+                spacing: 8,
                 children: <Widget>[
-                  IconButton(visualDensity: VisualDensity.compact, tooltip: t(context, 'Anotar', 'Log'), icon: Icon(Icons.check_circle, color: kindColor(context, TxKind.income)), onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => TxEditor(inbox: item)))),
-                  IconButton(visualDensity: VisualDensity.compact, tooltip: t(context, 'Descartar', 'Dismiss'), icon: const Icon(Icons.cancel_outlined), onPressed: () => l.dismissInbox(item)),
+                  TextButton.icon(onPressed: () => l.dismissInbox(item), icon: const Icon(Icons.close), label: Text(t(context, 'Descartar', 'Dismiss'))),
+                  FilledButton.tonalIcon(onPressed: log, icon: const Icon(Icons.check), label: Text(t(context, 'Anotar', 'Log'))),
                 ],
-              )
-            : null,
-        onTap: pending ? () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => TxEditor(inbox: item))) : null,
+              ),
+            ),
+        ],
       ),
     );
   }

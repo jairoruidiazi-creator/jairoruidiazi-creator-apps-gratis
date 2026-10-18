@@ -9,6 +9,7 @@ import '../../core/settings.dart';
 import '../../core/theme.dart';
 import '../../music/instruments.dart';
 import '../../music/notes.dart';
+import '../widgets/adaptive.dart';
 import 'tuner_settings_sheet.dart';
 
 class TunerScreen extends StatefulWidget {
@@ -93,6 +94,9 @@ class _TunerScreenState extends State<TunerScreen> with AutomaticKeepAliveClient
 
     return LayoutBuilder(builder: (BuildContext context, BoxConstraints c) {
       final bool wide = c.maxWidth > c.maxHeight * 1.2;
+      // Tableta en vertical: columna centrada y lectura más grande.
+      final bool tablet = !wide && isWideLayout(context);
+      final double k = tablet ? 1.4 : 1.0;
       final Widget gauge = AspectRatio(
         aspectRatio: 1.7,
         child: CustomPaint(painter: _GaugePainter(cents: r == null ? null : cents, tolerance: tuner.toleranceCents, color: noteColor, onSurface: cs.onSurface, locked: tuner.lockedString >= 0)),
@@ -104,11 +108,11 @@ class _TunerScreenState extends State<TunerScreen> with AutomaticKeepAliveClient
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(r == null ? '—' : ps.displayName(r.note.midi), style: TextStyle(fontSize: 88, fontWeight: FontWeight.w800, height: 1, color: noteColor)),
+              Text(r == null ? '—' : ps.displayName(r.note.midi), style: TextStyle(fontSize: 88 * k, fontWeight: FontWeight.w800, height: 1, color: noteColor)),
               if (r != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 10, left: 4),
-                  child: Text('${ps.displayOctave(r.note.midi)}', style: TextStyle(fontSize: 30, fontWeight: FontWeight.w600, color: noteColor)),
+                  child: Text('${ps.displayOctave(r.note.midi)}', style: TextStyle(fontSize: 30 * k, fontWeight: FontWeight.w600, color: noteColor)),
                 ),
             ],
           ),
@@ -151,7 +155,7 @@ class _TunerScreenState extends State<TunerScreen> with AutomaticKeepAliveClient
             )
           : const SizedBox.shrink();
       final Widget history = SizedBox(
-        height: 70,
+        height: 70 * k,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: CustomPaint(painter: _HistoryPainter(points: tuner.history, now: tuner.now, tolerance: tuner.toleranceCents, onSurface: cs.onSurface), child: const SizedBox.expand()),
@@ -190,17 +194,22 @@ class _TunerScreenState extends State<TunerScreen> with AutomaticKeepAliveClient
           ],
         );
       }
-      return Column(
-        children: <Widget>[
-          const SizedBox(height: 8),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: gauge),
-          note,
-          const SizedBox(height: 8),
-          strings,
-          const Spacer(),
-          history,
-          bar,
-        ],
+      return Center(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: tablet ? 680 : double.infinity),
+          child: Column(
+            children: <Widget>[
+              SizedBox(height: 8 * k),
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: gauge),
+              note,
+              SizedBox(height: 8 * k),
+              strings,
+              const Spacer(),
+              history,
+              bar,
+            ],
+          ),
+        ),
       );
     });
   }

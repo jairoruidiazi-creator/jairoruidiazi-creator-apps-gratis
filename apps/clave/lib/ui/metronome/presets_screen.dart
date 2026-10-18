@@ -9,6 +9,7 @@ import '../../audio/sequencer.dart';
 import '../../core/app_scope.dart';
 import '../../core/app_state.dart';
 import '../../model/models.dart';
+import '../widgets/adaptive.dart';
 
 /// Preajustes (canciones) y setlists del metrónomo.
 class PresetsScreen extends StatefulWidget {
@@ -43,7 +44,8 @@ class _PresetsScreenState extends State<PresetsScreen> {
             icon: const Icon(Icons.add_rounded),
             label: Text(t(context, 'Guardar el actual', 'Save current')),
           ),
-          body: Column(
+          body: ReadableWidth(
+            child: Column(
             children: <Widget>[
               SizedBox(
                 height: 56,
@@ -159,6 +161,7 @@ class _PresetsScreenState extends State<PresetsScreen> {
                       ),
               ),
             ],
+          ),
           ),
         );
       },

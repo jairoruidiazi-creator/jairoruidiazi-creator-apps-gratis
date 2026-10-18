@@ -19,6 +19,7 @@ import 'package:clave/core/app_state.dart';
 import 'package:clave/core/settings.dart';
 import 'package:clave/core/storage.dart';
 import 'package:clave/music/notes.dart';
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -62,6 +63,12 @@ void main() {
 
         device.apply(tester);
         await loadStoreFonts(tester);
+        // Sábado por la tarde, hora de práctica: el reloj de la app avanza con
+        // el tiempo simulado de la prueba a partir de esa hora.
+        final Clock outer = clock;
+        final DateTime fakeStart = outer.now();
+        final DateTime demoNow = DateTime(2026, 10, 17, 18, 32);
+        await withClock(Clock(() => demoNow.add(outer.now().difference(fakeStart))), () async {
         final Directory dir = (await tester.runAsync(() => Directory.systemTemp.createTemp('clave_shots')))!;
         final AppSettings settings = AppSettings()
           ..language = lang
@@ -70,7 +77,7 @@ void main() {
           ..notation = es ? Notation.solfeo : Notation.english;
         final JsonStore store = JsonStore(root: dir);
         final AppState state = AppState(store);
-        final DateTime now = DateTime.now();
+        final DateTime now = clock.now();
         await tester.runAsync(() async {
           await state.load();
           await seedClaveDemo(state, spanish: es, now: now);
@@ -83,15 +90,15 @@ void main() {
         await tester.pumpWidget(storeShotRoot(ClaveApp(services: s)));
         await _settle(tester);
 
-        // 1. Afinador: la cuerda La de la guitarra sube hasta quedar afinada.
+        // 1. Afinador: la cuerda La de la guitarra sube hasta quedar afinada
+        // (de -14 a -1 cents) y se sostiene un momento.
         const double a2 = 110.0;
-        int offset = 0;
-        for (int i = 0; i < 36; i++) {
-          final double cents = -14 + 12 * (i / 35);
-          final double hz = a2 * math.pow(2, cents / 1200).toDouble();
-          tuner.feed(pluckedString(hz, samples: i == 0 ? 8192 : 2048, offset: offset));
-          offset += i == 0 ? 8192 : 2048;
-          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 70)));
+        final SustainedString string = SustainedString();
+        tuner.feed(string.next(a2 * math.pow(2, -14 / 1200).toDouble(), 8192));
+        for (int i = 0; i < 40; i++) {
+          final double cents = i < 28 ? -14 + 13 * (i / 27) : -1;
+          tuner.feed(string.next(a2 * math.pow(2, cents / 1200).toDouble(), 2048));
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 60)));
           await tester.pump();
         }
         await takeStoreShot(tester, device, lang, '01-afinador');
@@ -145,6 +152,7 @@ void main() {
         await tester.pump(const Duration(seconds: 1));
         metronome.dispose();
         await tester.runAsync(() => dir.delete(recursive: true));
+        });
         expect(errors, isEmpty, reason: errors.map((FlutterErrorDetails d) => d.toString()).join('\n----\n'));
       }, variant: TargetPlatformVariant.only(device.platform), timeout: const Timeout(Duration(minutes: 4)));
     }

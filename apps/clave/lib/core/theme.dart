@@ -24,6 +24,7 @@ class ClaveTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
+      fontFamilyFallback: const <String>['ClaveSymbols'],
       visualDensity: VisualDensity.standard,
       appBarTheme: const AppBarTheme(centerTitle: false),
       cardTheme: CardThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),

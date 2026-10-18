@@ -6,6 +6,7 @@ import '../../audio/audio_engine.dart';
 import '../../core/app_scope.dart';
 import '../../core/theme.dart';
 import '../../music/notes.dart';
+import '../widgets/adaptive.dart';
 
 /// Bordón (tono de referencia sostenido), teclado de 8 octavas y acordes.
 class DroneScreen extends StatefulWidget {
@@ -238,7 +239,8 @@ class _DroneScreenState extends State<DroneScreen> with AutomaticKeepAliveClient
     final bool spanish = s.settings.spanish;
     final bool droneOn = _droneTone != null;
 
-    return ListView(
+    return ReadableWidth(
+      child: ListView(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
       children: <Widget>[
         // ---------------------------------------------------------------- bordón
@@ -438,6 +440,7 @@ class _DroneScreenState extends State<DroneScreen> with AutomaticKeepAliveClient
           ),
         ),
       ],
+      ),
     );
   }
 }

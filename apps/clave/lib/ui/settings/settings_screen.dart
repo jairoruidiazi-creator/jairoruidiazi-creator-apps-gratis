@@ -4,6 +4,7 @@ import '../../core/app_info.dart';
 import '../../core/app_scope.dart';
 import '../../core/settings.dart';
 import '../legal/legal_document.dart';
+import '../widgets/adaptive.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -24,7 +25,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(t(context, 'Ajustes', 'Settings'))),
-      body: ListView(
+      body: ReadableWidth(
+        child: ListView(
         padding: const EdgeInsets.only(bottom: 32),
         children: <Widget>[
           _header(context, t(context, 'General', 'General')),
@@ -123,6 +125,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => showLicensePage(context: context, applicationName: kAppName, applicationVersion: kAppVersion),
           ),
         ],
+      ),
       ),
     );
   }

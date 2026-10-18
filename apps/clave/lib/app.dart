@@ -10,6 +10,7 @@ import 'ui/practice/practice_screen.dart';
 import 'ui/recorder/recorder_screen.dart';
 import 'ui/settings/settings_screen.dart';
 import 'ui/tuner/tuner_screen.dart';
+import 'ui/widgets/adaptive.dart';
 
 class ClaveApp extends StatelessWidget {
   const ClaveApp({super.key, required this.services});
@@ -102,6 +103,21 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       const RecorderScreen(),
       const PracticeScreen(),
     ];
+    // En tabletas (600 dp o más de ancho) las herramientas van en un riel lateral.
+    final bool wide = isWideLayout(context);
+    void select(int i) {
+      setState(() => _index = i);
+      _applyWakelock();
+    }
+
+    final List<_Dest> dests = <_Dest>[
+      _Dest(Icons.graphic_eq_rounded, t(context, 'Afinador', 'Tuner')),
+      _Dest(Icons.timer_outlined, t(context, 'Metrónomo', 'Metronome')),
+      _Dest(Icons.piano_rounded, t(context, 'Tono', 'Drone')),
+      _Dest(Icons.mic_none_rounded, t(context, 'Grabar', 'Record')),
+      _Dest(Icons.insights_rounded, t(context, 'Práctica', 'Practice')),
+    ];
+    final Widget stack = IndexedStack(index: _index, children: pages);
     return Scaffold(
       appBar: AppBar(
         title: Text(<String>[t(context, 'Afinador', 'Tuner'), t(context, 'Metrónomo', 'Metronome'), t(context, 'Tono y teclado', 'Drone & keyboard'), t(context, 'Grabadora', 'Recorder'), t(context, 'Práctica', 'Practice')][_index]),
@@ -113,21 +129,41 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           ),
         ],
       ),
-      body: IndexedStack(index: _index, children: pages),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (int i) {
-          setState(() => _index = i);
-          _applyWakelock();
-        },
-        destinations: <NavigationDestination>[
-          NavigationDestination(icon: const Icon(Icons.graphic_eq_rounded), label: t(context, 'Afinador', 'Tuner')),
-          NavigationDestination(icon: const Icon(Icons.timer_outlined), label: t(context, 'Metrónomo', 'Metronome')),
-          NavigationDestination(icon: const Icon(Icons.piano_rounded), label: t(context, 'Tono', 'Drone')),
-          NavigationDestination(icon: const Icon(Icons.mic_none_rounded), label: t(context, 'Grabar', 'Record')),
-          NavigationDestination(icon: const Icon(Icons.insights_rounded), label: t(context, 'Práctica', 'Practice')),
-        ],
-      ),
+      body: wide
+          ? Row(
+              children: <Widget>[
+                SafeArea(
+                  right: false,
+                  child: NavigationRail(
+                    selectedIndex: _index,
+                    onDestinationSelected: select,
+                    labelType: NavigationRailLabelType.all,
+                    destinations: <NavigationRailDestination>[
+                      for (final _Dest d in dests) NavigationRailDestination(icon: Icon(d.icon), label: Text(d.label)),
+                    ],
+                  ),
+                ),
+                const VerticalDivider(width: 1),
+                Expanded(child: stack),
+              ],
+            )
+          : stack,
+      bottomNavigationBar: wide
+          ? null
+          : NavigationBar(
+              selectedIndex: _index,
+              onDestinationSelected: select,
+              destinations: <NavigationDestination>[
+                for (final _Dest d in dests) NavigationDestination(icon: Icon(d.icon), label: d.label),
+              ],
+            ),
     );
   }
+}
+
+class _Dest {
+  const _Dest(this.icon, this.label);
+
+  final IconData icon;
+  final String label;
 }

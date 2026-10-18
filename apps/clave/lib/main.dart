@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show FlutterView;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -15,6 +16,11 @@ import 'core/storage.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Los signos musicales vienen de un subconjunto de DejaVu Sans: su licencia
+  // aparece en Licencias de código abierto.
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(<String>['DejaVu Sans (ClaveSymbols)'], await rootBundle.loadString('assets/legal/LICENSE-DejaVu.txt'));
+  });
   final AppSettings settings = AppSettings();
   await settings.load();
   final JsonStore store = JsonStore();

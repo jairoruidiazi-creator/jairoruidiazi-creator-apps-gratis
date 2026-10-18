@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 
 import '../model/models.dart';
@@ -149,7 +150,7 @@ class AppState extends ChangeNotifier {
   /// Marca que una herramienta está en uso activo. Las sesiones se cierran
   /// solas tras 90 segundos sin actividad.
   void touchPractice(String tool, String instrumentId) {
-    final DateTime now = DateTime.now();
+    final DateTime now = clock.now();
     final PracticeSession? a = _active;
     if (a != null && a.tool == tool && a.instrumentId == instrumentId) {
       a.end = now;
@@ -181,7 +182,7 @@ class AppState extends ChangeNotifier {
 
   Future<void> savePractice() async {
     // Se conserva un año de historial.
-    final DateTime limit = DateTime.now().subtract(const Duration(days: 366));
+    final DateTime limit = clock.now().subtract(const Duration(days: 366));
     sessions.removeWhere((PracticeSession s) => s.end.isBefore(limit));
     await store.writeJson('practice.json', <String, dynamic>{'sessions': sessions.map((PracticeSession s) => s.toJson()).toList()});
     notifyListeners();
@@ -211,7 +212,7 @@ class AppState extends ChangeNotifier {
   /// Días seguidos (hasta hoy o ayer) con al menos [minSeconds] de práctica.
   int streak({int minSeconds = 300}) {
     int n = 0;
-    DateTime day = DateTime.now();
+    DateTime day = clock.now();
     if (secondsOn(day) < minSeconds) {
       day = day.subtract(const Duration(days: 1));
     }
@@ -226,7 +227,7 @@ class AppState extends ChangeNotifier {
   }
 
   Map<String, int> secondsByInstrument({int days = 30}) {
-    final DateTime from = DateTime.now().subtract(Duration(days: days));
+    final DateTime from = clock.now().subtract(Duration(days: days));
     final Map<String, int> out = <String, int>{};
     for (final PracticeSession s in sessions) {
       if (s.start.isAfter(from)) {
@@ -237,7 +238,7 @@ class AppState extends ChangeNotifier {
   }
 
   Map<String, int> secondsByTool({int days = 30}) {
-    final DateTime from = DateTime.now().subtract(Duration(days: days));
+    final DateTime from = clock.now().subtract(Duration(days: days));
     final Map<String, int> out = <String, int>{};
     for (final PracticeSession s in sessions) {
       if (s.start.isAfter(from)) {
