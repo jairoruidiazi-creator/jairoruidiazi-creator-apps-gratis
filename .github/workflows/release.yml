@@ -20,7 +20,7 @@ on:
       app:
         description: App
         type: choice
-        options: [pilas, clave, sello, plata]
+        options: [pilas, clave, sello, plata, rutinas]
         required: true
       android:
         description: Android (AAB para Google Play)

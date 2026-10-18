@@ -24,7 +24,7 @@ from fontTools import subset
 from fontTools.ttLib import TTFont
 
 ROOT = Path(__file__).resolve().parent.parent
-APPS = ["clave", "pilas", "plata", "sello"]
+APPS = ["clave", "pilas", "plata", "rutinas", "sello"]
 FAMILY = "Simbolos"
 
 # Signos que usan las apps y que faltan en Roboto o Lexend.

@@ -66,5 +66,24 @@
       "allowBackup": "false",
       "dataExtractionRules": "@ref"
     }
+  },
+  "rutinas": {
+    "allow": [
+      "android.permission.POST_NOTIFICATIONS",
+      "android.permission.RECEIVE_BOOT_COMPLETED",
+      "android.permission.SCHEDULE_EXACT_ALARM",
+      "android.permission.VIBRATE"
+    ],
+    "forbid": [
+      "android.permission.INTERNET",
+      "android.permission.ACCESS_FINE_LOCATION",
+      "android.permission.ACCESS_COARSE_LOCATION",
+      "android.permission.CAMERA",
+      "android.permission.RECORD_AUDIO",
+      "android.permission.READ_CONTACTS",
+      "android.permission.WRITE_CONTACTS",
+      "android.permission.GET_ACCOUNTS",
+      "com.google.android.gms.permission.AD_ID"
+    ]
   }
 }

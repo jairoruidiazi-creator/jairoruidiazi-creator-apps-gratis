@@ -210,7 +210,10 @@ def main() -> int:
         app = conf.get(args.app or "", {})
         if args.min_target_sdk is None:
             args.min_target_sdk = app.get("min_target_sdk", common.get("min_target_sdk"))
-        args.forbid_permission += common.get("forbid", []) + app.get("forbid", [])
+        # Lo que una app permite de forma explícita sale de la lista común de
+        # prohibidos (por ejemplo, las alarmas exactas del temporizador de Rutinas).
+        allowed = set(app.get("allow", []))
+        args.forbid_permission += [p for p in common.get("forbid", []) if p not in allowed] + app.get("forbid", [])
         if args.allow_permission is None and "allow" in app:
             args.allow_permission = app["allow"]
         application = app.get("application", {})

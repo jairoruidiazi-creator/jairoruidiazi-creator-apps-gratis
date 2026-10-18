@@ -194,6 +194,51 @@ APPS = {
         "ios_privacy_collected": [],
         "ios_min": "15.0",
     },
+    "rutinas": {
+        "display_name": "Rutinas",
+        "min_sdk": 24,
+        "android_permissions": [
+            "android.permission.POST_NOTIFICATIONS",
+            # Avisos del temporizador y de los recordatorios a la hora exacta, si el
+            # usuario lo concede (Android 14 lo niega de entrada); sin él, la app usa
+            # alarmas inexactas y lo explica en Ajustes.
+            "android.permission.SCHEDULE_EXACT_ALARM",
+            # flutter_local_notifications reprograma los avisos tras reiniciar.
+            "android.permission.RECEIVE_BOOT_COMPLETED",
+            "android.permission.VIBRATE",
+        ],
+        # flutter_tts necesita consultar el servicio de voz en Android 11+.
+        "android_queries": ["android.intent.action.TTS_SERVICE"],
+        # Receptores de las notificaciones programadas del plugin (y de su
+        # reprogramación al reiniciar o actualizar la app).
+        "android_application_xml": [
+            '<receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"/>',
+            '<receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">\n            <intent-filter>\n                <action android:name="android.intent.action.BOOT_COMPLETED"/>\n                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>\n                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>\n                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON"/>\n            </intent-filter>\n        </receiver>',
+        ],
+        # Ícono de la barra de estado y lista de recursos que la compilación no debe quitar.
+        "android_files": {
+            "native/android/ic_stat_rutinas.xml": "android/app/src/main/res/drawable/ic_stat_rutinas.xml",
+            "native/android/keep.xml": "android/app/src/main/res/raw/keep.xml",
+        },
+        # Sonidos propios (tools/gen_rutinas_sounds.py) para los canales de notificación.
+        "android_binary_files": {
+            f"assets/sounds/rutinas_{name}.wav": f"android/app/src/main/res/raw/rutinas_{name}.wav"
+            for name in ("pip", "beep", "bell", "horn", "gong")
+        },
+        "android_desugaring": True,
+        # El delegado de notificaciones de iOS: toques y botones de los avisos.
+        "ios_files": {
+            "native/ios/AppDelegate.swift": "ios/Runner/AppDelegate.swift",
+        },
+        "ios_plist": {
+            "CFBundleDisplayName": "Rutinas",
+            "ITSAppUsesNonExemptEncryption": False,
+        },
+        "ios_strings_en": {"CFBundleDisplayName": "Rutinas"},
+        "iphone_orientations": ["UIInterfaceOrientationPortrait"],
+        "ios_privacy_collected": [],
+        "ios_min": "15.0",
+    },
 }
 
 
@@ -253,6 +298,12 @@ def patch_android(cfg: dict) -> None:
         target = Path(dst)
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(Path(src).read_text(encoding="utf-8"), encoding="utf-8")
+        print(f"copiado {src} -> {dst}")
+    # Archivos binarios (por ejemplo, sonidos de notificación en res/raw).
+    for src, dst in cfg.get("android_binary_files", {}).items():
+        target = Path(dst)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(Path(src).read_bytes())
         print(f"copiado {src} -> {dst}")
 
     for name in ("android/app/build.gradle.kts", "android/app/build.gradle"):

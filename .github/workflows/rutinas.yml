@@ -1,0 +1,30 @@
+name: Rutinas
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/rutinas/**"
+      - ".github/workflows/rutinas.yml"
+      - ".github/workflows/app-ci.yml"
+      - "tools/ci/**"
+      - "tools/store/**"
+  pull_request:
+    paths:
+      - "apps/rutinas/**"
+      - ".github/workflows/rutinas.yml"
+      - ".github/workflows/app-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rutinas-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    uses: ./.github/workflows/app-ci.yml
+    with:
+      app: rutinas
