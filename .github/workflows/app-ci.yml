@@ -149,3 +149,47 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: bash tools/ci/publish_logs.sh ci-logs-${{ inputs.app }}-ios apps/${{ inputs.app }}/build-ios.log apps/${{ inputs.app }}/ios-check.log
+
+  screenshots:
+    name: Capturas de tienda
+    needs: check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/${{ inputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: has
+        run: |
+          if [ -f test/store_screenshots_test.dart ]; then echo "yes=true" >> "$GITHUB_OUTPUT"; else echo "yes=false" >> "$GITHUB_OUTPUT"; echo "La app no tiene pruebas de capturas."; fi
+      - uses: subosito/flutter-action@v2
+        if: steps.has.outputs.yes == 'true'
+        with:
+          channel: stable
+          cache: true
+      - uses: actions/setup-python@v5
+        if: steps.has.outputs.yes == 'true'
+        with:
+          python-version: "3.12"
+      - if: steps.has.outputs.yes == 'true'
+        run: flutter pub get
+      - name: Dibujar las pantallas
+        if: steps.has.outputs.yes == 'true'
+        run: flutter test --tags screenshots 2>&1 | tee shots.log; exit ${PIPESTATUS[0]}
+      - name: Componer las capturas de las tiendas
+        if: steps.has.outputs.yes == 'true'
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 ../../tools/store/compose_screenshots.py "${{ inputs.app }}" 2>&1 | tee -a shots.log; exit ${PIPESTATUS[0]}
+      - uses: actions/upload-artifact@v4
+        if: steps.has.outputs.yes == 'true'
+        with:
+          name: ${{ inputs.app }}-capturas-tienda
+          path: apps/${{ inputs.app }}/build/store_listing
+          retention-days: 30
+      - name: Publicar capturas
+        if: always() && steps.has.outputs.yes == 'true'
+        working-directory: .
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash tools/ci/publish_logs.sh ci-shots-${{ inputs.app }} apps/${{ inputs.app }}/build/store_listing apps/${{ inputs.app }}/shots.log

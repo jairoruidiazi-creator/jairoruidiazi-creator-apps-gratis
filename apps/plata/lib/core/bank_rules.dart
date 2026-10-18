@@ -53,6 +53,9 @@ class BankRules {
     'movii': 'Movii',
   };
 
+  /// Nombre para mostrar de un banco a partir de su clave interna.
+  static String displayName(String key) => bankNames[key] ?? key;
+
   static bool isBankPackage(String? packageName) => packageName != null && packages.containsKey(packageName);
 
   /// Banco a partir del paquete o del propio texto.

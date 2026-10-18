@@ -5,6 +5,7 @@ import '../../core/app_scope.dart';
 import '../../core/ledger.dart';
 import '../../model/models.dart';
 import '../../model/money.dart';
+import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
 
 /// Monedas extra y tasas de cambio (TRM / BCE o manual).
@@ -54,7 +55,7 @@ class _CurrenciesScreenState extends State<CurrenciesScreen> {
         final RateTable table = l.rates;
         final ColorScheme cs = Theme.of(context).colorScheme;
         final List<String> extras = s.settings.extraCurrencies.where((String c) => c != l.baseCurrency).toList();
-        return Scaffold(
+        return ReadableScaffold(
           appBar: AppBar(
             title: Text(t(context, 'Monedas', 'Currencies')),
             actions: <Widget>[

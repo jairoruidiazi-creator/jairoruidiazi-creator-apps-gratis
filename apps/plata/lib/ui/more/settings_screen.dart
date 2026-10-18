@@ -5,6 +5,7 @@ import '../../core/ledger.dart';
 import '../../core/periods.dart';
 import '../../core/reminders.dart';
 import '../../model/money.dart';
+import '../widgets/adaptive.dart';
 
 /// Ajustes generales.
 class SettingsScreen extends StatelessWidget {
@@ -21,7 +22,7 @@ class SettingsScreen extends StatelessWidget {
         final Ledger l = s.ledger;
         final ColorScheme cs = Theme.of(context).colorScheme;
         final List<String> currencies = <String>{l.baseCurrency, ...s.settings.extraCurrencies, 'COP', 'USD'}.toList();
-        return Scaffold(
+        return ReadableScaffold(
           appBar: AppBar(title: Text(t(context, 'Ajustes', 'Settings'))),
           body: ListView(
             padding: const EdgeInsets.only(bottom: 32),

@@ -8,6 +8,7 @@ import '../../core/app_scope.dart';
 import '../../core/backups.dart';
 import '../../core/sharing.dart';
 import '../../model/models.dart';
+import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
 
 /// Copias de seguridad: automáticas locales, exportar (cifrada o abierta)
@@ -145,7 +146,7 @@ class _BackupScreenState extends State<BackupScreen> {
     final ColorScheme cs = Theme.of(context).colorScheme;
     return ListenableBuilder(
       listenable: s.settings,
-      builder: (BuildContext context, Widget? _) => Scaffold(
+      builder: (BuildContext context, Widget? _) => ReadableScaffold(
         appBar: AppBar(title: Text(t(context, 'Copias de seguridad', 'Backups'))),
         body: Stack(
           children: <Widget>[

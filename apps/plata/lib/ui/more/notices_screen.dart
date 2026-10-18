@@ -5,6 +5,7 @@ import '../../core/bank_rules.dart';
 import '../../core/ledger.dart';
 import '../../model/models.dart';
 import '../transactions/tx_editor.dart';
+import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
 
 /// Avisos bancarios: consentimiento, activación del acceso a notificaciones
@@ -70,7 +71,7 @@ class _NoticesScreenState extends State<NoticesScreen> with WidgetsBindingObserv
         final List<InboxItem> pending = l.pendingInbox;
         final List<InboxItem> history = l.inbox.where((InboxItem i) => i.status != 'pending').toList().reversed.take(30).toList();
         final bool active = s.settings.noticesEnabled && _enabledInSystem;
-        return Scaffold(
+        return ReadableScaffold(
           appBar: AppBar(title: Text(t(context, 'Avisos bancarios', 'Bank notices'))),
           body: ListView(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
@@ -185,8 +186,8 @@ class _InboxTile extends StatelessWidget {
     return Card(
       child: ListTile(
         leading: CircleAvatar(backgroundColor: kindColor(context, item.kind).withValues(alpha: 0.15), child: Icon(item.kind == TxKind.income ? Icons.south_west : Icons.north_east, color: kindColor(context, item.kind))),
-        title: Text('${item.merchant.isEmpty ? item.bank : item.merchant} · ${money(context, item.amountMinor, item.currency)}'),
-        subtitle: Text('${item.bank}${item.last4.isNotEmpty ? ' *${item.last4}' : ''} · ${formatDate(item.receivedAt, 'dd MMM HH:mm', spanish: s.settings.spanish)}${guess != null ? ' → ${guess.name}' : ''}${pending ? '' : ' · ${item.status == 'accepted' ? t(context, 'anotado', 'logged') : t(context, 'descartado', 'dismissed')}'}\n${item.rawText}', maxLines: 3, overflow: TextOverflow.ellipsis),
+        title: Text('${item.merchant.isEmpty ? BankRules.displayName(item.bank) : item.merchant} · ${money(context, item.amountMinor, item.currency)}'),
+        subtitle: Text('${BankRules.displayName(item.bank)}${item.last4.isNotEmpty ? ' *${item.last4}' : ''} · ${formatDate(item.receivedAt, 'dd MMM HH:mm', spanish: s.settings.spanish)}${guess != null ? ' → ${guess.name}' : ''}${pending ? '' : ' · ${item.status == 'accepted' ? t(context, 'anotado', 'logged') : t(context, 'descartado', 'dismissed')}'}\n${item.rawText}', maxLines: 3, overflow: TextOverflow.ellipsis),
         isThreeLine: true,
         trailing: pending
             ? Column(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_scope.dart';
 import '../../core/ledger.dart';
 import '../../model/models.dart';
+import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
 import '../widgets/icons.dart';
 
@@ -25,7 +26,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       builder: (BuildContext context, Widget? _) {
         final Ledger l = s.ledger;
         final List<Category> roots = l.roots(_kind);
-        return Scaffold(
+        return ReadableScaffold(
           appBar: AppBar(title: Text(t(context, 'Categorías', 'Categories'))),
           floatingActionButton: FloatingActionButton.extended(heroTag: null, onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => CategoryEditor(kind: _kind))), icon: const Icon(Icons.add), label: Text(t(context, 'Categoría', 'Category'))),
           body: Column(
@@ -161,7 +162,7 @@ class _CategoryEditorState extends State<CategoryEditor> {
     final Ledger l = AppScope.of(context).ledger;
     final List<Category> roots = l.roots(_kind).where((Category c) => c.id != widget.existing?.id).toList();
     final bool hasChildren = widget.existing != null && l.children(widget.existing!.id).isNotEmpty;
-    return Scaffold(
+    return ReadableScaffold(
       appBar: AppBar(
         title: Text(widget.existing == null ? (_parentId == null ? t(context, 'Nueva categoría', 'New category') : t(context, 'Nueva subcategoría', 'New subcategory')) : t(context, 'Editar categoría', 'Edit category')),
         actions: <Widget>[

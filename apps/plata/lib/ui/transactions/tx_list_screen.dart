@@ -5,6 +5,7 @@ import '../../core/app_scope.dart';
 import '../../core/ledger.dart';
 import '../../core/periods.dart';
 import '../../model/models.dart';
+import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
 import 'tx_editor.dart';
 import 'tx_tile.dart';
@@ -40,7 +41,7 @@ class _TxListScreenState extends State<TxListScreen> {
       builder: (BuildContext context, Widget? _) {
         final Ledger l = s.ledger;
         final List<Tx> all = l.search(_filter);
-        return Scaffold(
+        return ReadableScaffold(
           body: Column(
             children: <Widget>[
               Padding(

@@ -7,6 +7,7 @@ import '../../core/periods.dart';
 import '../../model/models.dart';
 import '../transactions/tx_editor.dart';
 import '../transactions/tx_tile.dart';
+import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
 import 'accounts_screen.dart';
 
@@ -22,7 +23,7 @@ class CardsScreen extends StatelessWidget {
       builder: (BuildContext context, Widget? _) {
         final Ledger l = s.ledger;
         final List<Account> cards = l.activeAccounts.where((Account a) => a.isCredit).toList();
-        return Scaffold(
+        return ReadableScaffold(
           appBar: AppBar(title: Text(t(context, 'Tarjetas de crédito', 'Credit cards'))),
           body: cards.isEmpty
               ? Center(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_scope.dart';
 import '../../core/ledger.dart';
 import '../../model/models.dart';
+import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
 
 String frequencyName(BuildContext context, Frequency f) {
@@ -51,7 +52,7 @@ class ScheduledScreen extends StatelessWidget {
             monthlyIn += perMonth;
           }
         }
-        return Scaffold(
+        return ReadableScaffold(
           appBar: AppBar(title: Text(t(context, 'Programados', 'Scheduled'))),
           floatingActionButton: FloatingActionButton.extended(heroTag: null, onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ScheduledEditor())), icon: const Icon(Icons.add), label: Text(t(context, 'Programado', 'Scheduled'))),
           body: list.isEmpty
@@ -99,7 +100,7 @@ class ScheduledScreen extends StatelessWidget {
       return t(context, 'pausado', 'paused');
     }
     if (days < 0) {
-      return t(context, 'vencido hace ${-days} días', 'overdue by ${-days} days');
+      return -days == 1 ? t(context, 'vencido hace 1 día', 'overdue by 1 day') : t(context, 'vencido hace ${-days} días', 'overdue by ${-days} days');
     }
     if (days == 0) {
       return t(context, 'hoy', 'today');
@@ -196,7 +197,7 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
     final Ledger l = s.ledger;
     final String currency = l.account(_accountId)?.currency ?? l.baseCurrency;
     final Scheduled? e = widget.existing;
-    return Scaffold(
+    return ReadableScaffold(
       appBar: AppBar(
         title: Text(e == null ? t(context, 'Nuevo programado', 'New scheduled') : t(context, 'Programado', 'Scheduled')),
         actions: <Widget>[

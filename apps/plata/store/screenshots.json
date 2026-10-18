@@ -1,0 +1,12 @@
+{
+  "brand": {"background": ["#0B3D2E", "#17694F"], "text": "#FFFFFF", "accent": "#F2B33D"},
+  "shots": [
+    {"id": "01-inicio", "es": "Tu plata, clara de un vistazo", "en": "Your money, clear at a glance"},
+    {"id": "02-anotar", "es": "Anota un gasto en 5 segundos", "en": "Log an expense in 5 seconds"},
+    {"id": "03-informes", "es": "Mira en qué se te va la plata", "en": "See where your money goes"},
+    {"id": "04-presupuestos", "es": "Presupuestos por mes o por quincena", "en": "Budgets by month or fortnight"},
+    {"id": "05-calendario", "es": "Cada día, con su saldo", "en": "Every day with its balance"},
+    {"id": "06-tarjeta", "es": "Tarjetas con corte, cuotas y fecha de pago", "en": "Cards with statement, installments and due date"},
+    {"id": "07-avisos", "es": "Los avisos del banco se vuelven movimientos", "en": "Bank notifications become transactions", "platforms": ["android"]}
+  ]
+}

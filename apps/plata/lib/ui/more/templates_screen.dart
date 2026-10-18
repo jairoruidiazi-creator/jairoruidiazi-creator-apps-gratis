@@ -4,6 +4,7 @@ import '../../core/app_scope.dart';
 import '../../core/ledger.dart';
 import '../../model/models.dart';
 import '../transactions/tx_editor.dart';
+import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
 
 /// Plantillas (favoritos de un toque).
@@ -18,7 +19,7 @@ class TemplatesScreen extends StatelessWidget {
       builder: (BuildContext context, Widget? _) {
         final Ledger l = s.ledger;
         final List<TxTemplate> list = List<TxTemplate>.from(l.templates)..sort((TxTemplate a, TxTemplate b) => b.uses.compareTo(a.uses));
-        return Scaffold(
+        return ReadableScaffold(
           appBar: AppBar(title: Text(t(context, 'Favoritos de un toque', 'One-tap favorites'))),
           floatingActionButton: FloatingActionButton.extended(heroTag: null, onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const TemplateEditor())), icon: const Icon(Icons.add), label: Text(t(context, 'Plantilla', 'Template'))),
           body: list.isEmpty
@@ -106,7 +107,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
   Widget build(BuildContext context) {
     final Ledger l = AppScope.of(context).ledger;
     final String currency = l.account(_accountId)?.currency ?? l.baseCurrency;
-    return Scaffold(
+    return ReadableScaffold(
       appBar: AppBar(
         title: Text(widget.existing == null ? t(context, 'Nueva plantilla', 'New template') : t(context, 'Plantilla', 'Template')),
         actions: <Widget>[

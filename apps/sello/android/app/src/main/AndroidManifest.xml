@@ -8,6 +8,7 @@
         <uses-feature android:name="android.hardware.camera" android:required="false"/>
         <uses-feature android:name="android.hardware.sensor.compass" android:required="false"/>
         <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
+        <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove"/>
     <application
         android:label="Sello"
         android:name="${applicationName}"

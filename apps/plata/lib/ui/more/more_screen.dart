@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
+import '../widgets/adaptive.dart';
 import 'accounts_screen.dart';
 import 'backup_screen.dart';
 import 'cards_screen.dart';
@@ -24,7 +25,7 @@ class MoreScreen extends StatelessWidget {
     final bool android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
     return ListenableBuilder(
       listenable: Listenable.merge(<Listenable>[s.ledger, s.lock]),
-      builder: (BuildContext context, Widget? _) => Scaffold(
+      builder: (BuildContext context, Widget? _) => ReadableScaffold(
         appBar: AppBar(title: Text(t(context, 'Más', 'More'))),
         body: ListView(
           padding: const EdgeInsets.only(bottom: 32),
@@ -35,7 +36,7 @@ class MoreScreen extends StatelessWidget {
             _tile(context, Icons.event_repeat, t(context, 'Programados', 'Scheduled'), t(context, 'Arriendo, servicios, salario, cuotas', 'Rent, utilities, salary, installments'), const ScheduledScreen()),
             _tile(context, Icons.star_outline, t(context, 'Favoritos de un toque', 'One-tap favorites'), t(context, 'Plantillas de lo que anotas seguido', 'Templates for what you log often'), const TemplatesScreen()),
             _tile(context, Icons.currency_exchange, t(context, 'Monedas', 'Currencies'), t(context, 'Dólares, euros y tasas (TRM)', 'Dollars, euros and rates (TRM)'), const CurrenciesScreen()),
-            _tile(context, Icons.notifications_active_outlined, t(context, 'Avisos bancarios', 'Bank notices'), android ? t(context, 'Sugerencias desde las notificaciones del banco', 'Suggestions from bank notifications') : t(context, 'Solo en Android', 'Android only'), const NoticesScreen(), badge: s.ledger.pendingInbox.length),
+            if (android) _tile(context, Icons.notifications_active_outlined, t(context, 'Avisos bancarios', 'Bank notices'), t(context, 'Sugerencias desde las notificaciones del banco', 'Suggestions from bank notifications'), const NoticesScreen(), badge: s.ledger.pendingInbox.length),
             const Divider(),
             _tile(context, s.lock.enabled ? Icons.lock : Icons.lock_open_outlined, t(context, 'Seguridad', 'Security'), s.lock.enabled ? t(context, 'Clave activa', 'Passcode on') : t(context, 'Sin clave de acceso', 'No passcode'), const SecurityScreen()),
             _tile(context, Icons.backup_outlined, t(context, 'Copias de seguridad', 'Backups'), t(context, 'Exportar, importar y copias automáticas', 'Export, import and automatic copies'), const BackupScreen()),

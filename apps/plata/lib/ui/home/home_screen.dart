@@ -1,7 +1,9 @@
 import 'package:clock/clock.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
+import '../../core/bank_rules.dart';
 import '../../core/ledger.dart';
 import '../../core/periods.dart';
 import '../../model/models.dart';
@@ -11,6 +13,7 @@ import '../more/scheduled_screen.dart';
 import '../more/templates_screen.dart';
 import '../transactions/tx_editor.dart';
 import '../transactions/tx_list_screen.dart';
+import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
 import '../widgets/icons.dart';
 
@@ -34,6 +37,7 @@ class HomeScreen extends StatelessWidget {
         final PeriodTotals totals = l.totals(period);
         final List<Account> visible = l.activeAccounts.where((Account a) => !a.isPocket && !a.isDebit).toList();
         final List<InboxItem> inbox = l.pendingInbox;
+        final bool noticesAvailable = defaultTargetPlatform == TargetPlatform.android;
         final List<Scheduled> upcoming = l.upcoming(days: 7, now: now);
         final List<_CardDue> cardDues = <_CardDue>[
           for (final Account a in l.activeAccounts)
@@ -41,7 +45,7 @@ class HomeScreen extends StatelessWidget {
               _CardDue(a, l.nextPayment(a, now: now)),
         ].where((_CardDue c) => c.statement.dueMinor > 0 && c.statement.cycle.payDate.difference(dateOnly(now)).inDays <= 10).toList();
         final List<BudgetProgress> budgets = l.budgets.map((Budget b) => l.progress(b, now: now)).toList()..sort((BudgetProgress a, BudgetProgress b) => b.fraction.compareTo(a.fraction));
-        return Scaffold(
+        return ReadableScaffold(
           appBar: AppBar(
             title: const Text('Plata'),
             actions: <Widget>[
@@ -53,11 +57,13 @@ class HomeScreen extends StatelessWidget {
                   s.settings.save();
                 },
               ),
-              IconButton(
-                tooltip: t(context, 'Avisos bancarios', 'Bank notices'),
-                icon: Badge(isLabelVisible: inbox.isNotEmpty, label: Text('${inbox.length}'), child: const Icon(Icons.inbox_outlined)),
-                onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const NoticesScreen())),
-              ),
+              // Los avisos bancarios solo existen en Android (iOS no deja leer notificaciones).
+              if (noticesAvailable)
+                IconButton(
+                  tooltip: t(context, 'Avisos bancarios', 'Bank notices'),
+                  icon: Badge(isLabelVisible: inbox.isNotEmpty, label: Text('${inbox.length}'), child: const Icon(Icons.inbox_outlined)),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const NoticesScreen())),
+                ),
             ],
           ),
           body: ListView(
@@ -91,7 +97,7 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               _periodCard(context, l, period, totals, budgets),
-              if (inbox.isNotEmpty) ...<Widget>[
+              if (noticesAvailable && inbox.isNotEmpty) ...<Widget>[
                 const SizedBox(height: 12),
                 _sectionTitle(context, t(context, 'Avisos por confirmar', 'Notices to confirm'), action: t(context, 'Ver', 'Open'), onAction: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const NoticesScreen()))),
                 for (final InboxItem i in inbox.take(3)) _InboxRow(item: i),
@@ -210,7 +216,7 @@ class HomeScreen extends StatelessWidget {
                 Expanded(child: _kpi(context, t(context, 'Neto', 'Net'), money(context, totals.netMinor, l.baseCurrency, compact: true), totals.netMinor < 0 ? kindColor(context, TxKind.expense) : cs.onSurface)),
               ],
             ),
-            if (daysLeft > 0 && totals.netMinor > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Text('${t(context, 'Te quedan', 'You have')} $daysLeft ${t(context, 'días', 'days left')} · ${money(context, perDay, l.baseCurrency)}/${t(context, 'día', 'day')}', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6)))),
+            if (daysLeft > 0 && totals.netMinor > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Text('${daysLeft == 1 ? t(context, 'Te queda 1 día', '1 day left') : t(context, 'Te quedan $daysLeft días', '$daysLeft days left')} · ${money(context, perDay, l.baseCurrency)}/${t(context, 'día', 'day')}', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6)))),
             if (budgets.isNotEmpty) ...<Widget>[
               const Divider(height: 18),
               for (final BudgetProgress p in budgets.take(3)) _BudgetLine(progress: p, onTap: () => onGoTo(2)),
@@ -275,7 +281,7 @@ class HomeScreen extends StatelessWidget {
   }
 
   void _openAccount(BuildContext context, Account a) {
-    Navigator.push(context, MaterialPageRoute<void>(builder: (_) => Scaffold(appBar: AppBar(title: Text(a.name)), body: TxListScreen(initialFilter: TxFilter(accountIds: <String>{a.id})))));
+    Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ReadableScaffold(appBar: AppBar(title: Text(a.name)), body: TxListScreen(initialFilter: TxFilter(accountIds: <String>{a.id})))));
   }
 
   Widget _sectionTitle(BuildContext context, String title, {String? action, VoidCallback? onAction}) => Padding(
@@ -390,8 +396,8 @@ class _InboxRow extends StatelessWidget {
     return ListTile(
       dense: true,
       leading: CircleAvatar(backgroundColor: kindColor(context, item.kind).withValues(alpha: 0.15), child: Icon(item.kind == TxKind.income ? Icons.south_west : Icons.north_east, color: kindColor(context, item.kind), size: 18)),
-      title: Text('${item.merchant.isEmpty ? item.bank : item.merchant} · ${money(context, item.amountMinor, item.currency)}', maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text('${item.bank}${item.last4.isNotEmpty ? ' *${item.last4}' : ''} · ${formatDate(item.receivedAt, 'dd MMM HH:mm', spanish: s.settings.spanish)}${guess != null ? ' → ${guess.name}' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
+      title: Text('${item.merchant.isEmpty ? BankRules.displayName(item.bank) : item.merchant} · ${money(context, item.amountMinor, item.currency)}', maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text('${BankRules.displayName(item.bank)}${item.last4.isNotEmpty ? ' *${item.last4}' : ''} · ${formatDate(item.receivedAt, 'dd MMM HH:mm', spanish: s.settings.spanish)}${guess != null ? ' → ${guess.name}' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[

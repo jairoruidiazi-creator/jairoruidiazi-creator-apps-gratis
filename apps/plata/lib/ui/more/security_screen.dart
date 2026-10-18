@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
 import '../../core/lock.dart';
+import '../widgets/adaptive.dart';
 
 /// Clave de acceso, biometría y ocultar saldos.
 class SecurityScreen extends StatefulWidget {
@@ -55,7 +56,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
     final AppLock lock = s.lock;
     return ListenableBuilder(
       listenable: Listenable.merge(<Listenable>[lock, s.settings]),
-      builder: (BuildContext context, Widget? _) => Scaffold(
+      builder: (BuildContext context, Widget? _) => ReadableScaffold(
         appBar: AppBar(title: Text(t(context, 'Seguridad', 'Security'))),
         body: ListView(
           children: <Widget>[

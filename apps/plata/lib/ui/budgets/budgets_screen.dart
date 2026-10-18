@@ -6,6 +6,7 @@ import '../../core/ledger.dart';
 import '../../core/periods.dart';
 import '../../model/models.dart';
 import '../transactions/tx_list_screen.dart';
+import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
 import '../widgets/icons.dart';
 
@@ -23,7 +24,7 @@ class BudgetsScreen extends StatelessWidget {
         final List<BudgetProgress> list = l.budgets.map((Budget b) => l.progress(b)).toList();
         final int totalLimit = list.fold<int>(0, (int a, BudgetProgress p) => a + p.limitMinor);
         final int totalSpent = list.fold<int>(0, (int a, BudgetProgress p) => a + p.spentMinor);
-        return Scaffold(
+        return ReadableScaffold(
           appBar: AppBar(title: Text(t(context, 'Presupuestos', 'Budgets'))),
           floatingActionButton: FloatingActionButton.extended(
             heroTag: null,
@@ -124,7 +125,7 @@ class _BudgetCard extends StatelessWidget {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => Scaffold(appBar: AppBar(title: Text(b.name)), body: TxListScreen(initialFilter: TxFilter(kinds: <TxKind>{TxKind.expense}, categoryIds: b.categoryIds.toSet(), accountIds: b.accountId == null ? <String>{} : <String>{b.accountId!}, from: progress.period.start, to: progress.period.lastDay))))),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ReadableScaffold(appBar: AppBar(title: Text(b.name)), body: TxListScreen(initialFilter: TxFilter(kinds: <TxKind>{TxKind.expense}, categoryIds: b.categoryIds.toSet(), accountIds: b.accountId == null ? <String>{} : <String>{b.accountId!}, from: progress.period.start, to: progress.period.lastDay))))),
                   icon: const Icon(Icons.list_alt, size: 18),
                   label: Text(t(context, 'Ver movimientos', 'See transactions')),
                 ),
@@ -234,7 +235,7 @@ class _BudgetEditorState extends State<BudgetEditor> {
     final Services s = AppScope.of(context);
     final Ledger l = s.ledger;
     final ColorScheme cs = Theme.of(context).colorScheme;
-    return Scaffold(
+    return ReadableScaffold(
       appBar: AppBar(
         title: Text(widget.existing == null ? t(context, 'Nuevo presupuesto', 'New budget') : t(context, 'Presupuesto', 'Budget')),
         actions: <Widget>[

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/app_scope.dart';
+import '../widgets/adaptive.dart';
 
 /// Guía de uso y acerca de.
 class GuideScreen extends StatelessWidget {
@@ -14,7 +15,7 @@ class GuideScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool es = AppScope.of(context).settings.spanish;
     final List<_Section> sections = es ? _es : _en;
-    return Scaffold(
+    return ReadableScaffold(
       appBar: AppBar(title: Text(t(context, 'Guía', 'Guide'))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),

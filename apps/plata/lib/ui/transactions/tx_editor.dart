@@ -8,6 +8,7 @@ import '../../core/app_scope.dart';
 import '../../core/ledger.dart';
 import '../../model/models.dart';
 import '../../model/money.dart';
+import '../widgets/adaptive.dart';
 import '../widgets/amount_keypad.dart';
 import '../widgets/common.dart';
 import '../widgets/icons.dart';
@@ -238,7 +239,7 @@ class _TxEditorState extends State<TxEditor> {
     final bool crossCurrency = _kind == TxKind.transfer && acc != null && to != null && acc.currency != to.currency;
     final List<Suggestion> suggestions = _desc.text.trim().length >= 2 && widget.existing == null ? l.suggest(_desc.text, kind: _kind) : <Suggestion>[];
 
-    return Scaffold(
+    return ReadableScaffold(
       appBar: AppBar(
         title: Text(widget.existing == null ? t(context, 'Nuevo movimiento', 'New transaction') : t(context, 'Editar movimiento', 'Edit transaction')),
         actions: <Widget>[

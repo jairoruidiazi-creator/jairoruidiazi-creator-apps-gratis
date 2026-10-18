@@ -87,6 +87,8 @@ APPS = {
             "android.permission.INTERNET",
             # gal la necesita hasta Android 10; camerax declara maxSdkVersion 28, así que se fuerza el valor.
             ("android.permission.WRITE_EXTERNAL_STORAGE", {"android:maxSdkVersion": "29", "tools:replace": "android:maxSdkVersion"}),
+            # El plugin de cámara declara el micrófono para grabar video; Sello solo toma fotos.
+            ("android.permission.RECORD_AUDIO", {"tools:node": "remove"}),
         ],
         "android_features": [("android.hardware.camera", False), ("android.hardware.sensor.compass", False), ("android.hardware.location.gps", False)],
         "android_queries": [

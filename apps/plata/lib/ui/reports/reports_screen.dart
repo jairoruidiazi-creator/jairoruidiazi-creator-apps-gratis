@@ -9,6 +9,7 @@ import '../../core/sharing.dart';
 import '../../model/models.dart';
 import '../transactions/tx_editor.dart';
 import '../transactions/tx_tile.dart';
+import '../widgets/adaptive.dart';
 import '../widgets/charts.dart';
 import '../widgets/common.dart';
 
@@ -39,7 +40,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       builder: (BuildContext context, Widget? _) {
         final Ledger l = s.ledger;
         final Period period = l.periodSpec.shift(l.periodSpec.containing(clock.now()), _shift);
-        return Scaffold(
+        return ReadableScaffold(
           appBar: AppBar(
             title: Text(t(context, 'Informes', 'Reports')),
             actions: <Widget>[

@@ -14,6 +14,7 @@ import 'ui/more/more_screen.dart';
 import 'ui/reports/reports_screen.dart';
 import 'ui/transactions/tx_editor.dart';
 import 'ui/transactions/tx_list_screen.dart';
+import 'ui/widgets/adaptive.dart';
 
 class PlataColors {
   PlataColors._();
@@ -215,27 +216,61 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       const ReportsScreen(),
       const MoreScreen(),
     ];
+    final List<_Dest> items = <_Dest>[
+      _Dest(Icons.home_outlined, Icons.home, t(context, 'Inicio', 'Home')),
+      _Dest(Icons.receipt_long_outlined, Icons.receipt_long, t(context, 'Movimientos', 'Transactions')),
+      _Dest(Icons.savings_outlined, Icons.savings, t(context, 'Presupuestos', 'Budgets')),
+      _Dest(Icons.bar_chart_outlined, Icons.bar_chart, t(context, 'Informes', 'Reports')),
+      _Dest(Icons.more_horiz, Icons.more_horiz, t(context, 'Más', 'More')),
+    ];
+    void add() => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const TxEditor()));
+    final Widget body = IndexedStack(index: _index, children: pages);
+    if (isWideLayout(context)) {
+      // Tableta: menú lateral con el botón de anotar arriba.
+      return Scaffold(
+        body: Row(
+          children: <Widget>[
+            SafeArea(
+              right: false,
+              child: NavigationRail(
+                selectedIndex: _index,
+                onDestinationSelected: (int i) => setState(() => _index = i),
+                labelType: NavigationRailLabelType.all,
+                leading: Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 16),
+                  child: FloatingActionButton(heroTag: null, elevation: 0, tooltip: t(context, 'Anotar movimiento', 'Log transaction'), onPressed: add, child: const Icon(Icons.add)),
+                ),
+                destinations: <NavigationRailDestination>[
+                  for (final _Dest it in items) NavigationRailDestination(icon: Icon(it.icon), selectedIcon: Icon(it.selected), label: Text(it.label)),
+                ],
+              ),
+            ),
+            const VerticalDivider(width: 1),
+            Expanded(child: body),
+          ],
+        ),
+      );
+    }
     return Scaffold(
-      body: IndexedStack(index: _index, children: pages),
+      body: body,
       floatingActionButton: _index <= 1
-          ? FloatingActionButton(
-              heroTag: null,
-              tooltip: t(context, 'Anotar movimiento', 'Log transaction'),
-              onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const TxEditor())),
-              child: const Icon(Icons.add),
-            )
+          ? FloatingActionButton(heroTag: null, tooltip: t(context, 'Anotar movimiento', 'Log transaction'), onPressed: add, child: const Icon(Icons.add))
           : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (int i) => setState(() => _index = i),
         destinations: <NavigationDestination>[
-          NavigationDestination(icon: const Icon(Icons.home_outlined), selectedIcon: const Icon(Icons.home), label: t(context, 'Inicio', 'Home')),
-          NavigationDestination(icon: const Icon(Icons.receipt_long_outlined), selectedIcon: const Icon(Icons.receipt_long), label: t(context, 'Movimientos', 'Transactions')),
-          NavigationDestination(icon: const Icon(Icons.savings_outlined), selectedIcon: const Icon(Icons.savings), label: t(context, 'Presupuestos', 'Budgets')),
-          NavigationDestination(icon: const Icon(Icons.bar_chart_outlined), selectedIcon: const Icon(Icons.bar_chart), label: t(context, 'Informes', 'Reports')),
-          NavigationDestination(icon: const Icon(Icons.more_horiz), selectedIcon: const Icon(Icons.more_horiz), label: t(context, 'Más', 'More')),
+          for (final _Dest it in items) NavigationDestination(icon: Icon(it.icon), selectedIcon: Icon(it.selected), label: it.label),
         ],
       ),
     );
   }
+}
+
+class _Dest {
+  const _Dest(this.icon, this.selected, this.label);
+
+  final IconData icon;
+  final IconData selected;
+  final String label;
 }

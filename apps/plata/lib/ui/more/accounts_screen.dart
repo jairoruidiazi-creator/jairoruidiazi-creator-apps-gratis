@@ -7,6 +7,7 @@ import '../../model/models.dart';
 import '../../model/money.dart';
 import '../transactions/tx_editor.dart';
 import '../transactions/tx_list_screen.dart';
+import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
 
 /// Cuentas: lista con saldos, bolsillos anidados y archivadas.
@@ -29,7 +30,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
         final Ledger l = s.ledger;
         final List<Account> roots = l.activeAccounts.where((Account a) => !a.isPocket).toList();
         final List<Account> archived = l.accounts.where((Account a) => a.archived).toList();
-        return Scaffold(
+        return ReadableScaffold(
           appBar: AppBar(
             title: Text(t(context, 'Cuentas', 'Accounts')),
             actions: <Widget>[
@@ -118,7 +119,7 @@ class _AccountRow extends StatelessWidget {
       trailing: a.isDebit
           ? const Icon(Icons.link)
           : Text(money(context, shown, a.currency), style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: shown < 0 ? kindColor(context, TxKind.expense) : null, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
-      onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => Scaffold(appBar: AppBar(title: Text(a.name), actions: <Widget>[IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => AccountEditor(existing: a))))]), body: TxListScreen(initialFilter: TxFilter(accountIds: <String>{a.id}))))),
+      onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ReadableScaffold(appBar: AppBar(title: Text(a.name), actions: <Widget>[IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => AccountEditor(existing: a))))]), body: TxListScreen(initialFilter: TxFilter(accountIds: <String>{a.id}))))),
       onLongPress: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => AccountEditor(existing: a))),
     );
   }
@@ -203,7 +204,7 @@ class _AccountEditorState extends State<AccountEditor> {
     final Services s = AppScope.of(context);
     final Ledger l = s.ledger;
     final List<String> currencies = <String>{l.baseCurrency, ...s.settings.extraCurrencies, _currency}.toList();
-    return Scaffold(
+    return ReadableScaffold(
       appBar: AppBar(
         title: Text(widget.existing == null ? t(context, 'Nueva cuenta', 'New account') : t(context, 'Editar cuenta', 'Edit account')),
         actions: <Widget>[
