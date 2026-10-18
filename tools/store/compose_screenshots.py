@@ -166,6 +166,10 @@ def compose(shot: Image.Image, device: str, caption: str, brand: dict) -> Image.
     # Titular: a lo sumo dos líneas y nunca más del 18 % del alto.
     pad_x = int(W * 0.08)
     size = int(W * (0.052 if tablet else 0.066))
+    # La franja del titular mide siempre dos líneas del tamaño base, aunque el
+    # titular tenga una sola o haya que achicarlo: así el teléfono queda a la
+    # misma altura en todas las capturas de la ficha.
+    band_h = 2 * int(size * 1.22)
     f = font("Bold", size)
     lines = balanced_wrap(d, caption, f, W - 2 * pad_x)
     while (len(lines) > 2 or len(lines) * size * 1.22 > H * MAX_CAPTION_SHARE) and size > 20:
@@ -175,20 +179,22 @@ def compose(shot: Image.Image, device: str, caption: str, brand: dict) -> Image.
     if len(lines) > 2:
         raise SystemExit(f"El titular no cabe en dos líneas: {caption!r}")
     line_h = int(size * 1.22)
-    y = int(H * (0.04 if tablet else 0.045))
-    caption_top = y
+    caption_top = int(H * (0.04 if tablet else 0.045))
+    y = caption_top + (band_h - len(lines) * line_h) // 2
     text_color = hex_color(brand.get("text", "#FFFFFF"))
     for line in lines:
         d.text((W / 2, y), line, font=f, fill=text_color, anchor="ma")
         y += line_h
-    share = (y - caption_top) / H
+    share = band_h / H
     if share > MAX_CAPTION_SHARE + 1e-6:
         raise SystemExit(f"El titular ocupa {share:.0%} de la imagen: {caption!r}")
+    base = band_h / 2.44  # tamaño base del titular (la franja son dos líneas de 1,22)
     accent = brand.get("accent")
     if accent:
+        # La raya va pegada al texto; el teléfono, siempre a la misma altura.
         bar_w = int(W * 0.09)
-        d.rounded_rectangle((W / 2 - bar_w / 2, y + size * 0.25, W / 2 + bar_w / 2, y + size * 0.25 + max(6, size * 0.12)), radius=size * 0.06, fill=hex_color(accent))
-    y += int(size * 1.2)
+        d.rounded_rectangle((W / 2 - bar_w / 2, y + base * 0.25, W / 2 + bar_w / 2, y + base * 0.25 + max(6, base * 0.12)), radius=base * 0.06, fill=hex_color(accent))
+    y = caption_top + band_h + int(base * 1.2)
 
     # Teléfono o tableta: la captura con marco, sombra y esquinas redondeadas.
     sw, sh = shot.size
