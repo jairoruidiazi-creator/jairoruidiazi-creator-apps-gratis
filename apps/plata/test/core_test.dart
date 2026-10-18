@@ -546,6 +546,32 @@ void main() {
       expect(await dead.refresh(RateTable(), base: 'COP', currencies: <String>{'USD'}), isFalse);
     });
 
+    test('M9: las monedas que el BCE no publica salen de ExchangeRate-API y se rotulan', () async {
+      final List<String> hosts = <String>[];
+      final MockClient client = MockClient((http.Request r) async {
+        hosts.add(r.url.host);
+        if (r.url.host == 'www.datos.gov.co') {
+          return http.Response(jsonEncode(<Map<String, String>>[<String, String>{'valor': '4000', 'vigenciadesde': '2026-10-16T00:00:00.000'}]), 200);
+        }
+        if (r.url.host == 'api.frankfurter.dev') {
+          return http.Response(jsonEncode(<String, dynamic>{'base': 'USD', 'rates': <String, double>{'EUR': 0.9}}), 200);
+        }
+        if (r.url.host == 'open.er-api.com') {
+          return http.Response(jsonEncode(<String, dynamic>{'result': 'success', 'rates': <String, double>{'PEN': 3.7, 'EUR': 0.91}}), 200);
+        }
+        return http.Response('no', 500);
+      });
+      final RateTable table = RateTable();
+      expect(await RateService(client: client).refresh(table, base: 'COP', currencies: <String>{'EUR', 'PEN'}, now: d(2026, 10, 16)), isTrue);
+      expect(hosts, isNot(contains('api.frankfurter.app')));
+      expect(table.origins['USD'], RateOrigin.trm);
+      expect(table.origins['EUR'], RateOrigin.ecb);
+      expect(table.origins['PEN'], RateOrigin.erApi);
+      expect(table.rates['EUR'], closeTo(4000 / 0.9, 0.01));
+      expect(table.rates['PEN'], closeTo(4000 / 3.7, 0.01));
+      expect(table.source, 'TRM + BCE + ExchangeRate-API');
+    });
+
     test('recordatorios: diario, programados y pago de tarjeta', () async {
       final Ledger l = await newLedger(tmp, clock: () => d(2026, 10, 16));
       final AppSettings settings = AppSettings()

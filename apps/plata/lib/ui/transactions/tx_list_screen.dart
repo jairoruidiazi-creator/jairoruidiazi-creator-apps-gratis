@@ -161,7 +161,7 @@ class _TxListScreenState extends State<TxListScreen> {
               alignment: WrapAlignment.spaceBetween,
               spacing: 12,
               children: <Widget>[
-                Text('${list.length} ${t(context, 'movimientos', 'transactions')}', style: Theme.of(context).textTheme.bodySmall),
+                Text(counted(context, list.length, oneEs: 'movimiento', manyEs: 'movimientos', oneEn: 'transaction', manyEn: 'transactions'), style: Theme.of(context).textTheme.bodySmall),
                 Text('+${money(context, income, l.baseCurrency, compact: true)}  −${money(context, expense, l.baseCurrency, compact: true)}', style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
@@ -260,7 +260,7 @@ class _TxListScreenState extends State<TxListScreen> {
               final bool isToday = today == day;
               final String label = <String>[
                 '${formatDate(day, 'EEE dd', spanish: spanish)} ${monthName(day, spanish: spanish)}',
-                if (txs.isNotEmpty) '${txs.length} ${t(context, 'movimientos', 'transactions')}, ${t(context, 'neto', 'net')} ${money(context, net, l.baseCurrency)}',
+                if (txs.isNotEmpty) '${counted(context, txs.length, oneEs: 'movimiento', manyEs: 'movimientos', oneEn: 'transaction', manyEn: 'transactions')}, ${t(context, 'neto', 'net')} ${money(context, net, l.baseCurrency)}',
                 if (hasBill) t(context, 'tiene un pago programado', 'has a scheduled payment'),
               ].join(', ');
               return Semantics(

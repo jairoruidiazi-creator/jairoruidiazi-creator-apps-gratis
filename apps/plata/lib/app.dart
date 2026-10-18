@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
@@ -217,7 +218,11 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     try {
       final List<Tx> posted = s.ledger.processScheduled();
       if (posted.isNotEmpty && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.settings.spanish ? 'Se anotaron ${posted.length} movimientos programados.' : '${posted.length} scheduled transactions were logged.')));
+        final int n = posted.length;
+        final String message = s.settings.spanish
+            ? (n == 1 ? 'Se anotó 1 movimiento programado.' : 'Se anotaron $n movimientos programados.')
+            : (n == 1 ? '1 scheduled transaction was logged.' : '$n scheduled transactions were logged.');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       }
     } catch (e) {
       debugPrint('Programados: $e');
@@ -332,12 +337,51 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: _goTo,
+        labelTextStyle: _navLabelStyle(context, items),
         destinations: <NavigationDestination>[
           for (final _Dest it in items) NavigationDestination(icon: Icon(it.icon), selectedIcon: Icon(it.selected), label: it.label),
         ],
       ),
     );
   }
+}
+
+/// Estilo de las etiquetas de la barra inferior. En un teléfono de 360 dp cada
+/// pestaña mide 72 dp y "Presupuestos" o "Transactions" no caben con la letra
+/// estándar: se partirían en dos líneas o quedarían pegadas a la vecina. La
+/// letra se reduce lo justo para que la etiqueta más larga quepa con aire, y
+/// todas quedan del mismo tamaño.
+WidgetStateProperty<TextStyle?> _navLabelStyle(BuildContext context, List<_Dest> items) {
+  final ThemeData theme = Theme.of(context);
+  final ColorScheme cs = theme.colorScheme;
+  final TextStyle base = (theme.textTheme.labelMedium ?? const TextStyle(fontSize: 12)).copyWith(letterSpacing: 0);
+  final double slot = (MediaQuery.sizeOf(context).width - MediaQuery.paddingOf(context).horizontal) / items.length;
+  // La barra limita a 1,3 la escala del texto de sus etiquetas.
+  final TextScaler scaler = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3);
+  final double room = slot - 8;
+  double widestAt(double size) {
+    double widest = 0;
+    for (final _Dest it in items) {
+      final TextPainter p = TextPainter(text: TextSpan(text: it.label, style: base.copyWith(fontSize: size)), textDirection: TextDirection.ltr, textScaler: scaler, maxLines: 1)..layout();
+      widest = math.max(widest, p.width);
+      p.dispose();
+    }
+    return widest;
+  }
+
+  double size = base.fontSize ?? 12;
+  // La escala del sistema puede no ser lineal: se ajusta en pocos pasos.
+  for (int i = 0; i < 3 && room > 0; i++) {
+    final double widest = widestAt(size);
+    if (widest <= room) {
+      break;
+    }
+    size = math.max(9.0, size * room / widest);
+  }
+  final TextStyle fitted = base.copyWith(fontSize: size);
+  return WidgetStateProperty.resolveWith((Set<WidgetState> states) => fitted.copyWith(
+        color: states.contains(WidgetState.disabled) ? cs.onSurfaceVariant.withValues(alpha: 0.38) : (states.contains(WidgetState.selected) ? cs.onSurface : cs.onSurfaceVariant),
+      ));
 }
 
 class _Dest {

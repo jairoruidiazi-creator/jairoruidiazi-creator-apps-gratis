@@ -166,7 +166,8 @@ class _CardPanelState extends State<_CardPanel> {
             _row(context, t(context, 'Compras del ciclo', 'Purchases this cycle'), money(context, st.purchasesMinor, c.currency)),
             if (st.advancesMinor != 0) _row(context, t(context, 'Avances y transferencias', 'Cash advances and transfers'), money(context, st.advancesMinor, c.currency)),
             _row(context, t(context, 'Cuotas que se facturan', 'Installments billed'), money(context, st.installmentsMinor, c.currency)),
-            _row(context, t(context, 'Abonos y devoluciones', 'Payments and refunds'), '−${money(context, st.paymentsMinor, c.currency)}'),
+            // Sin abonos se muestra "$ 0", no "−$ 0".
+            _row(context, t(context, 'Abonos y devoluciones', 'Payments and refunds'), st.paymentsMinor == 0 ? money(context, 0, c.currency) : '−${money(context, st.paymentsMinor, c.currency)}'),
             const Divider(),
             if (st.creditMinor > 0)
               _row(context, t(context, 'Saldo a favor', 'Credit balance'), money(context, st.creditMinor, c.currency), bold: true)

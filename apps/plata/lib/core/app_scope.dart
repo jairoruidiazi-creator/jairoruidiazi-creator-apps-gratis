@@ -52,6 +52,9 @@ class AppScope extends InheritedWidget {
 /// Texto en el idioma de la app.
 String t(BuildContext context, String es, String en) => AppScope.of(context).settings.spanish ? es : en;
 
+/// Cantidad con su palabra en singular o plural: "1 bolsillo", "3 bolsillos".
+String counted(BuildContext context, int n, {required String oneEs, required String manyEs, required String oneEn, required String manyEn}) => '$n ${n == 1 ? t(context, oneEs, oneEn) : t(context, manyEs, manyEn)}';
+
 /// Libera controladores después de que cierre el diálogo que los usaba.
 void disposeLater(List<ChangeNotifier> controllers) {
   Future<void>.delayed(const Duration(seconds: 1), () {

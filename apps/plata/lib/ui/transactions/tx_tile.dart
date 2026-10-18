@@ -32,7 +32,7 @@ class TxTile extends StatelessWidget {
       if (showDate) formatDate(tx.date, 'dd MMM', spanish: s.settings.spanish),
       if (tx.isAdjustment) t(context, 'Ajuste (no cuenta en informes)', 'Adjustment (not in reports)'),
       if (refund) t(context, 'Reembolso', 'Refund'),
-      if (tx.kind == TxKind.transfer) '${a?.name ?? ''} → ${to?.name ?? ''}' else if (tx.splits.isNotEmpty) '${tx.splits.length} ${t(context, 'categorías', 'categories')}' else if (c != null) l.categoryPath(c.id),
+      if (tx.kind == TxKind.transfer) '${a?.name ?? ''} → ${to?.name ?? ''}' else if (tx.splits.isNotEmpty) counted(context, tx.splits.length, oneEs: 'categoría', manyEs: 'categorías', oneEn: 'category', manyEn: 'categories') else if (c != null) l.categoryPath(c.id),
       if (tx.kind != TxKind.transfer && a != null) a.name,
       if (tx.installments > 1) '${tx.installments} ${t(context, 'cuotas', 'installments')}',
       if (tx.payee.isNotEmpty && tx.payee != tx.description) tx.payee,

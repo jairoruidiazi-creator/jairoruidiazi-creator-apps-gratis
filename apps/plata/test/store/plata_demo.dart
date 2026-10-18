@@ -24,7 +24,8 @@ Future<void> seedDemo(Ledger l, {required bool spanish, bool withNotices = true}
 
   // ------------------------------------------------------------- cuentas
   final Account cash = l.account('a_cash')!..initialMinor = cop(85000);
-  await l.addAccount(Account(id: 'ahorros', name: tr('Cuenta de ahorros', 'Savings account'), type: AccountType.bank, icon: 'bank', color: 0xFF1565C0, initialMinor: cop(3420000), bank: 'bancolombia', last4: '7310'));
+  // Nombres cortos, como los pone la gente, para que quepan en las tarjetas de Inicio.
+  await l.addAccount(Account(id: 'ahorros', name: tr('Ahorros', 'Savings'), type: AccountType.bank, icon: 'bank', color: 0xFF1565C0, initialMinor: cop(3420000), bank: 'bancolombia', last4: '7310'));
   await l.addAccount(Account(id: 'billetera', name: tr('Billetera digital', 'Digital wallet'), type: AccountType.wallet, icon: 'wallet', color: 0xFF6A1B9A, initialMinor: cop(240000), bank: 'nequi'));
   await l.addAccount(Account(id: 'tarjeta', name: tr('Tarjeta de crédito', 'Credit card'), type: AccountType.credit, icon: 'card', color: 0xFF37474F, cutDay: 15, payDay: 5, creditLimitMinor: cop(6500000), bank: 'bancolombia', last4: '4821'));
   await l.addAccount(Account(id: 'viaje', name: tr('Viaje de diciembre', 'December trip'), type: AccountType.pocket, icon: 'savings', color: 0xFF00897B, parentId: 'ahorros', initialMinor: cop(600000)));
@@ -70,6 +71,7 @@ Future<void> seedDemo(Ledger l, {required bool spanish, bool withNotices = true}
   const _Desc clothes = _Desc('Ropa', 'Clothes');
   const _Desc cardPayment = _Desc('Pago tarjeta de crédito', 'Credit card payment');
   const _Desc saving = _Desc('Ahorro para el viaje', 'Saving for the trip');
+  const _Desc walletTopUp = _Desc('Recarga de la billetera', 'Wallet top-up');
 
   // Seis meses: de mayo a octubre de 2026. Las cifras varían de forma fija
   // (sin azar) para que las capturas salgan siempre iguales.
@@ -140,6 +142,11 @@ Future<void> seedDemo(Ledger l, {required bool spanish, bool withNotices = true}
     // estado de cuenta que cortó el 15 del mes anterior (lo que ya está anotado
     // hasta ese corte, con sus cuotas).
     await add(16, TxKind.transfer, 300000, 'ahorros', null, saving, to: 'viaje', hour: 8);
+    // La billetera se recarga desde la cuenta de ahorros cada quincena: con
+    // eso cubre almuerzos, transporte y celular y nunca queda en negativo.
+    for (final int d in <int>[1, 15]) {
+      await add(d, TxKind.transfer, 260000, 'ahorros', null, walletTopUp, to: 'billetera', hour: 9);
+    }
     final int due = l.statement(l.account('tarjeta')!, date: DateTime(2026, m - 1, 15)).dueMinor;
     if (due > 0 && past(day(5, 10))) {
       await txMinor(day(5, 10), TxKind.transfer, due, 'ahorros', null, cardPayment, to: 'tarjeta');

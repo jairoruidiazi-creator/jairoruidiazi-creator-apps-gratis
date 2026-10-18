@@ -114,7 +114,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
                   ],
                 ),
               ),
-              Padding(
+              // A todo el ancho: si las secciones no caben en una línea, la
+              // segunda arranca alineada a la izquierda con el resto.
+              Container(
+                width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Wrap(
                   spacing: 8,

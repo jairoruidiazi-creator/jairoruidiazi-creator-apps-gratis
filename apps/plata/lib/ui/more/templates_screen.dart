@@ -35,7 +35,7 @@ class TemplatesScreen extends StatelessWidget {
                           kindName(context, tpl.kind),
                           if (tpl.accountId != null) l.account(tpl.accountId)?.name ?? '',
                           if (tpl.categoryId != null) l.category(tpl.categoryId)?.name ?? '',
-                          '${tpl.uses} ${t(context, 'usos', 'uses')}',
+                          counted(context, tpl.uses, oneEs: 'uso', manyEs: 'usos', oneEn: 'use', manyEn: 'uses'),
                         ].where((String x) => x.isNotEmpty).join(' · ')),
                         trailing: Text(tpl.amountMinor == null ? t(context, 'pide monto', 'asks amount') : money(context, tpl.amountMinor!, l.account(tpl.accountId)?.currency ?? l.baseCurrency), style: const TextStyle(fontWeight: FontWeight.w700)),
                         onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => TemplateEditor(existing: tpl))),

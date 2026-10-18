@@ -143,7 +143,7 @@ class _LockScreenState extends State<LockScreen> {
           ),
           const SizedBox(height: 20),
           Semantics(
-            label: t(context, '${_code.length} dígitos escritos', '${_code.length} digits entered'),
+            label: _code.length == 1 ? t(context, '1 dígito escrito', '1 digit entered') : t(context, '${_code.length} dígitos escritos', '${_code.length} digits entered'),
             child: ExcludeSemantics(
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,

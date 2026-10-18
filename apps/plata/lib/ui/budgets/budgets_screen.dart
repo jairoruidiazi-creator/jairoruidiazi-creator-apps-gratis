@@ -51,19 +51,45 @@ class BudgetsScreen extends StatelessWidget {
               : ListView(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
                   children: <Widget>[
-                    if (list.length > 1)
-                      Card(
-                        child: ListTile(
-                          title: Text(t(context, 'Total presupuestado', 'Total budgeted')),
-                          subtitle: Text('${money(context, totalSpent, l.baseCurrency)} ${t(context, 'gastado de', 'spent of')} ${money(context, totalLimit, l.baseCurrency)}'),
-                          trailing: Text(money(context, totalLimit - totalSpent, l.baseCurrency, compact: true), style: TextStyle(fontWeight: FontWeight.w700, color: totalSpent > totalLimit ? kindColor(context, TxKind.expense) : null)),
-                        ),
-                      ),
+                    if (list.length > 1) _totalCard(context, l, totalSpent, totalLimit),
                     for (final BudgetProgress p in list) _BudgetCard(progress: p),
                   ],
                 ),
         );
       },
+    );
+  }
+
+  /// Resumen de todos los presupuestos, con lo disponible rotulado igual que
+  /// en cada tarjeta.
+  Widget _totalCard(BuildContext context, Ledger l, int totalSpent, int totalLimit) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final bool over = totalSpent > totalLimit;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 14, 12),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(t(context, 'Total presupuestado', 'Total budgeted'), style: Theme.of(context).textTheme.titleMedium),
+                  Text('${money(context, totalSpent, l.baseCurrency)} ${t(context, 'gastado de', 'spent of')} ${money(context, totalLimit, l.baseCurrency)}', style: TextStyle(color: cs.onSurfaceVariant)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: <Widget>[
+                Text(money(context, totalLimit - totalSpent, l.baseCurrency, compact: true), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: over ? kindColor(context, TxKind.expense) : cs.primary)),
+                Text(over ? t(context, 'excedido', 'over') : t(context, 'disponible', 'left'), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.7))),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -90,7 +116,9 @@ class _BudgetCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => BudgetEditor(existing: b))),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          // Abajo poco margen: el botón "Ver movimientos" ya trae su propia
+          // área de toque de 48 dp.
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 2),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[

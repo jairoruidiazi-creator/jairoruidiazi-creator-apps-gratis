@@ -785,10 +785,11 @@ class _TxEditorState extends State<TxEditor> {
                           child: Stack(
                             children: <Widget>[
                               Positioned(left: 0, bottom: 0, child: ClipRRect(borderRadius: BorderRadius.circular(8), child: SizedBox(width: 72, height: 72, child: _AttachmentThumb(relative: a)))),
-                              // Botón de quitar con área de toque de 40 × 40.
+                              // Botón de quitar con su área de toque completa de 48 × 48
+                              // dentro del recuadro (fuera de él no recibiría toques).
                               Positioned(
-                                right: -6,
-                                top: -6,
+                                right: 0,
+                                top: 0,
                                 child: IconButton(
                                   tooltip: t(context, 'Quitar foto', 'Remove photo'),
                                   onPressed: () => setState(() => _attachments.remove(a)),

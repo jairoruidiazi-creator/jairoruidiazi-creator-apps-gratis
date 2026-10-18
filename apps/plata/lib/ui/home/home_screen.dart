@@ -77,16 +77,25 @@ class HomeScreen extends StatelessWidget {
               _netWorth(context, l, period),
               const SizedBox(height: 12),
               _sectionTitle(context, t(context, 'Cuentas', 'Accounts'), action: t(context, 'Ver todas', 'See all'), onAction: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const AccountsScreen()))),
-              SizedBox(
-                height: _AccountCard.heightFor(context),
-                child: visible.isEmpty
-                    ? Center(child: Text(t(context, 'Sin cuentas', 'No accounts')))
-                    : ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: visible.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 8),
-                        itemBuilder: (BuildContext context, int i) => _AccountCard(account: visible[i], onTap: () => _openAccount(context, visible[i])),
-                      ),
+              LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints box) {
+                  // En tableta las tarjetas se ensanchan para que los nombres
+                  // largos no se corten; la quinta se asoma para que se note
+                  // que la fila sigue.
+                  final double minWidth = _AccountCard.widthFor(context);
+                  final double width = box.maxWidth >= 600 ? math.max(minWidth, (box.maxWidth - 4 * 8) / 4.4) : minWidth;
+                  return SizedBox(
+                    height: _AccountCard.heightFor(context),
+                    child: visible.isEmpty
+                        ? Center(child: Text(t(context, 'Sin cuentas', 'No accounts')))
+                        : ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: visible.length,
+                            separatorBuilder: (_, __) => const SizedBox(width: 8),
+                            itemBuilder: (BuildContext context, int i) => _AccountCard(account: visible[i], width: width, onTap: () => _openAccount(context, visible[i])),
+                          ),
+                  );
+                },
               ),
               const SizedBox(height: 12),
               _periodCard(context, l, period, totals, budgets),
@@ -197,7 +206,7 @@ class HomeScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: <Widget>[
                 Text(l.periodSpec.label(period, spanish: l.spanish), style: TextStyle(color: cs.onSurface.withValues(alpha: 0.65), fontSize: 12)),
-                Text('${period.days} ${t(context, 'días', 'days')}', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5), fontSize: 12)),
+                Text(counted(context, period.days, oneEs: 'día', manyEs: 'días', oneEn: 'day', manyEn: 'days'), style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5), fontSize: 12)),
               ],
             ),
           ],
@@ -318,9 +327,10 @@ class _CardDue {
 }
 
 class _AccountCard extends StatelessWidget {
-  const _AccountCard({required this.account, required this.onTap});
+  const _AccountCard({required this.account, required this.width, required this.onTap});
 
   final Account account;
+  final double width;
   final VoidCallback onTap;
 
   /// Alto de las tarjetas de cuenta: crece con el tamaño de letra del
@@ -344,10 +354,10 @@ class _AccountCard extends StatelessWidget {
       sub = st.dueMinor > 0 ? '${t(context, 'Pagar', 'Pay')} ${money(context, st.dueMinor, account.currency, compact: true)} · ${formatDate(st.cycle.payDate, 'dd MMM', spanish: l.spanish)}' : t(context, 'Al día', 'Up to date');
     } else {
       final List<Account> pockets = l.activeAccounts.where((Account p) => p.parentId == account.id).toList();
-      sub = pockets.isEmpty ? accountTypeName(context, account.type) : '${pockets.length} ${t(context, 'bolsillos', 'pockets')} · ${money(context, l.balanceMinor(account.id), account.currency, compact: true)} ${t(context, 'libre', 'free')}';
+      sub = pockets.isEmpty ? accountTypeName(context, account.type) : '${counted(context, pockets.length, oneEs: 'bolsillo', manyEs: 'bolsillos', oneEn: 'pocket', manyEn: 'pockets')} · ${money(context, l.balanceMinor(account.id), account.currency, compact: true)} ${t(context, 'libre', 'free')}';
     }
     return SizedBox(
-      width: widthFor(context),
+      width: width,
       child: Card(
         margin: EdgeInsets.zero,
         child: InkWell(

@@ -1,5 +1,6 @@
 // Pruebas de interfaz de los hallazgos del informe de auditoría: B2, B3,
-// G10, G11, G17 y los menores M1, M2, M9, M10 y M17.
+// G10, G11, G17 y los menores M1, M2, M9, M10, M17, M22 y M23, más los textos
+// que se vieron mal en las capturas (singulares y "$ 0" sin signo).
 
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -14,6 +15,7 @@ import 'package:plata/core/settings.dart';
 import 'package:plata/model/models.dart';
 import 'package:plata/ui/lock_screen.dart';
 import 'package:plata/ui/transactions/tx_tile.dart';
+import 'package:plata/ui/widgets/live.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'store/plata_demo.dart';
@@ -372,6 +374,83 @@ void main() {
       await tester.tap(find.text('Cancelar'));
       await settle(tester);
       expect(find.byType(AlertDialog), findsNothing);
+      await finish(tester);
+    });
+  });
+
+  testWidgets('M22: una pestaña oculta no se redibuja con cada cambio y se pone al día al verse', (WidgetTester tester) async {
+    final ValueNotifier<int> data = ValueNotifier<int>(0);
+    addTearDown(data.dispose);
+    int builds = 0;
+    Widget tab(bool visible) => Directionality(
+          textDirection: TextDirection.ltr,
+          child: TabVisibility(
+            visible: visible,
+            child: LiveBuilder(
+              listenable: data,
+              builder: (BuildContext context) {
+                builds += 1;
+                return Text('${data.value}');
+              },
+            ),
+          ),
+        );
+    await tester.pumpWidget(tab(false));
+    expect(builds, 1);
+    data.value = 1;
+    await tester.pump();
+    data.value = 2;
+    await tester.pump();
+    expect(builds, 1);
+    await tester.pumpWidget(tab(true));
+    expect(find.text('2'), findsOneWidget);
+    final int afterShow = builds;
+    data.value = 3;
+    await tester.pump();
+    expect(builds, afterShow + 1);
+    expect(find.text('3'), findsOneWidget);
+  });
+
+  testWidgets('M23: si algo falla, el mensaje se entiende y no muestra el error técnico', (WidgetTester tester) async {
+    await atTestTime(() async {
+      usePhone(tester);
+      await start(tester);
+      await goTab(tester, 'Más');
+      await openMore(tester, 'Copias de seguridad');
+      await tester.tap(find.text('Exportar JSON sin cifrar'));
+      await settle(tester);
+      // En las pruebas no hay hoja de compartir: compartir falla.
+      await tester.tap(find.widgetWithText(FilledButton, 'Exportar'));
+      await tester.pump();
+      await waitFor(tester, () => find.text('No se pudo exportar. Intenta de nuevo.').evaluate().isNotEmpty);
+      expect(find.text('No se pudo exportar. Intenta de nuevo.'), findsOneWidget);
+      expect(find.textContaining('Exception'), findsNothing);
+      expect(find.textContaining('Error:'), findsNothing);
+      await finish(tester);
+    });
+  });
+
+  testWidgets('Textos: cantidades en singular y "\$ 0" sin signo en la tarjeta', (WidgetTester tester) async {
+    await atTestTime(() async {
+      usePhone(tester);
+      final TestEnv env = await start(tester);
+      final Ledger l = env.services.ledger;
+      await tester.runAsync(() async {
+        await l.addAccount(Account(id: 'ah', name: 'Ahorros', type: AccountType.bank, icon: 'bank', initialMinor: 100000000));
+        await l.addAccount(Account(id: 'bo', name: 'Viaje', type: AccountType.pocket, icon: 'savings', parentId: 'ah', initialMinor: 20000000));
+        await l.addAccount(Account(id: 'tc', name: 'Visa', type: AccountType.credit, icon: 'card', cutDay: 15, payDay: 5, creditLimitMinor: 500000000));
+        await l.addTx(Tx(id: 'c1', kind: TxKind.expense, amountMinor: 5000000, accountId: 'tc', categoryId: 'c_food', date: DateTime(2026, 10, 10)));
+      });
+      await settle(tester);
+      expect(find.textContaining('1 bolsillo ·'), findsOneWidget);
+      await goTab(tester, 'Movimientos');
+      expect(find.text('1 movimiento'), findsOneWidget);
+      await goTab(tester, 'Más');
+      await openMore(tester, 'Tarjetas de crédito');
+      final Finder payments = find.ancestor(of: find.text('Abonos y devoluciones'), matching: find.byType(Row)).first;
+      expect(find.descendant(of: payments, matching: find.text(r'$ 0')), findsOneWidget);
+      expect(find.textContaining('−\$ 0'), findsNothing);
+      await syncLedger(tester, env);
       await finish(tester);
     });
   });
