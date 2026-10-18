@@ -39,8 +39,8 @@ class _Shot {
 }
 
 const List<_Shot> _shots = <_Shot>[
-  _Shot('valle-obra.jpg', 'variante', 6, 8, 12, -0.0013, 0.0011, 4.8, 2571.3, 118, -6, 'Vista general del frente de obra desde el talud', 'Overview of the work front from the slope', fields: <String, String>{'abscisa': 'K3+240'}, tagsEs: <String>['avance'], tagsEn: <String>['progress']),
-  _Shot('volqueta.jpg', 'variante', 5, 10, 47, -0.0009, 0.0005, 3.6, 2566.8, 205, -2, 'Volqueta con material de base granular', 'Dump truck with granular base material', fields: <String, String>{'abscisa': 'K3+180'}, tagsEs: <String>['materiales'], tagsEn: <String>['materials']),
+  _Shot('valle-obra.jpg', 'variante', 6, 8, 12, -0.0006, 0.0012, 4.8, 2571.3, 118, -6, 'Vista general del frente de obra desde el talud', 'Overview of the work front from the slope', fields: <String, String>{'abscisa': 'K3+240'}, tagsEs: <String>['avance'], tagsEn: <String>['progress']),
+  _Shot('volqueta.jpg', 'variante', 5, 10, 47, -0.0003, 0.0009, 3.6, 2566.8, 205, -2, 'Volqueta con material de base granular', 'Dump truck with granular base material', fields: <String, String>{'abscisa': 'K3+180'}, tagsEs: <String>['materiales'], tagsEn: <String>['materials']),
   _Shot('via-curva.jpg', 'variante', 5, 11, 20, 0.0001, -0.0011, 4.1, 2565.2, 64, -3, 'Empalme con la vía existente, demarcación pendiente', 'Tie-in with the existing road, markings pending', fields: <String, String>{'abscisa': 'K3+120'}, tagsEs: <String>['pavimento'], tagsEn: <String>['pavement']),
   _Shot('via-puente.jpg', 'variante', 4, 15, 5, 0.0011, -0.0012, 5.2, 2563.9, 92, -1, 'Paso bajo el puente vehicular, cuneta despejada', 'Pass under the road bridge, ditch clear', fields: <String, String>{'abscisa': 'K3+060'}, tagsEs: <String>['drenaje'], tagsEn: <String>['drainage']),
   _Shot('cimentacion.jpg', 'mirador', 3, 9, 33, 0.0006, 0.0002, 6.1, 2562.4, 271, -18, 'Recalce de cimentación en el eje C', 'Foundation underpinning on axis C', fields: <String, String>{'elemento': 'Zapata C-4', 'inspector': 'L. Rojas'}, tagsEs: <String>['estructura'], tagsEn: <String>['structure']),
