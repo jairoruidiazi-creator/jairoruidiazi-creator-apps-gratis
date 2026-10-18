@@ -99,47 +99,77 @@ class _GameFrameState extends State<GameFrame> {
     final RoundEngine? engine = widget.engine;
     final Color areaColor = widget.launch.game.area.color;
 
-    final List<Widget> headerChildren = <Widget>[
-      RoundIconButton(
-        icon: Icons.close_rounded,
-        tooltip: S.salir,
-        onPressed: () {
-          services.voice.stop();
-          Navigator.of(context).maybePop();
-        },
-      ),
-      const SizedBox(width: 10),
-      Expanded(
-        child: Column(
-          crossAxisAlignment: leftHanded ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(widget.launch.game.nombre, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            if (engine != null && widget.launch.game.roundBased)
-              AnimatedBuilder(
-                animation: engine,
-                builder: (BuildContext context, Widget? _) => Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                      decoration: BoxDecoration(color: areaColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
-                      child: Text('${S.nivel} ${engine.level}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: areaColor)),
-                    ),
-                    const SizedBox(width: 10),
-                    ProgressDots(recent: engine.recent),
-                  ],
-                ),
+    final Widget exitButton = RoundIconButton(
+      icon: Icons.close_rounded,
+      tooltip: S.salir,
+      onPressed: () {
+        services.voice.stop();
+        Navigator.of(context).maybePop();
+      },
+    );
+    final Widget repeatButton = RoundIconButton(icon: Icons.volume_up_rounded, tooltip: S.repetir, onPressed: _repeat, color: PilasColors.amarillo);
+    final Widget title = Text(widget.launch.game.nombre, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700));
+    // Nivel y progreso: si no caben, se achican un poco en lugar de desbordar.
+    final Widget? progress = engine != null && widget.launch.game.roundBased
+        ? FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: leftHanded ? Alignment.centerRight : Alignment.centerLeft,
+            child: AnimatedBuilder(
+              animation: engine,
+              builder: (BuildContext context, Widget? _) => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                    decoration: BoxDecoration(color: areaColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(12)),
+                    child: Text('${S.nivel} ${engine.level}', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: areaColor)),
+                  ),
+                  const SizedBox(width: 10),
+                  ProgressDots(recent: engine.recent),
+                ],
               ),
-          ],
-        ),
-      ),
-      ...widget.actions,
-      const SizedBox(width: 6),
-      RoundIconButton(icon: Icons.volume_up_rounded, tooltip: S.repetir, onPressed: _repeat, color: PilasColors.amarillo),
-    ];
+            ),
+          )
+        : null;
+    List<Widget> ordered(List<Widget> items) => leftHanded ? items.reversed.toList() : items;
     final Widget header = Padding(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      child: Row(children: leftHanded ? headerChildren.reversed.toList() : headerChildren),
+      child: LayoutBuilder(builder: (BuildContext context, BoxConstraints c) {
+        // En un teléfono angosto, los juegos con botones propios (guardar,
+        // borrar) los bajan a una segunda fila junto al nivel, para que el
+        // nombre del juego y el progreso no queden aplastados.
+        final bool twoRows = widget.actions.isNotEmpty && c.maxWidth < 440;
+        if (!twoRows) {
+          return Row(
+            children: ordered(<Widget>[
+              exitButton,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: leftHanded ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  children: <Widget>[title, if (progress != null) progress],
+                ),
+              ),
+              ...widget.actions,
+              const SizedBox(width: 6),
+              repeatButton,
+            ]),
+          );
+        }
+        return Column(
+          children: <Widget>[
+            Row(children: ordered(<Widget>[exitButton, const SizedBox(width: 10), Expanded(child: title), const SizedBox(width: 6), repeatButton])),
+            const SizedBox(height: 6),
+            Row(
+              children: ordered(<Widget>[
+                Expanded(child: Align(alignment: leftHanded ? Alignment.centerRight : Alignment.centerLeft, child: progress ?? const SizedBox.shrink())),
+                const SizedBox(width: 6),
+                ...widget.actions,
+              ]),
+            ),
+          ],
+        );
+      }),
     );
 
     final Widget instruction = widget.instruction.isEmpty

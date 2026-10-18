@@ -17,13 +17,18 @@ class Opt {
         if (!showLabel) {
           return EmojiImage(code, size: size, semanticsLabel: label);
         }
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            EmojiImage(code, size: size * 0.8, semanticsLabel: label),
-            const SizedBox(height: 6),
-            Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-          ],
+        // En una casilla baja (apaisado, teléfono pequeño) el dibujo con su
+        // nombre se achica en lugar de salirse de la casilla.
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              EmojiImage(code, size: size * 0.8, semanticsLabel: label),
+              const SizedBox(height: 6),
+              Text(label, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            ],
+          ),
         );
       },
     );
@@ -170,7 +175,10 @@ class BigPrompt extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          child,
+          // Lo que no cabe a lo ancho (una fila de producto, precio y billete en
+          // un teléfono angosto) se achica en lugar de desbordar; los Wrap ya se
+          // acomodan solos en varias líneas.
+          if (child is Wrap) child else FittedBox(fit: BoxFit.scaleDown, child: child),
           if (caption != null) ...<Widget>[
             const SizedBox(height: 6),
             Text(caption!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),

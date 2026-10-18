@@ -26,7 +26,20 @@ void expectHittable(WidgetTester tester, Finder finder, String reason) {
   expect(box.hasSize && !box.size.isEmpty, isTrue, reason: '$reason: sin tamaño');
   final Offset center = box.localToGlobal(box.size.center(Offset.zero));
   final HitTestResult result = tester.hitTestOnBinding(center);
-  final bool hit = result.path.any((HitTestEntry e) => e.target == box);
+  // RenderTransform (la raíz de OptionTile) no se agrega a sí mismo al
+  // resultado, solo a sus hijos: basta con que el toque llegue a algo dentro.
+  bool inside(RenderObject o) {
+    RenderObject? p = o;
+    while (p != null) {
+      if (identical(p, box)) {
+        return true;
+      }
+      p = p.parent;
+    }
+    return false;
+  }
+
+  final bool hit = result.path.any((HitTestEntry e) => e.target is RenderObject && inside(e.target as RenderObject));
   if (!hit) {
     final Rect rect = box.localToGlobal(Offset.zero) & box.size;
     final String path = result.path.take(14).map((HitTestEntry e) => e.target.runtimeType.toString()).join(' > ');
