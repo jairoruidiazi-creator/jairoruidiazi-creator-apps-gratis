@@ -30,7 +30,7 @@ Las cinco apps son gratuitas, de código abierto y funcionan sin cuenta. Como no
 - **¿El sello sirve como prueba?** No. El sello informa, pero la hora y la ubicación de un teléfono se pueden alterar.
 - **¿Dónde están mis fotos?** En la galería de Sello y, si dejaste activada la opción, también en la galería del teléfono: en Android, en el álbum «Sello»; en iPhone, en la app Fotos. En iPhone también se ven en la app Archivos › En mi iPhone › Sello.
 - **Cambié de teléfono, ¿cómo paso mis fotos?** En el teléfono viejo: Ajustes › Copia de seguridad › Crear copia completa, y guarda el archivo ZIP donde quieras (tu nube, un computador…). En el nuevo: instala Sello y entra a Ajustes › Copia de seguridad › Restaurar una copia; se agrega lo que falte, sin borrar nada. La copia automática de Google lleva los proyectos, las plantillas y los ajustes, pero no las fotos.
-- **Una foto dice «sin sellar».** Sello guarda primero la foto original con sus datos y la sella enseguida. Si el sellado falló (por ejemplo, porque el teléfono se quedó sin memoria), abre la foto en la galería y toca «Reintentar».
+- **Una foto tiene un triángulo amarillo o dice «no se pudo sellar».** Sello guarda primero la foto original con sus datos y la sella enseguida. Si el sellado falló (por ejemplo, porque el teléfono se quedó sin memoria), abre la foto en la galería y toca «Reintentar».
 - **El rumbo dice «magnético».** Para el norte verdadero hace falta saber dónde estás: en cuanto el GPS da una posición, el rumbo pasa a norte verdadero. Las fotos tomadas antes quedan marcadas como magnéticas.
 
 ### Plata
@@ -76,7 +76,7 @@ The five apps are free, open source and work without an account. We have no serv
 - **Is the stamp proof?** No. The stamp informs, but a phone's time and location can be altered.
 - **Where are my photos?** In Sello's gallery and, if you left that option on, also in the phone's photo library: in the "Sello" album on Android and in the Photos app on iPhone. On iPhone they are also in the Files app › On My iPhone › Sello.
 - **I changed phones; how do I move my photos?** On the old phone: Settings › Backup › Create full backup, and keep the ZIP file wherever you like (your cloud, a computer…). On the new one: install Sello and go to Settings › Backup › Restore a backup; whatever is missing is added and nothing is deleted. Google's automatic backup carries the projects, templates and settings, but not the photos.
-- **A photo says "not stamped".** Sello saves the original photo with its data first and stamps it right after. If stamping failed (for example, because the phone ran out of memory), open the photo in the gallery and tap "Retry".
+- **A photo has a yellow triangle or says "could not be stamped".** Sello saves the original photo with its data first and stamps it right after. If stamping failed (for example, because the phone ran out of memory), open the photo in the gallery and tap "Retry".
 - **The heading says "magnetic".** True north needs to know where you are: as soon as the GPS gives a position, the heading switches to true north. Photos taken before stay marked as magnetic.
 
 ### Plata
