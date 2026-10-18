@@ -182,7 +182,11 @@ class _GameFrameState extends State<GameFrame> {
     return Scaffold(
       backgroundColor: widget.background ?? PilasColors.fondo,
       body: SafeArea(
+        // El cuerpo del Scaffold llega con restricciones sueltas: sin `expand`,
+        // la capa vacía de "jugando" (un hijo sin posición de 0 × 0) dejaba el
+        // Stack en cero y el juego invisible e intocable.
         child: Stack(
+          fit: StackFit.expand,
           children: <Widget>[
             Positioned.fill(child: body),
             if (engine != null) _EngineOverlays(engine: engine),

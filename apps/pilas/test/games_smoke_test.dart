@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pilas/core/app_scope.dart';
@@ -8,6 +9,7 @@ import 'package:pilas/core/settings.dart';
 import 'package:pilas/core/sfx.dart';
 import 'package:pilas/core/speech.dart';
 import 'package:pilas/core/storage.dart';
+import 'package:pilas/core/strings.dart';
 import 'package:pilas/core/theme.dart';
 import 'package:pilas/engine/game_def.dart';
 import 'package:pilas/engine/game_registry.dart';
@@ -15,9 +17,21 @@ import 'package:pilas/games/shell/widgets.dart';
 import 'package:pilas/model/age_band.dart';
 import 'package:pilas/model/profile.dart';
 
-/// Abre cada juego en cada tramo que soporta, toca una opción si la hay y
-/// comprueba que no se lance ninguna excepción (desbordes de layout, nulos,
-/// índices fuera de rango).
+/// Comprueba que [finder] se ve y recibe toques: tiene tamaño y un toque en su
+/// centro llega a él. Encontrar el widget no basta: un Stack de tamaño cero
+/// dejó los juegos invisibles sin que ninguna prueba fallara.
+void expectHittable(WidgetTester tester, Finder finder, String reason) {
+  final RenderBox box = tester.renderObject<RenderBox>(finder.first);
+  expect(box.hasSize && !box.size.isEmpty, isTrue, reason: '$reason: sin tamaño');
+  final Offset center = box.localToGlobal(box.size.center(Offset.zero));
+  final HitTestResult result = tester.hitTestOnBinding(center);
+  expect(result.path.any((HitTestEntry e) => e.target == box), isTrue, reason: '$reason: un toque en el centro no le llega');
+}
+
+/// Abre cada juego en cada tramo que soporta, comprueba que el marco y las
+/// opciones se ven y reciben toques, toca una opción si la hay y comprueba que
+/// no se lance ninguna excepción (desbordes de layout, nulos, índices fuera de
+/// rango).
 void main() {
   late Directory tmp;
   late Services services;
@@ -69,10 +83,12 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
         expect(tester.takeException(), isNull, reason: '${game.id} ${band.id}: excepción al abrir');
         expect(find.text(game.nombre), findsWidgets);
+        expectHittable(tester, find.byWidgetPredicate((Widget w) => w is RoundIconButton && w.tooltip == S.salir), '${game.id} ${band.id}: botón de salir');
 
         // Si hay opciones, toca la primera y deja pasar la celebración o la pista.
         final Finder tiles = find.byType(OptionTile);
         if (tiles.evaluate().isNotEmpty) {
+          expectHittable(tester, tiles, '${game.id} ${band.id}: primera opción');
           await tester.tap(tiles.first, warnIfMissed: false);
           await tester.pump(const Duration(milliseconds: 200));
           await tester.pump(const Duration(seconds: 3));
@@ -93,6 +109,7 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
         expect(tester.takeException(), isNull, reason: '${game.id} ${band.id}: excepción en apaisado');
+        expectHittable(tester, find.byWidgetPredicate((Widget w) => w is RoundIconButton && w.tooltip == S.salir), '${game.id} ${band.id}: botón de salir en apaisado');
 
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pump();
