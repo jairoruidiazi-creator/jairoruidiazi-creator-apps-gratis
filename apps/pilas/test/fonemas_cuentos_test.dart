@@ -72,6 +72,78 @@ void main() {
     });
   });
 
+  group('M2 (cuarta ronda): varias palabras modelo y varias respuestas', () {
+    test('Cada sonido y cada letra tienen al menos dos modelos válidos', () {
+      for (final String f in <String>[...Fonema.vocales, ...Fonema.consonantesFaciles, ...Fonema.consonantesMas]) {
+        final List<String> ids = SonidosGenerator.modelosDe(f);
+        expect(ids.toSet().length, greaterThanOrEqualTo(2), reason: 'sonido $f');
+        for (final String id in ids) {
+          final VocabItem v = _v(id);
+          expect(Fonema.inicial(v.nombre), f, reason: '$id como modelo de $f');
+          expect(v.nombre.contains(' '), isFalse);
+        }
+      }
+      for (final String l in SonidosGenerator.letrasClaras) {
+        for (final String id in SonidosGenerator.modelosDe(l)) {
+          expect(SonidosGenerator.primeraLetra(_v(id)), l, reason: '$id como modelo de la letra $l');
+        }
+      }
+    });
+
+    test('Con 200 semillas, cada sonido y cada letra salen con dos modelos y dos respuestas distintas', () {
+      final SonidosGenerator g = SonidosGenerator();
+      String modeloDe(ChoiceRound r) => RegExp(r'(?:sonido que|principio de) ([^.?]+)').firstMatch('${r.instruction} ${r.hint}')!.group(1)!;
+      for (final String f in <String>[...Fonema.vocales, ...Fonema.consonantesFaciles, ...Fonema.consonantesMas]) {
+        for (final Distractores d in Distractores.values) {
+          final Set<String> modelos = <String>{};
+          final Set<String> respuestas = <String>{};
+          for (int seed = 0; seed < 200; seed++) {
+            final ChoiceRound r = g.sonido(Rng(seed), f, 3, distractores: d);
+            modelos.add(modeloDe(r));
+            respuestas.add(r.correctId);
+          }
+          expect(modelos.length, greaterThanOrEqualTo(2), reason: 'sonido $f, $d');
+          expect(respuestas.length, greaterThanOrEqualTo(2), reason: 'sonido $f, $d');
+        }
+      }
+      for (final String l in SonidosGenerator.letrasClaras) {
+        final Set<String> modelos = <String>{};
+        final Set<String> respuestas = <String>{};
+        for (int seed = 0; seed < 200; seed++) {
+          final ChoiceRound r = g.letra(Rng(seed), l, 3);
+          modelos.add(modeloDe(r));
+          respuestas.add(r.correctId);
+        }
+        expect(modelos.length, greaterThanOrEqualTo(2), reason: 'letra $l');
+        expect(respuestas.length, greaterThanOrEqualTo(2), reason: 'letra $l');
+      }
+    });
+
+    test('En cada tramo y nivel, ningún sonido tiene una sola respuesta posible', () {
+      final SonidosGenerator g = SonidosGenerator();
+      final GameDef juego = GameRegistry.byId('sonidos')!;
+      for (final AgeBand band in AgeBand.values) {
+        if (!juego.supports(band)) {
+          continue;
+        }
+        for (int level = 1; level <= juego.levelsFor(band); level++) {
+          final Map<String, Set<String>> respuestas = <String, Set<String>>{};
+          for (int seed = 0; seed < 1500; seed++) {
+            final ChoiceRound r = g.next(Rng(seed * 7 + level), band, level);
+            if (!r.instruction.contains('sonido que') && !r.instruction.contains('esta letra')) {
+              continue;
+            }
+            final String clave = '${r.instruction.contains('letra') ? 'letra' : 'sonido'} ${Fonema.inicial(_v(r.correctId).nombre)}';
+            respuestas.putIfAbsent(clave, () => <String>{}).add(r.correctId);
+          }
+          respuestas.forEach((String clave, Set<String> ids) {
+            expect(ids.length, greaterThanOrEqualTo(2), reason: '${band.id} nivel $level, $clave: siempre ${ids.join(', ')}');
+          });
+        }
+      }
+    });
+  });
+
   group('G6: cuentos', () {
     late Harness h;
     setUp(() async {

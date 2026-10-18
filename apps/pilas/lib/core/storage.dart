@@ -280,6 +280,42 @@ class JsonStore {
     return out;
   }
 
+  /// Borra las copias apartadas de un archivo dañado (`<archivo>.corrupto-*`,
+  /// con sus `.bak` y temporales). Con [si], solo las que lo cumplen (por
+  /// ejemplo, las que nombran a un perfil). Devuelve cuántas borró.
+  Future<int> deleteAsides(String relativePath, {bool Function(String contenido)? si}) {
+    return _enqueue<int>(relativePath, () async {
+      final File file = await _file(relativePath);
+      final Directory dir = file.parent;
+      final String prefijo = '${file.uri.pathSegments.last}.corrupto-';
+      int n = 0;
+      if (!await dir.exists()) {
+        return 0;
+      }
+      await for (final FileSystemEntity e in dir.list()) {
+        if (e is! File || !e.uri.pathSegments.last.startsWith(prefijo)) {
+          continue;
+        }
+        if (si != null) {
+          String texto;
+          try {
+            texto = utf8.decode(await e.readAsBytes(), allowMalformed: true);
+          } catch (_) {
+            texto = '';
+          }
+          if (!si(texto)) {
+            continue;
+          }
+        }
+        try {
+          await e.delete();
+          n += 1;
+        } catch (_) {}
+      }
+      return n;
+    });
+  }
+
   /// Borra todos los archivos de una carpeta (por ejemplo, las exportaciones
   /// que ya se compartieron).
   Future<int> clear(String relativeDir) async {

@@ -252,6 +252,7 @@ class Vocab {
     VocabItem('botas', 'botas', 'f', <String>['bo', 'tas'], '1f97e', <String>['ropa', 'uso:lluvia'], plural: true),
     VocabItem('gafas', 'gafas de sol', 'f', <String>['ga', 'fas', 'de', 'sol'], '1f576', <String>['ropa', 'uso:calor'], plural: true),
     VocabItem('chaqueta', 'chaqueta', 'f', <String>['cha', 'que', 'ta'], '1f9e5', <String>['ropa', 'uso:frio']),
+    VocabItem('chancla', 'chancla', 'f', <String>['chan', 'cla'], '1fa74', <String>['ropa', 'uso:calor']),
 
     // Cuerpo
     VocabItem('oreja', 'oreja', 'f', <String>['o', 're', 'ja'], '1f442', <String>['cuerpo']),
@@ -273,6 +274,7 @@ class Vocab {
 
     // Casa, escuela y objetos
     VocabItem('casa', 'casa', 'f', <String>['ca', 'sa'], '1f3e0', <String>['lugar']),
+    VocabItem('iglesia', 'iglesia', 'f', <String>['i', 'gle', 'sia'], '26ea', <String>['lugar']),
     VocabItem('puerta', 'puerta', 'f', <String>['puer', 'ta'], '1f6aa', <String>['objeto', 'hogar']),
     VocabItem('silla', 'silla', 'f', <String>['si', 'lla'], '1fa91', <String>['objeto', 'hogar', 'mueble']),
     VocabItem('cama', 'cama', 'f', <String>['ca', 'ma'], '1f6cf', <String>['objeto', 'hogar', 'mueble']),

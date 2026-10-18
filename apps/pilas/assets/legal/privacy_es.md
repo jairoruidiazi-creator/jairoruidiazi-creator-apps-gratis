@@ -49,7 +49,7 @@ Los datos quedan en el almacenamiento privado de la app, al que otras apps no ti
 
 ## Conservación y borrado
 
-La información permanece en el dispositivo hasta que un adulto la borra. Se puede borrar un perfil desde la app (detrás de la puerta para adultos), y con él se borran su avance y sus dibujos; también se puede borrar todo desinstalando la app o limpiando sus datos en los ajustes del sistema. Como no guardamos copias, no hay nada más que borrar de nuestro lado.
+La información permanece en el dispositivo hasta que un adulto la borra. Se puede borrar un perfil desde la app (detrás de la puerta para adultos). Con él se borran su nombre, su avatar, su año y mes de nacimiento, su avance, sus dibujos y su lugar en los grupos del modo docente, junto con las copias de seguridad y las copias dañadas que la app guarda de esos archivos y los avisos del panel de adultos que lo nombran. Las copias que se prepararon para compartir se borran la siguiente vez que se abre la app; también se puede borrar todo desinstalando la app o limpiando sus datos en los ajustes del sistema. Como no guardamos copias, no hay nada más que borrar de nuestro lado.
 
 ## Tus derechos
 

@@ -2,6 +2,7 @@ import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pilas/core/es.dart';
 import 'package:pilas/core/parental_gate.dart';
 import 'package:pilas/core/rng.dart';
 import 'package:pilas/core/strings.dart';
@@ -10,7 +11,9 @@ import 'package:pilas/engine/game_registry.dart';
 import 'package:pilas/games/choice/choice_game_screen.dart';
 import 'package:pilas/games/choice/choice_round.dart';
 import 'package:pilas/model/age_band.dart';
+import 'package:pilas/model/area.dart';
 import 'package:pilas/model/profile.dart';
+import 'package:pilas/model/progress.dart';
 import 'package:pilas/ui/kid_home_screen.dart';
 import 'package:pilas/ui/parent/child_report_screen.dart';
 import 'package:pilas/ui/parent/family_guide_screen.dart';
@@ -149,6 +152,83 @@ void main() {
         FlutterError.onError = antes;
         expect(errores, isEmpty, reason: errores.join('\n----\n'));
       });
+    });
+  }
+
+  testWidgets('M3 (cuarta ronda): con letra ×2 el número de pegatinas de una tarjeta no se corta', (WidgetTester tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    late Profile p;
+    await tester.runAsync(() async {
+      p = await h.state.addProfile(nombre: 'Leo', avatar: '1f436', birthYear: 2020, birthMonth: 1, bandOverride: AgeBand.b5a6);
+    });
+    final GameDef juego = GameRegistry.forAreaAndBand(Area.values.first, AgeBand.b5a6).first;
+    for (int nivel = 1; nivel <= 3; nivel++) {
+      h.state.progressOf(p.id).stickers.add(StickerAward(gameId: juego.id, band: AgeBand.b5a6, level: nivel, emoji: '2b50', date: DateTime(2026, 10, 18)));
+    }
+    h.state.current = p;
+    tester.view.devicePixelRatio = 3;
+    for (final Size tamano in <Size>[const Size(360, 740), const Size(740, 360)]) {
+      tester.view.physicalSize = Size(tamano.width * 3, tamano.height * 3);
+      await tester.pumpWidget(h.app(const KidHomeScreen(), textScale: 2.0, navigatorKey: GlobalKey<NavigatorState>()));
+      await tester.pump();
+      final Finder numero = find.byKey(ValueKey<String>('pegatinas-${juego.id}'), skipOffstage: false);
+      expect(numero, findsOneWidget);
+      expect(tester.widget<Text>(numero).data, '3');
+      // La caja del texto mide lo que su línea (13 × 2), no los 16 dp de antes.
+      expect(tester.getSize(numero).height, greaterThanOrEqualTo(13 * 2 - 0.5), reason: '$tamano');
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.runAsync(() => h.state.pauseClock());
+  });
+
+  for (final Size tamano in <Size>[const Size(360, 740), const Size(740, 360)]) {
+    testWidgets('M4 (cuarta ronda): con el teclado abierto y letra ×2, «Entrar» se alcanza (${tamano.width.toInt()} × ${tamano.height.toInt()})', (WidgetTester tester) async {
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetViewInsets);
+      tester.view.devicePixelRatio = 3;
+      tester.view.physicalSize = Size(tamano.width * 3, tamano.height * 3);
+      // Teclado numérico: unos 290 dp de alto de pie y 160 dp acostado.
+      final double teclado = tamano.height > tamano.width ? 290 : 160;
+      bool? paso;
+      await tester.pumpWidget(h.app(
+        Builder(
+          builder: (BuildContext context) => Scaffold(
+            body: Center(child: TextButton(onPressed: () async => paso = await showParentalGate(context, reason: S.masTiempoRazon), child: const Text('abrir'))),
+          ),
+        ),
+        textScale: 2.0,
+      ));
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      tester.view.viewInsets = FakeViewPadding(bottom: teclado * 3);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      final String q = tester.widget<Text>(find.byKey(const ValueKey<String>('puerta-pregunta'))).data!;
+      int? respuesta;
+      for (final int a in GateChallenge.factores) {
+        for (final int b in GateChallenge.factores) {
+          if (q == '¿Cuánto es ${Es.numero(a)} por ${Es.numero(b)}?') {
+            respuesta = a * b;
+          }
+        }
+      }
+      await tester.enterText(find.byKey(const ValueKey<String>('puerta-respuesta')), '$respuesta');
+      await tester.pump();
+      // «Entrar» está en la parte que se desplaza: se llega a él sin cerrar
+      // el teclado, queda por encima del teclado y recibe el toque.
+      final Finder entrar = find.byKey(const ValueKey<String>('puerta-entrar'));
+      await tester.ensureVisible(entrar);
+      await tester.pumpAndSettle();
+      final Rect r = tester.getRect(entrar);
+      expect(r.bottom, lessThanOrEqualTo(tamano.height - teclado + 0.5), reason: 'Entrar queda debajo del teclado: $r');
+      expect(entrar.hitTestable(), findsOneWidget);
+      await tester.tap(entrar);
+      await tester.pumpAndSettle();
+      expect(paso, isTrue);
+      expect(tester.takeException(), isNull);
     });
   }
 }

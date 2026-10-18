@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pilas/app.dart';
+import 'package:pilas/core/app_state.dart';
 import 'package:pilas/core/storage.dart';
 import 'package:pilas/core/strings.dart';
 import 'package:pilas/engine/game_def.dart';
@@ -94,6 +95,42 @@ void main() {
     await h.state.deleteProfile(p.id);
     expect(dibujo.existsSync(), isFalse);
     expect(h.state.profiles, isEmpty);
+  });
+
+  test('M5 (cuarta ronda): al borrar un perfil se borran sus copias dañadas y los avisos que lo nombran', () async {
+    final Profile beto = await h.state.addProfile(nombre: 'Beto', avatar: '1f436', birthYear: 2019, birthMonth: 1);
+    final Profile ana = await h.state.addProfile(nombre: 'Ana', avatar: '1f431', birthYear: 2018, birthMonth: 1);
+    final Profile anabel = await h.state.addProfile(nombre: 'Anabel', avatar: '1f430', birthYear: 2018, birthMonth: 2);
+    final String raiz = (await h.services.store.root()).path;
+    final File avanceDanado = File('$raiz/progress/${ana.id}.json.corrupto-20261018-120000')..createSync(recursive: true)..writeAsStringSync('{"roto": "${ana.id}');
+    final File avanceDanadoBak = File('$raiz/progress/${ana.id}.json.corrupto-1760000000000.bak')..createSync(recursive: true)..writeAsStringSync('{}');
+    final File listaConAna = File('$raiz/profiles.json.corrupto-20261018-120001')..createSync(recursive: true)..writeAsStringSync('{"profiles": [{"id": "${ana.id}", "nombre": "Ana"');
+    final File listaSinAna = File('$raiz/profiles.json.corrupto-20261018-120002')..createSync(recursive: true)..writeAsStringSync('{"profiles": [{"id": "${beto.id}"');
+    final File otroAvance = File('$raiz/progress/${beto.id}.json.corrupto-20261018-120003')..createSync(recursive: true)..writeAsStringSync('{');
+    h.state.notices
+      ..add(StorageNotice('No se pudo leer el avance de Ana: el archivo y su copia estaban dañados.', DateTime(2026, 10, 18)))
+      ..add(StorageNotice('Se recuperó el avance de Anabel desde la copia de seguridad.', DateTime(2026, 10, 18)))
+      ..add(StorageNotice('Se recuperó el avance de Beto desde la copia de seguridad.', DateTime(2026, 10, 18)));
+    await h.state.deleteProfile(ana.id);
+    expect(avanceDanado.existsSync(), isFalse);
+    expect(avanceDanadoBak.existsSync(), isFalse);
+    expect(listaConAna.existsSync(), isFalse);
+    // Lo de los demás niños no se toca.
+    expect(listaSinAna.existsSync(), isTrue);
+    expect(otroAvance.existsSync(), isTrue);
+    final List<String> avisos = h.state.notices.map((StorageNotice n) => n.texto).toList();
+    expect(avisos.any((String t) => t.contains('avance de Ana:')), isFalse);
+    expect(avisos.any((String t) => t.contains('Anabel')), isTrue);
+    expect(avisos.any((String t) => t.contains('Beto')), isTrue);
+    expect(avisos.any((String t) => t.contains('copias dañadas')), isTrue);
+    // Y el archivo de avisos (con su respaldo) ya no lo nombra.
+    final String ruta = await h.services.store.absolutePath('avisos.json');
+    for (final File f in <File>[File(ruta), File('$ruta.bak')]) {
+      if (f.existsSync()) {
+        expect(f.readAsStringSync(), isNot(contains('avance de Ana:')));
+      }
+    }
+    expect(h.state.profiles.map((Profile p) => p.id), <String>[beto.id, anabel.id]);
   });
 
   test('M7 (tercera ronda): el perfil borrado no queda en el respaldo ni vuelve al recuperarlo', () async {

@@ -18,6 +18,7 @@ class AppSettings extends ChangeNotifier {
   static const String _kGateFails = 'gateFails';
   static const String _kGateLockedUntil = 'gateLockedUntil';
   static const String _kGateLastFail = 'gateLastFail';
+  static const String _kGatePendiente = 'gatePendiente';
 
   /// Cuánto agranda la letra el ajuste "Texto grande" (se multiplica por la
   /// escala del sistema, con un tope en Dim.maxTextScale).
@@ -47,6 +48,12 @@ class AppSettings extends ChangeNotifier {
   /// Cuándo fue el último error en la puerta (para reiniciar el contador).
   DateTime? gateLastFail;
 
+  /// Operación de la puerta que se mostró y todavía no se respondió
+  /// ([a, b]): al cerrar y abrir la puerta sale la misma, así que cancelar
+  /// no sirve para cambiarla. Se borra al acertar y cambia con cada intento
+  /// fallido.
+  List<int>? gatePendiente;
+
   Future<void> load() async {
     final SharedPreferences p = await SharedPreferences.getInstance();
     _prefs = p;
@@ -65,6 +72,8 @@ class AppSettings extends ChangeNotifier {
     gateLockedUntil = locked == null ? null : DateTime.fromMillisecondsSinceEpoch(locked);
     final int? lastFail = p.getInt(_kGateLastFail);
     gateLastFail = lastFail == null ? null : DateTime.fromMillisecondsSinceEpoch(lastFail);
+    final List<String>? pendiente = p.getStringList(_kGatePendiente);
+    gatePendiente = pendiente == null || pendiente.length != 2 ? null : pendiente.map((String v) => int.tryParse(v) ?? 0).toList();
     notifyListeners();
   }
 
@@ -130,6 +139,16 @@ class AppSettings extends ChangeNotifier {
     onboarded = v;
     await _prefs?.setBool(_kOnboarded, v);
     notifyListeners();
+  }
+
+  /// Guarda la operación pendiente de la puerta (null al acertar).
+  Future<void> setGatePendiente(List<int>? ab) async {
+    gatePendiente = ab;
+    if (ab == null) {
+      await _prefs?.remove(_kGatePendiente);
+    } else {
+      await _prefs?.setStringList(_kGatePendiente, ab.map((int v) => '$v').toList());
+    }
   }
 
   /// Guarda el estado de la puerta parental (sobrevive a cerrar la app).

@@ -44,6 +44,10 @@ class GateChallenge {
   /// (precios redondos de la tienda, contados en centenas).
   static bool entrenado(int a, int b) => a <= 12 || b <= 12 || a % 5 == 0 || b % 5 == 0;
 
+  /// La operación [a] × [b], si es válida para la puerta (para recuperar la
+  /// pendiente); null si no.
+  static GateChallenge? de(List<int>? ab) => ab != null && ab.length == 2 && valido(ab[0], ab[1]) ? GateChallenge._(ab[0], ab[1]) : null;
+
   /// Si [a] × [b] puede salir en la puerta.
   static bool valido(int a, int b) => factores.contains(a) && factores.contains(b) && (a * b) % 10 != 0 && !entrenado(a, b);
 
@@ -117,7 +121,7 @@ class _GateDialog extends StatefulWidget {
 }
 
 class _GateDialogState extends State<_GateDialog> {
-  GateChallenge _challenge = GateChallenge.random();
+  late GateChallenge _challenge;
   final TextEditingController _ctrl = TextEditingController();
   bool _error = false;
   Timer? _timer;
@@ -125,6 +129,13 @@ class _GateDialogState extends State<_GateDialog> {
   @override
   void initState() {
     super.initState();
+    // La operación pendiente se reutiliza: cerrar y volver a abrir la puerta
+    // no da otra (eso solo lo hace «Otra operación», que cuenta como intento).
+    final GateChallenge? pendiente = GateChallenge.de(widget.settings.gatePendiente);
+    _challenge = pendiente ?? GateChallenge.random();
+    if (pendiente == null) {
+      unawaited(widget.settings.setGatePendiente(<int>[_challenge.a, _challenge.b]));
+    }
     _scheduleUnlock();
   }
 
@@ -195,6 +206,7 @@ class _GateDialogState extends State<_GateDialog> {
     try {
       if (_challenge.check(_ctrl.text)) {
         await widget.settings.setGateState(fails: 0);
+        await widget.settings.setGatePendiente(null);
         if (mounted) {
           Navigator.of(context).pop(true);
         }
@@ -212,12 +224,14 @@ class _GateDialogState extends State<_GateDialog> {
     final int fails = GateLock.vigentes(widget.settings.gateFails, widget.settings.gateLastFail, now) + 1;
     final Duration wait = GateLock.waitAfter(fails);
     await widget.settings.setGateState(fails: fails, lockedUntil: wait == Duration.zero ? null : now.add(wait), lastFail: now);
+    final GateChallenge nueva = _nueva();
+    await widget.settings.setGatePendiente(<int>[nueva.a, nueva.b]);
     if (!mounted) {
       return;
     }
     setState(() {
       _error = error;
-      _challenge = _nueva();
+      _challenge = nueva;
       _ctrl.clear();
     });
     _scheduleUnlock();
@@ -228,63 +242,75 @@ class _GateDialogState extends State<_GateDialog> {
     final PilasPalette pal = PilasPalette.of(context);
     final Duration remaining = _remaining;
     final bool locked = remaining > Duration.zero;
-    return AlertDialog(
-      title: const Text(S.paraAdultos),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            if (widget.reason != null) ...<Widget>[
-              Text(widget.reason!, style: TextStyle(fontSize: 16, color: pal.tintaSuave)),
-              const SizedBox(height: 12),
-            ],
-            const Text(S.resuelveParaEntrar, style: TextStyle(fontSize: 16)),
-            const SizedBox(height: 12),
-            Text(_challenge.question, key: const ValueKey<String>('puerta-pregunta'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 6),
-            Text(S.puertaCalculadora, style: TextStyle(fontSize: 15, color: pal.tintaSuave)),
-            const SizedBox(height: 12),
-            TextField(
-              key: const ValueKey<String>('puerta-respuesta'),
-              controller: _ctrl,
-              autofocus: true,
-              enabled: !locked,
-              keyboardType: TextInputType.number,
-              inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(5)],
-              // Sin menú de copiar, pegar o buscar en la web: ningún campo de
-              // texto lleva fuera de la app.
-              contextMenuBuilder: null,
-              enableInteractiveSelection: false,
-              autocorrect: false,
-              enableSuggestions: false,
-              style: const TextStyle(fontSize: 24),
-              decoration: InputDecoration(
-                labelText: S.respuestaEnCifras,
-                errorText: locked ? null : (_error ? S.respuestaIncorrecta : null),
-              ),
-              onSubmitted: (_) => _submit(),
-            ),
-            if (locked) ...<Widget>[
-              const SizedBox(height: 10),
-              Text(S.esperaPuerta(remaining.inSeconds + 1), style: TextStyle(fontSize: 15, color: pal.error, fontWeight: FontWeight.w600)),
-            ] else
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  key: const ValueKey<String>('puerta-otra'),
-                  onPressed: _otra,
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text(S.otraOperacionCuenta),
-                ),
-              ),
-          ],
-        ),
-      ),
-      actions: <Widget>[
-        TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text(S.cancelar)),
-        FilledButton(onPressed: locked ? null : _submit, child: const Text(S.entrar)),
+    // Todo (también «Entrar») va dentro de la parte que se desplaza: con el
+    // teclado numérico abierto, que en iPhone no tiene tecla de enviar, y
+    // con la letra al doble en un teléfono acostado, «Entrar» sigue a mano.
+    final Widget botones = Wrap(
+      alignment: WrapAlignment.end,
+      spacing: 8,
+      runSpacing: 4,
+      children: <Widget>[
+        TextButton(key: const ValueKey<String>('puerta-cancelar'), onPressed: () => Navigator.of(context).pop(false), child: const Text(S.cancelar)),
+        FilledButton(key: const ValueKey<String>('puerta-entrar'), onPressed: locked ? null : _submit, child: const Text(S.entrar)),
       ],
+    );
+    return AlertDialog(
+      scrollable: true,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      title: const Text(S.paraAdultos),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          if (widget.reason != null) ...<Widget>[
+            Text(widget.reason!, style: TextStyle(fontSize: 16, color: pal.tintaSuave)),
+            const SizedBox(height: 12),
+          ],
+          const Text(S.resuelveParaEntrar, style: TextStyle(fontSize: 16)),
+          const SizedBox(height: 12),
+          Text(_challenge.question, key: const ValueKey<String>('puerta-pregunta'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          Text(S.puertaCalculadora, style: TextStyle(fontSize: 15, color: pal.tintaSuave)),
+          const SizedBox(height: 12),
+          TextField(
+            key: const ValueKey<String>('puerta-respuesta'),
+            controller: _ctrl,
+            autofocus: true,
+            enabled: !locked,
+            keyboardType: TextInputType.number,
+            // En Android el teclado numérico tiene «Listo»: también envía.
+            textInputAction: TextInputAction.done,
+            inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(5)],
+            // Sin menú de copiar, pegar o buscar en la web: ningún campo de
+            // texto lleva fuera de la app.
+            contextMenuBuilder: null,
+            enableInteractiveSelection: false,
+            autocorrect: false,
+            enableSuggestions: false,
+            style: const TextStyle(fontSize: 24),
+            decoration: InputDecoration(
+              labelText: S.respuestaEnCifras,
+              errorText: locked ? null : (_error ? S.respuestaIncorrecta : null),
+            ),
+            onSubmitted: (_) => _submit(),
+          ),
+          const SizedBox(height: 12),
+          botones,
+          if (locked) ...<Widget>[
+            const SizedBox(height: 10),
+            Text(S.esperaPuerta(remaining.inSeconds + 1), style: TextStyle(fontSize: 15, color: pal.error, fontWeight: FontWeight.w600)),
+          ] else
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const ValueKey<String>('puerta-otra'),
+                onPressed: _otra,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text(S.otraOperacionCuenta),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

@@ -88,7 +88,9 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
               maxCrossAxisExtent: 220,
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
-              mainAxisExtent: 116 + 2 * 16 * 1.3 * scale,
+              // Pictograma, nombre (dos líneas) y la fila de nivel y pegatinas,
+              // que crece con la letra para que el número no se corte.
+              mainAxisExtent: 100 + 2 * 16 * 1.3 * scale + 16 * scale,
             ),
             delegate: SliverChildListDelegate(<Widget>[
               for (final GameDef g in games)
@@ -270,6 +272,7 @@ class _GameCard extends StatelessWidget {
     final int levels = game.levelsFor(band);
     final int level = mastery?.level ?? 1;
     final bool showLevels = game.hasLevels && levels > 1;
+    final double filaEscala = math.max(1.0, MediaQuery.textScalerOf(context).scale(16) / 16);
     final String estado = showLevels ? ', nivel $level de $levels' : '';
     return OptionTile(
       semanticsLabel: '${game.nombre}$estado${stickers > 0 ? ', $stickers ${stickers == 1 ? 'pegatina' : 'pegatinas'}' : ''}',
@@ -283,7 +286,8 @@ class _GameCard extends StatelessWidget {
           Text(game.nombre, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: pal.tinta, height: 1.25)),
           const SizedBox(height: 6),
           SizedBox(
-            height: 16,
+            // Crece con la letra: con ×2 el número de pegatinas no se corta.
+            height: 16 * filaEscala,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
@@ -301,8 +305,8 @@ class _GameCard extends StatelessWidget {
                     ),
                 if (stickers > 0) ...<Widget>[
                   const SizedBox(width: 8),
-                  Icon(Icons.star_rounded, size: 16, color: pal.pista),
-                  Text('$stickers', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: pal.tinta)),
+                  Icon(Icons.star_rounded, size: 16 * filaEscala, color: pal.pista),
+                  Text('$stickers', key: ValueKey<String>('pegatinas-${game.id}'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: pal.tinta)),
                 ],
               ],
             ),

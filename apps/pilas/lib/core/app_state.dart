@@ -186,9 +186,9 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> _saveNotices() async {
+  Future<void> _saveNotices({bool sinRastro = false}) async {
     try {
-      await store.writeJson(_noticesFile, <String, dynamic>{'avisos': notices.map((StorageNotice n) => n.toJson()).toList()});
+      await store.writeJson(_noticesFile, <String, dynamic>{'avisos': notices.map((StorageNotice n) => n.toJson()).toList()}, sinRastro: sinRastro);
     } catch (e) {
       debugPrint('No se pudieron guardar los avisos: $e');
     }
@@ -264,7 +264,18 @@ class AppState extends ChangeNotifier {
   }
 
   /// Borra el perfil, su avance y sus dibujos.
+  /// Borra un perfil y todo lo suyo: su nombre y fecha de nacimiento (de la
+  /// lista de perfiles y de su respaldo), su avance con su respaldo y sus
+  /// copias dañadas apartadas, sus dibujos, su lugar en los grupos, las
+  /// copias dañadas de la lista de perfiles o de grupos que lo incluyan y
+  /// los avisos del panel que lo nombran. Es lo que dice la política.
   Future<void> deleteProfile(String id) async {
+    Profile? borrado;
+    for (final Profile p in profiles) {
+      if (p.id == id) {
+        borrado = p;
+      }
+    }
     if (current?.id == id) {
       _stopCounting();
       current = null;
@@ -276,14 +287,36 @@ class AppState extends ChangeNotifier {
     }
     await store.delete('progress/$id.json');
     try {
+      await store.deleteAsides('progress/$id.json');
       await store.deleteDir('drawings/$id');
     } catch (e) {
-      debugPrint('No se pudieron borrar los dibujos de $id: $e');
+      debugPrint('No se pudieron borrar los archivos de $id: $e');
     }
     // El respaldo (.bak) también se reescribe: el perfil borrado no puede
     // volver si un día hay que recuperar el archivo.
     await _saveProfiles(sinRastro: true);
     await _saveGroups(sinRastro: true);
+    // Copias dañadas apartadas que todavía lo incluyen: no se pueden
+    // reescribir sin él (están dañadas), así que se borran, y se avisa.
+    int copias = 0;
+    try {
+      copias += await store.deleteAsides(_profilesFile, si: (String t) => t.contains(id));
+      copias += await store.deleteAsides(_groupsFile, si: (String t) => t.contains(id));
+    } catch (e) {
+      debugPrint('No se pudieron borrar las copias dañadas: $e');
+    }
+    final String? nombre = borrado?.nombre;
+    final int antes = notices.length;
+    if (nombre != null && nombre.trim().isNotEmpty && !profiles.any((Profile p) => p.nombre == nombre)) {
+      final RegExp nombra = RegExp('(^|[^\\p{L}])${RegExp.escape(nombre)}(\$|[^\\p{L}])', unicode: true);
+      notices.removeWhere((StorageNotice n) => nombra.hasMatch(n.texto));
+    }
+    if (copias > 0) {
+      notices.add(StorageNotice('Se borraron copias dañadas de la lista de perfiles o de grupos que incluían al perfil borrado.', clock.now()));
+    }
+    if (notices.length != antes || copias > 0) {
+      await _saveNotices(sinRastro: true);
+    }
     notifyListeners();
   }
 

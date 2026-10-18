@@ -30,18 +30,25 @@ class SonidosGenerator implements ChoiceGenerator {
     'b': 'barco', 'k': 'casa', 'd': 'dado', 'g': 'gato', 'x': 'jirafa', 'r': 'raton', 'f': 'fresa', 'ch': 'chocolate', 'y': 'llave',
   };
 
-  /// Más palabras modelo para los sonidos que tienen pocas palabras en el
-  /// vocabulario: con la u, el modelo cambia entre uvas, uñas, unicornio y
-  /// uniforme, y la respuesta correcta no es siempre la misma.
+  /// Otras palabras modelo de cada sonido: el modelo cambia de una ronda a
+  /// otra, así que la respuesta correcta tampoco es siempre la misma (con la
+  /// ch, por ejemplo, el modelo es chocolate, chaqueta o chancla). Todas
+  /// empiezan con la letra de su sonido, para servir también en las rondas
+  /// de letra. test/fonemas_cuentos_test.dart exige al menos dos modelos y
+  /// dos respuestas correctas distintas en cada sonido y cada letra.
   static const Map<String, List<String>> otrosModelos = <String, List<String>>{
+    'a': <String>['abeja'], 'e': <String>['estrella'], 'i': <String>['iman', 'iglesia'], 'o': <String>['ojo'],
     'u': <String>['unas', 'unicornio', 'uniforme'],
+    'm': <String>['mono'], 'p': <String>['perro'], 's': <String>['sopa'], 'l': <String>['leon'], 't': <String>['tigre'], 'n': <String>['naranja'],
+    'b': <String>['burro'], 'k': <String>['conejo'], 'd': <String>['delfin'], 'g': <String>['globo'], 'x': <String>['jugo'], 'r': <String>['rana'],
+    'f': <String>['foca'], 'ch': <String>['chaqueta', 'chancla'], 'y': <String>['llama'],
   };
 
+  /// Todas las palabras modelo de un sonido.
+  static List<String> modelosDe(String f) => <String>[modelo[f]!, ...?otrosModelos[f]];
+
   /// La palabra modelo de una ronda.
-  static VocabItem modeloDe(Rng rng, String f) {
-    final List<String> ids = <String>[modelo[f]!, ...?otrosModelos[f]];
-    return Vocab.item(ids.length == 1 ? ids.first : rng.pick(ids));
-  }
+  static VocabItem modeloDe(Rng rng, String f) => Vocab.item(rng.pick(modelosDe(f)));
 
   /// Letras de las rondas de escritura: al principio de palabra suenan siempre
   /// igual (la a de "avión", la eme de "mango"...).

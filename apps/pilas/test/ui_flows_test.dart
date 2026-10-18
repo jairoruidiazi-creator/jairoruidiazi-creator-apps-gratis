@@ -178,6 +178,58 @@ void main() {
       await tester.pumpAndSettle();
     });
 
+    testWidgets('M1 (cuarta ronda): cerrar y abrir la puerta muestra la misma operación', (WidgetTester tester) async {
+      await tester.pumpWidget(h.app(Builder(
+        builder: (BuildContext context) => Scaffold(
+          body: Center(child: TextButton(onPressed: () => showParentalGate(context), child: const Text('abrir'))),
+        ),
+      )));
+      String pregunta() => tester.widget<Text>(find.byKey(const ValueKey<String>('puerta-pregunta'))).data!;
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      final String primera = pregunta();
+      expect(h.services.settings.gatePendiente, isNotNull);
+      for (int i = 0; i < 3; i++) {
+        // Cancelar y tocar fuera no cambian la operación ni cuentan intento.
+        if (i.isEven) {
+          await tester.tap(find.text(S.cancelar));
+        } else {
+          await tester.tapAt(const Offset(4, 4));
+        }
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('abrir'));
+        await tester.pumpAndSettle();
+        expect(pregunta(), primera);
+        expect(h.services.settings.gateFails, 0);
+      }
+      // «Otra operación» sí la cambia (y cuenta), y la nueva queda pendiente.
+      await tester.tap(find.byKey(const ValueKey<String>('puerta-otra')));
+      await tester.pump();
+      final String segunda = pregunta();
+      expect(segunda, isNot(primera));
+      expect(h.services.settings.gateFails, 1);
+      await tester.tap(find.text(S.cancelar));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      expect(pregunta(), segunda);
+      // Al acertar se olvida la pendiente.
+      int? respuesta;
+      for (final int a in GateChallenge.factores) {
+        for (final int b in GateChallenge.factores) {
+          if (segunda == '¿Cuánto es ${Es.numero(a)} por ${Es.numero(b)}?') {
+            respuesta = a * b;
+          }
+        }
+      }
+      await tester.enterText(find.byKey(const ValueKey<String>('puerta-respuesta')), '$respuesta');
+      await tester.tap(find.text(S.entrar));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey<String>('puerta-pregunta')), findsNothing);
+      expect(h.services.settings.gatePendiente, isNull);
+      expect(h.services.settings.gateFails, 0);
+    });
+
     testWidgets('M3: dos toques seguidos en «Entrar» cierran solo la puerta', (WidgetTester tester) async {
       final GlobalKey<NavigatorState> nav = GlobalKey<NavigatorState>();
       bool? resultado;

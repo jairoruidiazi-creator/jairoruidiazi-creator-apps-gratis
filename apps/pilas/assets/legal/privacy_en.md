@@ -49,7 +49,7 @@ Data stays in the app's private storage, which other apps cannot access. We reco
 
 ## Retention and deletion
 
-Information stays on the device until an adult deletes it. A profile can be deleted in the app (behind the parental gate), which also deletes its progress and drawings; everything can also be deleted by uninstalling the app or clearing its data in the system settings. Since we keep no copies, there is nothing else to delete on our side.
+Information stays on the device until an adult deletes it. A profile can be deleted in the app (behind the parental gate). This deletes its name, avatar, year and month of birth, its progress, its drawings and its place in teacher-mode groups, together with the backup copies and damaged copies the app keeps of those files and the adult-panel notices that name it. Copies prepared for sharing are deleted the next time the app is opened; everything can also be deleted by uninstalling the app or clearing its data in the system settings. Since we keep no copies, there is nothing else to delete on our side.
 
 ## Your rights
 
