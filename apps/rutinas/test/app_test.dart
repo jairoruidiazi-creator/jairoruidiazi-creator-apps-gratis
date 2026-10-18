@@ -254,6 +254,7 @@ void main() {
       await tester.enterText(find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField)), 'Té verde');
       await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Guardar')));
       await settle(tester);
+      await reveal(tester, find.text('Té verde'));
       expect(find.text('Té verde'), findsOneWidget);
       expect(s.timers.presets.single.seconds, 300);
       expectNoErrors(tester, 'cronómetro y cuenta atrás');

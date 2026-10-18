@@ -170,8 +170,12 @@ Future<void> tapTab(WidgetTester tester, String label) async {
   await settle(tester);
 }
 
-/// La lista vertical de la pantalla de arriba.
-Finder verticalList() => find.byWidgetPredicate((Widget w) => w is Scrollable && (w.axisDirection == AxisDirection.down || w.axisDirection == AxisDirection.up)).last;
+/// La lista vertical de la pantalla de arriba (sin contar el desplazamiento
+/// interno de los campos de texto de varias líneas).
+Finder verticalList() => find.byElementPredicate((Element e) {
+      final Widget w = e.widget;
+      return w is Scrollable && (w.axisDirection == AxisDirection.down || w.axisDirection == AxisDirection.up) && e.findAncestorWidgetOfExactType<EditableText>() == null;
+    }).last;
 
 /// Desplaza la lista de la pantalla hasta [finder] y lo toca.
 Future<void> scrollAndTap(WidgetTester tester, Finder finder, {bool running = false, Finder? scrollable}) async {
