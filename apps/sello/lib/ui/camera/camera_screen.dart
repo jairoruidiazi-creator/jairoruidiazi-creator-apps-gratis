@@ -64,6 +64,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   /// Motivo de la interrupción de iOS en curso (ver [CameraInterruption]).
   int _interruptionReason = 0;
 
+  /// Interrupción que llegó mientras la cámara se abría (en iPad ya en
+  /// Split View la sesión arranca interrumpida): se muestra al terminar.
+  int? _pendingInterruption;
+
   /// Disparo en curso (nunca falla): liberar la cámara lo espera para no
   /// perder la foto.
   Future<void>? _shot;
@@ -302,6 +306,12 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       _controller = c;
       _activeResolution = resolution;
       _errorSub = CameraPlatform.instance.onCameraError(c.cameraId).listen((CameraErrorEvent e) => _onCameraError(c, e.description));
+      final int? pending = _pendingInterruption;
+      _pendingInterruption = null;
+      if (pending != null) {
+        _interruptionReason = pending;
+        _error = 'interrupted';
+      }
       // Un error que llegó mientras se abría.
       final String? early = c.value.errorDescription;
       if (early != null) {
@@ -381,7 +391,13 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       return;
     }
     if (e.interrupted) {
-      if (e.reason == CameraInterruption.inBackground || !_appResumed || !widget.active || _controller == null || _error != null) {
+      if (e.reason == CameraInterruption.inBackground || !_appResumed || !widget.active || _error != null) {
+        return;
+      }
+      if (_controller == null) {
+        if (_initFuture != null) {
+          _pendingInterruption = e.reason;
+        }
         return;
       }
       debugPrint('Sesión de cámara interrumpida: motivo ${e.reason}');
@@ -390,8 +406,11 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         _interruptionReason = e.reason;
         _error = 'interrupted';
       });
-    } else if (_error == 'interrupted') {
-      setState(() => _error = null);
+    } else {
+      _pendingInterruption = null;
+      if (_error == 'interrupted') {
+        setState(() => _error = null);
+      }
     }
   }
 

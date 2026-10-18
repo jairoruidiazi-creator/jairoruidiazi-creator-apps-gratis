@@ -488,6 +488,24 @@ void main() {
     await pumpMany(tester);
   });
 
+  testWidgets('iPad ya en Split View: la interrupción que llega mientras la cámara se abre también se dice', (WidgetTester tester) async {
+    phone(tester);
+    camera.initGate = Completer<void>();
+    await tester.pumpWidget(cameraApp());
+    await pumpMany(tester);
+    interruptions.add(const CameraInterruption(interrupted: true, reason: CameraInterruption.multipleForegroundApps));
+    await pumpMany(tester);
+    camera.initGate!.complete();
+    await pumpMany(tester);
+    expect(find.textContaining('otra app en pantalla'), findsOneWidget);
+    interruptions.add(const CameraInterruption(interrupted: false));
+    await pumpMany(tester);
+    expect(find.textContaining('otra app en pantalla'), findsNothing);
+    expect(labeled('Tomar foto'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpMany(tester);
+  });
+
   testWidgets('iPad con otra app en pantalla: se dice por qué la cámara no está y vuelve sola (M1 de la ronda 4)', (WidgetTester tester) async {
     phone(tester);
     await tester.pumpWidget(cameraApp());
