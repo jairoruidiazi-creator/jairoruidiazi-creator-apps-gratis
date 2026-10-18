@@ -9,10 +9,10 @@ class Period {
 
   bool contains(DateTime d) => !d.isBefore(start) && d.isBefore(end);
 
-  int get days => end.difference(start).inDays;
+  int get days => daysBetween(start, end);
 
   /// Último día incluido.
-  DateTime get lastDay => end.subtract(const Duration(days: 1));
+  DateTime get lastDay => DateTime(end.year, end.month, end.day - 1);
 
   @override
   bool operator ==(Object other) => other is Period && other.start == start && other.end == end;
@@ -62,7 +62,7 @@ class PeriodSpec {
       }
     } else {
       for (int i = 0; i < -n; i++) {
-        cursor = containing(cursor).start.subtract(const Duration(days: 1));
+        cursor = addDays(containing(cursor).start, -1);
       }
     }
     return containing(cursor);
@@ -92,7 +92,8 @@ class PeriodSpec {
   }
 }
 
-/// Periodos de un presupuesto a partir de su fecha de inicio.
+/// Periodos de un presupuesto a partir de su fecha de inicio. Todo se cuenta
+/// en días de calendario, para que el horario de verano no corra los cortes.
 class BudgetPeriods {
   BudgetPeriods._();
 
@@ -101,16 +102,9 @@ class BudgetPeriods {
     final DateTime s = dateOnly(b.startDate);
     switch (b.period) {
       case BudgetPeriod.week:
-        final int offset = d.difference(s).inDays;
-        final int k = offset >= 0 ? offset ~/ 7 : -((-offset + 6) ~/ 7);
-        final DateTime start = s.add(Duration(days: 7 * k));
-        return Period(start, start.add(const Duration(days: 7)));
+        return _fixed(s, d, 7);
       case BudgetPeriod.custom:
-        final int len = b.customDays < 1 ? 1 : b.customDays;
-        final int offset = d.difference(s).inDays;
-        final int k = offset >= 0 ? offset ~/ len : -((-offset + len - 1) ~/ len);
-        final DateTime start = s.add(Duration(days: len * k));
-        return Period(start, start.add(Duration(days: len)));
+        return _fixed(s, d, b.customDays < 1 ? 1 : b.customDays);
       case BudgetPeriod.quincena:
         return const PeriodSpec(mode: PeriodMode.quincena).containing(d);
       case BudgetPeriod.month:
@@ -121,7 +115,15 @@ class BudgetPeriods {
     }
   }
 
-  static Period previous(Budget b, Period p) => containing(b, p.start.subtract(const Duration(days: 1)));
+  /// Bloques de [len] días contados desde [s].
+  static Period _fixed(DateTime s, DateTime d, int len) {
+    final int offset = daysBetween(s, d);
+    final int k = offset >= 0 ? offset ~/ len : -((-offset + len - 1) ~/ len);
+    final DateTime start = DateTime(s.year, s.month, s.day + len * k);
+    return Period(start, DateTime(start.year, start.month, start.day + len));
+  }
+
+  static Period previous(Budget b, Period p) => containing(b, addDays(p.start, -1));
 
   static Period next(Budget b, Period p) => containing(b, p.end);
 }
@@ -137,7 +139,7 @@ class CardCycle {
   final DateTime cut;
   final DateTime payDate;
 
-  Period get period => Period(start, cut.add(const Duration(days: 1)));
+  Period get period => Period(start, DateTime(cut.year, cut.month, cut.day + 1));
 
   /// Ciclo cuyo corte es el primero en o después de [date] (el ciclo "actual").
   static CardCycle current(Account card, DateTime date) {
@@ -149,15 +151,33 @@ class CardCycle {
       cut = _clamp(d.year, d.month + 1, cutDay);
     }
     final DateTime prevCut = _clamp(cut.year, cut.month - 1, cutDay);
-    DateTime pay = _clamp(cut.year, cut.month, payDay);
-    if (!pay.isAfter(cut)) {
-      pay = _clamp(cut.year, cut.month + 1, payDay);
-    }
-    return CardCycle(start: prevCut.add(const Duration(days: 1)), cut: cut, payDate: pay);
+    return CardCycle(start: DateTime(prevCut.year, prevCut.month, prevCut.day + 1), cut: cut, payDate: payDateFor(cut, cutDay, payDay));
   }
 
+  /// Fecha límite de pago del estado que corta en [cut]. Si el día de pago va
+  /// después del de corte, se paga ese mismo mes; si no, el mes siguiente. En
+  /// un mes corto el día de pago puede quedar recortado sobre el corte (corte
+  /// 30 y pago 31 en febrero): entonces se conserva la distancia entre los dos
+  /// días, para que cada estado de cuenta tenga su propia fecha de pago.
+  static DateTime payDateFor(DateTime cut, int cutDay, int payDay) {
+    if (payDay > cutDay) {
+      final DateTime same = _clamp(cut.year, cut.month, payDay);
+      if (same.isAfter(cut)) {
+        return same;
+      }
+      return DateTime(cut.year, cut.month, cut.day + (payDay - cutDay));
+    }
+    return _clamp(cut.year, cut.month + 1, payDay);
+  }
+
+  /// Corte que cae [months] meses después de [cut] (o antes, si es negativo).
+  static DateTime cutAfter(Account card, DateTime cut, int months) => _clamp(cut.year, cut.month + months, (card.cutDay ?? 1).clamp(1, 31));
+
+  /// Meses de corte entre dos cortes (0 si son el mismo ciclo).
+  static int cyclesBetween(DateTime cutA, DateTime cutB) => (cutB.year - cutA.year) * 12 + (cutB.month - cutA.month);
+
   /// Ciclo anterior (el último estado de cuenta ya cerrado).
-  CardCycle previous(Account card) => current(card, start.subtract(const Duration(days: 1)));
+  CardCycle previous(Account card) => current(card, DateTime(start.year, start.month, start.day - 1));
 
   static DateTime _clamp(int y, int m, int day) {
     while (m < 1) {

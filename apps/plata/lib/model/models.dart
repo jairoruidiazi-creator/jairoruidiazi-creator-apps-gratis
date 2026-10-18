@@ -184,6 +184,7 @@ class Tx {
     this.currency = 'COP',
     this.toAccountId,
     this.toAmountMinor,
+    this.toAmountAuto = false,
     this.categoryId,
     this.description = '',
     this.payee = '',
@@ -216,6 +217,10 @@ class Tx {
 
   /// Monto recibido cuando la transferencia cambia de moneda.
   int? toAmountMinor;
+
+  /// Verdadero si [toAmountMinor] lo calculó la app con las tasas guardadas
+  /// (falso si lo escribió el usuario).
+  bool toAmountAuto;
   String? categoryId;
   DateTime date;
   String description;
@@ -233,7 +238,7 @@ class Tx {
   String? scheduledId;
   bool reconciled;
 
-  /// manual | notice | scheduled | import | template
+  /// manual | notice | scheduled | import | template | adjustment
   String source;
 
   /// Tasa a la moneda base en el momento del registro (1 unidad = rate base).
@@ -241,6 +246,10 @@ class Tx {
   final DateTime createdAt;
 
   bool get isSplit => splits.isNotEmpty;
+
+  /// Ajuste de saldo: corrige el saldo de una cuenta, pero no es gasto ni
+  /// ingreso en informes ni presupuestos.
+  bool get isAdjustment => source == 'adjustment';
 
   /// Monto con signo desde el punto de vista de la cuenta de origen.
   int get signedMinor => kind == TxKind.income ? amountMinor : -amountMinor;
@@ -255,6 +264,7 @@ class Tx {
         'accountId': accountId,
         'toAccountId': toAccountId,
         'toAmountMinor': toAmountMinor,
+        'toAmountAuto': toAmountAuto,
         'categoryId': categoryId,
         'date': date.toIso8601String(),
         'description': description,
@@ -280,6 +290,7 @@ class Tx {
         accountId: j['accountId'] as String? ?? '',
         toAccountId: j['toAccountId'] as String?,
         toAmountMinor: (j['toAmountMinor'] as num?)?.toInt(),
+        toAmountAuto: j['toAmountAuto'] as bool? ?? false,
         categoryId: j['categoryId'] as String?,
         date: _parseDate(j['date']),
         description: j['description'] as String? ?? '',
@@ -365,6 +376,7 @@ class Scheduled {
     required this.accountId,
     required this.nextDate,
     this.toAccountId,
+    this.toAmountMinor,
     this.categoryId,
     this.description = '',
     this.payee = '',
@@ -385,6 +397,10 @@ class Scheduled {
   int amountMinor;
   String accountId;
   String? toAccountId;
+
+  /// Monto fijo que llega a la cuenta de destino si cambia de moneda; vacío =
+  /// se calcula con la tasa del día en que se anota.
+  int? toAmountMinor;
   String? categoryId;
   String description;
   String payee;
@@ -409,6 +425,7 @@ class Scheduled {
         'amountMinor': amountMinor,
         'accountId': accountId,
         'toAccountId': toAccountId,
+        'toAmountMinor': toAmountMinor,
         'categoryId': categoryId,
         'description': description,
         'payee': payee,
@@ -430,6 +447,7 @@ class Scheduled {
         amountMinor: (j['amountMinor'] as num?)?.toInt() ?? 0,
         accountId: j['accountId'] as String? ?? '',
         toAccountId: j['toAccountId'] as String?,
+        toAmountMinor: (j['toAmountMinor'] as num?)?.toInt(),
         categoryId: j['categoryId'] as String?,
         description: j['description'] as String? ?? '',
         payee: j['payee'] as String? ?? '',
@@ -513,6 +531,7 @@ class TxTemplate {
     this.amountMinor,
     this.accountId,
     this.toAccountId,
+    this.toAmountMinor,
     this.categoryId,
     this.description = '',
     this.payee = '',
@@ -528,6 +547,10 @@ class TxTemplate {
   int? amountMinor;
   String? accountId;
   String? toAccountId;
+
+  /// Monto fijo recibido en una transferencia entre monedas; vacío = con la
+  /// tasa del día.
+  int? toAmountMinor;
   String? categoryId;
   String description;
   String payee;
@@ -543,6 +566,7 @@ class TxTemplate {
         'amountMinor': amountMinor,
         'accountId': accountId,
         'toAccountId': toAccountId,
+        'toAmountMinor': toAmountMinor,
         'categoryId': categoryId,
         'description': description,
         'payee': payee,
@@ -559,6 +583,7 @@ class TxTemplate {
         amountMinor: (j['amountMinor'] as num?)?.toInt(),
         accountId: j['accountId'] as String?,
         toAccountId: j['toAccountId'] as String?,
+        toAmountMinor: (j['toAmountMinor'] as num?)?.toInt(),
         categoryId: j['categoryId'] as String?,
         description: j['description'] as String? ?? '',
         payee: j['payee'] as String? ?? '',
@@ -567,6 +592,26 @@ class TxTemplate {
         color: (j['color'] as num?)?.toInt() ?? 0xFFFB8C00,
         uses: (j['uses'] as num?)?.toInt() ?? 0,
       );
+}
+
+/// Qué clase de movimiento describe un aviso bancario.
+class NoticeFlow {
+  NoticeFlow._();
+
+  /// Compra, pago a un tercero, consignación recibida…: gasto o ingreso.
+  static const String normal = '';
+
+  /// Pago de una tarjeta de crédito (transferencia hacia la tarjeta).
+  static const String cardPayment = 'card_payment';
+
+  /// Plata que sale hacia otra cuenta propia o un bolsillo.
+  static const String transferOut = 'transfer_out';
+
+  /// Plata que llega desde otra cuenta propia o un bolsillo.
+  static const String transferIn = 'transfer_in';
+
+  /// Retiro de efectivo (transferencia hacia la cuenta de efectivo).
+  static const String withdrawal = 'withdrawal';
 }
 
 /// Aviso bancario leído (Android) pendiente de confirmar.
@@ -580,6 +625,8 @@ class InboxItem {
     this.currency = 'COP',
     this.merchant = '',
     this.last4 = '',
+    this.toLast4 = '',
+    this.flow = NoticeFlow.normal,
     this.rawTitle = '',
     this.rawText = '',
     this.accountId,
@@ -588,11 +635,23 @@ class InboxItem {
 
   final String id;
   final String bank;
+
+  /// Gasto, ingreso o transferencia (pagos de tarjeta, retiros y movimientos
+  /// entre cuentas propias, que no son gasto ni ingreso).
   final TxKind kind;
   final int amountMinor;
   final String currency;
   final String merchant;
+
+  /// Últimos dígitos de la cuenta o tarjeta del aviso (la de origen en una
+  /// transferencia).
   final String last4;
+
+  /// Últimos dígitos del destino de una transferencia (la tarjeta que se paga).
+  final String toLast4;
+
+  /// Ver [NoticeFlow].
+  final String flow;
   final DateTime receivedAt;
   final String rawTitle;
   final String rawText;
@@ -609,6 +668,8 @@ class InboxItem {
         'currency': currency,
         'merchant': merchant,
         'last4': last4,
+        'toLast4': toLast4,
+        'flow': flow,
         'receivedAt': receivedAt.toIso8601String(),
         'rawTitle': rawTitle,
         'rawText': rawText,
@@ -624,6 +685,8 @@ class InboxItem {
         currency: j['currency'] as String? ?? 'COP',
         merchant: j['merchant'] as String? ?? '',
         last4: j['last4'] as String? ?? '',
+        toLast4: j['toLast4'] as String? ?? '',
+        flow: j['flow'] as String? ?? NoticeFlow.normal,
         receivedAt: _parseDate(j['receivedAt']),
         rawTitle: j['rawTitle'] as String? ?? '',
         rawText: j['rawText'] as String? ?? '',
@@ -632,14 +695,32 @@ class InboxItem {
       );
 }
 
+/// Fuentes de las tasas automáticas (ver [RateTable.origins]).
+class RateOrigin {
+  RateOrigin._();
+
+  /// Tasa Representativa del Mercado (datos.gov.co).
+  static const String trm = 'trm';
+
+  /// Banco Central Europeo, a través de Frankfurter.
+  static const String ecb = 'ecb';
+
+  /// ExchangeRate-API (open.er-api.com).
+  static const String erApi = 'erapi';
+}
+
 /// Tasas: 1 unidad de la moneda = [rate] unidades de la moneda base.
 class RateTable {
-  RateTable({Map<String, double>? rates, this.updatedAt, this.source = '', Map<String, double>? manual})
+  RateTable({Map<String, double>? rates, this.updatedAt, this.source = '', Map<String, double>? manual, Map<String, String>? origins})
       : rates = rates ?? <String, double>{},
-        manual = manual ?? <String, double>{};
+        manual = manual ?? <String, double>{},
+        origins = origins ?? <String, String>{};
 
   final Map<String, double> rates;
   final Map<String, double> manual;
+
+  /// De dónde salió cada tasa automática ([RateOrigin]).
+  final Map<String, String> origins;
   DateTime? updatedAt;
   String source;
 
@@ -650,13 +731,14 @@ class RateTable {
     return manual[currency] ?? rates[currency];
   }
 
-  Map<String, dynamic> toJson() => <String, dynamic>{'rates': rates, 'manual': manual, 'updatedAt': updatedAt?.toIso8601String(), 'source': source};
+  Map<String, dynamic> toJson() => <String, dynamic>{'rates': rates, 'manual': manual, 'origins': origins, 'updatedAt': updatedAt?.toIso8601String(), 'source': source};
 
   static RateTable fromJson(Map<String, dynamic>? j) => j == null
       ? RateTable()
       : RateTable(
           rates: ((j['rates'] as Map<String, dynamic>?) ?? <String, dynamic>{}).map((String k, dynamic v) => MapEntry<String, double>(k, (v as num).toDouble())),
           manual: ((j['manual'] as Map<String, dynamic>?) ?? <String, dynamic>{}).map((String k, dynamic v) => MapEntry<String, double>(k, (v as num).toDouble())),
+          origins: ((j['origins'] as Map<String, dynamic>?) ?? <String, dynamic>{}).map((String k, dynamic v) => MapEntry<String, String>(k, v as String)),
           updatedAt: j['updatedAt'] == null ? null : _parseDate(j['updatedAt']),
           source: j['source'] as String? ?? '',
         );
@@ -687,5 +769,12 @@ String monthName(DateTime d, {bool spanish = true}) {
 }
 
 DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+/// Suma días de calendario (no horas): con horario de verano un día puede
+/// durar 23 o 25 horas, y `Duration(days: 1)` correría la medianoche.
+DateTime addDays(DateTime d, int days) => DateTime(d.year, d.month, d.day + days, d.hour, d.minute, d.second, d.millisecond, d.microsecond);
+
+/// Días de calendario entre dos fechas (negativo si [to] es anterior).
+int daysBetween(DateTime from, DateTime to) => DateTime.utc(to.year, to.month, to.day).difference(DateTime.utc(from.year, from.month, from.day)).inDays;
 
 String dayKey(DateTime d) => _dateKey(d);

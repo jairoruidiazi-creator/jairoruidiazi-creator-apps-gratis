@@ -17,7 +17,7 @@ import '../widgets/icons.dart';
 
 /// Alta y edición de un movimiento.
 class TxEditor extends StatefulWidget {
-  const TxEditor({super.key, this.existing, this.kind, this.template, this.inbox, this.initialAccountId, this.initialToAccountId, this.initialMinor, this.initialDate, this.initialDescription});
+  const TxEditor({super.key, this.existing, this.kind, this.template, this.inbox, this.initialAccountId, this.initialToAccountId, this.initialMinor, this.initialToMinor, this.initialDate, this.initialDescription});
 
   final Tx? existing;
   final TxKind? kind;
@@ -26,6 +26,11 @@ class TxEditor extends StatefulWidget {
   final String? initialAccountId;
   final String? initialToAccountId;
   final int? initialMinor;
+
+  /// Monto que debe llegar al destino de una transferencia, en la moneda del
+  /// destino (el pago de una tarjeta). Si el origen está en otra moneda, el
+  /// monto que sale se calcula con la tasa guardada.
+  final int? initialToMinor;
   final DateTime? initialDate;
   final String? initialDescription;
 
@@ -39,7 +44,15 @@ class _TxEditorState extends State<TxEditor> {
   int _minor = 0;
   String? _accountId;
   String? _toAccountId;
+
+  /// Monto recibido en una transferencia entre monedas, si lo escribió el
+  /// usuario (o venía de antes). Null = se calcula con la tasa guardada.
   int? _toMinor;
+  bool _toAuto = true;
+
+  /// Datos con que se calculó el monto recibido guardado (si cambian, se
+  /// recalcula).
+  String _toBasis = '';
   String? _categoryId;
   late DateTime _date;
   final TextEditingController _desc = TextEditingController();
@@ -56,6 +69,12 @@ class _TxEditorState extends State<TxEditor> {
   bool _keypad = false;
   bool _more = false;
   bool _saving = false;
+
+  /// El usuario tocó el monto (no se vuelve a convertir el del aviso).
+  bool _amountEdited = false;
+
+  /// Explicación de cómo se obtuvo el monto de un aviso en otra moneda.
+  String? _noticeNote;
   Services? _s;
 
   @override
@@ -64,12 +83,19 @@ class _TxEditorState extends State<TxEditor> {
     final Tx? e = widget.existing;
     final TxTemplate? tpl = widget.template;
     final InboxItem? ib = widget.inbox;
-    _kind = e?.kind ?? tpl?.kind ?? (ib == null ? (widget.kind ?? TxKind.expense) : (ib.kind == TxKind.transfer ? TxKind.expense : ib.kind));
-    _minor = e?.amountMinor ?? tpl?.amountMinor ?? ib?.amountMinor ?? widget.initialMinor ?? 0;
+    _kind = e?.kind ?? tpl?.kind ?? ib?.kind ?? widget.kind ?? TxKind.expense;
+    _minor = e?.amountMinor ?? tpl?.amountMinor ?? widget.initialMinor ?? 0;
     _calc = Calc(initialMinor: _minor);
     _accountId = e?.accountId ?? tpl?.accountId ?? ib?.accountId ?? widget.initialAccountId;
     _toAccountId = e?.toAccountId ?? tpl?.toAccountId ?? widget.initialToAccountId;
-    _toMinor = e?.toAmountMinor;
+    if (e != null) {
+      _toMinor = e.toAmountMinor;
+      _toAuto = e.toAmountMinor == null || e.toAmountAuto;
+      _toBasis = _basisOf(e.amountMinor, e.accountId, e.toAccountId);
+    } else if (tpl?.toAmountMinor != null) {
+      _toMinor = tpl!.toAmountMinor;
+      _toAuto = false;
+    }
     _categoryId = e?.categoryId ?? tpl?.categoryId;
     _date = e?.date ?? ib?.receivedAt ?? widget.initialDate ?? clock.now();
     _desc.text = e?.description ?? tpl?.description ?? ib?.merchant ?? widget.initialDescription ?? '';
@@ -82,20 +108,106 @@ class _TxEditorState extends State<TxEditor> {
     _savedAttachments.addAll(_attachments);
     _installments = e?.installments ?? 1;
     _reconciled = e?.reconciled ?? false;
-    _keypad = e == null && _minor == 0;
+    _keypad = e == null && _minor == 0 && widget.initialToMinor == null && ib == null;
   }
+
+  static String _basisOf(int amount, String? from, String? to) => '$amount|$from|$to';
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_s == null) {
-      _s = AppScope.of(context);
-      final Ledger l = _s!.ledger;
-      if (_accountId == null || l.account(_accountId) == null) {
-        final String def = _s!.settings.defaultAccountId;
-        _accountId = l.account(def)?.id ?? (l.activeAccounts.isEmpty ? null : l.activeAccounts.first.id);
+    if (_s != null) {
+      return;
+    }
+    _s = AppScope.of(context);
+    final Ledger l = _s!.ledger;
+    _calc.spanish = _s!.settings.spanish;
+    final InboxItem? ib = widget.inbox;
+    if (ib != null && widget.existing == null) {
+      _initFromNotice(l, ib);
+    }
+    if (_accountId == null || l.account(_accountId) == null) {
+      final String def = _s!.settings.defaultAccountId;
+      _accountId = l.account(def)?.id ?? (l.activeAccounts.isEmpty ? null : l.activeAccounts.first.id);
+      if (_kind == TxKind.transfer && _accountId == _toAccountId) {
+        _accountId = l.activeAccounts.where((Account a) => a.id != _toAccountId && !a.isCredit).map((Account a) => a.id).firstOrNull;
       }
     }
+    if (ib != null && widget.existing == null) {
+      _applyNoticeAmount(l);
+    }
+    final int? toMinor = widget.initialToMinor;
+    if (toMinor != null && widget.existing == null) {
+      _applyTargetAmount(l, toMinor);
+    }
+  }
+
+  /// Cuentas de un aviso: la de origen por banco y dígitos; en un pago de
+  /// tarjeta, la tarjeta como destino; en un retiro, el efectivo; si la plata
+  /// llegó desde otra cuenta propia, la del aviso es el destino.
+  void _initFromNotice(Ledger l, InboxItem ib) {
+    final Account? matched = l.account(ib.accountId) ?? l.matchNotice(ib).account;
+    if (ib.kind != TxKind.transfer) {
+      _accountId = matched?.id;
+      return;
+    }
+    switch (ib.flow) {
+      case NoticeFlow.cardPayment:
+        _accountId = matched?.id;
+        _toAccountId = l.noticeCard(ib)?.id;
+        break;
+      case NoticeFlow.withdrawal:
+        _accountId = matched?.id;
+        _toAccountId = l.activeAccounts.where((Account a) => a.type == AccountType.cash).map((Account a) => a.id).firstOrNull;
+        break;
+      case NoticeFlow.transferIn:
+        _toAccountId = matched?.id;
+        _accountId = null;
+        break;
+      default:
+        _accountId = matched?.id;
+    }
+  }
+
+  /// El monto del aviso en la moneda de la cuenta: si el aviso llegó en otra
+  /// moneda (una compra en dólares con una tarjeta en pesos), se convierte con
+  /// la tasa guardada y se avisa que hay que revisarlo; sin tasa, se pide.
+  void _applyNoticeAmount(Ledger l) {
+    final InboxItem? ib = widget.inbox;
+    if (ib == null || _amountEdited) {
+      return;
+    }
+    final String? side = ib.flow == NoticeFlow.transferIn ? _toAccountId : _accountId;
+    final String currency = l.account(side)?.currency ?? l.baseCurrency;
+    final bool es = _s!.settings.spanish;
+    final String original = Money.format(ib.amountMinor, ib.currency, spanish: es);
+    if (ib.currency == currency) {
+      _minor = ib.amountMinor;
+      _noticeNote = null;
+    } else {
+      final int? converted = l.convert(ib.amountMinor, ib.currency, currency);
+      _minor = converted ?? 0;
+      _noticeNote = converted == null
+          ? (es ? 'El aviso decía $original y la cuenta está en $currency: escribe el monto que te cobraron.' : 'The notice said $original and the account is in $currency: type the amount you were charged.')
+          : (es ? 'El aviso decía $original; se convirtió a $currency con la tasa guardada. Revisa el valor que te cobró el banco.' : 'The notice said $original; it was converted to $currency at the saved rate. Check the amount your bank charged.');
+    }
+    _calc = Calc(initialMinor: _minor, spanish: _calc.spanish);
+    _keypad = _minor == 0;
+  }
+
+  /// Pago de una tarjeta: el monto que debe llegar a la tarjeta, en su moneda.
+  void _applyTargetAmount(Ledger l, int toMinor) {
+    final Account? from = l.account(_accountId);
+    final Account? to = l.account(_toAccountId);
+    if (from == null || to == null || from.currency == to.currency) {
+      _minor = toMinor;
+    } else {
+      _toMinor = toMinor;
+      _toAuto = false;
+      _minor = l.convert(toMinor, to.currency, from.currency) ?? 0;
+    }
+    _calc = Calc(initialMinor: _minor, spanish: _calc.spanish);
+    _keypad = _minor == 0;
   }
 
   @override
@@ -107,11 +219,33 @@ class _TxEditorState extends State<TxEditor> {
   Ledger get _l => _s!.ledger;
   Account? get _account => _l.account(_accountId);
   String get _currency => _account?.currency ?? _l.baseCurrency;
+  bool get _showDecimal => Money.info(_currency).decimals > 0 || _s!.settings.showCents;
 
   void _onKey(String k) => setState(() {
         _calc.press(k);
         _minor = _calc.valueMinor;
+        _amountEdited = true;
       });
+
+  /// Cierra la calculadora resolviendo la operación que quedó a medias:
+  /// "50.000 + 20.000" y Listo anota 70.000.
+  void _closeKeypad() => setState(() {
+        _settleAmount();
+        _keypad = false;
+      });
+
+  void _settleAmount() {
+    _calc.evaluate();
+    int v = _calc.valueMinor;
+    if (!_showDecimal) {
+      // Pesos sin centavos: una división queda en el peso más cercano.
+      v = (v / 100).round() * 100;
+    }
+    if (v != _minor) {
+      _minor = v;
+      _calc = Calc(initialMinor: _minor, spanish: _calc.spanish);
+    }
+  }
 
   Future<void> _pickDate() async {
     final DateTime? d = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2000), lastDate: DateTime(2100));
@@ -129,42 +263,70 @@ class _TxEditorState extends State<TxEditor> {
         return;
       }
       // La foto del recibo se guarda cifrada, igual que el resto del libro, y
-      // la copia sin cifrar que deja el selector se borra.
+      // las copias sin cifrar que deja el selector se borran.
       final String rel = 'attachments/${newId()}.jpg.enc';
       await _s!.ledger.store.writeBytes(rel, await f.readAsBytes());
-      await _deletePickerCopy(f);
+      await _deletePickerCopies(f);
       if (mounted) {
         setState(() => _attachments.add(rel));
       }
     } catch (e) {
+      debugPrint('Adjuntar: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'No se pudo adjuntar', 'Could not attach')}: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'No se pudo adjuntar la foto. Intenta de nuevo.', 'The photo could not be attached. Try again.'))));
       }
     }
   }
 
-  /// El selector de fotos deja una copia en la caché o la carpeta temporal de
-  /// la app. Solo se borra si está dentro de la carpeta privada de la app, así
-  /// que nunca se toca la foto original de la galería.
-  Future<void> _deletePickerCopy(XFile f) async {
+  /// El selector deja la foto en la caché de la app y, cuando la reduce
+  /// ("scaled_<nombre>"), también la original. Solo se borra lo que está
+  /// dentro de la carpeta privada de la app: nunca la foto de la galería.
+  Future<void> _deletePickerCopies(XFile f) async {
     try {
       final String container = (await getApplicationDocumentsDirectory()).parent.path;
-      if (f.path.startsWith('$container${Platform.pathSeparator}')) {
-        await File(f.path).delete();
+      final String sep = Platform.pathSeparator;
+      if (!f.path.startsWith('$container$sep')) {
+        return;
+      }
+      final File picked = File(f.path);
+      final String name = picked.uri.pathSegments.last;
+      final List<File> copies = <File>[picked];
+      if (name.startsWith('scaled_')) {
+        final String original = name.substring('scaled_'.length);
+        copies.add(File('${picked.parent.path}$sep$original'));
+        final Directory tmp = await getTemporaryDirectory();
+        if (await tmp.exists()) {
+          await for (final FileSystemEntity e in tmp.list(recursive: true)) {
+            if (e is File && e.uri.pathSegments.last == original) {
+              copies.add(e);
+            }
+          }
+        }
+      }
+      for (final File c in copies) {
+        if (c.path.startsWith('$container$sep') && await c.exists()) {
+          await c.delete();
+        }
       }
     } catch (e) {
       debugPrint('Copia del selector: $e');
     }
   }
 
+  int get _splitTotal => _splits.fold<int>(0, (int s, TxSplit p) => s + p.amountMinor);
+
+  /// Divide el total en partes. El total escrito se conserva y cada parte
+  /// propone lo que falta por asignar.
   Future<void> _addSplit() async {
+    _settleAmount();
     final CategoryKind ck = _kind == TxKind.income ? CategoryKind.income : CategoryKind.expense;
     final Category? c = await pickCategory(context, ck);
     if (c == null || !mounted) {
       return;
     }
-    final int remaining = _minor - _splits.fold<int>(0, (int s, TxSplit p) => s + p.amountMinor);
-    final String? txt = await askText(context, '${t(context, 'Monto para', 'Amount for')} ${c.name}', initial: remaining > 0 ? Money.format(remaining, _currency, withSymbol: false) : '', keyboard: const TextInputType.numberWithOptions(decimal: true));
+    final bool es = _s!.settings.spanish;
+    final int remaining = _minor - _splitTotal;
+    final String? txt = await askText(context, '${t(context, 'Monto para', 'Amount for')} ${c.name}', initial: remaining > 0 ? Money.format(remaining, _currency, withSymbol: false, showCents: _showDecimal, spanish: es) : '', keyboard: const TextInputType.numberWithOptions(decimal: true));
     if (txt == null) {
       return;
     }
@@ -173,38 +335,74 @@ class _TxEditorState extends State<TxEditor> {
       return;
     }
     setState(() {
+      if (_splits.isEmpty && _minor <= 0) {
+        // Sin total escrito: las partes forman el total.
+        _minor = m;
+        _calc = Calc(initialMinor: _minor, spanish: _calc.spanish);
+      }
       _splits.add(TxSplit(categoryId: c.id, amountMinor: m));
-      _minor = _splits.fold<int>(0, (int s, TxSplit p) => s + p.amountMinor);
-      _calc = Calc(initialMinor: _minor);
       _categoryId = null;
     });
+  }
+
+  void _showMessage(String text) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+
+  bool get _crossCurrency {
+    final Account? a = _account;
+    final Account? to = _l.account(_toAccountId);
+    return _kind == TxKind.transfer && a != null && to != null && a.currency != to.currency;
+  }
+
+  /// Monto recibido que se guardará (null = que lo calcule el libro).
+  int? _receivedToSave() {
+    if (!_crossCurrency) {
+      return null;
+    }
+    if (!_toAuto) {
+      return _toMinor;
+    }
+    // Calculado antes y sin cambios en monto ni cuentas: se conserva la tasa
+    // de ese día.
+    if (widget.existing != null && _toMinor != null && _toBasis == _basisOf(_minor, _accountId, _toAccountId)) {
+      return _toMinor;
+    }
+    return null;
   }
 
   Future<void> _save() async {
     if (_saving) {
       return;
     }
+    setState(_settleAmount);
     final Ledger l = _l;
     if (_minor <= 0) {
       setState(() => _keypad = true);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Escribe el monto.', 'Enter the amount.'))));
+      _showMessage(t(context, 'Escribe el monto.', 'Enter the amount.'));
       return;
     }
     if (_accountId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Elige la cuenta.', 'Choose the account.'))));
+      _showMessage(t(context, 'Elige la cuenta.', 'Choose the account.'));
       return;
     }
     if (_kind == TxKind.transfer && (_toAccountId == null || _toAccountId == _accountId)) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Elige la cuenta de destino.', 'Choose the destination account.'))));
+      _showMessage(t(context, 'Elige la cuenta de destino.', 'Choose the destination account.'));
       return;
     }
-    setState(() => _saving = true);
-    final Tx tx = widget.existing ?? Tx(id: newId(), kind: _kind, amountMinor: _minor, accountId: _accountId!, date: _date);
+    if (_kind != TxKind.transfer && _splits.isNotEmpty && _splitTotal != _minor) {
+      final bool es = _s!.settings.spanish;
+      _showMessage(t(context, 'Las partes suman ${Money.format(_splitTotal, _currency, spanish: es)} y el total es ${Money.format(_minor, _currency, spanish: es)}. Ajusta las partes o el total.', 'The parts add up to ${Money.format(_splitTotal, _currency, spanish: es)} and the total is ${Money.format(_minor, _currency, spanish: es)}. Adjust the parts or the total.'));
+      return;
+    }
+    final Tx? e = widget.existing;
+    // Se arma un borrador: si el libro lo rechaza, el original queda intacto.
+    final Tx tx = e == null ? Tx(id: newId(), kind: _kind, amountMinor: _minor, accountId: _accountId!, date: _date) : Tx.fromJson(e.toJson());
     tx.kind = _kind;
     tx.amountMinor = _minor;
     tx.accountId = _accountId!;
     tx.toAccountId = _kind == TxKind.transfer ? _toAccountId : null;
-    tx.toAmountMinor = _kind == TxKind.transfer ? _toMinor : null;
+    final int? received = _kind == TxKind.transfer ? _receivedToSave() : null;
+    tx.toAmountMinor = received;
+    tx.toAmountAuto = received != null && _toAuto;
     tx.categoryId = _splits.isEmpty ? _categoryId : null;
     tx.date = _date;
     tx.description = _desc.text.trim();
@@ -216,7 +414,7 @@ class _TxEditorState extends State<TxEditor> {
       ..addAll(_tags);
     tx.splits
       ..clear()
-      ..addAll(_splits);
+      ..addAll(_kind == TxKind.transfer ? const <TxSplit>[] : _splits);
     tx.attachments
       ..clear()
       ..addAll(_attachments);
@@ -224,13 +422,25 @@ class _TxEditorState extends State<TxEditor> {
     tx.reconciled = _reconciled;
     if (widget.inbox != null) {
       tx.source = 'notice';
+    }
+    setState(() => _saving = true);
+    try {
+      if (e == null) {
+        await l.addTx(tx);
+      } else {
+        l.updateTx(tx);
+      }
+    } on TxRejected catch (err) {
+      if (mounted) {
+        setState(() => _saving = false);
+        _showMessage(txProblemText(context, err));
+      }
+      return;
+    }
+    if (widget.inbox != null) {
       widget.inbox!.status = 'accepted';
       widget.inbox!.accountId = _accountId;
-    }
-    if (widget.existing == null) {
-      await l.addTx(tx);
-    } else {
-      l.updateTx(tx);
+      l.save();
     }
     await l.deleteAttachmentFiles(_savedAttachments.difference(_attachments.toSet()));
     _s!.settings.defaultAccountId = _accountId!;
@@ -241,27 +451,81 @@ class _TxEditorState extends State<TxEditor> {
   }
 
   Future<void> _saveAsTemplate() async {
+    _settleAmount();
     final String? name = await askText(context, t(context, 'Nombre de la plantilla', 'Template name'), initial: _desc.text.trim());
     if (name == null || name.trim().isEmpty) {
       return;
     }
-    await _l.addTemplate(TxTemplate(id: newId(), name: name.trim(), kind: _kind, amountMinor: _minor > 0 ? _minor : null, accountId: _accountId, toAccountId: _toAccountId, categoryId: _categoryId, description: _desc.text.trim(), payee: _payee.text.trim(), tags: List<String>.from(_tags), icon: _l.category(_categoryId)?.icon ?? 'star', color: _l.category(_categoryId)?.color ?? 0xFFFB8C00));
+    final bool transfer = _kind == TxKind.transfer;
+    await _l.addTemplate(TxTemplate(
+      id: newId(),
+      name: name.trim(),
+      kind: _kind,
+      amountMinor: _minor > 0 ? _minor : null,
+      accountId: _accountId,
+      toAccountId: transfer ? _toAccountId : null,
+      toAmountMinor: transfer && _crossCurrency && !_toAuto ? _toMinor : null,
+      categoryId: transfer ? null : _categoryId,
+      description: _desc.text.trim(),
+      payee: _payee.text.trim(),
+      tags: List<String>.from(_tags),
+      icon: _l.category(_categoryId)?.icon ?? (transfer ? 'transfer' : 'star'),
+      color: _l.category(_categoryId)?.color ?? 0xFFFB8C00,
+    ));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Plantilla guardada.', 'Template saved.'))));
+      _showMessage(t(context, 'Plantilla guardada.', 'Template saved.'));
     }
+  }
+
+  Future<void> _editReceived(Account to) async {
+    final bool es = _s!.settings.spanish;
+    final String? txt = await askText(context, '${t(context, 'Monto recibido en', 'Amount received in')} ${to.currency}', initial: _toAuto || _toMinor == null ? '' : Money.format(_toMinor!, to.currency, withSymbol: false, showCents: true, spanish: es), hint: t(context, 'Vacío = calcular con la tasa guardada', 'Empty = use the saved rate'), keyboard: const TextInputType.numberWithOptions(decimal: true));
+    if (txt == null) {
+      return;
+    }
+    final int? v = Money.parse(txt);
+    setState(() {
+      if (txt.trim().isEmpty || v == null || v <= 0) {
+        _toAuto = true;
+        _toMinor = null;
+      } else {
+        _toAuto = false;
+        _toMinor = v;
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final Services s = AppScope.of(context);
     final Ledger l = s.ledger;
+    final bool es = s.settings.spanish;
     final ColorScheme cs = Theme.of(context).colorScheme;
     final Account? acc = _account;
     final Account? to = l.account(_toAccountId);
     final Category? cat = l.category(_categoryId);
     final CategoryKind ck = _kind == TxKind.income ? CategoryKind.income : CategoryKind.expense;
-    final bool crossCurrency = _kind == TxKind.transfer && acc != null && to != null && acc.currency != to.currency;
+    final bool crossCurrency = _crossCurrency;
     final List<Suggestion> suggestions = _desc.text.trim().length >= 2 && widget.existing == null ? l.suggest(_desc.text, kind: _kind) : <Suggestion>[];
+    _calc.spanish = es;
+
+    String receivedText() {
+      if (to == null || acc == null) {
+        return '';
+      }
+      final int? kept = _receivedToSave();
+      if (!_toAuto && _toMinor != null) {
+        return Money.format(_toMinor!, to.currency, showCents: true, spanish: es);
+      }
+      if (kept != null) {
+        return '${Money.format(kept, to.currency, showCents: true, spanish: es)} · ${t(context, 'con la tasa de ese día', 'at that day\'s rate')}';
+      }
+      final int? preview = l.convert(_minor, acc.currency, to.currency);
+      if (preview == null) {
+        return t(context, 'Sin tasa entre ${acc.currency} y ${to.currency}: toca para escribir cuánto llegó, o pon la tasa en Más › Monedas.', 'No rate between ${acc.currency} and ${to.currency}: tap to type how much arrived, or set the rate under More › Currencies.');
+      }
+      return '≈ ${Money.format(preview, to.currency, showCents: true, spanish: es)} · ${t(context, 'con la tasa guardada', 'at the saved rate')}';
+    }
 
     return ReadableScaffold(
       appBar: AppBar(
@@ -279,7 +543,14 @@ class _TxEditorState extends State<TxEditor> {
                   }
                 }
               } else if (v == 'duplicate' && widget.existing != null) {
-                await l.addTx(widget.existing!.copy(id: newId(), date: clock.now()));
+                try {
+                  await l.duplicateTx(widget.existing!);
+                } on TxRejected catch (err) {
+                  if (context.mounted) {
+                    _showMessage(txProblemText(context, err));
+                  }
+                  return;
+                }
                 if (context.mounted) {
                   Navigator.of(context).pop();
                 }
@@ -300,6 +571,11 @@ class _TxEditorState extends State<TxEditor> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: <Widget>[
+                if (widget.existing?.isAdjustment ?? false)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(t(context, 'Ajuste de saldo: corrige el saldo de la cuenta y no cuenta como gasto ni ingreso en informes ni presupuestos.', 'Balance adjustment: it corrects the account balance and does not count as spending or income in reports or budgets.'), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.7))),
+                  ),
                 SegmentedButton<TxKind>(
                   segments: <ButtonSegment<TxKind>>[
                     ButtonSegment<TxKind>(value: TxKind.expense, label: Text(t(context, 'Gasto', 'Expense')), icon: const Icon(Icons.remove_circle_outline)),
@@ -310,30 +586,28 @@ class _TxEditorState extends State<TxEditor> {
                   showSelectedIcon: false,
                   onSelectionChanged: (Set<TxKind> v) => setState(() {
                     _kind = v.first;
+                    final CategoryKind newKind = _kind == TxKind.income ? CategoryKind.income : CategoryKind.expense;
                     if (_kind == TxKind.transfer) {
                       _categoryId = null;
                       _splits.clear();
-                    } else if (cat != null && cat.kind != ck) {
+                    } else if (cat != null && cat.kind != newKind) {
+                      // Un reembolso se elige a propósito con su botón, no al cambiar de tipo.
                       _categoryId = null;
                     }
                   }),
                 ),
                 const SizedBox(height: 12),
-                AmountTile(minor: _minor, currency: _currency, color: kindColor(context, _kind), onTap: () => setState(() => _keypad = !_keypad), label: _calc.expression.isNotEmpty && _calc.hasPendingOp ? _calc.expression : null),
-                if (crossCurrency) ...<Widget>[
+                AmountTile(minor: _minor, currency: _currency, color: kindColor(context, _kind), onTap: () => _keypad ? _closeKeypad() : setState(() => _keypad = true), label: _calc.expression.isNotEmpty && _calc.hasPendingOp ? _calc.expression : null),
+                if (_noticeNote != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_noticeNote!, style: TextStyle(fontSize: 12, color: cs.tertiary))),
+                if (crossCurrency && to != null) ...<Widget>[
                   const SizedBox(height: 8),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.currency_exchange),
                     title: Text('${t(context, 'Monto recibido en', 'Amount received in')} ${to.currency}'),
-                    subtitle: Text(_toMinor == null ? t(context, 'Se calcula con la tasa guardada', 'Computed with the saved rate') : Money.format(_toMinor!, to.currency, showCents: true)),
+                    subtitle: Text(receivedText()),
                     trailing: const Icon(Icons.edit_outlined),
-                    onTap: () async {
-                      final String? txt = await askText(context, '${t(context, 'Monto en', 'Amount in')} ${to.currency}', initial: _toMinor == null ? '' : Money.format(_toMinor!, to.currency, withSymbol: false, showCents: true), keyboard: const TextInputType.numberWithOptions(decimal: true));
-                      if (txt != null) {
-                        setState(() => _toMinor = Money.parse(txt));
-                      }
-                    },
+                    onTap: () => _editReceived(to),
                   ),
                 ],
                 const SizedBox(height: 8),
@@ -346,7 +620,10 @@ class _TxEditorState extends State<TxEditor> {
                   onTap: () async {
                     final Account? a = await pickAccount(context, exclude: _kind == TxKind.transfer ? _toAccountId : null);
                     if (a != null) {
-                      setState(() => _accountId = a.id);
+                      setState(() {
+                        _accountId = a.id;
+                        _applyNoticeAmount(l);
+                      });
                     }
                   },
                 ),
@@ -360,15 +637,18 @@ class _TxEditorState extends State<TxEditor> {
                     onTap: () async {
                       final Account? a = await pickAccount(context, exclude: _accountId, title: t(context, 'Cuenta de destino', 'Destination account'));
                       if (a != null) {
-                        setState(() => _toAccountId = a.id);
+                        setState(() {
+                          _toAccountId = a.id;
+                          _applyNoticeAmount(l);
+                        });
                       }
                     },
                   )
-                else if (_splits.isEmpty)
+                else if (_splits.isEmpty) ...<Widget>[
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     leading: cat == null ? const Icon(Icons.label_outline) : IconBadge(icon: cat.icon, color: cat.color),
-                    title: Text(t(context, 'Categoría', 'Category')),
+                    title: Text(_kind == TxKind.income && cat?.kind == CategoryKind.expense ? t(context, 'Reembolso de', 'Refund of') : t(context, 'Categoría', 'Category')),
                     subtitle: Text(cat == null ? t(context, 'Elegir', 'Choose') : l.categoryPath(cat.id)),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () async {
@@ -378,32 +658,49 @@ class _TxEditorState extends State<TxEditor> {
                       }
                     },
                   ),
+                  if (_kind == TxKind.income)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () async {
+                          final Category? c = await pickCategory(context, CategoryKind.expense, current: _categoryId);
+                          if (c != null) {
+                            setState(() => _categoryId = c.id);
+                          }
+                        },
+                        icon: const Icon(Icons.undo),
+                        label: Text(t(context, '¿Es un reembolso? Elige el gasto que devuelve', 'Is it a refund? Pick the expense it returns')),
+                      ),
+                    ),
+                ],
                 if (_splits.isNotEmpty) ...<Widget>[
-                  Padding(padding: const EdgeInsets.only(top: 8, bottom: 4), child: Text(t(context, 'Dividido entre categorías', 'TxSplit across categories'), style: Theme.of(context).textTheme.titleSmall)),
+                  Padding(padding: const EdgeInsets.only(top: 8, bottom: 4), child: Text(t(context, 'Dividido entre categorías', 'Split across categories'), style: Theme.of(context).textTheme.titleSmall)),
                   for (int i = 0; i < _splits.length; i++)
                     ListTile(
                       dense: true,
                       contentPadding: EdgeInsets.zero,
                       leading: IconBadge(icon: l.category(_splits[i].categoryId)?.icon ?? 'label', color: l.category(_splits[i].categoryId)?.color ?? 0xFF607D8B, size: 32),
                       title: Text(l.categoryPath(_splits[i].categoryId)),
-                      subtitle: Text(Money.format(_splits[i].amountMinor, _currency, showCents: s.settings.showCents)),
+                      subtitle: Text(Money.format(_splits[i].amountMinor, _currency, showCents: s.settings.showCents, spanish: es)),
                       trailing: IconButton(
+                        tooltip: t(context, 'Quitar esta parte', 'Remove this part'),
                         icon: const Icon(Icons.close),
-                        onPressed: () => setState(() {
-                          _splits.removeAt(i);
-                          _minor = _splits.fold<int>(0, (int a, TxSplit p) => a + p.amountMinor);
-                          _calc = Calc(initialMinor: _minor);
-                        }),
+                        onPressed: () => setState(() => _splits.removeAt(i)),
                       ),
+                    ),
+                  if (_splitTotal != _minor)
+                    Text(
+                      _splitTotal < _minor ? '${t(context, 'Falta por asignar', 'Still to assign')}: ${Money.format(_minor - _splitTotal, _currency, showCents: s.settings.showCents, spanish: es)}' : '${t(context, 'Las partes pasan el total por', 'The parts exceed the total by')} ${Money.format(_splitTotal - _minor, _currency, showCents: s.settings.showCents, spanish: es)}',
+                      style: TextStyle(fontSize: 12, color: cs.error),
                     ),
                 ],
                 if (_kind != TxKind.transfer)
-                  Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: _addSplit, icon: const Icon(Icons.call_split), label: Text(_splits.isEmpty ? t(context, 'Dividir en varias categorías', 'TxSplit across categories') : t(context, 'Añadir otra parte', 'Add another part')))),
+                  Align(alignment: Alignment.centerLeft, child: TextButton.icon(onPressed: _addSplit, icon: const Icon(Icons.call_split), label: Text(_splits.isEmpty ? t(context, 'Dividir en varias categorías', 'Split across categories') : t(context, 'Añadir otra parte', 'Add another part')))),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.event_outlined),
                   title: Text(t(context, 'Fecha', 'Date')),
-                  subtitle: Text('${formatDate(_date, 'EEE dd MMM yyyy', spanish: s.settings.spanish)} · ${formatDate(_date, 'HH:mm')}'),
+                  subtitle: Text('${formatDate(_date, 'EEE dd MMM yyyy', spanish: es)} · ${formatDate(_date, 'HH:mm')}'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _pickDate,
                 ),
@@ -433,7 +730,7 @@ class _TxEditorState extends State<TxEditor> {
                               }
                               if (_minor == 0 && sg.amountMinor != null) {
                                 _minor = sg.amountMinor!;
-                                _calc = Calc(initialMinor: _minor);
+                                _calc = Calc(initialMinor: _minor, spanish: es);
                               }
                             }),
                           ),
@@ -469,7 +766,7 @@ class _TxEditorState extends State<TxEditor> {
                   Row(
                     children: <Widget>[
                       Expanded(child: TextField(controller: _tag, decoration: InputDecoration(hintText: t(context, 'Nueva etiqueta', 'New tag'), isDense: true), onSubmitted: (_) => _addTag())),
-                      IconButton(onPressed: _addTag, icon: const Icon(Icons.add_circle_outline)),
+                      IconButton(tooltip: t(context, 'Añadir etiqueta', 'Add tag'), onPressed: _addTag, icon: const Icon(Icons.add_circle_outline)),
                     ],
                   ),
                   TextField(controller: _notes, maxLines: 3, minLines: 1, decoration: InputDecoration(labelText: t(context, 'Notas', 'Notes'), border: const OutlineInputBorder(), isDense: true)),
@@ -482,11 +779,24 @@ class _TxEditorState extends State<TxEditor> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: <Widget>[
                       for (final String a in _attachments)
-                        Stack(
-                          children: <Widget>[
-                            ClipRRect(borderRadius: BorderRadius.circular(8), child: SizedBox(width: 72, height: 72, child: _AttachmentThumb(relative: a))),
-                            Positioned(right: 0, top: 0, child: InkWell(onTap: () => setState(() => _attachments.remove(a)), child: const CircleAvatar(radius: 11, backgroundColor: Colors.black54, child: Icon(Icons.close, size: 14, color: Colors.white)))),
-                          ],
+                        SizedBox(
+                          width: 84,
+                          height: 84,
+                          child: Stack(
+                            children: <Widget>[
+                              Positioned(left: 0, bottom: 0, child: ClipRRect(borderRadius: BorderRadius.circular(8), child: SizedBox(width: 72, height: 72, child: _AttachmentThumb(relative: a)))),
+                              // Botón de quitar con área de toque de 40 × 40.
+                              Positioned(
+                                right: -6,
+                                top: -6,
+                                child: IconButton(
+                                  tooltip: t(context, 'Quitar foto', 'Remove photo'),
+                                  onPressed: () => setState(() => _attachments.remove(a)),
+                                  icon: const CircleAvatar(radius: 11, backgroundColor: Colors.black54, child: Icon(Icons.close, size: 14, color: Colors.white)),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       OutlinedButton.icon(onPressed: () => _addAttachment(ImageSource.camera), icon: const Icon(Icons.photo_camera_outlined), label: Text(t(context, 'Foto del recibo', 'Receipt photo'))),
                       OutlinedButton.icon(onPressed: () => _addAttachment(ImageSource.gallery), icon: const Icon(Icons.photo_library_outlined), label: Text(t(context, 'Galería', 'Gallery'))),
@@ -511,12 +821,12 @@ class _TxEditorState extends State<TxEditor> {
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                       child: Row(
                         children: <Widget>[
-                          Expanded(child: Text(_calc.expression.isEmpty ? '0' : _calc.expression, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600), textAlign: TextAlign.end)),
-                          IconButton(onPressed: () => setState(() => _keypad = false), icon: const Icon(Icons.keyboard_hide_outlined)),
+                          Expanded(child: Text(_calc.expression.isEmpty ? '0' : _calc.expression, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600), textAlign: TextAlign.end, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                          IconButton(tooltip: t(context, 'Cerrar la calculadora', 'Close the keypad'), onPressed: _closeKeypad, icon: const Icon(Icons.keyboard_hide_outlined)),
                         ],
                       ),
                     ),
-                    AmountKeypad(onKey: _onKey, onDone: () => setState(() => _keypad = false), doneLabel: t(context, 'Listo', 'Done'), showDecimal: Money.info(_currency).decimals > 0 || s.settings.showCents),
+                    AmountKeypad(onKey: _onKey, onDone: _closeKeypad, doneLabel: t(context, 'Listo', 'Done'), deleteLabel: t(context, 'Borrar', 'Delete'), showDecimal: _showDecimal, spanish: es),
                   ],
                 ),
               ),
@@ -570,9 +880,13 @@ class _AttachmentThumbState extends State<_AttachmentThumb> {
         if (bytes == null) {
           return ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest);
         }
-        return GestureDetector(
-          onTap: () => showDialog<void>(context: context, builder: (_) => Dialog(child: InteractiveViewer(child: Image.memory(bytes)))),
-          child: Image.memory(bytes, fit: BoxFit.cover, cacheWidth: 200, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined)),
+        return Semantics(
+          image: true,
+          label: t(context, 'Foto del recibo', 'Receipt photo'),
+          child: GestureDetector(
+            onTap: () => showDialog<void>(context: context, builder: (_) => Dialog(child: InteractiveViewer(child: Image.memory(bytes)))),
+            child: Image.memory(bytes, fit: BoxFit.cover, cacheWidth: 200, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined)),
+          ),
         );
       },
     );

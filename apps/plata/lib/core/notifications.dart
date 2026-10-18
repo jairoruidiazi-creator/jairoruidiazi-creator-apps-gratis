@@ -8,6 +8,10 @@ abstract class Notifier {
   Future<void> init();
   Future<bool> requestPermission();
 
+  /// Idioma del canal de notificaciones (el nombre que muestra Android en los
+  /// ajustes de la app).
+  void setLanguage({required bool spanish});
+
   /// Aviso diario a la misma hora.
   Future<void> scheduleDaily({required int id, required int hour, required int minute, required String title, required String body});
 
@@ -20,12 +24,16 @@ abstract class Notifier {
 /// Implementación muda (pruebas y plataformas sin soporte).
 class NoopNotifier implements Notifier {
   final List<String> log = <String>[];
+  bool spanish = true;
 
   @override
   Future<void> init() async {}
 
   @override
   Future<bool> requestPermission() async => true;
+
+  @override
+  void setLanguage({required bool spanish}) => this.spanish = spanish;
 
   @override
   Future<void> scheduleDaily({required int id, required int hour, required int minute, required String title, required String body}) async => log.add('daily:$id:$hour:$minute:$title');
@@ -43,10 +51,24 @@ class NoopNotifier implements Notifier {
 class LocalNotifier implements Notifier {
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
   bool _ready = false;
+  bool _spanish = true;
   late final tz.Location _local;
 
-  static const AndroidNotificationDetails _android = AndroidNotificationDetails('plata_recordatorios', 'Recordatorios', channelDescription: 'Facturas por pagar y registro diario', importance: Importance.defaultImportance, priority: Priority.defaultPriority);
-  static const NotificationDetails _details = NotificationDetails(android: _android, iOS: DarwinNotificationDetails());
+  /// El canal se crea (o se renombra) con cada aviso programado, en el idioma
+  /// actual de la app.
+  NotificationDetails get _details => NotificationDetails(
+        android: AndroidNotificationDetails(
+          'plata_recordatorios',
+          _spanish ? 'Recordatorios' : 'Reminders',
+          channelDescription: _spanish ? 'Pagos por vencer y registro diario' : 'Upcoming payments and daily logging',
+          importance: Importance.defaultImportance,
+          priority: Priority.defaultPriority,
+        ),
+        iOS: const DarwinNotificationDetails(),
+      );
+
+  @override
+  void setLanguage({required bool spanish}) => _spanish = spanish;
 
   @override
   Future<void> init() async {
@@ -102,7 +124,7 @@ class LocalNotifier implements Notifier {
     final DateTime now = clock.now();
     DateTime first = DateTime(now.year, now.month, now.day, hour, minute);
     if (!first.isAfter(now)) {
-      first = first.add(const Duration(days: 1));
+      first = DateTime(now.year, now.month, now.day + 1, hour, minute);
     }
     try {
       await _plugin.zonedSchedule(id: id, title: title, body: body, scheduledDate: _tz(first), notificationDetails: _details, androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle, matchDateTimeComponents: DateTimeComponents.time);

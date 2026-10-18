@@ -11,8 +11,26 @@ class Exports {
   Exports._();
 
   static String _cell(String s) {
-    if (s.contains(',') || s.contains('"') || s.contains('\n') || s.contains(';')) {
+    if (s.contains(',') || s.contains('"') || s.contains('\n') || s.contains('\r') || s.contains(';')) {
       return '"${s.replaceAll('"', '""')}"';
+    }
+    return s;
+  }
+
+  /// Columnas de texto libre del CSV (cuentas, categorías, descripción,
+  /// beneficiario, etiquetas y notas). Pueden venir de avisos de otras apps.
+  static const Set<int> _textColumns = <int>{2, 3, 4, 5, 6, 7, 11, 12};
+
+  /// Una celda que empieza por = + - @, tabulador o retorno se abre en Excel
+  /// o en Hojas de cálculo como fórmula: se le antepone un apóstrofo para que
+  /// quede como texto (recomendación de OWASP contra la inyección en CSV).
+  static String _safeText(String s) {
+    if (s.isEmpty) {
+      return s;
+    }
+    final String first = s[0];
+    if (first == '=' || first == '+' || first == '-' || first == '@' || first == '\t' || first == '\r') {
+      return "'$s";
     }
     return s;
   }
@@ -84,7 +102,11 @@ class Exports {
     final StringBuffer b = StringBuffer();
     b.writeln(headers(spanish: spanish).join(','));
     for (final List<String> r in rows(l, txs, spanish: spanish)) {
-      b.writeln(r.map(_cell).join(','));
+      final List<String> cells = <String>[];
+      for (int i = 0; i < r.length; i++) {
+        cells.add(_cell(_textColumns.contains(i) ? _safeText(r[i]) : r[i]));
+      }
+      b.writeln(cells.join(','));
     }
     return b.toString();
   }

@@ -46,7 +46,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
     await lock.setPasscode(a);
     if (context.mounted) {
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Clave guardada. Si la olvidas, tendrás que borrar los datos de la app.', 'Passcode saved. If you forget it you will have to wipe the app data.'))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Clave guardada. Nadie puede recuperarla: si la olvidas, en la pantalla de bloqueo podrás borrar todo y empezar de nuevo.', 'Passcode saved. Nobody can recover it: if you forget it, the lock screen lets you erase everything and start over.'))));
     }
   }
 
@@ -134,8 +134,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
               padding: const EdgeInsets.all(16),
               child: Text(t(
                 context,
-                'Tus datos se guardan cifrados (ChaCha20-Poly1305) en el almacenamiento privado de la app; la llave vive en el Keystore de Android o el Llavero de iOS. La clave de acceso se guarda como un hash PBKDF2, no en claro. Tras 3 intentos fallidos la espera entre intentos se duplica.',
-                'Your data is stored encrypted (ChaCha20-Poly1305) in the app private storage; the key lives in the Android Keystore or iOS Keychain. The passcode is stored as a PBKDF2 hash, never in clear. After 3 failed attempts the wait doubles each time.',
+                'Tus datos se guardan cifrados (ChaCha20-Poly1305) en el almacenamiento privado de la app; la llave vive en el Keystore de Android o el Llavero de iOS. La clave de acceso se guarda como un hash PBKDF2, no en claro. Tras 3 intentos fallidos la espera entre intentos se duplica, aunque cierres la app. Con clave, Android no deja tomar capturas de Plata y la vista de apps recientes no muestra tus saldos. Si olvidas la clave, desde la pantalla de bloqueo puedes borrar todo y empezar de nuevo: sin ella tus datos no se pueden abrir.',
+                'Your data is stored encrypted (ChaCha20-Poly1305) in the app private storage; the key lives in the Android Keystore or iOS Keychain. The passcode is stored as a PBKDF2 hash, never in clear. After 3 failed attempts the wait doubles each time, even if you close the app. With a passcode, Android blocks screenshots of Plata and the recent apps view does not show your balances. If you forget the passcode, the lock screen lets you erase everything and start over: without it your data cannot be opened.',
               ), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65))),
             ),
           ],
@@ -163,7 +163,7 @@ Future<String?> askPasscode(BuildContext context, String title) async {
     context: context,
     builder: (BuildContext context) => AlertDialog(
       title: Text(title),
-      content: TextField(controller: ctrl, autofocus: true, obscureText: true, keyboardType: TextInputType.number, maxLength: 8, decoration: const InputDecoration(counterText: ''), onSubmitted: (String s) => Navigator.pop(context, s)),
+      content: TextField(controller: ctrl, autofocus: true, obscureText: true, autocorrect: false, enableSuggestions: false, enableIMEPersonalizedLearning: false, keyboardType: TextInputType.number, maxLength: 8, decoration: const InputDecoration(counterText: ''), onSubmitted: (String s) => Navigator.pop(context, s)),
       actions: <Widget>[
         TextButton(onPressed: () => Navigator.pop(context), child: Text(t(context, 'Cancelar', 'Cancel'))),
         FilledButton(onPressed: () => Navigator.pop(context, ctrl.text), child: Text(t(context, 'Aceptar', 'OK'))),

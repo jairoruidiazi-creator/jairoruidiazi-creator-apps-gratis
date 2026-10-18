@@ -24,7 +24,14 @@ class BackupManager {
   static const int keep = 7;
 
   /// Copia local si hoy no se ha hecho. Devuelve la ruta relativa creada.
+  ///
+  /// Mientras el libro no se pueda abrir (modo de recuperación) no hace nada:
+  /// copiaría un libro vacío y, al rotar, borraría las copias buenas. Las
+  /// copias viejas se borran solo después de escribir la nueva.
   Future<String?> autoBackup({DateTime? now, bool force = false}) async {
+    if (ledger.readOnly || !ledger.loaded) {
+      return null;
+    }
     final DateTime today = dateOnly(now ?? clock.now());
     final DateTime? last = settings.lastBackupAt;
     if (!force && last != null && !dateOnly(last).isBefore(today)) {
@@ -86,10 +93,17 @@ class BackupManager {
         throw const FormatException('Contraseña incorrecta o archivo dañado');
       }
     }
-    final dynamic decoded = jsonDecode(utf8.decode(clear));
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(utf8.decode(clear));
+    } on FormatException {
+      throw const FormatException('No es un respaldo de Plata');
+    }
     if (decoded is! Map<String, dynamic> || decoded['accounts'] is! List) {
       throw const FormatException('No es un respaldo de Plata');
     }
+    // Se valida completo aquí, antes de preguntar si se reemplazan los datos.
+    LedgerSnapshot.parse(decoded);
     return decoded;
   }
 

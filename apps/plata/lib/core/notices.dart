@@ -31,7 +31,14 @@ class RawNotice {
 /// Puente con el servicio nativo de Android (ver native/android).
 abstract class NoticeBridge {
   Future<bool> isSupported();
+
+  /// Si el usuario concedió el "Acceso a notificaciones" en Android.
   Future<bool> isEnabled();
+
+  /// Enciende o apaga la lectura en el servicio nativo. Apagada, el servicio
+  /// ignora todo aviso aunque el permiso del sistema siga concedido, y borra
+  /// los que tenía guardados.
+  Future<void> setEnabled(bool on);
   Future<bool> openSettings();
   Future<List<RawNotice>> readPending();
   Future<void> clearPending();
@@ -69,6 +76,18 @@ class PlatformNoticeBridge implements NoticeBridge {
   }
 
   @override
+  Future<void> setEnabled(bool on) async {
+    if (!_android) {
+      return;
+    }
+    try {
+      await _m.invokeMethod<bool>('setEnabled', on);
+    } catch (e) {
+      debugPrint('Avisos (setEnabled): $e');
+    }
+  }
+
+  @override
   Future<bool> openSettings() async {
     try {
       return await _m.invokeMethod<bool>('openSettings') ?? false;
@@ -92,6 +111,9 @@ class PlatformNoticeBridge implements NoticeBridge {
 
   @override
   Future<void> clearPending() async {
+    if (!_android) {
+      return;
+    }
     try {
       await _m.invokeMethod<void>('clearPending');
     } catch (_) {}
@@ -106,6 +128,10 @@ class FakeNoticeBridge implements NoticeBridge {
 
   bool supported;
   bool enabled;
+
+  /// Estado de la bandera del servicio nativo (null = nunca se fijó).
+  bool? capturing;
+  int cleared = 0;
   final List<RawNotice> pending = <RawNotice>[];
   final StreamController<RawNotice> controller = StreamController<RawNotice>.broadcast();
 
@@ -114,6 +140,14 @@ class FakeNoticeBridge implements NoticeBridge {
 
   @override
   Future<bool> isEnabled() async => enabled;
+
+  @override
+  Future<void> setEnabled(bool on) async {
+    capturing = on;
+    if (!on) {
+      pending.clear();
+    }
+  }
 
   @override
   Future<bool> openSettings() async {
@@ -125,7 +159,10 @@ class FakeNoticeBridge implements NoticeBridge {
   Future<List<RawNotice>> readPending() async => List<RawNotice>.from(pending);
 
   @override
-  Future<void> clearPending() async => pending.clear();
+  Future<void> clearPending() async {
+    cleared += 1;
+    pending.clear();
+  }
 
   @override
   Stream<RawNotice> get live => controller.stream;
@@ -141,9 +178,18 @@ class NoticeService {
   final AppSettings settings;
   StreamSubscription<RawNotice>? _sub;
 
-  /// Arranca la escucha en vivo y procesa lo pendiente.
+  /// Sincroniza la bandera nativa con el ajuste, escucha en vivo y procesa lo
+  /// pendiente. Con la lectura apagada, borra lo que hubiera quedado guardado.
+  /// Mientras el libro no se pueda abrir (modo de recuperación) no procesa ni
+  /// borra nada: los avisos esperan a que se restaure una copia.
   Future<void> start() async {
+    await bridge.setEnabled(settings.noticesEnabled);
     if (!settings.noticesEnabled) {
+      await stop();
+      await bridge.clearPending();
+      return;
+    }
+    if (ledger.readOnly) {
       return;
     }
     await pull();
@@ -155,9 +201,17 @@ class NoticeService {
     _sub = null;
   }
 
+  /// Apaga la lectura: deja de escuchar, apaga el servicio nativo y borra los
+  /// avisos que estaban esperando.
+  Future<void> disable() async {
+    await stop();
+    await bridge.setEnabled(false);
+    await bridge.clearPending();
+  }
+
   /// Procesa los avisos guardados mientras la app estaba cerrada.
   Future<int> pull() async {
-    if (!settings.noticesEnabled) {
+    if (!settings.noticesEnabled || ledger.readOnly) {
       return 0;
     }
     final List<RawNotice> list = await bridge.readPending();
@@ -172,18 +226,29 @@ class NoticeService {
   }
 
   /// Interpreta un aviso y lo deja en la bandeja; devuelve si produjo algo.
+  ///
+  /// Con "Anotar sin preguntar" solo se anota directo un gasto o un ingreso
+  /// cuya cuenta se identificó sin dudas ([NoticeMatch.certain]) y en la misma
+  /// moneda de la cuenta. Pagos de tarjeta, retiros y movimientos entre cuentas
+  /// propias siempre quedan para revisar (si no, contarían como gasto).
   Future<bool> handle(RawNotice n) async {
+    if (!settings.noticesEnabled || ledger.readOnly) {
+      return false;
+    }
     final BankSuggestion? s = BankRules.parse(packageName: n.package, title: n.title, text: n.text);
     if (s == null) {
       return false;
     }
-    final InboxItem item = InboxItem(id: newId(), bank: s.bank, kind: s.kind, amountMinor: s.amountMinor, currency: s.currency, merchant: s.merchant, last4: s.last4, receivedAt: n.time, rawTitle: n.title, rawText: n.text);
+    final InboxItem item = InboxItem(id: newId(), bank: s.bank, kind: s.kind, amountMinor: s.amountMinor, currency: s.currency, merchant: s.merchant, last4: s.last4, toLast4: s.toLast4, flow: s.flow, receivedAt: n.time, rawTitle: n.title, rawText: n.text);
     final InboxItem stored = await ledger.addInbox(item);
     if (!identical(stored, item)) {
       return false; // duplicado
     }
-    if (settings.noticesAutoPost && stored.accountId != null) {
-      await ledger.acceptInbox(stored);
+    if (settings.noticesAutoPost && stored.kind != TxKind.transfer) {
+      final NoticeMatch m = ledger.matchNotice(stored);
+      if (m.certain && m.account != null && m.account!.currency == stored.currency) {
+        await ledger.acceptInbox(stored, accountId: m.account!.id);
+      }
     }
     return true;
   }

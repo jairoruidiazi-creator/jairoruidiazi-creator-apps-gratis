@@ -14,14 +14,14 @@ Plata es una app gratuita y de código abierto publicada por el equipo de apps-g
 
 - **Tus finanzas:** cuentas, saldos, movimientos, categorías, presupuestos, programados, plantillas y notas.
 - **Fotos de recibos** que adjuntes a un movimiento, tomadas con la cámara o elegidas de tus fotos.
-- **Avisos bancarios (solo Android y solo si los activas):** el título y el texto de las notificaciones de las apps de bancos y billeteras de la lista de la app, para sugerirte el movimiento.
+- **Avisos bancarios (solo Android y solo si los activas):** el título y el texto de las notificaciones de estas apps de bancos y billeteras, para sugerirte el movimiento: Mi Bancolombia, Nequi, Daviplata, Davivienda, BBVA, Banco de Bogotá, Banco de Occidente, DAVIbank (antes Scotiabank Colpatria), Lulo Bank, Nu y MOVii.
 - **Ajustes** de la app, la clave de acceso (guardada como huella criptográfica, nunca en claro) y las copias automáticas.
 
-Todo vive en tu teléfono, en la carpeta privada de la app. Los datos y las fotos de recibos se guardan cifrados con ChaCha20-Poly1305 y una llave que guarda el sistema (Keystore de Android o Llavero de iOS); si el teléfono no ofrece ese almacén seguro, la llave queda en la carpeta privada de la app. Esa carpeta no entra en las copias de seguridad de Google o de iCloud ni en el traspaso a un teléfono nuevo, porque la llave no viaja con ella: para llevar tus datos a otro teléfono usa la copia cifrada con contraseña. Los avisos bancarios que llegan con la app cerrada esperan, sin cifrar y por poco tiempo, en la carpeta privada de la app hasta que la abres y Plata los procesa. Nosotros no recibimos nada de esto, no lo vemos y no lo podemos recuperar.
+Todo vive en tu teléfono, en la carpeta privada de la app. Los datos y las fotos de recibos se guardan cifrados con ChaCha20-Poly1305 y una llave que guarda el sistema (Keystore de Android o Llavero de iOS); si al instalar la app el teléfono no ofrece ese almacén seguro, la llave queda en la carpeta privada de la app, protegida por el sistema y no por hardware. Esa carpeta no entra en las copias de seguridad de Google o de iCloud ni en el traspaso a un teléfono nuevo, porque la llave no viaja con ella: para llevar tus datos a otro teléfono usa la copia cifrada con contraseña. Los avisos bancarios que llegan con la app cerrada esperan cifrados (AES-GCM, con una llave del Keystore de Android) en la carpeta privada de la app hasta que la abres y Plata los procesa; si apagas los avisos, se borran. En iPhone el Llavero conserva sus claves aunque desinstales una app, así que la primera vez que Plata se abre tras instalarse borra lo que hubiera dejado una instalación anterior, como una clave de acceso. Nosotros no recibimos nada de esto, no lo vemos y no lo podemos recuperar.
 
 ## Permisos
 
-- **Acceso a notificaciones (Android, opcional):** solo si activas los avisos bancarios. Plata lee únicamente las notificaciones de las apps de bancos y billeteras de su lista e ignora las demás; lo que lee se usa en el teléfono. Puedes quitar el permiso cuando quieras en los ajustes del sistema.
+- **Acceso a notificaciones (Android, opcional):** solo si activas los avisos bancarios. Plata lee únicamente las notificaciones de las apps de bancos y billeteras de su lista e ignora las demás; lo que lee se usa en el teléfono. Si apagas los avisos en Plata, deja de leer aunque el permiso siga concedido; puedes quitar el permiso cuando quieras en los ajustes del sistema.
 - **Cámara y fotos (opcional):** para adjuntar la foto de un recibo.
 - **Huella o rostro (opcional):** para desbloquear la app; la verificación la hace el sistema y Plata no recibe tus datos biométricos.
 - **Notificaciones:** para tus recordatorios de anotar y de pagos, que se programan en el teléfono.
@@ -29,7 +29,7 @@ Todo vive en tu teléfono, en la carpeta privada de la app. Los datos y las foto
 
 ## Qué sale del teléfono y a quién
 
-Si usas otras monedas además de la principal y dejas activada la actualización de tasas, Plata consulta una vez al día la Tasa Representativa del Mercado en datos.gov.co (Gobierno de Colombia) y los cambios de referencia del Banco Central Europeo a través de api.frankfurter.app y, como respaldo, open.er-api.com. Estas consultas no llevan ningún dato tuyo: esos servicios solo ven la dirección IP desde la que se hace la consulta, como cualquier sitio web. Se apaga en Más › Monedas.
+Si usas otras monedas además de la principal y dejas activada la actualización de tasas, Plata consulta una vez al día la Tasa Representativa del Mercado en datos.gov.co (Gobierno de Colombia), los cambios de referencia del Banco Central Europeo a través de api.frankfurter.dev y, para las monedas que el Banco Central Europeo no publica, open.er-api.com (ExchangeRate-API). Estas consultas no llevan ningún dato tuyo: esos servicios solo ven la dirección IP desde la que se hace la consulta, como cualquier sitio web. Se apaga en Más › Monedas.
 
 Los enlaces de la guía (código fuente y reportar un problema) abren el navegador solo si los tocas.
 
@@ -43,11 +43,11 @@ Plata es una herramienta de finanzas personales para adultos. No está dirigida 
 
 ## Seguridad
 
-Además del cifrado, puedes poner una clave de acceso y desbloquear con huella o rostro; tras varios intentos fallidos la espera entre intentos crece. Recomendamos proteger el teléfono con bloqueo de pantalla y guardar copias cifradas en un lugar seguro: si pierdes el teléfono o la clave, nosotros no podemos recuperar tus datos.
+Además del cifrado, puedes poner una clave de acceso y desbloquear con huella o rostro; tras varios intentos fallidos la espera entre intentos crece, aunque cierres la app. Con la clave puesta, Plata se tapa al salir de ella, para que no se vea en las apps recientes, y Android no deja tomar capturas de pantalla de la app. Nadie puede recuperar la clave: si la olvidas, en la pantalla de bloqueo puedes borrar todo lo de Plata en el teléfono y empezar de nuevo. Recomendamos proteger el teléfono con bloqueo de pantalla y guardar copias cifradas en un lugar seguro: si pierdes el teléfono o la clave, nosotros no podemos recuperar tus datos.
 
 ## Conservación y borrado
 
-Tus datos permanecen en el teléfono hasta que los borres. Puedes borrar movimientos, cuentas y copias desde la app, o borrar todo desinstalándola o limpiando sus datos en los ajustes del sistema. Las copias que hayas exportado fuera de la app las borras tú donde las guardaste. Como no guardamos copias, no hay nada más que borrar de nuestro lado.
+Tus datos permanecen en el teléfono hasta que los borres. Puedes borrar movimientos, cuentas y copias desde la app; borrar todo con «¿Olvidaste la clave?» en la pantalla de bloqueo, que quita datos, fotos, copias automáticas, avisos pendientes, la clave y la llave de cifrado; o desinstalarla o limpiar sus datos en los ajustes del sistema. Las copias que hayas exportado fuera de la app las borras tú donde las guardaste. Como no guardamos copias, no hay nada más que borrar de nuestro lado.
 
 ## Tus derechos
 
@@ -59,4 +59,4 @@ Si la app cambia la forma en que maneja la información, actualizaremos esta pol
 
 ## Contacto
 
-Escríbenos abriendo un reporte en github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/issues o al correo de contacto del desarrollador que aparece en la ficha de la app.
+Para cualquier consulta, también las privadas, usa la página de soporte: github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/blob/main/docs/SOPORTE.md. Allí se explica cómo abrir un reporte en github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/issues y cómo pedir un contacto privado sin publicar datos personales.

@@ -52,6 +52,12 @@ void main() {
       expect(RegExp(r'\bTODO\b|\bTBD\b|XXX').hasMatch(src), isFalse);
       expect(RegExp(r'lorem ipsum|ejemplo\.com|example\.com', caseSensitive: false).hasMatch(src), isFalse);
       expect(src, contains('github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/issues'));
+      // El contacto, también el privado, pasa por la página de soporte: ni la
+      // App Store ni la política muestran un correo.
+      final int contact = blocks.lastIndexWhere((LegalBlock b) => b.kind == LegalBlockKind.heading);
+      final String contactText = blocks.skip(contact + 1).map((LegalBlock b) => b.text).join(' ');
+      expect(contactText, contains('github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/blob/main/docs/SOPORTE.md'));
+      expect(RegExp(r'correo|e-?mail|@', caseSensitive: false).hasMatch(contactText), isFalse);
     });
   }
 

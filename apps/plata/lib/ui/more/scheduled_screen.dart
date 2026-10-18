@@ -42,16 +42,9 @@ class ScheduledScreen extends StatelessWidget {
             return a.nextDate.compareTo(b.nextDate);
           });
         final DateTime today = dateOnly(clock.now());
-        int monthlyOut = 0;
-        int monthlyIn = 0;
-        for (final Scheduled sch in list.where((Scheduled x) => x.enabled)) {
-          final int perMonth = _perMonth(sch);
-          if (sch.kind == TxKind.expense) {
-            monthlyOut += perMonth;
-          } else if (sch.kind == TxKind.income) {
-            monthlyIn += perMonth;
-          }
-        }
+        final MonthlyCommitments commitments = l.monthlyCommitments();
+        final int monthlyOut = commitments.outMinor;
+        final int monthlyIn = commitments.inMinor;
         return ReadableScaffold(
           appBar: AppBar(title: Text(t(context, 'Programados', 'Scheduled'))),
           floatingActionButton: FloatingActionButton.extended(heroTag: null, onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ScheduledEditor())), icon: const Icon(Icons.add), label: Text(t(context, 'Programado', 'Scheduled'))),
@@ -79,23 +72,8 @@ class ScheduledScreen extends StatelessWidget {
     );
   }
 
-  static int _perMonth(Scheduled s) {
-    switch (s.frequency.unit) {
-      case FrequencyUnit.day:
-        return (s.amountMinor * 30 / s.frequency.every).round();
-      case FrequencyUnit.week:
-        return (s.amountMinor * 52 / 12 / s.frequency.every).round();
-      case FrequencyUnit.month:
-        return (s.amountMinor / s.frequency.every).round();
-      case FrequencyUnit.year:
-        return (s.amountMinor / 12 / s.frequency.every).round();
-      case FrequencyUnit.quincena:
-        return s.amountMinor * 2;
-    }
-  }
-
   String _when(BuildContext context, Scheduled s, DateTime today) {
-    final int days = dateOnly(s.nextDate).difference(today).inDays;
+    final int days = daysBetween(today, s.nextDate);
     if (!s.enabled) {
       return t(context, 'pausado', 'paused');
     }
@@ -130,6 +108,10 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
   late int _amount = widget.existing?.amountMinor ?? 0;
   late String? _accountId = widget.existing?.accountId;
   late String? _toAccountId = widget.existing?.toAccountId;
+
+  /// Monto fijo que llega al destino de una transferencia entre monedas
+  /// (null = con la tasa del día en que se anota).
+  late int? _toAmount = widget.existing?.toAmountMinor;
   late String? _categoryId = widget.existing?.categoryId;
   late FrequencyUnit _unit = widget.existing?.frequency.unit ?? FrequencyUnit.month;
   late DateTime _next = widget.existing?.nextDate ?? dateOnly(clock.now());
@@ -157,14 +139,19 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
   Future<void> _save() async {
     final Ledger l = _s!.ledger;
     final String name = _name.text.trim();
-    if (name.isEmpty || _amount <= 0 || _accountId == null || (_kind == TxKind.transfer && _toAccountId == null)) {
+    if (name.isEmpty || _amount <= 0 || _accountId == null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Completa nombre, monto y cuenta.', 'Fill in name, amount and account.'))));
       return;
     }
+    if (_kind == TxKind.transfer && (l.account(_toAccountId) == null || _toAccountId == _accountId)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Elige la cuenta de destino.', 'Choose the destination account.'))));
+      return;
+    }
+    final int? toAmount = _crossCurrency(l) ? _toAmount : null;
     final Frequency f = Frequency(unit: _unit, every: (int.tryParse(_every.text) ?? 1).clamp(1, 365));
     final Scheduled? e = widget.existing;
     if (e == null) {
-      await l.addScheduled(Scheduled(id: newId(), name: name, kind: _kind, amountMinor: _amount, accountId: _accountId!, toAccountId: _kind == TxKind.transfer ? _toAccountId : null, categoryId: _kind == TxKind.transfer ? null : _categoryId, description: _desc.text.trim(), frequency: f, nextDate: _next, anchorDate: _next, endDate: _end, autoPost: _autoPost, remindDaysBefore: _remind, enabled: _enabled));
+      await l.addScheduled(Scheduled(id: newId(), name: name, kind: _kind, amountMinor: _amount, accountId: _accountId!, toAccountId: _kind == TxKind.transfer ? _toAccountId : null, toAmountMinor: toAmount, categoryId: _kind == TxKind.transfer ? null : _categoryId, description: _desc.text.trim(), frequency: f, nextDate: _next, anchorDate: _next, endDate: _end, autoPost: _autoPost, remindDaysBefore: _remind, enabled: _enabled));
     } else {
       final bool dateChanged = e.nextDate != _next;
       e
@@ -173,6 +160,7 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
         ..amountMinor = _amount
         ..accountId = _accountId!
         ..toAccountId = _kind == TxKind.transfer ? _toAccountId : null
+        ..toAmountMinor = toAmount
         ..categoryId = _kind == TxKind.transfer ? null : _categoryId
         ..description = _desc.text.trim()
         ..frequency = f
@@ -191,11 +179,18 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
     }
   }
 
+  bool _crossCurrency(Ledger l) {
+    final Account? from = l.account(_accountId);
+    final Account? to = l.account(_toAccountId);
+    return _kind == TxKind.transfer && from != null && to != null && from.currency != to.currency;
+  }
+
   @override
   Widget build(BuildContext context) {
     final Services s = _s ?? AppScope.of(context);
     final Ledger l = s.ledger;
     final String currency = l.account(_accountId)?.currency ?? l.baseCurrency;
+    final Account? toAccount = l.account(_toAccountId);
     final Scheduled? e = widget.existing;
     return ReadableScaffold(
       appBar: AppBar(
@@ -205,7 +200,14 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
             PopupMenuButton<String>(
               onSelected: (String v) async {
                 if (v == 'post') {
-                  await l.postScheduled(e);
+                  try {
+                    await l.postScheduled(e);
+                  } on TxRejected catch (err) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(txProblemText(context, err))));
+                    }
+                    return;
+                  }
                   if (context.mounted) {
                     Navigator.pop(context);
                   }
@@ -284,8 +286,22 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
                   setState(() => _toAccountId = a.id);
                 }
               },
-            )
-          else
+            ),
+          if (_crossCurrency(l) && toAccount != null)
+            AmountTile(
+              minor: _toAmount ?? 0,
+              currency: toAccount.currency,
+              label: _toAmount == null ? t(context, 'Monto recibido (vacío = con la tasa del día)', 'Amount received (empty = rate of the day)') : t(context, 'Monto recibido fijo', 'Fixed amount received'),
+              onTap: () async {
+                final int? v = await pickAmount(context, initialMinor: _toAmount ?? 0, currency: toAccount.currency, title: '${t(context, 'Monto recibido en', 'Amount received in')} ${toAccount.currency}');
+                if (v != null) {
+                  setState(() => _toAmount = v <= 0 ? null : v);
+                }
+              },
+            ),
+          if (_crossCurrency(l) && _toAmount == null)
+            Padding(padding: const EdgeInsets.only(top: 4), child: Text(t(context, 'Si el día que toca no hay tasa entre las dos monedas, queda pendiente para que lo confirmes.', 'If there is no rate between the two currencies on the day, it waits for you to confirm it.'), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)))),
+          if (_kind != TxKind.transfer)
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.label_outline),

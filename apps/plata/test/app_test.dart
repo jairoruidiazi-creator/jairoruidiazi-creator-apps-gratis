@@ -68,7 +68,8 @@ void main() {
 
   setUp(() async {
     tmp = await Directory.systemTemp.createTemp('plata_app_test');
-    SharedPreferences.setMockInitialValues(<String, Object>{});
+    // El idioma inicial sale del teléfono (en las pruebas, inglés): esta prueba recorre la app en español.
+    SharedPreferences.setMockInitialValues(<String, Object>{'language': 'es'});
     final AppSettings settings = AppSettings();
     await settings.load();
     final JsonStore store = JsonStore(root: tmp);

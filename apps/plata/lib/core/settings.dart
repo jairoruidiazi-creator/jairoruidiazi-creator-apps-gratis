@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,10 +30,27 @@ class AppSettings extends ChangeNotifier {
 
   bool get spanish => language == 'es';
 
-  Future<void> load() async {
+  /// Idioma inicial: el primero de los idiomas del teléfono que la app tiene
+  /// (español o inglés); si no tiene ninguno, inglés.
+  static String languageFor(List<ui.Locale> locales) {
+    for (final ui.Locale l in locales) {
+      if (l.languageCode == 'es') {
+        return 'es';
+      }
+      if (l.languageCode == 'en') {
+        return 'en';
+      }
+    }
+    return 'en';
+  }
+
+  /// Lee las preferencias. Sin idioma guardado (el primer arranque) se usa el
+  /// del teléfono ([deviceLocales], por defecto los del sistema); después
+  /// manda el que quede guardado, que se cambia en Ajustes.
+  Future<void> load({List<ui.Locale>? deviceLocales}) async {
     final SharedPreferences p = await SharedPreferences.getInstance();
     _prefs = p;
-    language = p.getString('language') ?? 'es';
+    language = p.getString('language') ?? languageFor(deviceLocales ?? ui.PlatformDispatcher.instance.locales);
     themeMode = p.getString('themeMode') ?? 'system';
     showCents = p.getBool('showCents') ?? false;
     onboarded = p.getBool('onboarded') ?? false;
@@ -53,6 +72,28 @@ class AppSettings extends ChangeNotifier {
   }
 
   void refresh() => notifyListeners();
+
+  /// Vuelve a los valores de fábrica (borrar todo). Conserva el idioma.
+  Future<void> resetAll() async {
+    themeMode = 'system';
+    showCents = false;
+    onboarded = false;
+    defaultAccountId = '';
+    dailyReminder = false;
+    dailyReminderHour = 20;
+    dailyReminderMinute = 30;
+    billReminders = true;
+    billReminderDaysBefore = 1;
+    noticesEnabled = false;
+    noticesAutoPost = false;
+    ratesAuto = true;
+    autoBackup = true;
+    extraCurrencies = <String>[];
+    lastBackupAt = null;
+    lastRatesAttempt = null;
+    hideBalances = false;
+    await save();
+  }
 
   Future<void> save() async {
     final SharedPreferences? p = _prefs;

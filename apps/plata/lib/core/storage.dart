@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:path_provider/path_provider.dart';
@@ -7,12 +8,21 @@ import 'package:path_provider/path_provider.dart';
 /// Guarda y lee archivos JSON y binarios en la carpeta privada de la app
 /// (Application Support en iOS, `files` en Android): no se ve en la app
 /// Archivos y el sistema no la copia a la nube (ver docs/DECISIONES.md).
-/// Las escrituras son atómicas: se escribe un archivo temporal y se renombra.
+///
+/// Las escrituras son atómicas: se escribe un temporal con nombre único, se
+/// fuerza a disco y se renombra encima del archivo final. En Android e iOS el
+/// renombrado reemplaza el destino de una vez, así que nunca hay un momento
+/// sin archivo: si el proceso muere a mitad, queda el archivo anterior entero
+/// (y quizá un temporal que [Ledger.load] sabe recuperar).
 class JsonStore {
   JsonStore({Directory? root}) : _rootOverride = root;
 
   final Directory? _rootOverride;
   Directory? _root;
+  static final Random _random = Random();
+
+  /// Sufijo de los temporales: `<archivo>.<azar>.tmp`.
+  static const String tmpSuffix = '.tmp';
 
   Future<Directory> root() async {
     if (_root != null) {
@@ -52,6 +62,11 @@ class JsonStore {
     return file;
   }
 
+  /// Nombre de un temporal único junto a [file].
+  static File _tmpFor(File file) => File('${file.path}.${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${_random.nextInt(1 << 32).toRadixString(36)}$tmpSuffix');
+
+  Future<bool> exists(String relativePath) async => (await _file(relativePath)).exists();
+
   Future<Map<String, dynamic>?> readJson(String relativePath) async {
     final File file = await _file(relativePath);
     if (!await file.exists()) {
@@ -72,15 +87,7 @@ class JsonStore {
     }
   }
 
-  Future<void> writeJson(String relativePath, Map<String, dynamic> data) async {
-    final File file = await _file(relativePath);
-    final File tmp = File('${file.path}.tmp');
-    await tmp.writeAsString(jsonEncode(data), flush: true);
-    if (await file.exists()) {
-      await file.delete();
-    }
-    await tmp.rename(file.path);
-  }
+  Future<void> writeJson(String relativePath, Map<String, dynamic> data) => writeBytes(relativePath, utf8.encode(jsonEncode(data)));
 
   Future<Uint8List?> readBytes(String relativePath) async {
     final File file = await _file(relativePath);
@@ -92,12 +99,18 @@ class JsonStore {
 
   Future<File> writeBytes(String relativePath, List<int> bytes) async {
     final File file = await _file(relativePath);
-    final File tmp = File('${file.path}.tmp');
-    await tmp.writeAsBytes(bytes, flush: true);
-    if (await file.exists()) {
-      await file.delete();
+    final File tmp = _tmpFor(file);
+    try {
+      await tmp.writeAsBytes(bytes, flush: true);
+      return await tmp.rename(file.path);
+    } catch (_) {
+      try {
+        if (await tmp.exists()) {
+          await tmp.delete();
+        }
+      } catch (_) {}
+      rethrow;
     }
-    return tmp.rename(file.path);
   }
 
   Future<void> delete(String relativePath) async {
@@ -107,11 +120,22 @@ class JsonStore {
     }
   }
 
-  /// Rutas relativas de los archivos de una carpeta, ordenadas por nombre.
-  Future<List<String>> list(String relativeDir, {String? extension}) async {
+  /// Mueve un archivo dentro de la carpeta de la app (reemplaza el destino).
+  Future<void> move(String fromRelative, String toRelative) async {
+    final File from = await _file(fromRelative);
+    if (!await from.exists()) {
+      return;
+    }
+    final File to = await _file(toRelative);
+    await from.rename(to.path);
+  }
+
+  /// Rutas relativas de los archivos de una carpeta ('' es la raíz), ordenadas
+  /// por nombre.
+  Future<List<String>> list(String relativeDir, {String? extension, String? prefix}) async {
     final Directory dir = await root();
     final String sep = Platform.pathSeparator;
-    final Directory sub = Directory('${dir.path}$sep${relativeDir.replaceAll('/', sep)}');
+    final Directory sub = relativeDir.isEmpty ? dir : Directory('${dir.path}$sep${relativeDir.replaceAll('/', sep)}');
     if (!await sub.exists()) {
       return <String>[];
     }
@@ -119,13 +143,22 @@ class JsonStore {
     await for (final FileSystemEntity e in sub.list()) {
       if (e is File) {
         final String name = e.uri.pathSegments.last;
-        if (extension == null || name.endsWith(extension)) {
-          out.add('$relativeDir/$name');
+        if ((extension == null || name.endsWith(extension)) && (prefix == null || name.startsWith(prefix))) {
+          out.add(relativeDir.isEmpty ? name : '$relativeDir/$name');
         }
       }
     }
     out.sort();
     return out;
+  }
+
+  /// Fecha de modificación de un archivo (null si no existe).
+  Future<DateTime?> modified(String relativePath) async {
+    final File file = await _file(relativePath);
+    if (!await file.exists()) {
+      return null;
+    }
+    return file.lastModified();
   }
 
   /// Borra todos los archivos de una carpeta (por ejemplo, las exportaciones
@@ -141,6 +174,24 @@ class JsonStore {
       }
     }
     return n;
+  }
+
+  /// Borra todo lo que la app guarda en su carpeta (datos, copias, fotos y
+  /// exportaciones) y deja la carpeta vacía.
+  Future<void> wipe() async {
+    final Directory dir = await root();
+    if (await dir.exists()) {
+      await for (final FileSystemEntity e in dir.list()) {
+        try {
+          await e.delete(recursive: true);
+        } catch (_) {
+          // Lo que no se pueda borrar ahora (un archivo abierto) se reintenta
+          // en el siguiente borrado; los datos ya no se pueden leer sin la llave.
+        }
+      }
+    } else {
+      await dir.create(recursive: true);
+    }
   }
 
   Future<String> absolutePath(String relativePath) async {

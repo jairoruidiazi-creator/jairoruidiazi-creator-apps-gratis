@@ -32,7 +32,7 @@ política de privacidad (`assets/legal/privacy_*.md`).
 **Seguridad de los datos (Data safety):**
 
 - ¿Recopila o comparte alguno de los tipos de datos requeridos? **No.**
-- Motivo, para la revisión: los datos financieros, las fotos de recibos y las notificaciones bancarias se procesan y guardan solo en el teléfono, cifrados. La única conexión descarga tasas de cambio de datos.gov.co, api.frankfurter.app y open.er-api.com, y esas consultas no llevan datos del usuario. Las copias y exportaciones salen del teléfono solo cuando el usuario las comparte con la hoja del sistema (transferencia iniciada por el usuario, que Google no cuenta como compartir).
+- Motivo, para la revisión: los datos financieros, las fotos de recibos y las notificaciones bancarias se procesan y guardan solo en el teléfono, cifrados (los avisos que llegan con la app cerrada esperan cifrados con AES-GCM y una llave del Keystore, y se borran al apagar la lectura). La única conexión descarga tasas de cambio de datos.gov.co, api.frankfurter.dev y open.er-api.com, y esas consultas no llevan datos del usuario. Las copias y exportaciones salen del teléfono solo cuando el usuario las comparte con la hoja del sistema (transferencia iniciada por el usuario, que Google no cuenta como compartir).
 
 **Permisos y accesos especiales:**
 
@@ -43,9 +43,9 @@ política de privacidad (`assets/legal/privacy_*.md`).
 | `RECEIVE_BOOT_COMPLETED` | Volver a programar los recordatorios tras reiniciar | — |
 | `USE_BIOMETRIC` / `USE_FINGERPRINT` | Desbloqueo con huella o rostro | — |
 | `VIBRATE` | Vibración de las notificaciones | — |
-| `BIND_NOTIFICATION_LISTENER_SERVICE` (acceso a notificaciones, opcional) | Leer avisos de apps de bancos para sugerir movimientos | No hay formulario propio; la app muestra un **aviso destacado** antes de abrir el ajuste (Más › Avisos bancarios) |
+| `BIND_NOTIFICATION_LISTENER_SERVICE` (acceso a notificaciones, opcional) | Leer avisos de las 11 apps de bancos y billeteras de la lista para sugerir movimientos | No hay formulario propio; la app muestra un **aviso destacado** antes de abrir el ajuste (Más › Avisos bancarios). Al apagar la lectura en la app, el servicio deja de leer aunque el permiso siga concedido, y la app ofrece abrir el ajuste para quitarlo |
 
-No usa alarmas exactas, ubicación, contactos, SMS, ni `READ_MEDIA_*` (las fotos de recibos se eligen con el selector de fotos del sistema). La CI verifica la lista de permisos en cada compilación (`tools/store/android.json`).
+No usa alarmas exactas, ubicación, contactos, SMS, ni `READ_MEDIA_*` (las fotos de recibos se eligen con el selector de fotos del sistema). Con clave de acceso, la ventana usa `FLAG_SECURE` (no requiere permiso). La CI verifica la lista de permisos en cada compilación (`tools/store/android.json`).
 
 **Copias de seguridad de Android:** `allowBackup=false` y reglas de extracción que excluyen todos los datos (la llave del Keystore no viaja; la CI lo verifica en el manifiesto compilado).
 
@@ -68,3 +68,11 @@ Desde 2021, el software de mercado masivo con cifrado estándar (5D992.c) no nec
 **Notas para la revisión:** `fastlane/metadata/ios/review_information/notes.txt` (en inglés). El nombre, el teléfono y el correo del contacto de revisión los llena el titular de la cuenta en App Store Connect.
 
 **Funciones solo de Android:** los avisos bancarios no existen en iOS; la ficha de la App Store no los menciona y la app no los muestra en iPhone.
+
+## Fichas y textos
+
+- **Tarjetas de crédito:** la app, la guía, el recordatorio y las fichas dicen que el estado de cuenta es *capital estimado, sin intereses ni cuota de manejo* y remiten al extracto del banco; ningún texto promete "cuánto pagar".
+- **Bancos:** la ficha de Google Play no usa marcas de bancos (dice cuántas apps se leen y que Plata no está afiliada a ningún banco); la app y la política nombran las 11 apps porque el usuario elige con ellas el banco de cada cuenta. La lista está comprobada en Google Play (ver `docs/DECISIONES.md`).
+- **Tasas:** ExchangeRate-API exige atribución en su acceso abierto: la pantalla de monedas muestra «Rates By Exchange Rate API» con enlace a exchangerate-api.com cuando alguna tasa viene de ahí.
+- **Llave en archivo:** la ficha de Google Play aclara que, si el teléfono no ofrece el Keystore, la llave queda en la carpeta privada de la app; la política dice lo mismo.
+- **Contacto:** la política remite a la página de soporte (`docs/SOPORTE.md`), que no depende del correo de la ficha.

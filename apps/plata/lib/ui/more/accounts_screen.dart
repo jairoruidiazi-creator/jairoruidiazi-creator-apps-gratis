@@ -1,11 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
+import '../../core/bank_rules.dart';
 import '../../core/defaults.dart';
 import '../../core/ledger.dart';
 import '../../model/models.dart';
 import '../../model/money.dart';
-import '../transactions/tx_editor.dart';
 import '../transactions/tx_list_screen.dart';
 import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
@@ -100,9 +101,12 @@ class _AccountRow extends StatelessWidget {
     final List<String> sub = <String>[accountTypeName(context, a.type)];
     if (a.isCredit) {
       final CardStatement st = l.nextPayment(a);
-      sub.add('${t(context, 'pagar', 'pay')} ${money(context, st.dueMinor, a.currency, compact: true)} ${t(context, 'el', 'on')} ${formatDate(st.cycle.payDate, 'dd MMM', spanish: l.spanish)}');
-      if (a.creditLimitMinor != null) {
-        sub.add('${t(context, 'cupo libre', 'available')} ${money(context, a.creditLimitMinor! - balance, a.currency, compact: true)}');
+      if (st.dueMinor > 0) {
+        sub.add('${t(context, 'pagar', 'pay')} ${money(context, st.dueMinor, a.currency, compact: true)} ${t(context, 'el', 'on')} ${formatDate(st.cycle.payDate, 'dd MMM', spanish: l.spanish)}');
+      }
+      final int? available = l.availableCreditMinor(a);
+      if (available != null) {
+        sub.add('${t(context, 'cupo libre', 'available')} ${money(context, available, a.currency, compact: true)}');
       }
     } else if (a.isDebit) {
       sub.add('→ ${l.account(a.linkedAccountId)?.name ?? t(context, 'sin cuenta', 'no account')}');
@@ -139,12 +143,19 @@ class AccountEditor extends StatefulWidget {
 class _AccountEditorState extends State<AccountEditor> {
   Account get _base => widget.existing ?? widget.preset ?? Account(id: '', name: '');
   late final TextEditingController _name = TextEditingController(text: _base.name);
-  late final TextEditingController _bank = TextEditingController(text: _base.bank);
   late final TextEditingController _last4 = TextEditingController(text: _base.last4);
   late final TextEditingController _notes = TextEditingController(text: _base.notes);
   late AccountType _type = _base.type;
+
+  /// Banco de la lista de avisos (clave interna), o vacío.
+  late String _bank = BankRules.keyFor(_base.bank);
   late String _currency = _base.currency;
+
+  /// Saldo inicial tal como se guarda: en tarjetas y préstamos, la deuda es
+  /// negativa (como en todo el libro); en pantalla se pide y muestra en positivo.
   late int _initial = _base.initialMinor;
+
+  bool get _isDebtType => _type == AccountType.credit || _type == AccountType.loan;
   late int _color = _base.color;
   late String _icon = _base.icon;
   late bool _includeInTotal = _base.includeInTotal;
@@ -156,7 +167,7 @@ class _AccountEditorState extends State<AccountEditor> {
 
   @override
   void dispose() {
-    disposeLater(<ChangeNotifier>[_name, _bank, _last4, _notes]);
+    disposeLater(<ChangeNotifier>[_name, _last4, _notes]);
     super.dispose();
   }
 
@@ -173,11 +184,13 @@ class _AccountEditorState extends State<AccountEditor> {
     }
     final Account? e = widget.existing;
     final Account a = e ?? Account(id: newId(), name: name);
+    // Deuda en tarjetas y préstamos: negativa, como la lee el libro.
+    final int initial = _isDebtType ? -_initial.abs() : _initial;
     a
       ..name = name
       ..type = _type
       ..currency = _type == AccountType.pocket ? (l.account(_parentId)?.currency ?? _currency) : _currency
-      ..initialMinor = _initial
+      ..initialMinor = initial
       ..color = _color
       ..icon = _icon
       ..includeInTotal = _includeInTotal
@@ -186,7 +199,7 @@ class _AccountEditorState extends State<AccountEditor> {
       ..creditLimitMinor = _type == AccountType.credit ? _limit : null
       ..cutDay = _type == AccountType.credit ? _cutDay : null
       ..payDay = _type == AccountType.credit ? _payDay : null
-      ..bank = _bank.text.trim()
+      ..bank = _bank
       ..last4 = _last4.text.trim()
       ..notes = _notes.text.trim();
     if (e == null) {
@@ -213,12 +226,11 @@ class _AccountEditorState extends State<AccountEditor> {
               onSelected: (String v) async {
                 final Account e = widget.existing!;
                 if (v == 'archive') {
-                  e.archived = !e.archived;
-                  l.save();
+                  l.setArchived(e, !e.archived);
                   Navigator.pop(context);
                 } else if (v == 'delete') {
-                  final bool used = l.txs.any((Tx tx) => tx.accountId == e.id || tx.toAccountId == e.id);
-                  if (await confirm(context, t(context, '¿Eliminar cuenta?', 'Delete account?'), used ? t(context, 'Tiene movimientos, así que se archivará en lugar de borrarse.', 'It has transactions, so it will be archived instead of deleted.') : t(context, 'No tiene movimientos; se borrará.', 'It has no transactions; it will be deleted.'), yes: t(context, 'Eliminar', 'Delete')) && context.mounted) {
+                  final bool used = l.accountInUse(e.id);
+                  if (await confirm(context, t(context, '¿Eliminar cuenta?', 'Delete account?'), '${used ? t(context, 'Tiene movimientos, así que se archivará en lugar de borrarse.', 'It has transactions, so it will be archived instead of deleted.') : t(context, 'No tiene movimientos; se borrará.', 'It has no transactions; it will be deleted.')} ${t(context, 'Sus programados se pausan y las plantillas que la usan pedirán la cuenta.', 'Its scheduled items are paused and templates using it will ask for the account.')}', yes: t(context, 'Eliminar', 'Delete')) && context.mounted) {
                     l.deleteAccount(e.id);
                     Navigator.pop(context);
                   }
@@ -276,8 +288,10 @@ class _AccountEditorState extends State<AccountEditor> {
               initialValue: _currency,
               isExpanded: true,
               decoration: InputDecoration(labelText: t(context, 'Moneda', 'Currency'), border: const OutlineInputBorder(), helperText: t(context, 'Añade monedas en Más › Monedas.', 'Add currencies under More › Currencies.')),
-              items: <DropdownMenuItem<String>>[for (final String c in currencies) DropdownMenuItem<String>(value: c, child: Text('$c · ${Money.info(c).name}', overflow: TextOverflow.ellipsis))],
-              onChanged: widget.existing != null && l.txs.any((Tx tx) => tx.accountId == widget.existing!.id) ? null : (String? v) => setState(() => _currency = v ?? _currency),
+              items: <DropdownMenuItem<String>>[for (final String c in currencies) DropdownMenuItem<String>(value: c, child: Text('$c · ${Money.info(c).nameFor(spanish: s.settings.spanish)}', overflow: TextOverflow.ellipsis))],
+              // Con movimientos (de salida o de llegada) la moneda ya no cambia:
+              // sus montos están en ella.
+              onChanged: widget.existing != null && l.accountInUse(widget.existing!.id) ? null : (String? v) => setState(() => _currency = v ?? _currency),
             ),
           const SizedBox(height: 12),
           if (_type == AccountType.debit)
@@ -299,17 +313,17 @@ class _AccountEditorState extends State<AccountEditor> {
             )
           else
             AmountTile(
-              minor: _initial,
+              minor: _isDebtType ? _initial.abs() : _initial,
               currency: _currency,
-              label: _type == AccountType.credit ? t(context, 'Deuda inicial (lo que ya debes)', 'Starting debt (what you already owe)') : (_type == AccountType.loan ? t(context, 'Saldo del préstamo (negativo = debes)', 'Loan balance (negative = you owe)') : t(context, 'Saldo inicial', 'Opening balance')),
+              label: _type == AccountType.credit ? t(context, 'Deuda inicial (lo que ya debes)', 'Starting debt (what you already owe)') : (_type == AccountType.loan ? t(context, 'Lo que debes del préstamo', 'What you owe on the loan') : t(context, 'Saldo inicial', 'Opening balance')),
               onTap: () async {
-                final int? v = await pickAmount(context, initialMinor: _initial.abs(), currency: _currency, title: t(context, 'Saldo inicial', 'Opening balance'));
+                final int? v = await pickAmount(context, initialMinor: _initial.abs(), currency: _currency, title: _isDebtType ? t(context, 'Lo que debes hoy', 'What you owe today') : t(context, 'Saldo inicial', 'Opening balance'));
                 if (v != null) {
-                  setState(() => _initial = _type == AccountType.loan ? -v : v);
+                  setState(() => _initial = _isDebtType ? -v.abs() : v);
                 }
               },
             ),
-          if (_type == AccountType.loan) Padding(padding: const EdgeInsets.only(top: 4), child: Text(t(context, 'Se guarda como saldo negativo; los pagos (transferencias hacia el préstamo) lo acercan a cero.', 'Stored as a negative balance; payments (transfers into the loan) bring it to zero.'), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)))),
+          if (_isDebtType) Padding(padding: const EdgeInsets.only(top: 4), child: Text(t(context, 'Es deuda: resta del patrimonio y cuenta en Deudas. Los pagos (transferencias hacia la cuenta) la acercan a cero.', 'It is debt: it lowers your net worth and counts as Debt. Payments (transfers into the account) bring it to zero.'), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)))),
           if (_type == AccountType.credit) ...<Widget>[
             const SizedBox(height: 12),
             Row(
@@ -333,13 +347,21 @@ class _AccountEditorState extends State<AccountEditor> {
             ),
           ],
           const SizedBox(height: 12),
-          Row(
-            children: <Widget>[
-              Expanded(flex: 2, child: TextField(controller: _bank, decoration: InputDecoration(labelText: t(context, 'Banco / app', 'Bank / app'), border: const OutlineInputBorder(), helperText: t(context, 'Para reconocer sus avisos', 'Used to match its notices')))),
-              const SizedBox(width: 12),
-              Expanded(child: TextField(controller: _last4, keyboardType: TextInputType.number, maxLength: 4, decoration: InputDecoration(labelText: t(context, 'Últimos 4', 'Last 4'), border: const OutlineInputBorder(), counterText: ''))),
-            ],
-          ),
+          // Los avisos bancarios solo existen en Android: allí se elige el banco de
+          // la lista (la clave con que llegan sus avisos) y los últimos dígitos.
+          if (defaultTargetPlatform == TargetPlatform.android)
+            DropdownButtonFormField<String>(
+              initialValue: _bank,
+              isExpanded: true,
+              decoration: InputDecoration(labelText: t(context, 'Banco o billetera', 'Bank or wallet'), border: const OutlineInputBorder(), helperText: t(context, 'Para reconocer sus avisos', 'Used to match its notices')),
+              items: <DropdownMenuItem<String>>[
+                DropdownMenuItem<String>(value: '', child: Text(t(context, 'Ninguno u otro', 'None or other'))),
+                for (final MapEntry<String, String> b in BankRules.bankNames.entries) DropdownMenuItem<String>(value: b.key, child: Text(BankRules.displayName(b.key, spanish: s.settings.spanish), overflow: TextOverflow.ellipsis)),
+              ],
+              onChanged: (String? v) => setState(() => _bank = v ?? ''),
+            ),
+          const SizedBox(height: 12),
+          TextField(controller: _last4, keyboardType: TextInputType.number, maxLength: 4, decoration: InputDecoration(labelText: t(context, 'Últimos 4 dígitos (opcional)', 'Last 4 digits (optional)'), border: const OutlineInputBorder(), counterText: '', helperText: defaultTargetPlatform == TargetPlatform.android ? t(context, 'Si los pones, solo se anotan solos los avisos con esos dígitos', 'If set, only notices with these digits are logged automatically') : null)),
           SwitchListTile(contentPadding: EdgeInsets.zero, value: _includeInTotal, onChanged: (bool v) => setState(() => _includeInTotal = v), title: Text(t(context, 'Cuenta en el patrimonio', 'Counts toward net worth'))),
           const Divider(),
           IconColorPicker(icon: _icon, color: _color, onIcon: (String v) => setState(() => _icon = v), onColor: (int v) => setState(() => _color = v)),
@@ -358,29 +380,24 @@ class _AccountEditorState extends State<AccountEditor> {
         onChanged: (int? v) => onChanged(v ?? value),
       );
 
-  /// Crea un movimiento de ajuste para que el saldo coincida con el real.
+  /// Ajusta el saldo al real con un movimiento de ajuste: corrige el saldo sin
+  /// contar como gasto ni ingreso en informes ni presupuestos.
   Future<void> _adjust(BuildContext context, Account a) async {
     final Ledger l = AppScope.of(context).ledger;
     final int current = l.balanceMinor(a.id);
-    final int? real = await pickAmount(context, initialMinor: current.abs(), currency: a.currency, title: t(context, 'Saldo real en la cuenta', 'Real account balance'));
+    final bool debt = a.isCredit || a.type == AccountType.loan;
+    final int? real = await pickAmount(context, initialMinor: current.abs(), currency: a.currency, title: debt ? t(context, 'Lo que debes hoy', 'What you owe today') : t(context, 'Saldo real en la cuenta', 'Real account balance'));
     if (real == null || !context.mounted) {
       return;
     }
-    final int target = a.isCredit ? -real : real;
-    final int diff = target - current;
-    if (diff == 0) {
+    final Tx? tx = await l.adjustBalance(a, debt ? -real.abs() : real, description: t(context, 'Ajuste de saldo', 'Balance adjustment'));
+    if (!context.mounted) {
       return;
     }
-    await Navigator.push(
-      context,
-      MaterialPageRoute<void>(
-        builder: (_) => TxEditor(
-          kind: diff > 0 ? TxKind.income : TxKind.expense,
-          initialAccountId: a.id,
-          initialMinor: diff.abs(),
-          initialDescription: t(context, 'Ajuste de saldo', 'Balance adjustment'),
-        ),
-      ),
-    );
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(SnackBar(
+      content: Text(tx == null ? t(context, 'El saldo ya coincidía.', 'The balance already matched.') : t(context, 'Saldo ajustado. El ajuste no cuenta como gasto ni ingreso.', 'Balance adjusted. The adjustment does not count as spending or income.')),
+      action: tx == null ? null : SnackBarAction(label: t(context, 'Deshacer', 'Undo'), onPressed: () => l.deleteTx(tx.id)),
+    ));
   }
 }

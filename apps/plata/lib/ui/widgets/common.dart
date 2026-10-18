@@ -7,23 +7,48 @@ import '../../model/money.dart';
 import 'amount_keypad.dart';
 import 'icons.dart';
 
-/// Formato de dinero con las preferencias del usuario (centavos, ocultar).
+/// Formato de dinero con las preferencias del usuario (centavos, ocultar e
+/// idioma).
 String money(BuildContext context, int minor, String currency, {bool compact = false, bool withSymbol = true}) {
   final Services s = AppScope.of(context);
   if (s.settings.hideBalances) {
     return '${Money.info(currency).symbol} ••••';
   }
-  return Money.format(minor, currency, showCents: s.settings.showCents, compact: compact, withSymbol: withSymbol);
+  return Money.format(minor, currency, showCents: s.settings.showCents, compact: compact, withSymbol: withSymbol, spanish: s.settings.spanish);
 }
 
+/// Color de gastos (rojo), ingresos (verde) y transferencias. En tema oscuro
+/// se usan tonos claros: el rojo y el verde de siempre quedan por debajo de
+/// 4,5:1 de contraste sobre fondos oscuros.
 Color kindColor(BuildContext context, TxKind k) {
+  final bool dark = Theme.of(context).brightness == Brightness.dark;
   switch (k) {
     case TxKind.expense:
-      return const Color(0xFFC62828);
+      return dark ? const Color(0xFFEF9A9A) : const Color(0xFFC62828);
     case TxKind.income:
-      return const Color(0xFF2E7D32);
+      return dark ? const Color(0xFF81C784) : const Color(0xFF2E7D32);
     case TxKind.transfer:
       return Theme.of(context).colorScheme.primary;
+  }
+}
+
+/// Ámbar de "casi en el tope" con contraste suficiente en los dos temas.
+Color warnColor(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? const Color(0xFFFFB74D) : const Color(0xFF9A5B00);
+
+/// Explica por qué no se pudo guardar un movimiento.
+String txProblemText(BuildContext context, TxRejected e) {
+  switch (e.problem) {
+    case TxProblem.amount:
+      return t(context, 'Escribe un monto mayor que cero.', 'Enter an amount greater than zero.');
+    case TxProblem.account:
+      return t(context, 'Elige la cuenta.', 'Choose the account.');
+    case TxProblem.destination:
+      return t(context, 'Elige la cuenta de destino.', 'Choose the destination account.');
+    case TxProblem.sameAccount:
+      return t(context, 'El origen y el destino son la misma cuenta.', 'Source and destination are the same account.');
+    case TxProblem.missingRate:
+      final String c = e.currency ?? '';
+      return t(context, 'No hay tasa de cambio para $c, así que no se puede calcular cuánto llega. Escribe el monto recibido o pon la tasa en Más › Monedas.', 'There is no exchange rate for $c, so the amount received cannot be worked out. Type the amount received or set the rate under More › Currencies.');
   }
 }
 
@@ -84,13 +109,13 @@ class IconBadge extends StatelessWidget {
 }
 
 /// Hoja para elegir una cuenta.
-Future<Account?> pickAccount(BuildContext context, {String? exclude, String? title, bool includeArchived = false}) {
+Future<Account?> pickAccount(BuildContext context, {String? exclude, String? title, bool includeArchived = false, bool Function(Account a)? where}) {
   final Ledger l = AppScope.of(context).ledger;
   return showModalBottomSheet<Account>(
     context: context,
     showDragHandle: true,
     builder: (BuildContext context) {
-      final List<Account> list = (includeArchived ? l.accounts : l.activeAccounts).where((Account a) => a.id != exclude).toList();
+      final List<Account> list = (includeArchived ? l.accounts : l.activeAccounts).where((Account a) => a.id != exclude && (where == null || where(a))).toList();
       return SafeArea(
         child: ListView(
           shrinkWrap: true,
@@ -191,16 +216,29 @@ class IconColorPicker extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 2,
+          runSpacing: 2,
           children: <Widget>[
-            for (final int c in AppIcons.palette)
-              GestureDetector(
-                onTap: () => onColor(c),
-                child: Container(
-                  width: 30,
-                  height: 30,
-                  decoration: BoxDecoration(color: Color(c), shape: BoxShape.circle, border: Border.all(color: color == c ? Theme.of(context).colorScheme.onSurface : Colors.transparent, width: 3)),
+            for (int i = 0; i < AppIcons.palette.length; i++)
+              Semantics(
+                button: true,
+                selected: color == AppIcons.palette[i],
+                label: '${t(context, 'Color', 'Colour')} ${i + 1}',
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => onColor(AppIcons.palette[i]),
+                  // Área de toque de 44 × 44 alrededor de la muestra de 30.
+                  child: SizedBox(
+                    width: 44,
+                    height: 44,
+                    child: Center(
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(color: Color(AppIcons.palette[i]), shape: BoxShape.circle, border: Border.all(color: color == AppIcons.palette[i] ? Theme.of(context).colorScheme.onSurface : Colors.transparent, width: 3)),
+                      ),
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -214,12 +252,17 @@ class IconColorPicker extends StatelessWidget {
             crossAxisSpacing: 4,
             children: <Widget>[
               for (final MapEntry<String, IconData> e in AppIcons.all.entries)
-                InkWell(
-                  borderRadius: BorderRadius.circular(8),
-                  onTap: () => onIcon(e.key),
-                  child: Container(
-                    decoration: BoxDecoration(color: icon == e.key ? Color(color).withValues(alpha: 0.2) : null, borderRadius: BorderRadius.circular(8)),
-                    child: Icon(e.value, size: 22, color: icon == e.key ? Color(color) : null),
+                Semantics(
+                  button: true,
+                  selected: icon == e.key,
+                  label: '${t(context, 'Ícono', 'Icon')} ${e.key}',
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => onIcon(e.key),
+                    child: Container(
+                      decoration: BoxDecoration(color: icon == e.key ? Color(color).withValues(alpha: 0.2) : null, borderRadius: BorderRadius.circular(8)),
+                      child: Icon(e.value, size: 22, color: icon == e.key ? Color(color) : null),
+                    ),
                   ),
                 ),
             ],
@@ -245,6 +288,76 @@ Future<String?> askText(BuildContext context, String title, {String? initial, St
     ),
   );
   disposeLater(<ChangeNotifier>[ctrl]);
+  return v;
+}
+
+/// Pide una contraseña sin mostrarla, sin autocorrección ni sugerencias (el
+/// teclado no la aprende) y, con [repeat], escrita dos veces.
+Future<String?> askSecret(BuildContext context, String title, {String? help, bool repeat = false, int minLength = 0}) async {
+  final TextEditingController first = TextEditingController();
+  final TextEditingController second = TextEditingController();
+  bool show = false;
+  String? error;
+  final String? v = await showDialog<String>(
+    context: context,
+    builder: (BuildContext context) => StatefulBuilder(
+      builder: (BuildContext context, StateSetter setState) {
+        void submit() {
+          if (first.text.length < minLength) {
+            setState(() => error = t(context, 'Usa al menos $minLength caracteres.', 'Use at least $minLength characters.'));
+            return;
+          }
+          if (repeat && first.text != second.text) {
+            setState(() => error = t(context, 'Las contraseñas no coinciden.', 'The passwords do not match.'));
+            return;
+          }
+          Navigator.pop(context, first.text);
+        }
+
+        Widget field(TextEditingController c, String label, {bool autofocus = false, bool last = false}) => TextField(
+              controller: c,
+              autofocus: autofocus,
+              obscureText: !show,
+              autocorrect: false,
+              enableSuggestions: false,
+              enableIMEPersonalizedLearning: false,
+              keyboardType: TextInputType.visiblePassword,
+              textCapitalization: TextCapitalization.none,
+              textInputAction: last ? TextInputAction.done : TextInputAction.next,
+              decoration: InputDecoration(
+                labelText: label,
+                suffixIcon: IconButton(
+                  tooltip: show ? t(context, 'Ocultar', 'Hide') : t(context, 'Mostrar', 'Show'),
+                  icon: Icon(show ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                  onPressed: () => setState(() => show = !show),
+                ),
+              ),
+              onSubmitted: last ? (_) => submit() : null,
+            );
+
+        return AlertDialog(
+          title: Text(title),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                if (help != null) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(help)),
+                field(first, t(context, 'Contraseña', 'Password'), autofocus: true, last: !repeat),
+                if (repeat) ...<Widget>[const SizedBox(height: 8), field(second, t(context, 'Repite la contraseña', 'Repeat the password'), last: true)],
+                if (error != null) Padding(padding: const EdgeInsets.only(top: 8), child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(t(context, 'Cancelar', 'Cancel'))),
+            FilledButton(onPressed: submit, child: Text(t(context, 'Aceptar', 'OK'))),
+          ],
+        );
+      },
+    ),
+  );
+  disposeLater(<ChangeNotifier>[first, second]);
   return v;
 }
 
@@ -286,7 +399,7 @@ class AmountTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Text(label ?? t(context, 'Monto', 'Amount'), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6))),
-            Text(Money.format(minor, currency, showCents: AppScope.of(context).settings.showCents), style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: color ?? cs.onSurface, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
+            Text(Money.format(minor, currency, showCents: AppScope.of(context).settings.showCents, spanish: AppScope.of(context).settings.spanish), style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: color ?? cs.onSurface, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
           ],
         ),
       ),
@@ -322,6 +435,7 @@ class _AmountSheetState extends State<_AmountSheet> {
   Widget build(BuildContext context) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final bool cents = Money.info(widget.currency).decimals > 0 || AppScope.of(context).settings.showCents;
+    _calc.spanish = AppScope.of(context).settings.spanish;
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -344,14 +458,19 @@ class _AmountSheetState extends State<_AmountSheet> {
           ),
           AmountKeypad(
             showDecimal: cents,
+            spanish: _calc.spanish,
             doneLabel: t(context, 'Listo', 'Done'),
+            deleteLabel: t(context, 'Borrar', 'Delete'),
             onKey: (String k) => setState(() => _calc.press(k)),
             onDone: () {
               if (_calc.hasPendingOp) {
                 setState(() => _calc.press('='));
                 return;
               }
-              Navigator.pop(context, _calc.valueMinor);
+              final int v = _calc.valueMinor;
+              // Sin decimales en pantalla (pesos sin centavos), una división
+              // queda en el peso más cercano.
+              Navigator.pop(context, cents ? v : (v / 100).round() * 100);
             },
           ),
         ],

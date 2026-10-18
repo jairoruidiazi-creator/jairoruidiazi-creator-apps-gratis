@@ -1,5 +1,5 @@
 Plata works fully offline and needs no account or sign-in. All data is stored encrypted on the device.
 To try it quickly: tap + on Home, type an amount, pick a category and save; then open Reports and Budgets.
-The only network requests download exchange rates (datos.gov.co, api.frankfurter.app, open.er-api.com) when the user has accounts or extra currencies other than the base currency; they carry no user data and can be turned off in More > Currencies.
+The only network requests download exchange rates (datos.gov.co, api.frankfurter.dev, open.er-api.com) when the user has accounts or extra currencies other than the base currency; they carry no user data and can be turned off in More > Currencies.
 Bank-notification reading exists only in the Android version; the iOS app does not read notifications from other apps.
 The app uses ChaCha20-Poly1305 to encrypt its own data on the device (export compliance answers are in the app's COMPLIANCE.md in the public repository).

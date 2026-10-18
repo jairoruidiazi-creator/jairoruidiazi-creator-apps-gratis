@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_scope.dart';
 import '../legal/legal_document.dart';
 import '../widgets/adaptive.dart';
+import '../widgets/live.dart';
 import 'accounts_screen.dart';
 import 'backup_screen.dart';
 import 'cards_screen.dart';
@@ -24,15 +25,15 @@ class MoreScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final Services s = AppScope.of(context);
     final bool android = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
-    return ListenableBuilder(
-      listenable: Listenable.merge(<Listenable>[s.ledger, s.lock]),
-      builder: (BuildContext context, Widget? _) => ReadableScaffold(
+    return LiveBuilder(
+      listenable: Listenable.merge(<Listenable>[s.ledger, s.lock, s.settings]),
+      builder: (BuildContext context) => ReadableScaffold(
         appBar: AppBar(title: Text(t(context, 'Más', 'More'))),
         body: ListView(
           padding: const EdgeInsets.only(bottom: 32),
           children: <Widget>[
             _tile(context, Icons.account_balance_wallet_outlined, t(context, 'Cuentas', 'Accounts'), t(context, 'Efectivo, bancos, billeteras, bolsillos, préstamos', 'Cash, banks, wallets, pockets, loans'), const AccountsScreen()),
-            _tile(context, Icons.credit_card, t(context, 'Tarjetas de crédito', 'Credit cards'), t(context, 'Estado de cuenta, cuotas y fecha de pago', 'Statement, installments and due date'), const CardsScreen()),
+            _tile(context, Icons.credit_card, t(context, 'Tarjetas de crédito', 'Credit cards'), t(context, 'Estado de cuenta estimado, cuotas y fecha de pago', 'Estimated statement, installments and due date'), const CardsScreen()),
             _tile(context, Icons.label_outline, t(context, 'Categorías', 'Categories'), t(context, 'Gastos e ingresos con subcategorías', 'Expenses and income with subcategories'), const CategoriesScreen()),
             _tile(context, Icons.event_repeat, t(context, 'Programados', 'Scheduled'), t(context, 'Arriendo, servicios, salario, cuotas', 'Rent, utilities, salary, installments'), const ScheduledScreen()),
             _tile(context, Icons.star_outline, t(context, 'Favoritos de un toque', 'One-tap favorites'), t(context, 'Plantillas de lo que anotas seguido', 'Templates for what you log often'), const TemplatesScreen()),

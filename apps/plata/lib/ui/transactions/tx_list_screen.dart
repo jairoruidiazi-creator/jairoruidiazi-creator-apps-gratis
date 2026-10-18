@@ -7,6 +7,7 @@ import '../../core/periods.dart';
 import '../../model/models.dart';
 import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
+import '../widgets/live.dart';
 import 'tx_editor.dart';
 import 'tx_tile.dart';
 
@@ -33,12 +34,22 @@ class _TxListScreenState extends State<TxListScreen> {
     super.dispose();
   }
 
+  /// Lo que un movimiento suma al neto del día o de la lista, en moneda base.
+  /// Las transferencias y los ajustes de saldo no cuentan (igual que en
+  /// Informes).
+  static int _net(Ledger l, Tx tx) {
+    if (tx.kind == TxKind.transfer || tx.isAdjustment) {
+      return 0;
+    }
+    return (tx.kind == TxKind.income ? 1 : -1) * l.toBase(tx.amountMinor, tx.currency, rate: tx.rateToBase);
+  }
+
   @override
   Widget build(BuildContext context) {
     final Services s = AppScope.of(context);
-    return ListenableBuilder(
-      listenable: s.ledger,
-      builder: (BuildContext context, Widget? _) {
+    return LiveBuilder(
+      listenable: Listenable.merge(<Listenable>[s.ledger, s.settings]),
+      builder: (BuildContext context) {
         final Ledger l = s.ledger;
         final List<Tx> all = l.search(_filter);
         // Sin barra de título propia: en la pestaña el buscador debe quedar
@@ -61,7 +72,16 @@ class _TxListScreenState extends State<TxListScreen> {
                             hintText: t(context, 'Buscar descripción, comercio, nota, monto…', 'Search description, payee, note, amount…'),
                             isDense: true,
                             border: const OutlineInputBorder(),
-                            suffixIcon: _filter.text.isEmpty ? null : IconButton(icon: const Icon(Icons.clear), onPressed: () { _search.clear(); setState(() => _filter = _filter.copyWith(text: '')); }),
+                            suffixIcon: _filter.text.isEmpty
+                                ? null
+                                : IconButton(
+                                    tooltip: t(context, 'Borrar búsqueda', 'Clear search'),
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      _search.clear();
+                                      setState(() => _filter = _filter.copyWith(text: ''));
+                                    },
+                                  ),
                           ),
                           onChanged: (String v) => setState(() => _filter = _filter.copyWith(text: v)),
                         ),
@@ -104,30 +124,32 @@ class _TxListScreenState extends State<TxListScreen> {
   Widget _listView(BuildContext context, Ledger l, List<Tx> list) {
     if (list.isEmpty) {
       return Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Text(l.txs.isEmpty ? t(context, 'Aún no hay movimientos. Toca + para anotar el primero.', 'No transactions yet. Tap + to add the first one.') : t(context, 'Nada coincide con la búsqueda.', 'Nothing matches your search.'), textAlign: TextAlign.center),
         ),
       );
     }
-    // Agrupadas por día con el total del día (gastos e ingresos en moneda base).
+    // Agrupadas por día con el neto del día (en moneda base).
     final List<Object> items = <Object>[];
     String? lastKey;
     final Map<String, int> dayNet = <String, int>{};
+    int income = 0;
+    int expense = 0;
     for (final Tx tx in list) {
-      if (tx.kind != TxKind.transfer) {
-        dayNet[tx.dayKey] = (dayNet[tx.dayKey] ?? 0) + (tx.kind == TxKind.income ? 1 : -1) * l.toBase(tx.amountMinor, tx.currency, rate: tx.rateToBase);
+      final int v = _net(l, tx);
+      dayNet[tx.dayKey] = (dayNet[tx.dayKey] ?? 0) + v;
+      if (v > 0) {
+        income += v;
+      } else {
+        expense -= v;
       }
-    }
-    for (final Tx tx in list) {
       if (tx.dayKey != lastKey) {
         items.add(tx.date);
         lastKey = tx.dayKey;
       }
       items.add(tx);
     }
-    final int income = list.where((Tx x) => x.kind == TxKind.income).fold<int>(0, (int a, Tx x) => a + l.toBase(x.amountMinor, x.currency, rate: x.rateToBase));
-    final int expense = list.where((Tx x) => x.kind == TxKind.expense).fold<int>(0, (int a, Tx x) => a + l.toBase(x.amountMinor, x.currency, rate: x.rateToBase));
     return ListView.builder(
       padding: const EdgeInsets.only(bottom: 96),
       itemCount: items.length + 1,
@@ -135,9 +157,11 @@ class _TxListScreenState extends State<TxListScreen> {
         if (i == 0) {
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-            child: Row(
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              spacing: 12,
               children: <Widget>[
-                Expanded(child: Text('${list.length} ${t(context, 'movimientos', 'transactions')}', style: Theme.of(context).textTheme.bodySmall)),
+                Text('${list.length} ${t(context, 'movimientos', 'transactions')}', style: Theme.of(context).textTheme.bodySmall),
                 Text('+${money(context, income, l.baseCurrency, compact: true)}  −${money(context, expense, l.baseCurrency, compact: true)}', style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
@@ -169,7 +193,7 @@ class _TxListScreenState extends State<TxListScreen> {
     if (day == today) {
       return t(context, 'Hoy', 'Today');
     }
-    if (day == today.subtract(const Duration(days: 1))) {
+    if (day == addDays(today, -1)) {
       return t(context, 'Ayer', 'Yesterday');
     }
     return formatDate(d, day.year == today.year ? 'EEE dd MMM' : 'EEE dd MMM yyyy', spanish: spanish);
@@ -177,6 +201,7 @@ class _TxListScreenState extends State<TxListScreen> {
 
   Widget _calendarView(BuildContext context, Ledger l, List<Tx> list) {
     final bool spanish = AppScope.of(context).settings.spanish;
+    final ColorScheme cs = Theme.of(context).colorScheme;
     final Map<String, List<Tx>> byDay = <String, List<Tx>>{};
     for (final Tx tx in list) {
       byDay.putIfAbsent(tx.dayKey, () => <Tx>[]).add(tx);
@@ -186,21 +211,31 @@ class _TxListScreenState extends State<TxListScreen> {
     final int leading = (first.weekday + 6) % 7; // lunes = 0
     final List<Scheduled> upcoming = l.scheduled.where((Scheduled sc) => sc.enabled).toList();
     final List<Tx> selected = _selectedDay == null ? <Tx>[] : (byDay[dayKey(_selectedDay!)] ?? <Tx>[]);
-    return Column(
+    // El alto de cada día crece con la escala de texto del teléfono; el monto
+    // se reduce si no cabe a lo ancho.
+    final TextScaler ts = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 2.0);
+    final double cellHeight = ts.scale(13) * 1.4 + ts.scale(10) * 1.4 + 12 + 10;
+    final DateTime today = dateOnly(clock.now());
+    // Todo se desplaza junto: con texto grande el mes no cabe entero y la
+    // lista del día no puede quedar sin espacio.
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 96),
       children: <Widget>[
         Row(
           children: <Widget>[
-            IconButton(onPressed: () => setState(() => _month = DateTime(_month.year, _month.month - 1)), icon: const Icon(Icons.chevron_left)),
+            IconButton(tooltip: t(context, 'Mes anterior', 'Previous month'), onPressed: () => setState(() => _month = DateTime(_month.year, _month.month - 1)), icon: const Icon(Icons.chevron_left)),
             Expanded(child: Text(monthName(_month, spanish: spanish), textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium)),
-            IconButton(onPressed: () => setState(() => _month = DateTime(_month.year, _month.month + 1)), icon: const Icon(Icons.chevron_right)),
+            IconButton(tooltip: t(context, 'Mes siguiente', 'Next month'), onPressed: () => setState(() => _month = DateTime(_month.year, _month.month + 1)), icon: const Icon(Icons.chevron_right)),
           ],
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Row(
-            children: <Widget>[
-              for (final String d in spanish ? <String>['L', 'M', 'X', 'J', 'V', 'S', 'D'] : <String>['M', 'T', 'W', 'T', 'F', 'S', 'S']) Expanded(child: Text(d, textAlign: TextAlign.center, style: Theme.of(context).textTheme.labelSmall)),
-            ],
+          child: ExcludeSemantics(
+            child: Row(
+              children: <Widget>[
+                for (final String d in spanish ? <String>['L', 'M', 'X', 'J', 'V', 'S', 'D'] : <String>['M', 'T', 'W', 'T', 'F', 'S', 'S']) Expanded(child: Text(d, textAlign: TextAlign.center, style: Theme.of(context).textTheme.labelSmall)),
+              ],
+            ),
           ),
         ),
         Padding(
@@ -208,7 +243,7 @@ class _TxListScreenState extends State<TxListScreen> {
           child: GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, childAspectRatio: 0.9),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, mainAxisExtent: cellHeight),
             itemCount: leading + daysInMonth,
             itemBuilder: (BuildContext context, int i) {
               if (i < leading) {
@@ -218,26 +253,36 @@ class _TxListScreenState extends State<TxListScreen> {
               final List<Tx> txs = byDay[dayKey(day)] ?? <Tx>[];
               int net = 0;
               for (final Tx tx in txs) {
-                if (tx.kind != TxKind.transfer) {
-                  net += (tx.kind == TxKind.income ? 1 : -1) * l.toBase(tx.amountMinor, tx.currency, rate: tx.rateToBase);
-                }
+                net += _net(l, tx);
               }
               final bool hasBill = upcoming.any((Scheduled sc) => dateOnly(sc.nextDate) == day);
               final bool sel = _selectedDay != null && dateOnly(_selectedDay!) == day;
-              final bool today = dateOnly(clock.now()) == day;
-              return InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () => setState(() => _selectedDay = day),
-                child: Container(
-                  margin: const EdgeInsets.all(1.5),
-                  decoration: BoxDecoration(color: sel ? Theme.of(context).colorScheme.primaryContainer : null, borderRadius: BorderRadius.circular(8), border: today ? Border.all(color: Theme.of(context).colorScheme.primary) : null),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: <Widget>[
-                      Text('${day.day}', style: TextStyle(fontWeight: today ? FontWeight.w800 : FontWeight.w500, fontSize: 13)),
-                      if (txs.isNotEmpty) Text(money(context, net, l.baseCurrency, compact: true, withSymbol: false), style: TextStyle(fontSize: 9, color: net >= 0 ? kindColor(context, TxKind.income) : kindColor(context, TxKind.expense)), maxLines: 1, overflow: TextOverflow.ellipsis),
-                      if (hasBill) Icon(Icons.notifications_active_outlined, size: 10, color: Theme.of(context).colorScheme.secondary),
-                    ],
+              final bool isToday = today == day;
+              final String label = <String>[
+                '${formatDate(day, 'EEE dd', spanish: spanish)} ${monthName(day, spanish: spanish)}',
+                if (txs.isNotEmpty) '${txs.length} ${t(context, 'movimientos', 'transactions')}, ${t(context, 'neto', 'net')} ${money(context, net, l.baseCurrency)}',
+                if (hasBill) t(context, 'tiene un pago programado', 'has a scheduled payment'),
+              ].join(', ');
+              return Semantics(
+                button: true,
+                selected: sel,
+                label: label,
+                excludeSemantics: true,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: () => setState(() => _selectedDay = day),
+                  child: Container(
+                    margin: const EdgeInsets.all(1.5),
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    decoration: BoxDecoration(color: sel ? cs.primaryContainer : null, borderRadius: BorderRadius.circular(8), border: isToday ? Border.all(color: cs.primary) : null),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: <Widget>[
+                        Text('${day.day}', style: TextStyle(fontWeight: isToday ? FontWeight.w800 : FontWeight.w500, fontSize: 13)),
+                        if (txs.isNotEmpty) FittedBox(fit: BoxFit.scaleDown, child: Text(money(context, net, l.baseCurrency, compact: true, withSymbol: false), style: TextStyle(fontSize: 10, color: net >= 0 ? kindColor(context, TxKind.income) : kindColor(context, TxKind.expense)), maxLines: 1)),
+                        if (hasBill) Icon(Icons.notifications_active_outlined, size: 12, color: cs.secondary),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -245,32 +290,27 @@ class _TxListScreenState extends State<TxListScreen> {
           ),
         ),
         const Divider(height: 1),
-        Expanded(
-          child: _selectedDay == null
-              ? Center(child: Text(t(context, 'Toca un día para ver sus movimientos.', 'Tap a day to see its transactions.'), style: Theme.of(context).textTheme.bodySmall))
-              : ListView(
-                  padding: const EdgeInsets.only(bottom: 96),
-                  children: <Widget>[
-                    for (final Scheduled sc in upcoming.where((Scheduled x) => dateOnly(x.nextDate) == dateOnly(_selectedDay!)))
-                      ListTile(
-                        leading: const Icon(Icons.event_repeat),
-                        title: Text(sc.name),
-                        subtitle: Text(t(context, 'Programado', 'Scheduled')),
-                        trailing: Text(money(context, sc.amountMinor, l.account(sc.accountId)?.currency ?? l.baseCurrency)),
-                      ),
-                    for (final Tx tx in selected) TxTile(tx: tx, onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TxEditor(existing: tx)))),
-                    if (selected.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: OutlinedButton.icon(
-                          onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TxEditor(initialDate: DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day, 12)))),
-                          icon: const Icon(Icons.add),
-                          label: Text(t(context, 'Anotar en este día', 'Add on this day')),
-                        ),
-                      ),
-                  ],
-                ),
-        ),
+        if (_selectedDay == null)
+          Padding(padding: const EdgeInsets.all(24), child: Text(t(context, 'Toca un día para ver sus movimientos.', 'Tap a day to see its transactions.'), textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall))
+        else ...<Widget>[
+          for (final Scheduled sc in upcoming.where((Scheduled x) => dateOnly(x.nextDate) == dateOnly(_selectedDay!)))
+            ListTile(
+              leading: const Icon(Icons.event_repeat),
+              title: Text(sc.name),
+              subtitle: Text(t(context, 'Programado', 'Scheduled')),
+              trailing: Text(money(context, sc.amountMinor, l.account(sc.accountId)?.currency ?? l.baseCurrency)),
+            ),
+          for (final Tx tx in selected) TxTile(tx: tx, onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TxEditor(existing: tx)))),
+          if (selected.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TxEditor(initialDate: DateTime(_selectedDay!.year, _selectedDay!.month, _selectedDay!.day, 12)))),
+                icon: const Icon(Icons.add),
+                label: Text(t(context, 'Anotar en este día', 'Add on this day')),
+              ),
+            ),
+        ],
       ],
     );
   }
@@ -410,9 +450,9 @@ class _FilterSheetState extends State<_FilterSheet> {
           Text(t(context, 'Monto', 'Amount'), style: tt.titleSmall),
           Row(
             children: <Widget>[
-              Expanded(child: TextFormField(initialValue: _f.minMinor == null ? '' : (_f.minMinor! ~/ 100).toString(), decoration: InputDecoration(labelText: t(context, 'Mínimo', 'Min'), isDense: true), keyboardType: TextInputType.number, onChanged: (String v) => setState(() => _f = _f.copyWith(minMinor: v.isEmpty ? null : (int.tryParse(v.replaceAll('.', '')) ?? 0) * 100, clearMin: v.isEmpty)))),
+              Expanded(child: TextFormField(initialValue: _f.minMinor == null ? '' : (_f.minMinor! ~/ 100).toString(), decoration: InputDecoration(labelText: t(context, 'Mínimo', 'Min'), isDense: true), keyboardType: TextInputType.number, onChanged: (String v) => setState(() => _f = _f.copyWith(minMinor: v.isEmpty ? null : (int.tryParse(v.replaceAll(RegExp(r'[.,\s]'), '')) ?? 0) * 100, clearMin: v.isEmpty)))),
               const SizedBox(width: 12),
-              Expanded(child: TextFormField(initialValue: _f.maxMinor == null ? '' : (_f.maxMinor! ~/ 100).toString(), decoration: InputDecoration(labelText: t(context, 'Máximo', 'Max'), isDense: true), keyboardType: TextInputType.number, onChanged: (String v) => setState(() => _f = _f.copyWith(maxMinor: v.isEmpty ? null : (int.tryParse(v.replaceAll('.', '')) ?? 0) * 100, clearMax: v.isEmpty)))),
+              Expanded(child: TextFormField(initialValue: _f.maxMinor == null ? '' : (_f.maxMinor! ~/ 100).toString(), decoration: InputDecoration(labelText: t(context, 'Máximo', 'Max'), isDense: true), keyboardType: TextInputType.number, onChanged: (String v) => setState(() => _f = _f.copyWith(maxMinor: v.isEmpty ? null : (int.tryParse(v.replaceAll(RegExp(r'[.,\s]'), '')) ?? 0) * 100, clearMax: v.isEmpty)))),
             ],
           ),
           const SizedBox(height: 8),

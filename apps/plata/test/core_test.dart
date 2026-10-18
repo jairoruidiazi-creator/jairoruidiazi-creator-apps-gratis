@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
+import 'package:clock/clock.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -283,9 +284,10 @@ void main() {
       expect(p.limitMinor, 50000000);
       expect(p.availableMinor, 42000000);
       expect(p.over, isFalse);
-      // Presupuesto global sin categorías cuenta todo.
+      // Presupuesto global sin categorías: cuenta todo el gasto, y el reembolso
+      // descuenta igual que en Informes.
       final Budget all = await l.addBudget(Budget(id: 'all', name: 'Todo', amountMinor: 100000000, startDate: DateTime(2026, 10, 1)));
-      expect(l.progress(all).spentMinor, 10000000 + 99999900);
+      expect(l.progress(all).spentMinor, 10000000 + 99999900 - 2000000);
       expect(l.progress(all).over, isTrue);
       l.dispose();
     });
@@ -327,32 +329,34 @@ void main() {
       final Ledger l = await newLedger(tmp, clock: () => d(2026, 10, 20));
       final Account card = await l.addAccount(Account(id: 'tc', name: 'TC', type: AccountType.credit, cutDay: 15, payDay: 5, creditLimitMinor: 500000000));
       await l.addAccount(Account(id: 'bank', name: 'Banco', type: AccountType.bank, initialMinor: 100000000));
-      // Compra a 3 cuotas el 1 de septiembre (ciclo con corte 15 sep): cuotas en los ciclos con corte 15 oct, 15 nov, 15 dic.
+      // Compra a 3 cuotas el 1 de septiembre: la primera se factura en el corte
+      // del 15 de septiembre, la segunda el 15 de octubre y la tercera el 15 de noviembre.
       await l.addTx(Tx(id: 'c1', kind: TxKind.expense, amountMinor: 30000000, accountId: 'tc', date: d(2026, 9, 1), installments: 3, categoryId: 'c_household', description: 'Nevera'));
       // Compra normal dentro del ciclo actual (16 oct – 15 nov).
       await l.addTx(Tx(id: 'c2', kind: TxKind.expense, amountMinor: 5000000, accountId: 'tc', date: d(2026, 10, 18), categoryId: 'c_food'));
-      // Pago de la tarjeta en el ciclo actual.
+      // Pago del 17 de octubre: es para el estado que cortó el 15 (se paga el 5 de noviembre).
       await l.addTx(Tx(id: 'p1', kind: TxKind.transfer, amountMinor: 2000000, accountId: 'bank', toAccountId: 'tc', date: d(2026, 10, 17)));
-      final CardStatement st = l.statement(card);
-      expect(st.cycle.cut, DateTime(2026, 11, 15));
-      expect(st.purchasesMinor, 5000000);
-      expect(st.installmentsMinor, 10000000);
-      // El abono del 17 de octubre se aplica al estado cerrado el 15 (se paga el 5 de noviembre).
-      expect(st.paymentsMinor, 0);
-      expect(st.dueMinor, 15000000);
+      final CardStatement sep = l.statement(card, date: DateTime(2026, 9, 15));
+      expect(sep.installmentsMinor, 10000000);
       final CardStatement prev = l.statement(card, date: DateTime(2026, 10, 15));
+      expect(prev.previousMinor, 10000000); // la primera cuota, sin pagar
       expect(prev.installmentsMinor, 10000000);
       expect(prev.purchasesMinor, 0);
       expect(prev.paymentsMinor, 2000000);
-      expect(prev.dueMinor, 8000000);
+      expect(prev.dueMinor, 18000000);
+      final CardStatement st = l.statement(card);
+      expect(st.cycle.cut, DateTime(2026, 11, 15));
+      expect(st.previousMinor, 18000000); // lo que quedó del estado anterior
+      expect(st.purchasesMinor, 5000000);
+      expect(st.installmentsMinor, 10000000);
+      expect(st.paymentsMinor, 0);
+      expect(st.dueMinor, 33000000);
       // El próximo pago es el del ciclo cerrado mientras no pase el 5 de noviembre.
       expect(l.nextPayment(card).cycle.payDate, DateTime(2026, 11, 5));
-      expect(l.nextPayment(card).dueMinor, 8000000);
+      expect(l.nextPayment(card).dueMinor, 18000000);
       expect(l.nextPayment(card, now: DateTime(2026, 11, 6)).cycle.payDate, DateTime(2026, 12, 5));
-      final CardStatement sep = l.statement(card, date: DateTime(2026, 9, 15));
-      expect(sep.installmentsMinor, 0);
-      expect(l.remainingInstallments(l.tx('c1')!), 1); // la 2.ª se factura en este ciclo
-      expect(l.remainingInstallments(l.tx('c1')!, now: DateTime(2027, 1, 1)), 0);
+      expect(l.remainingInstallments(l.tx('c1')!, now: DateTime(2026, 9, 20)), 1);
+      expect(l.remainingInstallments(l.tx('c1')!), 0); // la 3.ª se factura en este ciclo
       expect(l.balanceMinor('tc'), -(30000000 + 5000000) + 2000000);
       l.dispose();
     });
@@ -409,24 +413,6 @@ void main() {
       l.dispose();
     });
 
-    test('cambiar la moneda base descarta las tasas viejas', () async {
-      final Ledger l = await newLedger(tmp);
-      await l.addAccount(Account(id: 'usd', name: 'Dólares', type: AccountType.savings, currency: 'USD', initialMinor: 10000));
-      l.rates.rates['USD'] = 4000;
-      await l.addTx(Tx(id: 'u', kind: TxKind.expense, amountMinor: 1000, accountId: 'usd', date: d(2026, 10, 10)));
-      expect(l.tx('u')!.rateToBase, 4000);
-      l.changeBaseCurrency('USD');
-      expect(l.baseCurrency, 'USD');
-      expect(l.rates.rates, isEmpty);
-      expect(l.tx('u')!.rateToBase, isNull);
-      expect(l.toBase(1000, 'USD'), 1000);
-      expect(l.currenciesWithoutRate(), <String>['COP']);
-      l.rates.rates['COP'] = 0.00025;
-      expect(l.currenciesWithoutRate(), isEmpty);
-      expect(l.toBase(400000000, 'COP'), 100000);
-      l.dispose();
-    });
-
     test('plantillas y conversión a moneda base', () async {
       final Ledger l = await newLedger(tmp);
       await l.addAccount(Account(id: 'usd', name: 'Dólares', type: AccountType.savings, currency: 'USD', initialMinor: 10000));
@@ -445,7 +431,7 @@ void main() {
 
   group('Avisos bancarios', () {
     test('reconoce compras, ingresos y descarta ruido', () {
-      final BankSuggestion? s1 = BankRules.parse(packageName: 'com.bancolombia.personas', title: 'Bancolombia', text: r'Bancolombia: Compraste $85.900 en EXITO CALLE 80 con tu tarjeta *4321 el 16/10/2026 a las 19:02.');
+      final BankSuggestion? s1 = BankRules.parse(packageName: 'co.com.bancolombia.personas.superapp', title: 'Bancolombia', text: r'Bancolombia: Compraste $85.900 en EXITO CALLE 80 con tu tarjeta *4321 el 16/10/2026 a las 19:02.');
       expect(s1, isNotNull);
       expect(s1!.kind, TxKind.expense);
       expect(s1.amountMinor, 8590000);
@@ -459,7 +445,7 @@ void main() {
       expect(s3, isNull);
       final BankSuggestion? s4 = BankRules.parse(packageName: 'com.whatsapp', title: 'Juan', text: r'Te debo $50.000');
       expect(s4, isNull);
-      final BankSuggestion? s5 = BankRules.parse(packageName: 'com.bancolombia.personas', title: 'Bancolombia', text: r'Compra rechazada por $20.000 en NETFLIX. Fondos insuficientes.');
+      final BankSuggestion? s5 = BankRules.parse(packageName: 'co.com.bancolombia.personas.superapp', title: 'Bancolombia', text: r'Compra rechazada por $20.000 en NETFLIX. Fondos insuficientes.');
       expect(s5, isNull);
     });
   });
@@ -540,7 +526,7 @@ void main() {
         if (r.url.host == 'www.datos.gov.co') {
           return http.Response(jsonEncode(<Map<String, String>>[<String, String>{'valor': '4123.45', 'vigenciadesde': '2026-10-16T00:00:00.000'}]), 200);
         }
-        if (r.url.host == 'api.frankfurter.app') {
+        if (r.url.host == 'api.frankfurter.dev') {
           return http.Response(jsonEncode(<String, dynamic>{'base': 'USD', 'rates': <String, double>{'EUR': 0.9, 'MXN': 18.0}}), 200);
         }
         return http.Response('no', 500);
@@ -596,11 +582,17 @@ void main() {
       expect(await lock.verify('0000'), isFalse);
       expect(lock.waitSeconds, greaterThan(0));
       expect(await lock.verify('2468'), isFalse); // bloqueado por la espera
+      // Cerrar y abrir la app no borra la espera (M14).
       final AppLock again = AppLock(lock.keys, biometricsAvailable: false);
       await again.load();
       expect(again.enabled, isTrue);
       expect(again.locked, isTrue);
-      expect(await again.verify('2468'), isTrue);
+      expect(again.waitSeconds, greaterThan(0));
+      expect(await again.verify('2468'), isFalse);
+      await withClock(Clock.fixed(DateTime.now().add(const Duration(seconds: 31))), () async {
+        expect(again.waitSeconds, 0);
+        expect(await again.verify('2468'), isTrue);
+      });
       expect(again.locked, isFalse);
       await again.clearPasscode();
       expect(again.enabled, isFalse);

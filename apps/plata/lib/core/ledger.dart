@@ -5,9 +5,12 @@ import 'package:flutter/foundation.dart' hide Category;
 
 import '../model/models.dart';
 import '../model/money.dart';
+import 'bank_rules.dart';
 import 'crypto_store.dart';
 import 'defaults.dart';
+import 'key_setup.dart';
 import 'periods.dart';
+import 'storage.dart';
 
 /// Filtro de búsqueda de movimientos.
 class TxFilter {
@@ -86,20 +89,187 @@ class BudgetProgress {
   bool get over => spentMinor > limitMinor;
 }
 
-/// Estado de cuenta de una tarjeta para un ciclo.
+/// Estado de cuenta estimado de una tarjeta de crédito para un ciclo.
+///
+/// Es el **capital** que según lo anotado en Plata vence en la fecha de pago:
+/// no incluye intereses, cuota de manejo ni seguros, que solo conoce el banco.
 class CardStatement {
-  const CardStatement({required this.cycle, required this.purchasesMinor, required this.installmentsMinor, required this.paymentsMinor});
+  const CardStatement({required this.cycle, required this.previousMinor, required this.purchasesMinor, required this.advancesMinor, required this.installmentsMinor, required this.paymentsMinor});
 
   final CardCycle cycle;
 
-  /// Compras de pago único del ciclo.
+  /// Saldo anterior: lo facturado en ciclos anteriores (y la deuda inicial de
+  /// la tarjeta) menos los abonos hechos hasta la fecha de pago anterior.
+  /// Negativo = saldo a favor que se descuenta de este estado.
+  final int previousMinor;
+
+  /// Compras de una cuota del ciclo.
   final int purchasesMinor;
 
-  /// Cuotas de compras diferidas que vencen en este ciclo.
+  /// Avances y transferencias que salieron de la tarjeta en el ciclo.
+  final int advancesMinor;
+
+  /// Cuotas de compras diferidas que se facturan en este ciclo.
   final int installmentsMinor;
+
+  /// Abonos (pagos y devoluciones) hechos entre la fecha de pago anterior y la
+  /// de este estado.
   final int paymentsMinor;
 
-  int get dueMinor => purchasesMinor + installmentsMinor - paymentsMinor;
+  /// Lo nuevo que se factura en el ciclo.
+  int get chargesMinor => purchasesMinor + advancesMinor + installmentsMinor;
+
+  /// Capital estimado pendiente del estado (negativo = saldo a favor).
+  int get balanceMinor => previousMinor + chargesMinor - paymentsMinor;
+
+  /// Lo que falta por pagar (nunca negativo).
+  int get dueMinor => balanceMinor > 0 ? balanceMinor : 0;
+
+  /// Saldo a favor (nunca negativo).
+  int get creditMinor => balanceMinor < 0 ? -balanceMinor : 0;
+}
+
+/// Por qué un movimiento no se puede guardar.
+enum TxProblem {
+  /// Monto vacío, cero o negativo.
+  amount,
+
+  /// La cuenta de origen no existe.
+  account,
+
+  /// Transferencia sin cuenta de destino válida.
+  destination,
+
+  /// Transferencia hacia la misma cuenta.
+  sameAccount,
+
+  /// Transferencia entre monedas sin monto recibido y sin tasa para calcularlo.
+  missingRate,
+}
+
+/// Un movimiento que el libro no acepta (ver [TxProblem]).
+class TxRejected implements Exception {
+  const TxRejected(this.problem, {this.currency});
+
+  final TxProblem problem;
+
+  /// Moneda sin tasa, para [TxProblem.missingRate].
+  final String? currency;
+
+  @override
+  String toString() => 'TxRejected(${problem.name}${currency == null ? '' : ', $currency'})';
+}
+
+/// Por qué el libro está en modo de recuperación (solo lectura).
+enum RecoveryReason {
+  /// El archivo existe pero no se pudo descifrar (otra llave o archivo dañado).
+  unreadable,
+
+  /// Se descifró, pero su contenido no tiene la forma esperada o es de una
+  /// versión más nueva de Plata.
+  invalid,
+
+  /// El archivo desapareció y quedan copias automáticas para restaurar.
+  missing,
+}
+
+/// Lo que suman al mes los programados (ver [Ledger.monthlyCommitments]).
+class MonthlyCommitments {
+  const MonthlyCommitments({required this.outMinor, required this.inMinor});
+
+  final int outMinor;
+  final int inMinor;
+}
+
+/// Cuenta que corresponde a un aviso bancario.
+class NoticeMatch {
+  const NoticeMatch(this.account, {required this.certain});
+
+  final Account? account;
+
+  /// Verdadero si la cuenta se identificó sin dudas: por sus últimos 4 dígitos,
+  /// o porque es la única de ese banco, no tiene dígitos registrados y el aviso
+  /// no trae ninguno. Solo así se anota sin preguntar.
+  final bool certain;
+}
+
+/// Contenido del libro leído de un archivo o de una copia, ya validado. Se
+/// arma completo antes de tocar nada: si algo no cuadra, lanza
+/// [FormatException] y el libro actual queda intacto.
+class LedgerSnapshot {
+  LedgerSnapshot({
+    required this.accounts,
+    required this.categories,
+    required this.txs,
+    required this.scheduled,
+    required this.budgets,
+    required this.templates,
+    required this.inbox,
+    required this.rates,
+    required this.baseCurrency,
+    required this.periodSpec,
+  });
+
+  /// Versión del formato que escribe esta app.
+  static const int currentVersion = 1;
+
+  final List<Account> accounts;
+  final List<Category> categories;
+  final List<Tx> txs;
+  final List<Scheduled> scheduled;
+  final List<Budget> budgets;
+  final List<TxTemplate> templates;
+  final List<InboxItem> inbox;
+  final RateTable rates;
+  final String baseCurrency;
+  final PeriodSpec periodSpec;
+
+  static LedgerSnapshot parse(Map<String, dynamic> j) {
+    final Object? v = j['version'];
+    if (v != null && (v is! num || v.toInt() > currentVersion)) {
+      throw const FormatException('Los datos son de una versión más nueva de Plata');
+    }
+    try {
+      final Object? base = j['baseCurrency'];
+      if (base != null && (base is! String || base.isEmpty)) {
+        throw const FormatException('Moneda base inválida');
+      }
+      return LedgerSnapshot(
+        accounts: _list(j['accounts'], Account.fromJson),
+        categories: _list(j['categories'], Category.fromJson),
+        txs: _list(j['txs'], Tx.fromJson),
+        scheduled: _list(j['scheduled'], Scheduled.fromJson),
+        budgets: _list(j['budgets'], Budget.fromJson),
+        templates: _list(j['templates'], TxTemplate.fromJson),
+        inbox: _list(j['inbox'], InboxItem.fromJson),
+        rates: RateTable.fromJson(j['rates'] as Map<String, dynamic>?),
+        baseCurrency: base as String? ?? 'COP',
+        periodSpec: PeriodSpec(mode: j['periodMode'] == 'quincena' ? PeriodMode.quincena : PeriodMode.month, startDay: ((j['periodStartDay'] as num?)?.toInt() ?? 1).clamp(1, 28)),
+      );
+    } on FormatException {
+      rethrow;
+    } catch (e) {
+      // Un campo con otro tipo (un JSON editado a mano) lanza TypeError.
+      throw FormatException('Los datos no tienen el formato de Plata: $e');
+    }
+  }
+
+  static List<T> _list<T>(Object? raw, T Function(Map<String, dynamic>) read) {
+    final List<T> out = <T>[];
+    if (raw == null) {
+      return out;
+    }
+    if (raw is! List) {
+      throw const FormatException('Se esperaba una lista');
+    }
+    for (final Object? e in raw) {
+      if (e is! Map<String, dynamic>) {
+        throw const FormatException('Elemento con un formato inesperado');
+      }
+      out.add(read(e));
+    }
+    return out;
+  }
 }
 
 /// Todo el libro: cuentas, categorías, movimientos, programados, presupuestos,
@@ -108,7 +278,9 @@ class Ledger extends ChangeNotifier {
   Ledger(this.store, {this.spanish = true, DateTime Function()? clock}) : _clock = clock ?? _systemNow;
 
   final EncryptedStore store;
-  final bool spanish;
+
+  /// Idioma de los nombres de fábrica (ver [applyLanguage]).
+  bool spanish;
   final DateTime Function() _clock;
 
   final List<Account> accounts = <Account>[];
@@ -123,26 +295,87 @@ class Ledger extends ChangeNotifier {
   PeriodSpec periodSpec = const PeriodSpec();
   bool loaded = false;
   Timer? _saveTimer;
-  Future<void>? _saving;
+  Future<void>? _writing;
   bool _dirty = false;
+  int _revision = 0;
+  final Map<String, int> _spentCache = <String, int>{};
 
-  static const String _file = 'ledger.json';
+  static const String _file = kLedgerFile;
+
+  /// Cambia con cada modificación (sirve para invalidar cálculos guardados).
+  int get revision => _revision;
+
+  @override
+  void notifyListeners() {
+    _revision += 1;
+    _spentCache.clear();
+    super.notifyListeners();
+  }
 
   // ------------------------------------------------------------------ carga
 
-  /// Verdadero si el archivo existe pero no se pudo descifrar: la app no
-  /// escribe nada hasta que el usuario restaure una copia (ver [replaceWith]).
-  bool readOnly = false;
+  /// Verdadero mientras los datos guardados no se pueden abrir: la app no
+  /// escribe nada y muestra la pantalla de recuperación hasta que el usuario
+  /// restaure una copia o empiece de cero (ver [replaceWith] y [startFresh]).
+  final ValueNotifier<bool> readOnlyState = ValueNotifier<bool>(false);
+  bool get readOnly => readOnlyState.value;
+  set readOnly(bool v) => readOnlyState.value = v;
+
+  /// Motivo del modo de recuperación (null si el libro se abrió bien).
+  RecoveryReason? recoveryReason;
 
   Future<void> load() async {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    _dirty = false;
+    await _waitWrites();
     Map<String, dynamic>? j;
+    RecoveryReason? reason;
+    bool fileExisted = false;
     try {
       j = await store.readJson(_file);
-      readOnly = false;
+      fileExisted = j != null;
+      if (j == null) {
+        // Sin libro (o vacío): quizá quedó el temporal de una escritura cortada.
+        j = await _recoverTemp();
+        fileExisted = j != null;
+        if (j == null && (await store.store.list('backups', extension: '.json.enc')).isNotEmpty) {
+          // Había datos (quedan copias) y el libro no está: no se empieza vacío
+          // en silencio; se ofrece restaurar.
+          reason = RecoveryReason.missing;
+        }
+      }
     } on DecryptException catch (e) {
       debugPrint('$e');
-      readOnly = true;
+      reason = RecoveryReason.unreadable;
     }
+    LedgerSnapshot? snap;
+    if (j != null) {
+      try {
+        snap = LedgerSnapshot.parse(j);
+      } on FormatException catch (e) {
+        debugPrint('Libro inválido: $e');
+        reason = RecoveryReason.invalid;
+      }
+    }
+    _apply(snap);
+    recoveryReason = reason;
+    readOnly = reason != null;
+    loaded = true;
+    if (!readOnly) {
+      await _clearStaleTemps();
+      if (!fileExisted) {
+        // Primer arranque: el libro de fábrica se escribe de una vez, para que
+        // un libro ausente siempre signifique pérdida y no "aún no se guardó".
+        _dirty = true;
+        await flush();
+      }
+    }
+    notifyListeners();
+  }
+
+  /// Pone en memoria el contenido de [snap] (o el libro de fábrica).
+  void _apply(LedgerSnapshot? snap) {
     accounts.clear();
     categories.clear();
     txs.clear();
@@ -150,17 +383,20 @@ class Ledger extends ChangeNotifier {
     budgets.clear();
     templates.clear();
     inbox.clear();
-    if (j != null) {
-      accounts.addAll(((j['accounts'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>().map(Account.fromJson));
-      categories.addAll(((j['categories'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>().map(Category.fromJson));
-      txs.addAll(((j['txs'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>().map(Tx.fromJson));
-      scheduled.addAll(((j['scheduled'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>().map(Scheduled.fromJson));
-      budgets.addAll(((j['budgets'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>().map(Budget.fromJson));
-      templates.addAll(((j['templates'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>().map(TxTemplate.fromJson));
-      inbox.addAll(((j['inbox'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>().map(InboxItem.fromJson));
-      rates = RateTable.fromJson(j['rates'] as Map<String, dynamic>?);
-      baseCurrency = j['baseCurrency'] as String? ?? 'COP';
-      periodSpec = PeriodSpec(mode: j['periodMode'] == 'quincena' ? PeriodMode.quincena : PeriodMode.month, startDay: ((j['periodStartDay'] as num?)?.toInt() ?? 1).clamp(1, 28));
+    rates = RateTable();
+    baseCurrency = 'COP';
+    periodSpec = const PeriodSpec();
+    if (snap != null) {
+      accounts.addAll(snap.accounts);
+      categories.addAll(snap.categories);
+      txs.addAll(snap.txs);
+      scheduled.addAll(snap.scheduled);
+      budgets.addAll(snap.budgets);
+      templates.addAll(snap.templates);
+      inbox.addAll(snap.inbox);
+      rates = snap.rates;
+      baseCurrency = snap.baseCurrency;
+      periodSpec = snap.periodSpec;
     }
     if (categories.isEmpty) {
       categories.addAll(Defaults.categories(spanish: spanish));
@@ -169,12 +405,45 @@ class Ledger extends ChangeNotifier {
       accounts.addAll(Defaults.accounts(spanish: spanish));
     }
     _sortTxs();
-    loaded = true;
-    notifyListeners();
+  }
+
+  /// Si el libro falta pero quedó el temporal completo de una escritura que se
+  /// cortó antes del renombrado, se recupera el más reciente que se pueda leer.
+  Future<Map<String, dynamic>?> _recoverTemp() async {
+    final List<String> temps = await store.store.list('', prefix: '$_file.', extension: JsonStore.tmpSuffix);
+    final List<MapEntry<String, DateTime>> dated = <MapEntry<String, DateTime>>[];
+    for (final String rel in temps) {
+      dated.add(MapEntry<String, DateTime>(rel, await store.store.modified(rel) ?? DateTime(2000)));
+    }
+    dated.sort((MapEntry<String, DateTime> a, MapEntry<String, DateTime> b) => b.value.compareTo(a.value));
+    for (final MapEntry<String, DateTime> e in dated) {
+      try {
+        final Map<String, dynamic>? j = await store.readJson(e.key);
+        if (j != null) {
+          LedgerSnapshot.parse(j);
+          await store.store.move(e.key, _file);
+          debugPrint('Libro recuperado de ${e.key}');
+          return j;
+        }
+      } catch (err) {
+        debugPrint('Temporal ${e.key} ilegible: $err');
+      }
+    }
+    return null;
+  }
+
+  Future<void> _clearStaleTemps() async {
+    try {
+      for (final String rel in await store.store.list('', prefix: '$_file.', extension: JsonStore.tmpSuffix)) {
+        await store.store.delete(rel);
+      }
+    } catch (e) {
+      debugPrint('Temporales: $e');
+    }
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'version': 1,
+        'version': LedgerSnapshot.currentVersion,
         'exportedAt': _clock().toIso8601String(),
         'baseCurrency': baseCurrency,
         'periodMode': periodSpec.mode.name,
@@ -189,11 +458,70 @@ class Ledger extends ChangeNotifier {
         'rates': rates.toJson(),
       };
 
-  /// Reemplaza todo el libro con un respaldo.
+  /// Reemplaza todo el libro con un respaldo. Primero lo valida completo (si
+  /// no sirve, lanza [FormatException] sin tocar nada); si el libro actual no
+  /// se podía abrir, lo aparta en recovery/ antes de escribir.
   Future<void> replaceWith(Map<String, dynamic> j) async {
-    await store.writeJson(_file, j);
-    await load();
+    final LedgerSnapshot snap = LedgerSnapshot.parse(j);
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    _dirty = false;
+    await _waitWrites();
+    if (readOnly) {
+      await _keepUnreadableCopy();
+    }
+    _apply(snap);
+    _renameFactoryItems(spanish);
+    recoveryReason = null;
+    readOnly = false;
+    _dirty = true;
+    await flush();
+    notifyListeners();
     await pruneAttachments();
+  }
+
+  /// Empieza con un libro de fábrica (borrar todo, o salir del modo de
+  /// recuperación sin copia). Lo que no se pudo abrir queda en recovery/.
+  Future<void> startFresh() async {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    _dirty = false;
+    await _waitWrites();
+    if (readOnly) {
+      await _keepUnreadableCopy();
+    }
+    _apply(null);
+    recoveryReason = null;
+    readOnly = false;
+    loaded = true;
+    _dirty = true;
+    await flush();
+    notifyListeners();
+  }
+
+  /// Cancela el guardado pendiente y espera la escritura en curso (antes de
+  /// borrar todo).
+  Future<void> discardPendingWrites() async {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    _dirty = false;
+    await _waitWrites();
+  }
+
+  Future<void> _keepUnreadableCopy() async {
+    try {
+      final Uint8List? raw = await store.store.readBytes(_file);
+      if (raw != null && raw.isNotEmpty) {
+        final String stamp = _clock().toIso8601String().replaceAll(':', '-');
+        await store.store.writeBytes('recovery/ledger-$stamp.json.enc', raw);
+        final List<String> kept = await store.store.list('recovery', prefix: 'ledger-');
+        for (final String old in kept.take(kept.length > 3 ? kept.length - 3 : 0)) {
+          await store.store.delete(old);
+        }
+      }
+    } catch (e) {
+      debugPrint('Copia del libro ilegible: $e');
+    }
   }
 
   /// Guarda con un pequeño retraso para agrupar cambios seguidos.
@@ -205,27 +533,61 @@ class Ledger extends ChangeNotifier {
     _dirty = true;
     notifyListeners();
     _saveTimer?.cancel();
-    _saveTimer = Timer(const Duration(milliseconds: 400), () => unawaited(flush()));
+    _saveTimer = Timer(const Duration(milliseconds: 400), () => unawaited(_flushQuietly()));
+  }
+
+  Future<void> _flushQuietly() async {
+    try {
+      await flush();
+    } catch (e) {
+      debugPrint('No se pudo guardar el libro: $e');
+    }
   }
 
   /// Hay cambios sin escribir o una escritura en curso.
-  bool get busy => _dirty || _saving != null;
+  bool get busy => _dirty || _writing != null;
 
-  /// Escribe de inmediato si hay cambios pendientes.
+  Future<void> _waitWrites() async {
+    final Future<void>? w = _writing;
+    if (w != null) {
+      await w;
+    }
+  }
+
+  /// Escribe de inmediato si hay cambios pendientes. Las escrituras van en
+  /// fila: cada una espera a la anterior y lleva el libro tal como estaba al
+  /// pedirla. Si falla, los cambios quedan pendientes para el siguiente guardado.
   Future<void> flush() async {
     _saveTimer?.cancel();
     _saveTimer = null;
     if (!_dirty) {
-      return _saving ?? Future<void>.value();
+      await _waitWrites();
+      return;
+    }
+    if (readOnly) {
+      _dirty = false;
+      return;
     }
     _dirty = false;
-    final Future<void> f = store.writeJson(_file, toJson());
-    _saving = f;
+    final Map<String, dynamic> data = toJson();
+    final Future<void>? previous = _writing;
+    final Completer<void> done = Completer<void>();
+    final Future<void> mine = done.future;
+    _writing = mine;
     try {
-      await f;
+      if (previous != null) {
+        await previous;
+      }
+      await store.writeJson(_file, data);
+    } catch (e) {
+      _dirty = true;
+      rethrow;
     } finally {
-      if (identical(_saving, f)) {
-        _saving = null;
+      // El futuro de la fila nunca falla: los que esperan solo necesitan saber
+      // que esta escritura terminó.
+      done.complete();
+      if (identical(_writing, mine)) {
+        _writing = null;
       }
     }
   }
@@ -233,6 +595,7 @@ class Ledger extends ChangeNotifier {
   @override
   void dispose() {
     _saveTimer?.cancel();
+    readOnlyState.dispose();
     super.dispose();
   }
 
@@ -241,7 +604,50 @@ class Ledger extends ChangeNotifier {
         return c != 0 ? c : b.createdAt.compareTo(a.createdAt);
       });
 
+  // ------------------------------------------------------------------ idioma
+
+  /// Cambia de idioma los nombres de fábrica (categorías y la cuenta de
+  /// efectivo) que el usuario no renombró. Los demás se respetan.
+  void applyLanguage(bool toSpanish) {
+    spanish = toSpanish;
+    if (_renameFactoryItems(toSpanish)) {
+      save();
+    } else {
+      notifyListeners();
+    }
+  }
+
+  bool _renameFactoryItems(bool toSpanish) {
+    bool changed = false;
+    String? rename(String current, List<String>? names) {
+      if (names == null) {
+        return null;
+      }
+      final String target = toSpanish ? names[0] : names[1];
+      return current != target && (current == names[0] || current == names[1]) ? target : null;
+    }
+
+    final Map<String, List<String>> catNames = Defaults.categoryNames();
+    for (final Category c in categories) {
+      final String? n = rename(c.name, catNames[c.id]);
+      if (n != null) {
+        c.name = n;
+        changed = true;
+      }
+    }
+    for (final Account a in accounts) {
+      final String? n = rename(a.name, Defaults.accountNames[a.id]);
+      if (n != null) {
+        a.name = n;
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
   // --------------------------------------------------------------- consultas
+
+  DateTime get _today => dateOnly(_clock());
 
   Account? account(String? id) {
     if (id == null) {
@@ -316,20 +722,101 @@ class Ledger extends ChangeNotifier {
     return id;
   }
 
-  /// Cambia la moneda base. Las tasas guardadas (en la tabla y en cada
-  /// movimiento) eran relativas a la base anterior, así que se descartan y las
-  /// conversiones usan la tabla nueva cuando se actualice.
+  /// Si el movimiento sale de (o se carga a) la cuenta [accountId]. Una
+  /// tarjeta débito ve solo lo que se pagó con ella; su cuenta bancaria ve
+  /// además lo de todas sus tarjetas débito, igual que su saldo.
+  bool chargesAccount(Tx t, String accountId) {
+    final Account? a = account(accountId);
+    if (a != null && a.isDebit) {
+      return t.accountId == accountId;
+    }
+    return effectiveAccountId(t.accountId) == accountId;
+  }
+
+  /// Si el movimiento toca la cuenta, como origen o como destino (ver
+  /// [chargesAccount]). Es el criterio de la lista de una cuenta, de los
+  /// informes por cuenta y de los presupuestos.
+  bool touchesAccount(Tx t, String accountId) {
+    if (chargesAccount(t, accountId)) {
+      return true;
+    }
+    final String? to = t.toAccountId;
+    if (to == null) {
+      return false;
+    }
+    final Account? a = account(accountId);
+    if (a != null && a.isDebit) {
+      return to == accountId;
+    }
+    return effectiveAccountId(to) == accountId;
+  }
+
+  /// Un ingreso en una categoría de gasto es un reembolso: en totales,
+  /// informes y presupuestos descuenta del gasto en vez de sumar ingresos.
+  bool isRefundCategory(String? categoryId) => categoryId != null && category(categoryId)?.kind == CategoryKind.expense;
+
+  // ----------------------------------------------------------------- monedas
+
+  /// Si el libro tiene algo que depende de la moneda base (movimientos,
+  /// presupuestos o saldos iniciales).
+  bool get hasMoneyData => txs.isNotEmpty || budgets.isNotEmpty || accounts.any((Account a) => a.initialMinor != 0);
+
+  /// Cambia la moneda base. Las tasas (automáticas y manuales), la tasa
+  /// guardada en cada movimiento y los topes de los presupuestos se recalculan
+  /// con la tasa actual entre las dos monedas, así que nada se suma 1:1. Si esa
+  /// tasa no se conoce y hay datos que convertir, lanza [TxRejected] con
+  /// [TxProblem.missingRate] y no cambia nada.
   void changeBaseCurrency(String currency) {
     if (currency == baseCurrency) {
       return;
     }
-    baseCurrency = currency;
-    rates.rates.clear();
-    rates.manual.clear();
-    rates.updatedAt = null;
-    for (final Tx t in txs) {
-      t.rateToBase = null;
+    final double? r = rateToBase(currency); // 1 [currency] = r [base actual]
+    if (r == null || r <= 0) {
+      if (hasMoneyData) {
+        throw TxRejected(TxProblem.missingRate, currency: currency);
+      }
+      baseCurrency = currency;
+      rates.rates.clear();
+      rates.manual.clear();
+      rates.origins.clear();
+      rates.updatedAt = null;
+      save();
+      return;
     }
+    final String old = baseCurrency;
+    Map<String, double> rebase(Map<String, double> m) {
+      final Map<String, double> out = <String, double>{};
+      m.forEach((String c, double v) {
+        if (c != currency && v > 0) {
+          out[c] = v / r;
+        }
+      });
+      return out;
+    }
+
+    final Map<String, double> auto = rebase(rates.rates)..[old] = 1 / r;
+    final Map<String, double> manual = rebase(rates.manual);
+    final String? newBaseOrigin = rates.origins[currency];
+    rates.rates
+      ..clear()
+      ..addAll(auto);
+    rates.manual
+      ..clear()
+      ..addAll(manual);
+    rates.origins.remove(currency);
+    if (newBaseOrigin != null) {
+      rates.origins[old] = newBaseOrigin;
+    }
+    for (final Tx t in txs) {
+      final double? tr = t.rateToBase;
+      if (tr != null) {
+        t.rateToBase = tr / r;
+      }
+    }
+    for (final Budget b in budgets) {
+      b.amountMinor = (b.amountMinor / r).round();
+    }
+    baseCurrency = currency;
     save();
   }
 
@@ -357,14 +844,48 @@ class Ledger extends ChangeNotifier {
     return r == null ? minor : (minor * r).round();
   }
 
+  /// Convierte centavos entre dos monedas con las tasas guardadas, o null si
+  /// falta alguna tasa.
+  int? convert(int minor, String from, String to) {
+    if (from == to) {
+      return minor;
+    }
+    final double? rf = rateToBase(from);
+    final double? rt = rateToBase(to);
+    if (rf == null || rt == null || rf <= 0 || rt <= 0) {
+      return null;
+    }
+    return (minor * rf / rt).round();
+  }
+
+  /// La moneda que falta para convertir entre [from] y [to].
+  String missingRateFor(String from, String to) => rateToBase(from) == null ? from : to;
+
+  /// Lo que llega a la cuenta de destino de una transferencia, en su moneda.
+  int receivedMinor(Tx t) {
+    final int? stored = t.toAmountMinor;
+    if (stored != null) {
+      return stored;
+    }
+    final Account? to = account(t.toAccountId);
+    if (to == null || to.currency == t.currency) {
+      return t.amountMinor;
+    }
+    // Datos viejos sin monto recibido: se estima con las tasas de hoy.
+    return convert(t.amountMinor, t.currency, to.currency) ?? t.amountMinor;
+  }
+
   // ------------------------------------------------------------------ saldos
 
-  /// Saldo de una cuenta en su moneda (hasta [until] inclusive). Los bolsillos
-  /// no se suman a la madre aquí; ver [balanceWithPockets].
-  int balanceMinor(String accountId, {DateTime? until, bool includeDebitCards = true}) {
+  /// Saldo de una cuenta en su moneda con los movimientos anteriores a
+  /// [before] (por defecto, hasta el final de hoy: un movimiento con fecha
+  /// futura no cuenta todavía). Los bolsillos no se suman a la madre aquí; ver
+  /// [balanceWithPockets].
+  int balanceMinor(String accountId, {DateTime? before, bool includeDebitCards = true}) {
+    final DateTime limit = before ?? addDays(_today, 1);
     int total = account(accountId)?.initialMinor ?? 0;
     for (final Tx t in txs) {
-      if (until != null && t.date.isAfter(until)) {
+      if (!t.date.isBefore(limit)) {
         continue;
       }
       final String from = includeDebitCards ? effectiveAccountId(t.accountId) : t.accountId;
@@ -373,30 +894,30 @@ class Ledger extends ChangeNotifier {
         total += t.signedMinor;
       }
       if (t.kind == TxKind.transfer && to == accountId) {
-        total += t.toAmountMinor ?? t.amountMinor;
+        total += receivedMinor(t);
       }
     }
     return total;
   }
 
-  int balanceWithPockets(String accountId, {DateTime? until}) {
-    int total = balanceMinor(accountId, until: until);
+  int balanceWithPockets(String accountId, {DateTime? before}) {
+    int total = balanceMinor(accountId, before: before);
     for (final Account a in accounts) {
       if (a.isPocket && a.parentId == accountId && !a.archived) {
-        total += balanceMinor(a.id, until: until);
+        total += balanceMinor(a.id, before: before);
       }
     }
     return total;
   }
 
   /// Patrimonio neto en moneda base: activos menos deudas de las cuentas incluidas.
-  int netWorthMinor({DateTime? until}) {
+  int netWorthMinor({DateTime? before}) {
     int total = 0;
     for (final Account a in accounts) {
       if (a.archived || !a.includeInTotal || a.isDebit) {
         continue;
       }
-      total += toBase(balanceMinor(a.id, until: until), a.currency);
+      total += toBase(balanceMinor(a.id, before: before), a.currency);
     }
     return total;
   }
@@ -416,7 +937,21 @@ class Ledger extends ChangeNotifier {
     return total;
   }
 
+  /// Cupo libre de una tarjeta de crédito: el cupo menos lo que se debe (un
+  /// saldo a favor lo aumenta). Null si la tarjeta no tiene cupo.
+  int? availableCreditMinor(Account card) {
+    final int? limit = card.creditLimitMinor;
+    if (limit == null) {
+      return null;
+    }
+    return limit + balanceMinor(card.id);
+  }
+
   // ------------------------------------------------------------- movimientos
+
+  /// Revisa un movimiento sin guardarlo (lanza [TxRejected] si no sirve). Puede
+  /// completar campos: la tasa del día, el monto recibido entre monedas.
+  void validate(Tx t) => _normalize(t);
 
   Future<Tx> addTx(Tx t) async {
     _normalize(t);
@@ -426,8 +961,16 @@ class Ledger extends ChangeNotifier {
     return t;
   }
 
-  void updateTx(Tx t) {
-    _normalize(t);
+  /// Guarda los cambios de un movimiento existente. [draft] trae los datos
+  /// nuevos y el mismo id: si no pasa la revisión, el original queda intacto.
+  void updateTx(Tx draft) {
+    _normalize(draft);
+    final int i = txs.indexWhere((Tx x) => x.id == draft.id);
+    if (i < 0) {
+      txs.add(draft);
+    } else {
+      txs[i] = draft;
+    }
     _sortTxs();
     save();
   }
@@ -437,6 +980,41 @@ class Ledger extends ChangeNotifier {
     txs.removeWhere((Tx t) => t.id == id);
     save();
     await deleteAttachmentFiles(files);
+  }
+
+  /// Copia un movimiento con fecha de hoy, como uno nuevo: con la tasa del
+  /// día, sin conciliar, sin fotos y sin el vínculo a su programado.
+  Future<Tx> duplicateTx(Tx source, {DateTime? date}) {
+    final Tx c = source.copy(id: newId(), date: date ?? _clock());
+    c.rateToBase = null;
+    if (c.toAmountAuto) {
+      c.toAmountMinor = null;
+      c.toAmountAuto = false;
+    }
+    c.reconciled = false;
+    c.scheduledId = null;
+    c.source = 'manual';
+    c.attachments.clear();
+    return addTx(c);
+  }
+
+  /// Ajusta el saldo de una cuenta al real con un movimiento de ajuste: corrige
+  /// el saldo, pero no cuenta como gasto ni ingreso. Devuelve null si ya
+  /// coincidía.
+  Future<Tx?> adjustBalance(Account a, int realBalanceMinor, {String description = ''}) async {
+    final int diff = realBalanceMinor - balanceMinor(a.id);
+    if (diff == 0) {
+      return null;
+    }
+    return addTx(Tx(
+      id: newId(),
+      kind: diff > 0 ? TxKind.income : TxKind.expense,
+      amountMinor: diff.abs(),
+      accountId: a.id,
+      date: _clock(),
+      description: description,
+      source: 'adjustment',
+    ));
   }
 
   /// Borra fotos de recibos que ya no usa ningún movimiento.
@@ -463,7 +1041,7 @@ class Ledger extends ChangeNotifier {
       return;
     }
     final List<String> files = await store.store.list('attachments');
-    final Set<String> present = files.where((String f) => !f.endsWith('.tmp')).toSet();
+    final Set<String> present = files.where((String f) => !f.endsWith(JsonStore.tmpSuffix)).toSet();
     bool changed = false;
     for (final Tx t in txs) {
       final int before = t.attachments.length;
@@ -478,26 +1056,49 @@ class Ledger extends ChangeNotifier {
 
   void _normalize(Tx t) {
     final Account? a = account(t.accountId);
-    if (a != null) {
-      t.currency = a.currency;
-      t.rateToBase ??= rateToBase(a.currency);
-    }
-    if (t.kind != TxKind.transfer) {
-      t.toAccountId = null;
-      t.toAmountMinor = null;
-    } else {
-      t.categoryId = null;
-      t.splits.clear();
-      final Account? to = account(t.toAccountId);
-      if (to != null && a != null && to.currency == a.currency) {
-        t.toAmountMinor = null;
-      }
+    if (a == null) {
+      throw const TxRejected(TxProblem.account);
     }
     if (t.splits.isNotEmpty) {
       t.amountMinor = t.splits.fold<int>(0, (int s, TxSplit p) => s + p.amountMinor);
       t.categoryId = null;
     }
-    if (t.installments < 1) {
+    if (t.amountMinor <= 0) {
+      throw const TxRejected(TxProblem.amount);
+    }
+    if (t.currency != a.currency || t.rateToBase == null) {
+      // Moneda nueva (o movimiento sin tasa): vale la tasa de hoy. Si la
+      // moneda no cambia, se conserva la tasa histórica.
+      t.rateToBase = rateToBase(a.currency);
+    }
+    t.currency = a.currency;
+    if (t.kind != TxKind.transfer) {
+      t.toAccountId = null;
+      t.toAmountMinor = null;
+      t.toAmountAuto = false;
+    } else {
+      t.categoryId = null;
+      t.splits.clear();
+      final Account? to = account(t.toAccountId);
+      if (to == null) {
+        throw const TxRejected(TxProblem.destination);
+      }
+      if (to.id == a.id || effectiveAccountId(to.id) == effectiveAccountId(a.id)) {
+        throw const TxRejected(TxProblem.sameAccount);
+      }
+      if (to.currency == a.currency) {
+        t.toAmountMinor = null;
+        t.toAmountAuto = false;
+      } else if (t.toAmountMinor == null || t.toAmountMinor! <= 0) {
+        final int? received = convert(t.amountMinor, a.currency, to.currency);
+        if (received == null) {
+          throw TxRejected(TxProblem.missingRate, currency: missingRateFor(a.currency, to.currency));
+        }
+        t.toAmountMinor = received;
+        t.toAmountAuto = true;
+      }
+    }
+    if (t.installments < 1 || !(a.isCredit && t.kind == TxKind.expense)) {
       t.installments = 1;
     }
   }
@@ -509,7 +1110,7 @@ class Ledger extends ChangeNotifier {
       if (f.kinds.isNotEmpty && !f.kinds.contains(t.kind)) {
         return false;
       }
-      if (f.accountIds.isNotEmpty && !f.accountIds.contains(t.accountId) && !(t.toAccountId != null && f.accountIds.contains(t.toAccountId))) {
+      if (f.accountIds.isNotEmpty && !f.accountIds.any((String id) => touchesAccount(t, id))) {
         return false;
       }
       if (f.categoryIds.isNotEmpty) {
@@ -521,7 +1122,7 @@ class Ledger extends ChangeNotifier {
       if (f.from != null && t.date.isBefore(dateOnly(f.from!))) {
         return false;
       }
-      if (f.to != null && !t.date.isBefore(dateOnly(f.to!).add(const Duration(days: 1)))) {
+      if (f.to != null && !t.date.isBefore(addDays(dateOnly(f.to!), 1))) {
         return false;
       }
       if (f.minMinor != null && t.amountMinor < f.minMinor!) {
@@ -536,14 +1137,14 @@ class Ledger extends ChangeNotifier {
       if (f.onlyWithAttachment && t.attachments.isEmpty) {
         return false;
       }
-      if (f.onlyUncategorized && !(t.kind != TxKind.transfer && t.categoryId == null && t.splits.isEmpty)) {
+      if (f.onlyUncategorized && !(t.kind != TxKind.transfer && !t.isAdjustment && t.categoryId == null && t.splits.isEmpty)) {
         return false;
       }
       if (f.onlyUnreconciled && t.reconciled) {
         return false;
       }
       if (q.isNotEmpty) {
-        final String hay = '${t.description} ${t.payee} ${t.notes} ${t.tags.join(' ')} ${categoryPath(t.categoryId)} ${account(t.accountId)?.name ?? ''} ${t.checkNumber} ${Money.format(t.amountMinor, t.currency, withSymbol: false)}'.toLowerCase();
+        final String hay = '${t.description} ${t.payee} ${t.notes} ${t.tags.join(' ')} ${categoryPath(t.categoryId)} ${account(t.accountId)?.name ?? ''} ${t.checkNumber} ${Money.format(t.amountMinor, t.currency, withSymbol: false)} ${Money.format(t.amountMinor, t.currency, withSymbol: false, spanish: false)}'.toLowerCase();
         if (!hay.contains(q)) {
           return false;
         }
@@ -552,42 +1153,65 @@ class Ledger extends ChangeNotifier {
     }).toList();
   }
 
-  List<Tx> inPeriod(Period p, {String? accountId}) => txs.where((Tx t) => p.contains(t.date) && (accountId == null || effectiveAccountId(t.accountId) == accountId || t.toAccountId == accountId)).toList();
+  List<Tx> inPeriod(Period p, {String? accountId}) => txs.where((Tx t) => p.contains(t.date) && (accountId == null || touchesAccount(t, accountId))).toList();
+
+  /// Partes de un movimiento con su categoría (una por división, o una sola).
+  List<TxSplit> _parts(Tx t) => t.splits.isNotEmpty ? t.splits : <TxSplit>[TxSplit(categoryId: t.categoryId ?? '', amountMinor: t.amountMinor)];
 
   /// Totales de un periodo en moneda base: ingresos, gastos (positivos) y neto.
-  /// Las transferencias no cuentan.
+  /// Las transferencias y los ajustes de saldo no cuentan; los reembolsos
+  /// (ingresos en una categoría de gasto) descuentan del gasto.
   PeriodTotals totals(Period p, {String? accountId}) {
     int income = 0;
     int expense = 0;
     for (final Tx t in inPeriod(p, accountId: accountId)) {
-      if (t.kind == TxKind.income) {
-        income += toBase(t.amountMinor, t.currency, rate: t.rateToBase);
-      } else if (t.kind == TxKind.expense) {
-        expense += toBase(t.amountMinor, t.currency, rate: t.rateToBase);
+      if (t.isAdjustment || t.kind == TxKind.transfer) {
+        continue;
+      }
+      if (accountId != null && !chargesAccount(t, accountId)) {
+        continue;
+      }
+      for (final TxSplit part in _parts(t)) {
+        final int v = toBase(part.amountMinor, t.currency, rate: t.rateToBase);
+        if (t.kind == TxKind.expense) {
+          expense += v;
+        } else if (isRefundCategory(part.categoryId)) {
+          expense -= v;
+        } else {
+          income += v;
+        }
       }
     }
     return PeriodTotals(period: p, incomeMinor: income, expenseMinor: expense);
   }
 
-  /// Gasto (o ingreso) por categoría raíz en un periodo, en moneda base, de mayor a menor.
+  /// Gasto (o ingreso) por categoría raíz en un periodo, en moneda base, de
+  /// mayor a menor. Los reembolsos descuentan de su categoría de gasto.
   List<CategoryTotal> byCategory(Period p, {CategoryKind kind = CategoryKind.expense, String? accountId, bool roots = true}) {
     final Map<String, int> sums = <String, int>{};
-    final TxKind txKind = kind == CategoryKind.expense ? TxKind.expense : TxKind.income;
     for (final Tx t in inPeriod(p, accountId: accountId)) {
-      if (t.kind != txKind) {
+      if (t.isAdjustment || t.kind == TxKind.transfer) {
         continue;
       }
-      if (t.splits.isNotEmpty) {
-        for (final TxSplit s in t.splits) {
-          final String key = roots ? _rootOf(s.categoryId) : s.categoryId;
-          sums[key] = (sums[key] ?? 0) + toBase(s.amountMinor, t.currency, rate: t.rateToBase);
+      if (accountId != null && !chargesAccount(t, accountId)) {
+        continue;
+      }
+      for (final TxSplit part in _parts(t)) {
+        final bool refund = t.kind == TxKind.income && isRefundCategory(part.categoryId);
+        int sign;
+        if (kind == CategoryKind.expense) {
+          sign = t.kind == TxKind.expense ? 1 : (refund ? -1 : 0);
+        } else {
+          sign = t.kind == TxKind.income && !refund ? 1 : 0;
         }
-      } else {
-        final String key = t.categoryId == null ? '' : (roots ? _rootOf(t.categoryId!) : t.categoryId!);
-        sums[key] = (sums[key] ?? 0) + toBase(t.amountMinor, t.currency, rate: t.rateToBase);
+        if (sign == 0) {
+          continue;
+        }
+        final String key = part.categoryId.isEmpty ? '' : (roots ? _rootOf(part.categoryId) : part.categoryId);
+        sums[key] = (sums[key] ?? 0) + sign * toBase(part.amountMinor, t.currency, rate: t.rateToBase);
       }
     }
-    final List<CategoryTotal> out = sums.entries.map((MapEntry<String, int> e) => CategoryTotal(categoryId: e.key.isEmpty ? null : e.key, amountMinor: e.value)).toList();
+    final List<CategoryTotal> out = sums.entries.where((MapEntry<String, int> e) => e.value != 0).map((MapEntry<String, int> e) => CategoryTotal(categoryId: e.key.isEmpty ? null : e.key, amountMinor: e.value)).toList();
     out.sort((CategoryTotal a, CategoryTotal b) => b.amountMinor.compareTo(a.amountMinor));
     return out;
   }
@@ -629,7 +1253,7 @@ class Ledger extends ChangeNotifier {
         case TxKind.transfer:
           add(from, 0, t.amountMinor);
           if (t.toAccountId != null) {
-            add(effectiveAccountId(t.toAccountId!), t.toAmountMinor ?? t.amountMinor, 0);
+            add(effectiveAccountId(t.toAccountId!), receivedMinor(t), 0);
           }
           break;
       }
@@ -655,7 +1279,7 @@ class Ledger extends ChangeNotifier {
     }
     final Map<String, List<Tx>> groups = <String, List<Tx>>{};
     for (final Tx t in txs) {
-      if (kind != null && t.kind != kind) {
+      if ((kind != null && t.kind != kind) || t.isAdjustment) {
         continue;
       }
       final String d = t.description.trim();
@@ -694,37 +1318,65 @@ class Ledger extends ChangeNotifier {
 
   // ------------------------------------------------------------ presupuestos
 
-  /// Gasto de un presupuesto en un periodo dado (moneda base).
-  int budgetSpent(Budget b, Period p) {
+  /// Categorías que cubre un presupuesto (con sus subcategorías); vacío =
+  /// todos los gastos.
+  Set<String> budgetCategories(Budget b) {
     final Set<String> cats = <String>{};
     for (final String id in b.categoryIds) {
       cats.addAll(categoryTree(id));
     }
-    int spent = 0;
-    for (final Tx t in txs) {
-      if (!p.contains(t.date)) {
+    return cats;
+  }
+
+  /// Lo que [t] suma al gasto de [b], en moneda base: positivo si es un gasto
+  /// en sus categorías, negativo si es un reembolso (ingreso en una categoría
+  /// de gasto) y cero si no cuenta. Los ajustes de saldo y las transferencias
+  /// no cuentan. Es la misma regla de los totales de Informes.
+  int budgetShare(Budget b, Tx t, {Set<String>? cats}) {
+    if (t.isAdjustment || t.kind == TxKind.transfer) {
+      return 0;
+    }
+    if (b.accountId != null && !chargesAccount(t, b.accountId!)) {
+      return 0;
+    }
+    final Set<String> c = cats ?? budgetCategories(b);
+    int share = 0;
+    for (final TxSplit part in _parts(t)) {
+      if (c.isNotEmpty && !c.contains(part.categoryId)) {
         continue;
       }
-      if (b.accountId != null && effectiveAccountId(t.accountId) != b.accountId) {
-        continue;
-      }
+      final int v = toBase(part.amountMinor, t.currency, rate: t.rateToBase);
       if (t.kind == TxKind.expense) {
-        if (cats.isEmpty) {
-          spent += toBase(t.amountMinor, t.currency, rate: t.rateToBase);
-        } else if (t.splits.isNotEmpty) {
-          for (final TxSplit s in t.splits) {
-            if (cats.contains(s.categoryId)) {
-              spent += toBase(s.amountMinor, t.currency, rate: t.rateToBase);
-            }
-          }
-        } else if (t.categoryId != null && cats.contains(t.categoryId)) {
-          spent += toBase(t.amountMinor, t.currency, rate: t.rateToBase);
-        }
-      } else if (t.kind == TxKind.income && cats.isNotEmpty && t.categoryId != null && cats.contains(t.categoryId)) {
-        // Reembolso anotado en una categoría de gasto: descuenta.
-        spent -= toBase(t.amountMinor, t.currency, rate: t.rateToBase);
+        share += v;
+      } else if (isRefundCategory(part.categoryId)) {
+        share -= v;
       }
     }
+    return share;
+  }
+
+  /// Movimientos que cuentan en [b] durante [p] (los de "Ver movimientos"),
+  /// del más reciente al más antiguo. Su suma es [budgetSpent].
+  List<Tx> budgetTxs(Budget b, Period p) {
+    final Set<String> cats = budgetCategories(b);
+    return txs.where((Tx t) => p.contains(t.date) && budgetShare(b, t, cats: cats) != 0).toList();
+  }
+
+  /// Gasto de un presupuesto en un periodo dado (moneda base).
+  int budgetSpent(Budget b, Period p) {
+    final String key = '${b.id}|${b.accountId}|${b.categoryIds.join(',')}|${p.start.toIso8601String()}|${p.end.toIso8601String()}';
+    final int? cached = _spentCache[key];
+    if (cached != null) {
+      return cached;
+    }
+    final Set<String> cats = budgetCategories(b);
+    int spent = 0;
+    for (final Tx t in txs) {
+      if (p.contains(t.date)) {
+        spent += budgetShare(b, t, cats: cats);
+      }
+    }
+    _spentCache[key] = spent;
     return spent;
   }
 
@@ -735,7 +1387,7 @@ class Ledger extends ChangeNotifier {
       Period p = BudgetPeriods.previous(b, current);
       int guard = 0;
       final DateTime start = dateOnly(b.startDate);
-      while (!p.end.isBefore(start.add(const Duration(days: 1))) && guard++ < 120) {
+      while (!p.end.isBefore(addDays(start, 1)) && guard++ < 120) {
         carry += b.amountMinor - budgetSpent(b, p);
         if (!p.start.isAfter(start)) {
           break;
@@ -748,8 +1400,30 @@ class Ledger extends ChangeNotifier {
 
   // ------------------------------------------------------------- programados
 
+  Tx _txFromScheduled(Scheduled s, DateTime date) => Tx(
+        id: newId(),
+        kind: s.kind,
+        amountMinor: s.amountMinor,
+        accountId: s.accountId,
+        toAccountId: s.toAccountId,
+        toAmountMinor: s.kind == TxKind.transfer ? s.toAmountMinor : null,
+        categoryId: s.categoryId,
+        date: date,
+        description: s.description.isNotEmpty ? s.description : s.name,
+        payee: s.payee,
+        tags: List<String>.from(s.tags),
+        scheduledId: s.id,
+        source: 'scheduled',
+      );
+
+  /// Mediodía del día (no cae en el día anterior por zona horaria ni por
+  /// horario de verano).
+  static DateTime _noon(DateTime d) => DateTime(d.year, d.month, d.day, 12);
+
   /// Anota los programados vencidos (si son automáticos) y avanza sus fechas.
-  /// Devuelve los movimientos creados.
+  /// Uno que no se puede anotar (falta la tasa de una transferencia entre
+  /// monedas) queda vencido hasta que el usuario lo resuelva; uno cuya cuenta
+  /// ya no existe se pausa. Devuelve los movimientos creados.
   List<Tx> processScheduled({DateTime? now}) {
     final DateTime today = dateOnly(now ?? _clock());
     final List<Tx> created = <Tx>[];
@@ -769,26 +1443,19 @@ class Ledger extends ChangeNotifier {
           // Los manuales quedan vencidos hasta que el usuario los anote o salte.
           break;
         }
-        {
-          final Tx t = Tx(
-            id: newId(),
-            kind: s.kind,
-            amountMinor: s.amountMinor,
-            accountId: s.accountId,
-            toAccountId: s.toAccountId,
-            categoryId: s.categoryId,
-            date: dateOnly(s.nextDate).add(const Duration(hours: 12)),
-            description: s.description.isNotEmpty ? s.description : s.name,
-            payee: s.payee,
-            tags: List<String>.from(s.tags),
-            scheduledId: s.id,
-            source: 'scheduled',
-          );
+        final Tx t = _txFromScheduled(s, _noon(s.nextDate));
+        try {
           _normalize(t);
-          txs.add(t);
-          created.add(t);
-          s.lastPosted = t.date;
+        } on TxRejected catch (e) {
+          if (e.problem == TxProblem.account || e.problem == TxProblem.destination) {
+            s.enabled = false;
+            changed = true;
+          }
+          break;
         }
+        txs.add(t);
+        created.add(t);
+        s.lastPosted = t.date;
         s.nextDate = s.frequency.next(dateOnly(s.nextDate), anchor: s.anchorDate);
         changed = true;
       }
@@ -800,59 +1467,143 @@ class Ledger extends ChangeNotifier {
     return created;
   }
 
+  /// Lo que un programado mueve en un mes promedio, en la moneda de su cuenta.
+  static int perMonthMinor(Scheduled s) {
+    final int every = s.frequency.every < 1 ? 1 : s.frequency.every;
+    switch (s.frequency.unit) {
+      case FrequencyUnit.day:
+        return (s.amountMinor * 30 / every).round();
+      case FrequencyUnit.week:
+        return (s.amountMinor * 52 / 12 / every).round();
+      case FrequencyUnit.month:
+        return (s.amountMinor / every).round();
+      case FrequencyUnit.year:
+        return (s.amountMinor / 12 / every).round();
+      case FrequencyUnit.quincena:
+        return s.amountMinor * 2;
+    }
+  }
+
+  /// Compromisos fijos al mes de los programados activos, en moneda base:
+  /// cada uno está en la moneda de su cuenta y se convierte antes de sumar.
+  /// Las transferencias no son gasto ni ingreso y no cuentan.
+  MonthlyCommitments monthlyCommitments() {
+    int out = 0;
+    int incoming = 0;
+    for (final Scheduled s in scheduled) {
+      if (!s.enabled || s.kind == TxKind.transfer) {
+        continue;
+      }
+      final int v = toBase(perMonthMinor(s), account(s.accountId)?.currency ?? baseCurrency);
+      if (s.kind == TxKind.expense) {
+        out += v;
+      } else {
+        incoming += v;
+      }
+    }
+    return MonthlyCommitments(outMinor: out, inMinor: incoming);
+  }
+
   /// Programados que vencen en los próximos [days] días (incluye los vencidos no automáticos).
   List<Scheduled> upcoming({int days = 7, DateTime? now}) {
-    final DateTime today = dateOnly(now ?? _clock());
-    final DateTime limit = today.add(Duration(days: days));
-    final List<Scheduled> out = scheduled.where((Scheduled s) => s.enabled && dateOnly(s.nextDate).isBefore(limit.add(const Duration(days: 1)))).toList();
+    final DateTime limit = addDays(dateOnly(now ?? _clock()), days + 1);
+    final List<Scheduled> out = scheduled.where((Scheduled s) => s.enabled && dateOnly(s.nextDate).isBefore(limit)).toList();
     out.sort((Scheduled a, Scheduled b) => a.nextDate.compareTo(b.nextDate));
     return out;
   }
 
   // ---------------------------------------------------------------- tarjetas
 
-  /// Estado de cuenta de una tarjeta para el ciclo que contiene [date].
+  /// Valor de la cuota [k] (1..[n]) de una compra de [total]: todas iguales y
+  /// la última con lo que sobra, para que las cuotas sumen exactamente el total.
+  static int installmentAmount(int total, int n, int k) {
+    if (n <= 1) {
+      return total;
+    }
+    final int base = total ~/ n;
+    return k == n ? total - base * (n - 1) : base;
+  }
+
+  /// Corte del ciclo en que cae una fecha.
+  DateTime _cutOf(Account card, DateTime d) => CardCycle.current(card, d).cut;
+
+  /// Estado de cuenta estimado de una tarjeta para el ciclo que contiene [date].
   ///
-  /// Compras y cuotas: por fecha dentro del ciclo (corte anterior, corte].
-  /// Pagos: los abonos hechos entre la fecha de pago del ciclo anterior y la
-  /// fecha de pago de este, que es como el banco los aplica.
+  /// - Compras de una cuota, avances (transferencias que salen de la tarjeta)
+  ///   y ajustes: en el ciclo de su fecha, (corte anterior, corte].
+  /// - Cuota k de una compra diferida: en el k-ésimo corte desde la compra; la
+  ///   primera cuota se factura en el primer corte después de la compra, como
+  ///   en los bancos colombianos (ver docs/DECISIONES.md).
+  /// - Abonos (pagos a la tarjeta y devoluciones): en la ventana entre la fecha
+  ///   de pago anterior y la de este estado, que es como el banco los aplica.
+  /// - Lo facturado antes y no pagado, y la deuda inicial, llegan como saldo
+  ///   anterior; un abono de más llega como saldo a favor.
+  ///
+  /// Es solo capital: Plata no calcula intereses ni cuota de manejo.
   CardStatement statement(Account card, {DateTime? date}) {
     final CardCycle cycle = CardCycle.current(card, date ?? _clock());
+    final DateTime cut = cycle.cut;
     final DateTime prevPay = cycle.previous(card).payDate;
+    final DateTime payDate = cycle.payDate;
+    int previous = -card.initialMinor;
     int purchases = 0;
+    int advances = 0;
     int installments = 0;
     int payments = 0;
-    for (final Tx t in txs) {
-      final bool from = effectiveAccountId(t.accountId) == card.id;
-      final bool to = t.toAccountId == card.id;
-      if (t.kind == TxKind.expense && from) {
-        if (t.installments <= 1) {
-          if (cycle.period.contains(t.date)) {
-            purchases += t.amountMinor;
-          }
+    void charge(DateTime d, int amount, bool advance) {
+      final DateTime c = _cutOf(card, d);
+      if (c == cut) {
+        if (advance) {
+          advances += amount;
         } else {
-          // Cuota k (1..n) cae en el ciclo k-ésimo después del de la compra.
-          final CardCycle purchaseCycle = CardCycle.current(card, t.date);
-          final int k = _cyclesBetween(purchaseCycle.cut, cycle.cut);
-          if (k >= 1 && k <= t.installments) {
-            installments += (t.amountMinor / t.installments).round();
-          }
+          purchases += amount;
         }
-      } else if (t.kind == TxKind.income && from && cycle.period.contains(t.date)) {
-        // Reembolso en la tarjeta: descuenta de las compras del ciclo.
-        purchases -= t.amountMinor;
-      } else if (t.kind == TxKind.transfer && to) {
-        final DateTime d = dateOnly(t.date);
-        if (d.isAfter(prevPay) && !d.isAfter(cycle.payDate)) {
-          payments += t.toAmountMinor ?? t.amountMinor;
-        }
+      } else if (c.isBefore(cut)) {
+        previous += amount;
       }
     }
-    return CardStatement(cycle: cycle, purchasesMinor: purchases, installmentsMinor: installments, paymentsMinor: payments);
+
+    void credit(DateTime d, int amount) {
+      if (!d.isAfter(prevPay)) {
+        previous -= amount;
+      } else if (!d.isAfter(payDate)) {
+        payments += amount;
+      }
+    }
+
+    for (final Tx t in txs) {
+      final DateTime d = dateOnly(t.date);
+      final bool from = effectiveAccountId(t.accountId) == card.id;
+      if (from && t.kind == TxKind.expense) {
+        if (t.installments <= 1) {
+          charge(d, t.amountMinor, false);
+        } else {
+          final int n = t.installments;
+          // Cortes desde el de la compra hasta el de este ciclo: la cuota
+          // m + 1 es la de este estado y las m anteriores ya se facturaron.
+          final int m = CardCycle.cyclesBetween(_cutOf(card, d), cut);
+          for (int k = 1; k <= n && k <= m; k++) {
+            previous += installmentAmount(t.amountMinor, n, k);
+          }
+          if (m >= 0 && m < n) {
+            installments += installmentAmount(t.amountMinor, n, m + 1);
+          }
+        }
+      } else if (from && t.kind == TxKind.transfer) {
+        charge(d, t.amountMinor, true);
+      } else if (from && t.kind == TxKind.income) {
+        credit(d, t.amountMinor);
+      }
+      if (t.kind == TxKind.transfer && t.toAccountId != null && effectiveAccountId(t.toAccountId!) == card.id) {
+        credit(d, receivedMinor(t));
+      }
+    }
+    return CardStatement(cycle: cycle, previousMinor: previous, purchasesMinor: purchases, advancesMinor: advances, installmentsMinor: installments, paymentsMinor: payments);
   }
 
   /// Estado de cuenta cuyo pago es el próximo: el del ciclo ya cerrado si su
-  /// fecha de pago no ha pasado y aún debe algo; si no, el del ciclo en curso.
+  /// fecha de pago no ha pasado y aún debe algo; si no, el del ciclo en curso
+  /// (que ya trae como saldo anterior lo que no se pagó).
   CardStatement nextPayment(Account card, {DateTime? now}) {
     final DateTime today = dateOnly(now ?? _clock());
     final CardCycle current = CardCycle.current(card, today);
@@ -866,18 +1617,47 @@ class Ledger extends ChangeNotifier {
     return statement(card, date: today);
   }
 
-  static int _cyclesBetween(DateTime cutA, DateTime cutB) => (cutB.year - cutA.year) * 12 + (cutB.month - cutA.month);
-
   /// Cuotas de una compra diferida que aún no se han facturado al terminar el
-  /// ciclo que contiene [now] (la primera cuota se factura en el ciclo
-  /// siguiente al de la compra).
+  /// ciclo que contiene [now] (la primera cuota se factura en el primer corte
+  /// después de la compra).
   int remainingInstallments(Tx t, {DateTime? now}) {
     final Account? card = account(t.accountId);
     if (card == null || t.installments <= 1) {
       return 0;
     }
-    final int k = _cyclesBetween(CardCycle.current(card, t.date).cut, CardCycle.current(card, now ?? _clock()).cut);
-    return (t.installments - k).clamp(0, t.installments);
+    final int billed = CardCycle.cyclesBetween(_cutOf(card, t.date), _cutOf(card, now ?? _clock())) + 1;
+    return (t.installments - billed).clamp(0, t.installments);
+  }
+
+  /// Capital de las cuotas que faltan por facturar de una compra diferida.
+  int remainingInstallmentsMinor(Tx t, {DateTime? now}) {
+    final int left = remainingInstallments(t, now: now);
+    int sum = 0;
+    for (int k = t.installments - left + 1; k <= t.installments; k++) {
+      sum += installmentAmount(t.amountMinor, t.installments, k);
+    }
+    return sum;
+  }
+
+  /// Cuenta desde la que conviene pagar una tarjeta: una de su misma moneda
+  /// (la preferida, si sirve). Null si no hay ninguna: entonces el pago es una
+  /// transferencia entre monedas y el editor pide el monto.
+  Account? paymentSourceFor(Account card, {String? preferredId}) {
+    bool ok(Account a) =>
+        !a.archived &&
+        a.id != card.id &&
+        a.currency == card.currency &&
+        (a.type == AccountType.bank || a.type == AccountType.savings || a.type == AccountType.cash || a.type == AccountType.wallet || a.type == AccountType.other);
+    final Account? pref = account(preferredId);
+    if (pref != null && ok(pref)) {
+      return pref;
+    }
+    for (final Account a in activeAccounts) {
+      if (ok(a)) {
+        return a;
+      }
+    }
+    return null;
   }
 
   // -------------------------------------------------------- otras entidades
@@ -889,8 +1669,38 @@ class Ledger extends ChangeNotifier {
     return a;
   }
 
+  /// Si la cuenta tiene movimientos (como origen o destino).
+  bool accountInUse(String id) => txs.any((Tx t) => t.accountId == id || t.toAccountId == id);
+
+  /// Archiva o desarchiva una cuenta. Al archivarla se pausan sus programados
+  /// y las plantillas dejan de apuntar a ella (piden la cuenta al usarlas).
+  void setArchived(Account a, bool archived) {
+    a.archived = archived;
+    if (archived) {
+      _releaseAccount(a.id);
+    }
+    save();
+  }
+
+  void _releaseAccount(String id) {
+    for (final Scheduled s in scheduled) {
+      if (s.accountId == id || s.toAccountId == id) {
+        s.enabled = false;
+      }
+    }
+    for (final TxTemplate t in templates) {
+      if (t.accountId == id) {
+        t.accountId = null;
+      }
+      if (t.toAccountId == id) {
+        t.toAccountId = null;
+      }
+    }
+  }
+
   void deleteAccount(String id) {
-    if (txs.any((Tx t) => t.accountId == id || t.toAccountId == id)) {
+    _releaseAccount(id);
+    if (accountInUse(id)) {
       final Account? a = account(id);
       if (a != null) {
         a.archived = true;
@@ -928,25 +1738,40 @@ class Ledger extends ChangeNotifier {
     return t;
   }
 
-  /// Anota una plantilla de un toque (si tiene monto y cuenta).
+  /// Movimiento que anotaría una plantilla hoy (sin guardarlo).
+  Tx draftFromTemplate(TxTemplate tpl, {DateTime? date}) => Tx(
+        id: newId(),
+        kind: tpl.kind,
+        amountMinor: tpl.amountMinor ?? 0,
+        accountId: tpl.accountId ?? '',
+        toAccountId: tpl.kind == TxKind.transfer ? tpl.toAccountId : null,
+        toAmountMinor: tpl.kind == TxKind.transfer ? tpl.toAmountMinor : null,
+        categoryId: tpl.categoryId,
+        date: date ?? _clock(),
+        description: tpl.description.isNotEmpty ? tpl.description : tpl.name,
+        payee: tpl.payee,
+        tags: List<String>.from(tpl.tags),
+        source: 'template',
+      );
+
+  /// Anota una plantilla de un toque. Devuelve null (y no anota nada) si le
+  /// falta algo para quedar bien (monto, cuenta, destino de una transferencia
+  /// o la tasa de una transferencia entre monedas): entonces se abre el editor.
   Future<Tx?> applyTemplate(TxTemplate tpl, {DateTime? date}) async {
     if (tpl.amountMinor == null || tpl.accountId == null) {
       return null;
     }
+    final Tx t = draftFromTemplate(tpl, date: date);
+    try {
+      _normalize(t);
+    } on TxRejected {
+      return null;
+    }
     tpl.uses += 1;
-    return addTx(Tx(
-      id: newId(),
-      kind: tpl.kind,
-      amountMinor: tpl.amountMinor!,
-      accountId: tpl.accountId!,
-      toAccountId: tpl.toAccountId,
-      categoryId: tpl.categoryId,
-      date: date ?? _clock(),
-      description: tpl.description.isNotEmpty ? tpl.description : tpl.name,
-      payee: tpl.payee,
-      tags: List<String>.from(tpl.tags),
-      source: 'template',
-    ));
+    txs.add(t);
+    _sortTxs();
+    save();
+    return t;
   }
 
   Future<Scheduled> addScheduled(Scheduled s) async {
@@ -977,23 +1802,11 @@ class Ledger extends ChangeNotifier {
   }
 
   /// Anota ahora un programado (aunque no sea automático) y avanza su fecha.
+  /// Lanza [TxRejected] si no se puede (por ejemplo, falta la tasa).
   Future<Tx> postScheduled(Scheduled s, {DateTime? date}) async {
-    final DateTime when = date ?? dateOnly(s.nextDate);
-    final Tx created = await addTx(Tx(
-      id: newId(),
-      kind: s.kind,
-      amountMinor: s.amountMinor,
-      accountId: s.accountId,
-      toAccountId: s.toAccountId,
-      categoryId: s.categoryId,
-      date: when,
-      description: s.description.isNotEmpty ? s.description : s.name,
-      payee: s.payee,
-      tags: List<String>.from(s.tags),
-      scheduledId: s.id,
-      source: 'scheduled',
-    ));
-    s.lastPosted = when;
+    final Tx t = _txFromScheduled(s, date ?? _noon(s.nextDate));
+    final Tx created = await addTx(t);
+    s.lastPosted = created.date;
     s.nextDate = s.frequency.next(dateOnly(s.nextDate), anchor: s.anchorDate);
     if (s.endDate != null && s.nextDate.isAfter(s.endDate!)) {
       s.enabled = false;
@@ -1014,13 +1827,13 @@ class Ledger extends ChangeNotifier {
   // ------------------------------------------------------------------ avisos
 
   Future<InboxItem> addInbox(InboxItem item) async {
-    // Evita duplicados del mismo aviso (mismo banco, monto y minuto).
+    // Evita duplicados del mismo aviso (mismo banco, monto, texto y minutos).
     for (final InboxItem i in inbox) {
       if (i.bank == item.bank && i.amountMinor == item.amountMinor && i.kind == item.kind && i.receivedAt.difference(item.receivedAt).abs() < const Duration(minutes: 2) && i.rawText == item.rawText) {
         return i;
       }
     }
-    item.accountId ??= guessAccountForNotice(item)?.id;
+    item.accountId ??= matchNotice(item).account?.id;
     inbox.insert(0, item);
     if (inbox.length > 200) {
       inbox.removeRange(200, inbox.length);
@@ -1029,45 +1842,79 @@ class Ledger extends ChangeNotifier {
     return item;
   }
 
-  /// Cuenta que mejor casa con un aviso: por últimos dígitos y luego por banco.
-  Account? guessAccountForNotice(InboxItem item) {
-    final List<Account> candidates = activeAccounts.where((Account a) => a.bank == item.bank).toList();
+  /// Cuenta de un aviso: por sus últimos 4 dígitos entre las cuentas de ese
+  /// banco o, si el aviso no trae dígitos, la única cuenta de ese banco. Si el
+  /// aviso trae dígitos que no son de ninguna cuenta, o hay varias posibles,
+  /// no se adivina.
+  NoticeMatch matchNotice(InboxItem item) {
+    List<Account> candidates = activeAccounts.where((Account a) => BankRules.keyFor(a.bank) == item.bank && !a.isPocket).toList();
+    if (item.kind == TxKind.transfer) {
+      // En pagos de tarjeta, retiros y movimientos propios la cuenta del aviso
+      // es la de origen (o la que recibe), nunca la tarjeta que se paga.
+      candidates = candidates.where((Account a) => !(item.flow == NoticeFlow.cardPayment && a.isCredit)).toList();
+    }
     if (item.last4.isNotEmpty) {
       for (final Account a in candidates) {
         if (a.last4 == item.last4) {
+          return NoticeMatch(a, certain: true);
+        }
+      }
+      return const NoticeMatch(null, certain: false);
+    }
+    if (candidates.length == 1) {
+      return NoticeMatch(candidates.single, certain: candidates.single.last4.isEmpty);
+    }
+    return const NoticeMatch(null, certain: false);
+  }
+
+  /// Tarjeta de crédito que se paga en un aviso (por los dígitos de destino o,
+  /// si no los trae, la única tarjeta de ese banco).
+  Account? noticeCard(InboxItem item) {
+    final List<Account> cards = activeAccounts.where((Account a) => a.isCredit).toList();
+    if (item.toLast4.isNotEmpty) {
+      for (final Account a in cards) {
+        if (a.last4 == item.toLast4) {
           return a;
         }
       }
-    }
-    if (candidates.length == 1) {
-      return candidates.first;
-    }
-    for (final Account a in candidates) {
-      if (item.kind == TxKind.expense && a.isCredit) {
-        return a;
-      }
-    }
-    return candidates.isEmpty ? null : candidates.first;
-  }
-
-  Future<Tx?> acceptInbox(InboxItem item, {String? accountId, String? categoryId, String? description}) async {
-    final String? acc = accountId ?? item.accountId;
-    if (acc == null) {
       return null;
     }
-    item.status = 'accepted';
-    item.accountId = acc;
-    return addTx(Tx(
+    final List<Account> ofBank = cards.where((Account a) => BankRules.keyFor(a.bank) == item.bank).toList();
+    return ofBank.length == 1 ? ofBank.single : null;
+  }
+
+  /// Anota un aviso de gasto o ingreso en su cuenta, convirtiendo el monto si
+  /// el aviso viene en otra moneda. Las transferencias (pagos de tarjeta,
+  /// retiros, movimientos propios) siempre pasan por el editor: devuelve null.
+  Future<Tx?> acceptInbox(InboxItem item, {String? accountId, String? categoryId, String? description}) async {
+    final Account? a = account(accountId ?? item.accountId);
+    if (a == null || item.kind == TxKind.transfer) {
+      return null;
+    }
+    final int? amount = convert(item.amountMinor, item.currency, a.currency);
+    if (amount == null) {
+      return null;
+    }
+    final Tx t = Tx(
       id: newId(),
-      kind: item.kind == TxKind.transfer ? TxKind.expense : item.kind,
-      amountMinor: item.amountMinor,
-      accountId: acc,
+      kind: item.kind,
+      amountMinor: amount,
+      accountId: a.id,
       categoryId: categoryId,
       date: item.receivedAt,
       description: description ?? (item.merchant.isNotEmpty ? item.merchant : item.rawTitle),
       notes: item.rawText,
       source: 'notice',
-    ));
+    );
+    try {
+      await addTx(t);
+    } on TxRejected {
+      return null;
+    }
+    item.status = 'accepted';
+    item.accountId = a.id;
+    save();
+    return t;
   }
 
   void dismissInbox(InboxItem item) {
@@ -1076,6 +1923,10 @@ class Ledger extends ChangeNotifier {
   }
 
   List<InboxItem> get pendingInbox => inbox.where((InboxItem i) => i.status == 'pending').toList();
+
+  /// Los últimos avisos ya anotados o descartados, del más reciente al más
+  /// antiguo (la bandeja guarda primero los nuevos).
+  List<InboxItem> noticeHistory({int limit = 30}) => inbox.where((InboxItem i) => i.status != 'pending').take(limit).toList();
 }
 
 class PeriodTotals {

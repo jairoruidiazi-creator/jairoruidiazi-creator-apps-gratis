@@ -33,7 +33,9 @@ Las cuatro apps son gratuitas, de código abierto y funcionan sin cuenta. Como n
 ### Plata
 
 - **Cambié de teléfono, ¿cómo paso mis datos?** En el teléfono viejo: Más › Copias de seguridad › Exportar copia cifrada, con una contraseña. En el nuevo: instala Plata y entra a Más › Copias de seguridad › Restaurar desde archivo. Las copias de Google o iCloud no llevan los datos de Plata, porque la llave que los abre no sale del teléfono.
-- **Olvidé la clave de acceso.** Por seguridad no hay forma de saltarla: hay que borrar los datos de la app (o reinstalarla) y, si tienes una copia cifrada, restaurarla.
+- **Olvidé la clave de acceso.** Nadie puede recuperarla. En la pantalla de bloqueo toca «¿Olvidaste la clave?»: Plata explica lo que se pierde y, si confirmas, borra todo lo que guarda en el teléfono y abre de nuevo vacía. Después, si tienes una copia cifrada, restáurala en Más › Copias de seguridad › Restaurar desde archivo.
+- **El pago de la tarjeta no coincide con el extracto.** Plata muestra el capital estimado (compras, cuotas, avances y abonos que anotas), sin intereses ni cuota de manejo. Paga con base en el extracto o la app de tu banco.
+- **¿Qué bancos se leen en Android?** Mi Bancolombia, Nequi, Daviplata, Davivienda, BBVA, Banco de Bogotá, Banco de Occidente, DAVIbank (antes Scotiabank Colpatria), Lulo Bank, Nu y MOVii. Si un aviso no cae en la cuenta correcta, elige el banco de la cuenta y escribe sus últimos 4 dígitos en Más › Cuentas.
 - **¿Por qué no veo los avisos del banco en iPhone?** iOS no permite que una app lea las notificaciones de otras; esa función existe solo en Android.
 
 ---
@@ -65,5 +67,7 @@ The four apps are free, open source and work without an account. We have no serv
 ### Plata
 
 - **I changed phones; how do I move my data?** On the old phone: More › Backups › Export encrypted backup, with a password. On the new one: install Plata and go to More › Backups › Restore from file. Google or iCloud backups do not carry Plata data, because the key that opens it never leaves the phone.
-- **I forgot the passcode.** For security there is no way around it: clear the app's data (or reinstall it) and, if you have an encrypted backup, restore it.
+- **I forgot the passcode.** Nobody can recover it. On the lock screen tap "Forgot the passcode?": Plata explains what will be lost and, if you confirm, erases everything it keeps on the phone and opens empty again. Then, if you have an encrypted backup, restore it under More › Backups › Restore from file.
+- **The card payment does not match my statement.** Plata shows the estimated principal (the purchases, installments, cash advances and payments you log), without interest or card fees. Pay based on your bank statement or app.
+- **Which banks are read on Android?** Mi Bancolombia, Nequi, Daviplata, Davivienda, BBVA, Banco de Bogotá, Banco de Occidente, DAVIbank (formerly Scotiabank Colpatria), Lulo Bank, Nu and MOVii. If a notice lands in the wrong account, choose the account's bank and type its last 4 digits under More › Accounts.
 - **Why are there no bank notifications on iPhone?** iOS does not let an app read other apps' notifications; that feature exists only on Android.

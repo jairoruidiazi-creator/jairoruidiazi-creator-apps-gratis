@@ -65,6 +65,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
   late int? _amount = widget.existing?.amountMinor;
   late String? _accountId = widget.existing?.accountId;
   late String? _toAccountId = widget.existing?.toAccountId;
+  late int? _toAmount = widget.existing?.toAmountMinor;
   late String? _categoryId = widget.existing?.categoryId;
   late String _icon = widget.existing?.icon ?? 'star';
   late int _color = widget.existing?.color ?? 0xFFFB8C00;
@@ -83,16 +84,19 @@ class _TemplateEditorState extends State<TemplateEditor> {
       return;
     }
     final TxTemplate? e = widget.existing;
+    final bool transfer = _kind == TxKind.transfer;
+    final int? toAmount = _crossCurrency(l) ? _toAmount : null;
     if (e == null) {
-      await l.addTemplate(TxTemplate(id: newId(), name: name, kind: _kind, amountMinor: _amount, accountId: _accountId, toAccountId: _toAccountId, categoryId: _categoryId, description: _desc.text.trim(), icon: _icon, color: _color));
+      await l.addTemplate(TxTemplate(id: newId(), name: name, kind: _kind, amountMinor: _amount, accountId: _accountId, toAccountId: transfer ? _toAccountId : null, toAmountMinor: toAmount, categoryId: transfer ? null : _categoryId, description: _desc.text.trim(), icon: _icon, color: _color));
     } else {
       e
         ..name = name
         ..kind = _kind
         ..amountMinor = _amount
         ..accountId = _accountId
-        ..toAccountId = _toAccountId
-        ..categoryId = _categoryId
+        ..toAccountId = transfer ? _toAccountId : null
+        ..toAmountMinor = toAmount
+        ..categoryId = transfer ? null : _categoryId
         ..description = _desc.text.trim()
         ..icon = _icon
         ..color = _color;
@@ -103,10 +107,17 @@ class _TemplateEditorState extends State<TemplateEditor> {
     }
   }
 
+  bool _crossCurrency(Ledger l) {
+    final Account? from = l.account(_accountId);
+    final Account? to = l.account(_toAccountId);
+    return _kind == TxKind.transfer && from != null && to != null && from.currency != to.currency;
+  }
+
   @override
   Widget build(BuildContext context) {
     final Ledger l = AppScope.of(context).ledger;
     final String currency = l.account(_accountId)?.currency ?? l.baseCurrency;
+    final Account? toAccount = l.account(_toAccountId);
     return ReadableScaffold(
       appBar: AppBar(
         title: Text(widget.existing == null ? t(context, 'Nueva plantilla', 'New template') : t(context, 'Plantilla', 'Template')),
@@ -192,8 +203,22 @@ class _TemplateEditorState extends State<TemplateEditor> {
                   setState(() => _toAccountId = a.id);
                 }
               },
-            )
-          else
+            ),
+          if (_crossCurrency(l) && toAccount != null)
+            AmountTile(
+              minor: _toAmount ?? 0,
+              currency: toAccount.currency,
+              label: _toAmount == null ? t(context, 'Monto recibido (vacío = con la tasa del día)', 'Amount received (empty = rate of the day)') : t(context, 'Monto recibido fijo', 'Fixed amount received'),
+              onTap: () async {
+                final int? v = await pickAmount(context, initialMinor: _toAmount ?? 0, currency: toAccount.currency, title: '${t(context, 'Monto recibido en', 'Amount received in')} ${toAccount.currency}');
+                if (v != null) {
+                  setState(() => _toAmount = v <= 0 ? null : v);
+                }
+              },
+            ),
+          if (_kind == TxKind.transfer && toAccount == null)
+            Padding(padding: const EdgeInsets.only(top: 4), child: Text(t(context, 'Sin destino, la plantilla abre el editor para elegirlo cada vez.', 'Without a destination, the template opens the editor to choose it each time.'), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)))),
+          if (_kind != TxKind.transfer)
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.label_outline),

@@ -41,7 +41,7 @@ class SettingsScreen extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.flag_outlined),
                 title: Text(t(context, 'Moneda base', 'Base currency')),
-                subtitle: Text('${l.baseCurrency} · ${Money.info(l.baseCurrency).name}'),
+                subtitle: Text('${l.baseCurrency} · ${Money.info(l.baseCurrency).nameFor(spanish: s.settings.spanish)}'),
                 trailing: DropdownButton<String>(
                   value: l.baseCurrency,
                   underline: const SizedBox.shrink(),
@@ -50,17 +50,41 @@ class SettingsScreen extends StatelessWidget {
                     if (v == null || v == l.baseCurrency) {
                       return;
                     }
+                    final bool es = s.settings.spanish;
+                    final String old = l.baseCurrency;
+                    final double? r = l.rateToBase(v);
+                    if ((r == null || r <= 0) && l.hasMoneyData) {
+                      // Sin la tasa entre las dos monedas, los saldos y los topes no se
+                      // pueden convertir: no se cambia nada.
+                      await showDialog<void>(
+                        context: context,
+                        builder: (BuildContext c) => AlertDialog(
+                          title: Text(t(c, 'Falta la tasa de $v', 'The $v rate is missing')),
+                          content: Text(t(c, 'Para pasar todo a $v hace falta saber cuántos $old vale 1 $v. Actualiza las tasas en Más › Monedas (con internet) o escríbela a mano allí, y vuelve a intentarlo.', 'To move everything to $v the app needs to know how many $old 1 $v is worth. Refresh the rates under More › Currencies (online) or type it by hand there, and try again.')),
+                          actions: <Widget>[FilledButton(onPressed: () => Navigator.pop(c), child: Text(t(c, 'Entendido', 'Got it')))],
+                        ),
+                      );
+                      return;
+                    }
+                    if (!context.mounted) {
+                      return;
+                    }
                     final bool ok = await confirm(
                       context,
                       t(context, '¿Cambiar la moneda base a $v?', 'Change the base currency to $v?'),
-                      t(context, 'Los totales, informes y presupuestos se mostrarán en $v. Las cuentas en ${l.baseCurrency} se convertirán con la tasa de cambio actual.', 'Totals, reports and budgets will be shown in $v. Accounts in ${l.baseCurrency} will be converted at the current exchange rate.'),
+                      r == null
+                          ? t(context, 'Los totales, informes y presupuestos se mostrarán en $v.', 'Totals, reports and budgets will be shown in $v.')
+                          : t(context, 'Los totales, informes y presupuestos se mostrarán en $v. Se convierten con la tasa guardada (1 $v = ${Money.formatRate(r, spanish: es)} $old), y los topes de los presupuestos también.', 'Totals, reports and budgets will be shown in $v. They are converted at the saved rate (1 $v = ${Money.formatRate(r, spanish: es)} $old), and so are budget caps.'),
                       yes: t(context, 'Cambiar', 'Change'),
                     );
                     if (!ok) {
                       return;
                     }
-                    final String old = l.baseCurrency;
-                    l.changeBaseCurrency(v);
+                    try {
+                      l.changeBaseCurrency(v);
+                    } on TxRejected {
+                      return;
+                    }
                     s.settings.extraCurrencies = <String>{...s.settings.extraCurrencies, old}.where((String c) => c != v).toList();
                     await s.settings.save();
                     final Set<String> foreign = <String>{...s.settings.extraCurrencies, ...l.accounts.map((Account a) => a.currency)}..remove(v);
@@ -70,7 +94,7 @@ class SettingsScreen extends StatelessWidget {
                           l.save();
                         }
                       } catch (_) {
-                        // Sin conexión: se intentará de nuevo al abrir la app o desde Más › Monedas.
+                        // Sin conexión: quedan las tasas convertidas; se actualizan al abrir la app o desde Más › Monedas.
                       }
                     }
                   },
@@ -179,10 +203,11 @@ class SettingsScreen extends StatelessWidget {
                   onSelectionChanged: (Set<String> v) {
                     s.settings.language = v.first;
                     s.settings.save();
+                    l.applyLanguage(v.first == 'es');
                   },
                 ),
               ),
-              Padding(padding: const EdgeInsets.all(16), child: Text(t(context, 'Las categorías ya creadas conservan su nombre al cambiar de idioma.', 'Existing categories keep their names when you switch language.'), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6)))),
+              Padding(padding: const EdgeInsets.all(16), child: Text(t(context, 'Las categorías de fábrica cambian de idioma; las que creaste o les cambiaste el nombre se quedan como están.', 'Built-in categories switch language; the ones you created or renamed stay as they are.'), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6)))),
             ],
           ),
         );

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +19,7 @@ import '../transactions/tx_list_screen.dart';
 import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
 import '../widgets/icons.dart';
+import '../widgets/live.dart';
 
 /// Inicio: patrimonio, cuentas, resumen del periodo, próximos pagos,
 /// avisos bancarios pendientes y favoritos de un toque.
@@ -29,9 +32,9 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Services s = AppScope.of(context);
-    return ListenableBuilder(
+    return LiveBuilder(
       listenable: Listenable.merge(<Listenable>[s.ledger, s.settings]),
-      builder: (BuildContext context, Widget? _) {
+      builder: (BuildContext context) {
         final Ledger l = s.ledger;
         final DateTime now = clock.now();
         final Period period = l.periodSpec.containing(now);
@@ -44,7 +47,7 @@ class HomeScreen extends StatelessWidget {
           for (final Account a in l.activeAccounts)
             if (a.isCredit && a.payDay != null)
               _CardDue(a, l.nextPayment(a, now: now)),
-        ].where((_CardDue c) => c.statement.dueMinor > 0 && c.statement.cycle.payDate.difference(dateOnly(now)).inDays <= 10).toList();
+        ].where((_CardDue c) => c.statement.dueMinor > 0 && daysBetween(now, c.statement.cycle.payDate) <= 10).toList();
         final List<BudgetProgress> budgets = l.budgets.map((Budget b) => l.progress(b, now: now)).toList()..sort((BudgetProgress a, BudgetProgress b) => b.fraction.compareTo(a.fraction));
         return ReadableScaffold(
           appBar: AppBar(
@@ -70,23 +73,12 @@ class HomeScreen extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 96),
             children: <Widget>[
-              if (l.readOnly)
-                Card(
-                  color: Theme.of(context).colorScheme.errorContainer,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      t(context, 'No se pudieron descifrar los datos guardados (la llave del teléfono cambió o el archivo se dañó). Para no perder nada, la app no guardará cambios hasta que restaures una copia de seguridad en Más › Copias de seguridad.', 'The saved data could not be decrypted (the phone key changed or the file is damaged). To avoid losing anything, the app will not save changes until you restore a backup under More › Backups.'),
-                      style: TextStyle(color: Theme.of(context).colorScheme.onErrorContainer),
-                    ),
-                  ),
-                ),
               if (!s.settings.onboarded) _welcome(context, s),
               _netWorth(context, l, period),
               const SizedBox(height: 12),
               _sectionTitle(context, t(context, 'Cuentas', 'Accounts'), action: t(context, 'Ver todas', 'See all'), onAction: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const AccountsScreen()))),
               SizedBox(
-                height: 118,
+                height: _AccountCard.heightFor(context),
                 child: visible.isEmpty
                     ? Center(child: Text(t(context, 'Sin cuentas', 'No accounts')))
                     : ListView.separated(
@@ -111,9 +103,9 @@ class HomeScreen extends StatelessWidget {
                     dense: true,
                     leading: IconBadge(icon: c.account.icon, color: c.account.color, size: 34),
                     title: Text('${t(context, 'Pago', 'Payment')} ${c.account.name}'),
-                    subtitle: Text('${t(context, 'Vence', 'Due')} ${formatDate(c.statement.cycle.payDate, 'EEE dd MMM', spanish: s.settings.spanish)}'),
+                    subtitle: Text('${t(context, 'Vence', 'Due')} ${formatDate(c.statement.cycle.payDate, 'EEE dd MMM', spanish: s.settings.spanish)} · ${t(context, 'capital estimado', 'estimated principal')}'),
                     trailing: Text(money(context, c.statement.dueMinor, c.account.currency), style: const TextStyle(fontWeight: FontWeight.w700)),
-                    onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => TxEditor(kind: TxKind.transfer, initialAccountId: l.activeAccounts.where((Account a) => !a.isCredit && !a.isPocket).map((Account a) => a.id).firstOrNull, initialToAccountId: c.account.id, initialMinor: c.statement.dueMinor))),
+                    onTap: () => openCardPayment(context, c.account, c.statement.dueMinor),
                   ),
                 for (final Scheduled sch in upcoming.take(5)) _ScheduledRow(item: sch),
               ],
@@ -216,7 +208,7 @@ class HomeScreen extends StatelessWidget {
 
   Widget _periodCard(BuildContext context, Ledger l, Period period, PeriodTotals totals, List<BudgetProgress> budgets) {
     final ColorScheme cs = Theme.of(context).colorScheme;
-    final int daysLeft = period.end.difference(dateOnly(clock.now())).inDays;
+    final int daysLeft = daysBetween(clock.now(), period.end);
     final int perDay = daysLeft > 0 ? ((totals.incomeMinor - totals.expenseMinor) / daysLeft).floor() : 0;
     return Card(
       child: Padding(
@@ -279,12 +271,14 @@ class HomeScreen extends StatelessWidget {
   }
 
   Future<void> _applyTemplate(BuildContext context, Services s, TxTemplate tpl) async {
-    if (tpl.amountMinor == null || tpl.accountId == null || s.ledger.account(tpl.accountId) == null) {
-      await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => TxEditor(template: tpl)));
+    // Sin monto, sin cuenta, una transferencia sin destino o entre monedas sin
+    // tasa: no se anota a ciegas, se abre el editor con la plantilla.
+    final Tx? tx = s.ledger.account(tpl.accountId) == null ? null : await s.ledger.applyTemplate(tpl);
+    if (!context.mounted) {
       return;
     }
-    final Tx? tx = await s.ledger.applyTemplate(tpl);
-    if (tx == null || !context.mounted) {
+    if (tx == null) {
+      await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => TxEditor(template: tpl)));
       return;
     }
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
@@ -329,6 +323,16 @@ class _AccountCard extends StatelessWidget {
   final Account account;
   final VoidCallback onTap;
 
+  /// Alto de las tarjetas de cuenta: crece con el tamaño de letra del
+  /// teléfono para que el nombre, el saldo y la línea de abajo quepan.
+  static double heightFor(BuildContext context) {
+    final TextScaler ts = MediaQuery.textScalerOf(context);
+    final double row = math.max(30.0, ts.scale(14) * 1.4);
+    return math.max(118.0, 24 + row + 10 + ts.scale(18) * 1.35 + ts.scale(11) * 1.45 + 8);
+  }
+
+  static double widthFor(BuildContext context) => 170 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.4);
+
   @override
   Widget build(BuildContext context) {
     final Ledger l = AppScope.of(context).ledger;
@@ -337,13 +341,13 @@ class _AccountCard extends StatelessWidget {
     String sub;
     if (account.isCredit) {
       final CardStatement st = l.nextPayment(account);
-      sub = '${t(context, 'Pagar', 'Pay')} ${money(context, st.dueMinor, account.currency, compact: true)} · ${formatDate(st.cycle.payDate, 'dd MMM', spanish: l.spanish)}';
+      sub = st.dueMinor > 0 ? '${t(context, 'Pagar', 'Pay')} ${money(context, st.dueMinor, account.currency, compact: true)} · ${formatDate(st.cycle.payDate, 'dd MMM', spanish: l.spanish)}' : t(context, 'Al día', 'Up to date');
     } else {
       final List<Account> pockets = l.activeAccounts.where((Account p) => p.parentId == account.id).toList();
       sub = pockets.isEmpty ? accountTypeName(context, account.type) : '${pockets.length} ${t(context, 'bolsillos', 'pockets')} · ${money(context, l.balanceMinor(account.id), account.currency, compact: true)} ${t(context, 'libre', 'free')}';
     }
     return SizedBox(
-      width: 170,
+      width: widthFor(context),
       child: Card(
         margin: EdgeInsets.zero,
         child: InkWell(
@@ -382,7 +386,7 @@ class _BudgetLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Ledger l = AppScope.of(context).ledger;
-    final Color color = progress.over ? kindColor(context, TxKind.expense) : (progress.fraction > 0.85 ? Colors.orange : Theme.of(context).colorScheme.primary);
+    final Color color = progress.over ? kindColor(context, TxKind.expense) : (progress.fraction > 0.85 ? warnColor(context) : Theme.of(context).colorScheme.primary);
     return InkWell(
       onTap: onTap,
       child: Padding(
@@ -413,12 +417,12 @@ class _InboxRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Services s = AppScope.of(context);
-    final Account? guess = s.ledger.account(item.accountId) ?? s.ledger.guessAccountForNotice(item);
+    final Account? guess = s.ledger.account(item.accountId) ?? s.ledger.matchNotice(item).account;
     return ListTile(
       dense: true,
-      leading: CircleAvatar(backgroundColor: kindColor(context, item.kind).withValues(alpha: 0.15), child: Icon(item.kind == TxKind.income ? Icons.south_west : Icons.north_east, color: kindColor(context, item.kind), size: 18)),
-      title: Text('${item.merchant.isEmpty ? BankRules.displayName(item.bank) : item.merchant} · ${money(context, item.amountMinor, item.currency)}', maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text('${BankRules.displayName(item.bank)}${item.last4.isNotEmpty ? ' *${item.last4}' : ''} · ${formatDate(item.receivedAt, 'dd MMM HH:mm', spanish: s.settings.spanish)}${guess != null ? ' → ${guess.name}' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
+      leading: CircleAvatar(backgroundColor: kindColor(context, item.kind).withValues(alpha: 0.15), child: Icon(noticeIcon(item), color: kindColor(context, item.kind), size: 18)),
+      title: Text('${item.merchant.isEmpty ? BankRules.displayName(item.bank, spanish: s.settings.spanish) : item.merchant} · ${money(context, item.amountMinor, item.currency)}', maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text('${BankRules.displayName(item.bank, spanish: s.settings.spanish)}${item.last4.isNotEmpty ? ' *${item.last4}' : ''} · ${formatDate(item.receivedAt, 'dd MMM HH:mm', spanish: s.settings.spanish)}${guess != null ? ' → ${guess.name}' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
@@ -441,7 +445,7 @@ class _ScheduledRow extends StatelessWidget {
     final Services s = AppScope.of(context);
     final Ledger l = s.ledger;
     final Account? a = l.account(item.accountId);
-    final int days = dateOnly(item.nextDate).difference(dateOnly(clock.now())).inDays;
+    final int days = daysBetween(clock.now(), item.nextDate);
     final String when = days < 0 ? t(context, 'Vencido', 'Overdue') : (days == 0 ? t(context, 'Hoy', 'Today') : (days == 1 ? t(context, 'Mañana', 'Tomorrow') : formatDate(item.nextDate, 'EEE dd MMM', spanish: s.settings.spanish)));
     return ListTile(
       dense: true,
@@ -452,4 +456,34 @@ class _ScheduledRow extends StatelessWidget {
       onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ScheduledEditor(existing: item))),
     );
   }
+}
+
+/// Ícono de un aviso: entra, sale o se mueve entre cuentas propias.
+IconData noticeIcon(InboxItem item) {
+  if (item.kind == TxKind.transfer) {
+    return item.flow == NoticeFlow.cardPayment ? Icons.credit_score_outlined : Icons.swap_horiz;
+  }
+  return item.kind == TxKind.income ? Icons.south_west : Icons.north_east;
+}
+
+/// Abre el editor para pagar una tarjeta: desde una cuenta en la moneda de la
+/// tarjeta (la última usada, si sirve) y por lo que vence. Si no hay ninguna
+/// cuenta en esa moneda, el editor lo plantea como transferencia entre
+/// monedas: el monto que llega a la tarjeta es lo que vence y el que sale se
+/// calcula con la tasa guardada.
+Future<void> openCardPayment(BuildContext context, Account card, int dueMinor) {
+  final Services s = AppScope.of(context);
+  final Account? source = s.ledger.paymentSourceFor(card, preferredId: s.settings.defaultAccountId);
+  return Navigator.push(
+    context,
+    MaterialPageRoute<void>(
+      builder: (_) => TxEditor(
+        kind: TxKind.transfer,
+        initialAccountId: source?.id,
+        initialToAccountId: card.id,
+        initialToMinor: dueMinor,
+        initialDescription: t(context, 'Pago ${card.name}', '${card.name} payment'),
+      ),
+    ),
+  );
 }

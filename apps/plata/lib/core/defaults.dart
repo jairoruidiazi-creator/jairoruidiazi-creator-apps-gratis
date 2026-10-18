@@ -7,12 +7,34 @@ class Defaults {
 
   static List<Category> categories({bool spanish = true}) {
     final List<Category> out = <Category>[];
+    _eachCategory((String id, String es, String en, String icon, int color, CategoryKind kind, String? parentId, int order) {
+      out.add(Category(id: id, name: spanish ? es : en, kind: kind, icon: icon, color: color, parentId: parentId, order: order));
+    });
+    return out;
+  }
+
+  /// Nombres de fábrica de cada categoría: id → [español, inglés]. Sirven para
+  /// cambiar de idioma las que el usuario no renombró.
+  static Map<String, List<String>> categoryNames() {
+    final Map<String, List<String>> out = <String, List<String>>{};
+    _eachCategory((String id, String es, String en, String icon, int color, CategoryKind kind, String? parentId, int order) {
+      out[id] = <String>[es, en];
+    });
+    return out;
+  }
+
+  /// Nombres de fábrica de las cuentas que crea la app: id → [español, inglés].
+  static const Map<String, List<String>> accountNames = <String, List<String>>{
+    'a_cash': <String>['Efectivo', 'Cash'],
+  };
+
+  static void _eachCategory(void Function(String id, String es, String en, String icon, int color, CategoryKind kind, String? parentId, int order) emit) {
     int order = 0;
     void group(String es, String en, String icon, int color, CategoryKind kind, List<List<String>> subs) {
-      final Category parent = Category(id: 'c_${_slug(en)}', name: spanish ? es : en, kind: kind, icon: icon, color: color, order: order++);
-      out.add(parent);
+      final String parentId = 'c_${_slug(en)}';
+      emit(parentId, es, en, icon, color, kind, null, order++);
       for (final List<String> s in subs) {
-        out.add(Category(id: 'c_${_slug(en)}_${_slug(s[1])}', name: spanish ? s[0] : s[1], kind: kind, icon: s.length > 2 ? s[2] : icon, color: color, parentId: parent.id, order: order++));
+        emit('c_${_slug(en)}_${_slug(s[1])}', s[0], s[1], s.length > 2 ? s[2] : icon, color, kind, parentId, order++);
       }
     }
 
@@ -107,11 +129,10 @@ class Defaults {
       <String>['Subsidios', 'Subsidies', 'bank'],
     ]);
     group('Otros ingresos', 'Other income', 'more', 0xFF757575, CategoryKind.income, <List<String>>[]);
-    return out;
   }
 
   static List<Account> accounts({bool spanish = true}) => <Account>[
-        Account(id: 'a_cash', name: spanish ? 'Efectivo' : 'Cash', type: AccountType.cash, icon: 'cash', color: 0xFF2E7D32, order: 0),
+        Account(id: 'a_cash', name: spanish ? accountNames['a_cash']![0] : accountNames['a_cash']![1], type: AccountType.cash, icon: 'cash', color: 0xFF2E7D32, order: 0),
       ];
 
   /// Cuentas sugeridas al crear una nueva (nombre, tipo, icono, color, banco).

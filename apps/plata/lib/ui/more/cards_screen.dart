@@ -5,13 +5,15 @@ import '../../core/app_scope.dart';
 import '../../core/ledger.dart';
 import '../../core/periods.dart';
 import '../../model/models.dart';
+import '../home/home_screen.dart';
 import '../transactions/tx_editor.dart';
 import '../transactions/tx_tile.dart';
 import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
 import 'accounts_screen.dart';
 
-/// Tarjetas de crédito: estado de cuenta del ciclo, cuotas pendientes y pago.
+/// Tarjetas de crédito: estado de cuenta estimado del ciclo, cuotas pendientes
+/// y pago. Es capital: Plata no calcula intereses ni cuota de manejo.
 class CardsScreen extends StatelessWidget {
   const CardsScreen({super.key});
 
@@ -41,10 +43,42 @@ class CardsScreen extends StatelessWidget {
                 )
               : ListView(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 32),
-                  children: <Widget>[for (final Account c in cards) _CardPanel(card: c)],
+                  children: <Widget>[
+                    const _EstimateNote(),
+                    for (final Account c in cards) _CardPanel(card: c),
+                  ],
                 ),
         );
       },
+    );
+  }
+}
+
+/// Aviso fijo: lo que muestra Plata es una estimación del capital.
+class _EstimateNote extends StatelessWidget {
+  const _EstimateNote();
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return Card(
+      color: cs.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Icon(Icons.info_outline, size: 20, color: cs.onSurfaceVariant),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                t(context, 'Capital estimado, sin intereses ni cuota de manejo: Plata suma las compras, cuotas, avances y abonos que anotas. El extracto de tu banco agrega intereses, cuota de manejo y seguros, así que puede ser mayor: paga con base en él.', 'Estimated principal, without interest or card fees: Plata adds up the purchases, installments, cash advances and payments you log. Your bank statement adds interest, card fees and insurance, so it can be higher: pay based on it.'),
+                style: TextStyle(fontSize: 12.5, color: cs.onSurfaceVariant),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -74,8 +108,9 @@ class _CardPanelState extends State<_CardPanel> {
     }
     final CardStatement st = l.statement(c, date: cycle.cut);
     final int balance = l.balanceMinor(c.id);
+    final int? available = l.availableCreditMinor(c);
     final List<Tx> installments = l.txs.where((Tx tx) => tx.accountId == c.id && tx.installments > 1 && l.remainingInstallments(tx) > 0).toList();
-    final int pendingInstallments = installments.fold<int>(0, (int a, Tx tx) => a + (tx.amountMinor / tx.installments).round() * l.remainingInstallments(tx));
+    final int pendingInstallments = installments.fold<int>(0, (int a, Tx tx) => a + l.remainingInstallmentsMinor(tx));
     final List<Tx> cycleTxs = l.inPeriod(st.cycle.period, accountId: c.id);
     final CardStatement next = l.nextPayment(c);
     return Card(
@@ -93,11 +128,11 @@ class _CardPanelState extends State<_CardPanel> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text('${c.name}${c.last4.isNotEmpty ? ' *${c.last4}' : ''}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                      Text('${t(context, 'Corte', 'Statement')} ${c.cutDay} · ${t(context, 'Pago', 'Payment')} ${c.payDay}${c.creditLimitMinor != null ? ' · ${t(context, 'cupo libre', 'available')} ${money(context, c.creditLimitMinor! - (-balance), c.currency, compact: true)}' : ''}', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6))),
+                      Text('${t(context, 'Corte', 'Statement')} ${c.cutDay} · ${t(context, 'Pago', 'Payment')} ${c.payDay}${available != null ? ' · ${t(context, 'cupo libre', 'available')} ${money(context, available, c.currency, compact: true)}' : ''}', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6))),
                     ],
                   ),
                 ),
-                IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => AccountEditor(existing: c)))),
+                IconButton(tooltip: t(context, 'Editar tarjeta', 'Edit card'), icon: const Icon(Icons.edit_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => AccountEditor(existing: c)))),
               ],
             ),
             const SizedBox(height: 8),
@@ -110,7 +145,7 @@ class _CardPanelState extends State<_CardPanel> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text(t(context, 'Próximo pago', 'Next payment'), style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer.withValues(alpha: 0.8))),
+                        Text(t(context, 'Próximo pago (capital estimado)', 'Next payment (estimated principal)'), style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer.withValues(alpha: 0.8))),
                         Text('${t(context, 'vence', 'due')} ${formatDate(next.cycle.payDate, 'EEE dd MMM', spanish: es)} · ${t(context, 'corte', 'statement')} ${formatDate(next.cycle.cut, 'dd MMM', spanish: es)}', style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer)),
                       ],
                     ),
@@ -122,19 +157,27 @@ class _CardPanelState extends State<_CardPanel> {
             const SizedBox(height: 8),
             Row(
               children: <Widget>[
-                IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => setState(() => _back += 1)),
+                IconButton(tooltip: t(context, 'Ciclo anterior', 'Previous cycle'), icon: const Icon(Icons.chevron_left), onPressed: () => setState(() => _back += 1)),
                 Expanded(child: Text('${formatDate(st.cycle.start, 'dd MMM', spanish: es)} – ${formatDate(st.cycle.cut, 'dd MMM yyyy', spanish: es)}', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600))),
-                IconButton(icon: const Icon(Icons.chevron_right), onPressed: _back == 0 ? null : () => setState(() => _back -= 1)),
+                IconButton(tooltip: t(context, 'Ciclo siguiente', 'Next cycle'), icon: const Icon(Icons.chevron_right), onPressed: _back == 0 ? null : () => setState(() => _back -= 1)),
               ],
             ),
+            if (st.previousMinor != 0) _row(context, st.previousMinor > 0 ? t(context, 'Saldo anterior sin pagar', 'Previous balance unpaid') : t(context, 'Saldo a favor anterior', 'Previous credit'), st.previousMinor > 0 ? money(context, st.previousMinor, c.currency) : '−${money(context, -st.previousMinor, c.currency)}'),
             _row(context, t(context, 'Compras del ciclo', 'Purchases this cycle'), money(context, st.purchasesMinor, c.currency)),
+            if (st.advancesMinor != 0) _row(context, t(context, 'Avances y transferencias', 'Cash advances and transfers'), money(context, st.advancesMinor, c.currency)),
             _row(context, t(context, 'Cuotas que se facturan', 'Installments billed'), money(context, st.installmentsMinor, c.currency)),
-            _row(context, t(context, 'Abonos aplicados', 'Payments applied'), '−${money(context, st.paymentsMinor, c.currency)}'),
+            _row(context, t(context, 'Abonos y devoluciones', 'Payments and refunds'), '−${money(context, st.paymentsMinor, c.currency)}'),
             const Divider(),
-            _row(context, t(context, 'Saldo del estado de cuenta', 'Statement balance'), money(context, st.dueMinor, c.currency), bold: true),
+            if (st.creditMinor > 0)
+              _row(context, t(context, 'Saldo a favor', 'Credit balance'), money(context, st.creditMinor, c.currency), bold: true)
+            else
+              _row(context, t(context, 'Capital del estado de cuenta', 'Statement principal'), money(context, st.dueMinor, c.currency), bold: true),
             Text('${t(context, 'Fecha límite de pago', 'Payment due date')}: ${formatDate(st.cycle.payDate, 'EEE dd MMM yyyy', spanish: es)}', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.65))),
             const SizedBox(height: 4),
-            _row(context, t(context, 'Deuda total hoy', 'Total debt today'), money(context, -balance, c.currency)),
+            if (balance > 0)
+              _row(context, t(context, 'Saldo a favor hoy', 'Credit balance today'), money(context, balance, c.currency))
+            else
+              _row(context, t(context, 'Deuda total hoy (capital)', 'Total debt today (principal)'), money(context, -balance, c.currency)),
             _row(context, t(context, 'Cuotas por facturar', 'Installments still to bill'), money(context, pendingInstallments, c.currency)),
             if (installments.isNotEmpty) ...<Widget>[
               const SizedBox(height: 6),
@@ -144,8 +187,8 @@ class _CardPanelState extends State<_CardPanel> {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text(tx.description.isEmpty ? (l.category(tx.categoryId)?.name ?? '') : tx.description, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: Text('${formatDate(tx.date, 'dd MMM yyyy', spanish: es)} · ${tx.installments - l.remainingInstallments(tx)}/${tx.installments} ${t(context, 'pagadas', 'billed')}'),
-                  trailing: Text('${money(context, (tx.amountMinor / tx.installments).round(), c.currency, compact: true)}/${t(context, 'cuota', 'inst.')}'),
+                  subtitle: Text('${formatDate(tx.date, 'dd MMM yyyy', spanish: es)} · ${tx.installments - l.remainingInstallments(tx)}/${tx.installments} ${t(context, 'facturadas', 'billed')}'),
+                  trailing: Text('${money(context, Ledger.installmentAmount(tx.amountMinor, tx.installments, 1), c.currency, compact: true)}/${t(context, 'cuota', 'inst.')}'),
                   onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => TxEditor(existing: tx))),
                 ),
             ],
@@ -157,9 +200,7 @@ class _CardPanelState extends State<_CardPanel> {
             Align(
               alignment: Alignment.centerRight,
               child: FilledButton.tonalIcon(
-                onPressed: next.dueMinor <= 0
-                    ? null
-                    : () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => TxEditor(kind: TxKind.transfer, initialAccountId: l.activeAccounts.where((Account a) => !a.isCredit && !a.isPocket && !a.isDebit).map((Account a) => a.id).firstOrNull, initialToAccountId: c.id, initialMinor: next.dueMinor, initialDescription: t(context, 'Pago tarjeta', 'Card payment')))),
+                onPressed: next.dueMinor <= 0 ? null : () => openCardPayment(context, c, next.dueMinor),
                 icon: const Icon(Icons.payments_outlined),
                 label: Text(t(context, 'Registrar pago', 'Log payment')),
               ),

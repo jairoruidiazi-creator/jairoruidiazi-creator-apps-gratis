@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:clock/clock.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -10,11 +11,13 @@ import 'model/models.dart';
 import 'ui/budgets/budgets_screen.dart';
 import 'ui/home/home_screen.dart';
 import 'ui/lock_screen.dart';
+import 'ui/more/backup_screen.dart';
 import 'ui/more/more_screen.dart';
 import 'ui/reports/reports_screen.dart';
 import 'ui/transactions/tx_editor.dart';
 import 'ui/transactions/tx_list_screen.dart';
 import 'ui/widgets/adaptive.dart';
+import 'ui/widgets/live.dart';
 
 class PlataColors {
   PlataColors._();
@@ -72,7 +75,11 @@ class PlataApp extends StatelessWidget {
   }
 }
 
-/// Cubre la app con la pantalla de bloqueo mientras [AppLock.locked].
+/// Cubre la app con la pantalla de bloqueo mientras [AppLock.locked], o con
+/// una cubierta mientras [AppLock.obscured]. Lo que queda detrás no se lee con
+/// TalkBack ni VoiceOver, no recibe el foco del teclado y no recibe toques. El
+/// árbol de abajo es siempre el mismo (solo cambian las banderas), así que la
+/// navegación y lo que se estaba escribiendo se conservan.
 class _LockGate extends StatelessWidget {
   const _LockGate({required this.child});
 
@@ -83,12 +90,42 @@ class _LockGate extends StatelessWidget {
     final Services s = AppScope.of(context);
     return ListenableBuilder(
       listenable: s.lock,
-      builder: (BuildContext context, Widget? _) => Stack(
-        children: <Widget>[
-          child,
-          if (s.lock.locked) const Positioned.fill(child: LockScreen()),
-        ],
-      ),
+      builder: (BuildContext context, Widget? _) {
+        final bool covered = s.lock.locked || s.lock.obscured;
+        return Stack(
+          children: <Widget>[
+            ExcludeSemantics(
+              excluding: covered,
+              child: ExcludeFocus(
+                excluding: covered,
+                child: AbsorbPointer(
+                  absorbing: covered,
+                  child: TickerMode(enabled: !covered, child: child),
+                ),
+              ),
+            ),
+            // El candado va encima del Navigator: su propio Overlay deja que
+            // funcionen las ayudas emergentes de sus botones.
+            if (s.lock.locked)
+              Positioned.fill(child: BlockSemantics(child: Overlay.wrap(child: const LockScreen())))
+            else if (s.lock.obscured)
+              const Positioned.fill(child: BlockSemantics(child: PrivacyCover())),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Lo que se ve mientras la app está fuera de primer plano con clave activa.
+class PrivacyCover extends StatelessWidget {
+  const PrivacyCover({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const ColoredBox(
+      color: PlataColors.verde,
+      child: Center(child: Icon(Icons.lock, size: 56, color: Colors.white)),
     );
   }
 }
@@ -107,6 +144,22 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   late int _index = widget.initialIndex;
   Services? _s;
   bool _started = false;
+  ReminderScheduler? _reminders;
+
+  /// Las pestañas se crean una sola vez: cambiar de pestaña no las
+  /// reconstruye. Cada una escucha el libro y los ajustes (idioma, saldos
+  /// ocultos, centavos) con LiveBuilder y se redibuja solo si se está viendo.
+  List<Widget>? _pages;
+
+  List<Widget> _pagesFor() => _pages ??= <Widget>[
+        HomeScreen(onGoTo: _goTo),
+        const TxListScreen(),
+        const BudgetsScreen(),
+        const ReportsScreen(),
+        const MoreScreen(),
+      ];
+
+  void _goTo(int i) => setState(() => _index = i);
 
   @override
   void initState() {
@@ -127,6 +180,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _reminders?.stop();
     unawaited(_s?.notices.stop());
     super.dispose();
   }
@@ -137,9 +191,14 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     if (s == null) {
       return;
     }
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
+    if (state == AppLifecycleState.inactive) {
+      // En iOS la vista de apps recientes se toma al dejar de estar activa.
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        s.lock.onInactive();
+      }
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden) {
       s.lock.onBackground();
-      unawaited(s.ledger.flush());
+      unawaited(s.ledger.flush().catchError((Object e) => debugPrint('Guardar al salir: $e')));
     } else if (state == AppLifecycleState.resumed) {
       s.lock.onForeground();
       if (widget.startup) {
@@ -174,7 +233,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     await _refreshRates(s);
     try {
       await s.notifier.init();
-      await Reminders.sync(ledger: s.ledger, settings: s.settings, notifier: s.notifier, spanish: s.settings.spanish);
+      _reminders = ReminderScheduler(ledger: s.ledger, settings: s.settings, notifier: s.notifier)..start();
+      await _reminders!.syncNow();
     } catch (e) {
       debugPrint('Recordatorios: $e');
     }
@@ -187,11 +247,13 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('Avisos: $e');
     }
+    // El día pudo cambiar mientras la app estaba en el fondo.
+    unawaited(_reminders?.syncNow());
   }
 
   Future<void> _refreshRates(Services s) async {
     final Set<String> foreign = <String>{...s.settings.extraCurrencies, ...s.ledger.accounts.map((Account a) => a.currency)}..remove(s.ledger.baseCurrency);
-    if (!s.settings.ratesAuto || foreign.isEmpty) {
+    if (!s.settings.ratesAuto || foreign.isEmpty || s.ledger.readOnly) {
       return;
     }
     final DateTime? last = s.settings.lastRatesAttempt;
@@ -211,13 +273,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final List<Widget> pages = <Widget>[
-      HomeScreen(onGoTo: (int i) => setState(() => _index = i)),
-      const TxListScreen(),
-      const BudgetsScreen(),
-      const ReportsScreen(),
-      const MoreScreen(),
-    ];
+    final Services s = AppScope.of(context);
+    return ValueListenableBuilder<bool>(
+      valueListenable: s.ledger.readOnlyState,
+      builder: (BuildContext context, bool readOnly, Widget? _) => readOnly ? const BackupScreen(recovery: true) : _tabs(context),
+    );
+  }
+
+  Widget _tabs(BuildContext context) {
+    final List<Widget> pages = _pagesFor();
     final List<_Dest> items = <_Dest>[
       _Dest(Icons.home_outlined, Icons.home, t(context, 'Inicio', 'Home')),
       _Dest(Icons.receipt_long_outlined, Icons.receipt_long, t(context, 'Movimientos', 'Transactions')),
@@ -226,7 +290,14 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       _Dest(Icons.more_horiz, Icons.more_horiz, t(context, 'Más', 'More')),
     ];
     void add() => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const TxEditor()));
-    final Widget body = IndexedStack(index: _index, children: pages);
+    final Widget body = IndexedStack(
+      index: _index,
+      children: <Widget>[
+        // Las pestañas ocultas no se redibujan con cada cambio del libro: se
+        // ponen al día al volver a mostrarse (ver LiveBuilder).
+        for (int i = 0; i < pages.length; i++) TabVisibility(visible: i == _index, child: TickerMode(enabled: i == _index, child: pages[i])),
+      ],
+    );
     if (isWideLayout(context)) {
       // Tableta: menú lateral con el botón de anotar arriba.
       return Scaffold(
@@ -236,7 +307,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
               right: false,
               child: NavigationRail(
                 selectedIndex: _index,
-                onDestinationSelected: (int i) => setState(() => _index = i),
+                onDestinationSelected: _goTo,
                 labelType: NavigationRailLabelType.all,
                 leading: Padding(
                   padding: const EdgeInsets.only(top: 8, bottom: 16),
@@ -260,7 +331,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
           : null,
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (int i) => setState(() => _index = i),
+        onDestinationSelected: _goTo,
         destinations: <NavigationDestination>[
           for (final _Dest it in items) NavigationDestination(icon: Icon(it.icon), selectedIcon: Icon(it.selected), label: it.label),
         ],

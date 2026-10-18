@@ -7,15 +7,28 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'storage.dart';
 
 /// Dónde vive la clave de cifrado: el llavero del sistema (Keychain en iOS,
-/// EncryptedSharedPreferences/Keystore en Android) o memoria en pruebas.
+/// Keystore en Android) o memoria en pruebas.
 abstract class KeyStore {
   Future<String?> read(String key);
   Future<void> write(String key, String value);
   Future<void> delete(String key);
+
+  /// Borra todas las claves de la app (borrar todo, o el primer arranque
+  /// después de reinstalar en iOS).
+  Future<void> deleteAll();
 }
 
 class SecureKeyStore implements KeyStore {
-  SecureKeyStore() : _s = const FlutterSecureStorage(iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device));
+  SecureKeyStore()
+      : _s = const FlutterSecureStorage(
+          iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock_this_device),
+          // Si el Keystore falla, el complemento por defecto BORRA todas las
+          // claves para recuperarse (resetOnError): eso dejaría los datos sin
+          // llave para siempre. Con false, el error llega a la app, que
+          // reintenta y avisa (ver core/key_setup.dart). La migración de
+          // algoritmo guarda antes una copia de las claves.
+          aOptions: AndroidOptions(resetOnError: false, migrateWithBackup: true),
+        );
 
   final FlutterSecureStorage _s;
 
@@ -27,10 +40,16 @@ class SecureKeyStore implements KeyStore {
 
   @override
   Future<void> delete(String key) => _s.delete(key: key);
+
+  @override
+  Future<void> deleteAll() => _s.deleteAll();
 }
 
 class MemoryKeyStore implements KeyStore {
   final Map<String, String> _m = <String, String>{};
+
+  /// Copia de las claves (para pruebas).
+  Map<String, String> get entries => Map<String, String>.unmodifiable(_m);
 
   @override
   Future<String?> read(String key) async => _m[key];
@@ -40,6 +59,9 @@ class MemoryKeyStore implements KeyStore {
 
   @override
   Future<void> delete(String key) async => _m.remove(key);
+
+  @override
+  Future<void> deleteAll() async => _m.clear();
 }
 
 /// El archivo existe pero no se puede descifrar con la llave actual.
@@ -54,7 +76,8 @@ class DecryptException implements Exception {
 
 /// Respaldo cuando el llavero del sistema no está disponible: guarda las
 /// claves en un archivo del almacenamiento privado de la app (protegido por
-/// el sistema de archivos, no por hardware).
+/// el sistema de archivos, no por hardware). Solo se usa en una instalación
+/// nueva cuyo llavero no responde (ver core/key_setup.dart).
 class FileKeyStore implements KeyStore {
   FileKeyStore(this.store, {this.file = 'keys.json'});
 
@@ -80,6 +103,12 @@ class FileKeyStore implements KeyStore {
     m.remove(key);
     await store.writeJson(file, m);
   }
+
+  @override
+  Future<void> deleteAll() async {
+    _cache = <String, dynamic>{};
+    await store.delete(file);
+  }
 }
 
 /// Cifrado autenticado (ChaCha20-Poly1305) de los archivos de datos.
@@ -97,10 +126,16 @@ class CryptoBox {
   /// Nombre de la llave del libro en el llavero.
   static const String keyName = 'ledger-key';
 
+  /// Caja con una llave ya guardada (en Base64).
+  static CryptoBox fromStored(String base64Key) => CryptoBox(SecretKey(base64Decode(base64Key)));
+
+  /// Lee la llave del llavero o, si no hay ninguna, crea una y la guarda.
+  /// Los errores del llavero se propagan: nunca se inventa una llave porque
+  /// la lectura falló.
   static Future<CryptoBox> fromKeyStore(KeyStore ks, {String name = keyName}) async {
     final String? stored = await ks.read(name);
     if (stored != null && stored.isNotEmpty) {
-      return CryptoBox(SecretKey(base64Decode(stored)));
+      return fromStored(stored);
     }
     final SecretKey key = await _algo.newSecretKey();
     final List<int> bytes = await key.extractBytes();
@@ -144,19 +179,28 @@ class CryptoBox {
 }
 
 /// Archivos JSON cifrados sobre [JsonStore].
+///
+/// Solo se aceptan archivos cifrados: uno en claro (sin la cabecera PLATA1) se
+/// trata como dañado, para que nadie pueda reemplazar los datos por un JSON
+/// abierto escrito a mano y saltarse el cifrado.
 class EncryptedStore {
   EncryptedStore(this.store, this.box);
 
   final JsonStore store;
-  final CryptoBox box;
+
+  /// Llave actual. Cambia solo al borrar todo (se crea una llave nueva).
+  CryptoBox box;
 
   Future<Map<String, dynamic>?> readJson(String relativePath) async {
     final Uint8List? data = await store.readBytes(relativePath);
     if (data == null || data.isEmpty) {
       return null;
     }
+    if (!CryptoBox.isEncrypted(data)) {
+      throw DecryptException(relativePath);
+    }
     try {
-      final Uint8List clear = CryptoBox.isEncrypted(data) ? await box.decrypt(data) : data;
+      final Uint8List clear = await box.decrypt(data);
       final dynamic decoded = jsonDecode(utf8.decode(clear));
       if (decoded is Map<String, dynamic>) {
         return decoded;
@@ -182,17 +226,19 @@ class EncryptedStore {
     await store.writeBytes(relativePath, await box.encrypt(data));
   }
 
-  /// Lee un archivo binario; si no está cifrado lo devuelve tal cual.
+  /// Lee un archivo binario cifrado.
   Future<Uint8List?> readBytes(String relativePath) async {
     final Uint8List? data = await store.readBytes(relativePath);
     if (data == null || data.isEmpty) {
       return null;
     }
     if (!CryptoBox.isEncrypted(data)) {
-      return data;
+      throw DecryptException(relativePath);
     }
     try {
       return await box.decrypt(data);
+    } on FormatException {
+      throw DecryptException(relativePath);
     } on SecretBoxAuthenticationError {
       throw DecryptException(relativePath);
     }

@@ -5,10 +5,12 @@ import '../../core/app_scope.dart';
 import '../../core/ledger.dart';
 import '../../core/periods.dart';
 import '../../model/models.dart';
-import '../transactions/tx_list_screen.dart';
+import '../transactions/tx_editor.dart';
+import '../transactions/tx_tile.dart';
 import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
 import '../widgets/icons.dart';
+import '../widgets/live.dart';
 
 /// Presupuestos por categoría (o globales) con avance del periodo.
 class BudgetsScreen extends StatelessWidget {
@@ -17,9 +19,9 @@ class BudgetsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final Services s = AppScope.of(context);
-    return ListenableBuilder(
-      listenable: s.ledger,
-      builder: (BuildContext context, Widget? _) {
+    return LiveBuilder(
+      listenable: Listenable.merge(<Listenable>[s.ledger, s.settings]),
+      builder: (BuildContext context) {
         final Ledger l = s.ledger;
         final List<BudgetProgress> list = l.budgets.map((Budget b) => l.progress(b)).toList();
         final int totalLimit = list.fold<int>(0, (int a, BudgetProgress p) => a + p.limitMinor);
@@ -34,7 +36,7 @@ class BudgetsScreen extends StatelessWidget {
           ),
           body: list.isEmpty
               ? Center(
-                  child: Padding(
+                  child: SingleChildScrollView(
                     padding: const EdgeInsets.all(32),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -77,11 +79,12 @@ class _BudgetCard extends StatelessWidget {
     final Ledger l = s.ledger;
     final Budget b = progress.budget;
     final ColorScheme cs = Theme.of(context).colorScheme;
-    final Color color = progress.over ? kindColor(context, TxKind.expense) : (progress.fraction > 0.85 ? Colors.orange : cs.primary);
-    final int daysLeft = progress.period.end.difference(dateOnly(clock.now())).inDays;
+    final Color color = progress.over ? kindColor(context, TxKind.expense) : (progress.fraction > 0.85 ? warnColor(context) : cs.primary);
+    final int daysLeft = daysBetween(clock.now(), progress.period.end);
     final int perDay = daysLeft > 0 && progress.availableMinor > 0 ? progress.availableMinor ~/ daysLeft : 0;
     final String cats = b.categoryIds.isEmpty ? t(context, 'Todos los gastos', 'All expenses') : b.categoryIds.map((String id) => l.category(id)?.name ?? '?').join(', ');
     final Category? first = b.categoryIds.isEmpty ? null : l.category(b.categoryIds.first);
+    final String days = daysLeft > 0 ? (daysLeft == 1 ? t(context, 'queda 1 día', '1 day left') : t(context, 'quedan $daysLeft días', '$daysLeft days left')) : '';
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -99,33 +102,33 @@ class _BudgetCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text(b.name, style: const TextStyle(fontWeight: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        Text('$cats${b.accountId != null ? ' · ${l.account(b.accountId)?.name ?? ''}' : ''}', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(b.name, style: const TextStyle(fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        Text('$cats${b.accountId != null ? ' · ${l.account(b.accountId)?.name ?? ''}' : ''}', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.7)), maxLines: 2, overflow: TextOverflow.ellipsis),
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: <Widget>[
                       Text(money(context, progress.availableMinor, l.baseCurrency, compact: true), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: color)),
-                      Text(progress.over ? t(context, 'excedido', 'over') : t(context, 'disponible', 'left'), style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.6))),
+                      Text(progress.over ? t(context, 'excedido', 'over') : t(context, 'disponible', 'left'), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.7))),
                     ],
                   ),
                 ],
               ),
               const SizedBox(height: 10),
-              ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: progress.fraction.clamp(0.0, 1.0), color: color, minHeight: 10)),
-              const SizedBox(height: 6),
-              Row(
-                children: <Widget>[
-                  Expanded(child: Text('${money(context, progress.spentMinor, l.baseCurrency)} / ${money(context, progress.limitMinor, l.baseCurrency)}${progress.carryMinor != 0 ? ' (${progress.carryMinor > 0 ? '+' : ''}${money(context, progress.carryMinor, l.baseCurrency, compact: true)} ${t(context, 'arrastre', 'rollover')})' : ''}', style: const TextStyle(fontSize: 12))),
-                  Text('${_periodLabel(context, b, progress.period)}${daysLeft > 0 ? ' · $daysLeft d' : ''}${perDay > 0 ? ' · ${money(context, perDay, l.baseCurrency, compact: true)}/d' : ''}', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6))),
-                ],
+              Semantics(
+                label: '${(progress.fraction * 100).round()} % ${t(context, 'usado', 'used')}',
+                child: ExcludeSemantics(child: ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: progress.fraction.clamp(0.0, 1.0), color: color, minHeight: 10))),
               ),
+              const SizedBox(height: 6),
+              Text('${money(context, progress.spentMinor, l.baseCurrency)} / ${money(context, progress.limitMinor, l.baseCurrency)}${progress.carryMinor != 0 ? ' (${progress.carryMinor > 0 ? '+' : ''}${money(context, progress.carryMinor, l.baseCurrency, compact: true)} ${t(context, 'arrastre', 'rollover')})' : ''}', style: const TextStyle(fontSize: 12)),
+              Text(<String>[_periodLabel(context, b, progress.period), if (days.isNotEmpty) days, if (perDay > 0) '${money(context, perDay, l.baseCurrency, compact: true)} ${t(context, 'al día', 'a day')}'].join(' · '), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.7))),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
-                  onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ReadableScaffold(appBar: AppBar(title: Text(b.name)), body: TxListScreen(initialFilter: TxFilter(kinds: <TxKind>{TxKind.expense}, categoryIds: b.categoryIds.toSet(), accountIds: b.accountId == null ? <String>{} : <String>{b.accountId!}, from: progress.period.start, to: progress.period.lastDay))))),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => BudgetTxsScreen(budget: b, period: progress.period))),
                   icon: const Icon(Icons.list_alt, size: 18),
                   label: Text(t(context, 'Ver movimientos', 'See transactions')),
                 ),
@@ -151,6 +154,46 @@ class _BudgetCard extends StatelessWidget {
       case BudgetPeriod.custom:
         return '${formatDate(p.start, 'dd MMM', spanish: es)}–${formatDate(p.lastDay, 'dd MMM', spanish: es)}';
     }
+  }
+}
+
+/// Los movimientos que cuentan en un presupuesto durante su periodo, con la
+/// misma regla del cálculo: subcategorías incluidas y reembolsos restando.
+class BudgetTxsScreen extends StatelessWidget {
+  const BudgetTxsScreen({super.key, required this.budget, required this.period});
+
+  final Budget budget;
+  final Period period;
+
+  @override
+  Widget build(BuildContext context) {
+    final Services s = AppScope.of(context);
+    return ListenableBuilder(
+      listenable: s.ledger,
+      builder: (BuildContext context, Widget? _) {
+        final Ledger l = s.ledger;
+        final List<Tx> list = l.budgetTxs(budget, period);
+        final int spent = l.budgetSpent(budget, period);
+        final bool es = s.settings.spanish;
+        return ReadableScaffold(
+          appBar: AppBar(title: Text(budget.name)),
+          body: ListView(
+            padding: const EdgeInsets.only(bottom: 32),
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Text(
+                  '${formatDate(period.start, 'dd MMM', spanish: es)}–${formatDate(period.lastDay, 'dd MMM yyyy', spanish: es)} · ${t(context, 'gastado', 'spent')} ${money(context, spent, l.baseCurrency)}${list.any((Tx x) => x.kind == TxKind.income) ? t(context, ' (los reembolsos restan)', ' (refunds subtract)') : ''}',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+              if (list.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Text(t(context, 'Nada cuenta en este presupuesto todavía.', 'Nothing counts toward this budget yet.'), textAlign: TextAlign.center)),
+              for (final Tx tx in list) TxTile(tx: tx, showDate: true, onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => TxEditor(existing: tx)))),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 

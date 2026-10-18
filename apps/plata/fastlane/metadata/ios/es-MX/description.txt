@@ -1,16 +1,16 @@
 Plata es una app de finanzas personales hecha para la forma en que se maneja la plata en Colombia: quincenas, tarjetas con fecha de corte, compras a cuotas, bolsillos y billeteras digitales. Es gratis, sin anuncios, sin suscripción y sin cuenta, y tus datos quedan cifrados en tu iPhone.
 
 ANOTA EN SEGUNDOS
-• Botón + con teclado calculadora: suma y resta mientras escribes, útil para dividir una cuenta.
+• Botón + con teclado calculadora: suma, resta, multiplica y divide mientras escribes, útil para dividir una cuenta.
 • Sugerencias de lo que ya anotaste: escribes las primeras letras y aparece el movimiento con su categoría y su monto.
 • Favoritos de un toque para lo que se repite, como el bus, el tinto o el almuerzo.
 • Categorías y subcategorías, etiquetas, notas, foto del recibo y división de un gasto en varias categorías.
 
 CUENTAS, BOLSILLOS Y TARJETAS
 • Efectivo, cuentas de ahorros, billeteras digitales, bolsillos, préstamos, inversiones y cuentas en otras monedas.
-• Tarjetas de crédito con día de corte y día de pago: estado de cuenta por ciclo, cuotas facturadas, cupo disponible y cuánto pagar.
+• Tarjetas de crédito con día de corte y día de pago: estado de cuenta estimado por ciclo, con el saldo anterior, las cuotas que caen en él, los avances, el cupo disponible y la fecha límite. Es capital estimado, sin intereses ni cuota de manejo: el valor exacto a pagar es el del extracto de tu banco.
 • Tarjetas débito enlazadas a su cuenta.
-• Transferencias, retiros y pagos de tarjeta que no se cuentan como gasto.
+• Transferencias, retiros y pagos de tarjeta que no se cuentan como gasto, también entre cuentas en monedas distintas.
 
 QUINCENAS, PRESUPUESTOS Y PROGRAMADOS
 • Tu mes puede ir del 1 al último día, empezar el día de pago o dividirse en quincenas.
@@ -24,12 +24,12 @@ INFORMES
 • Exportación a CSV y Excel.
 
 MONEDAS
-Dólares, euros y otras monedas con la TRM oficial de datos.gov.co y las tasas de referencia del Banco Central Europeo, una vez al día, o con una tasa que pongas tú.
+Dólares, euros y otras monedas con la TRM oficial de datos.gov.co, las tasas de referencia del Banco Central Europeo y, para las monedas que el BCE no publica, ExchangeRate-API, una vez al día; o con una tasa que pongas tú, con todos sus decimales.
 
 PRIVACIDAD Y SEGURIDAD
 • Sin cuenta y sin servidores: no recogemos datos.
 • Todo cifrado en el iPhone con ChaCha20-Poly1305 y una llave que guarda el Llavero.
-• Clave de acceso, Face ID o Touch ID, bloqueo al salir y opción de ocultar los saldos.
+• Clave de acceso, Face ID o Touch ID, bloqueo al salir, la app se tapa en el selector de apps mientras hay clave y opción de ocultar los saldos. Si olvidas la clave, puedes borrar todo desde la pantalla de bloqueo y restaurar una copia.
 • Copias cifradas con contraseña para guardarlas donde quieras y pasar tus datos a otro iPhone.
 • La única conexión es para descargar las tasas de cambio, y se puede apagar.
 
