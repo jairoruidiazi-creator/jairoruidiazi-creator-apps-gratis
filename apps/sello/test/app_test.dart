@@ -269,6 +269,8 @@ void main() {
     await tester.pump();
     expect(find.text('18NXL0291020787'), findsOneWidget);
     expect(find.text('67P7PW6H+C5'), findsOneWidget);
+    // La etiqueta y el valor nunca quedan pegados, aunque la etiqueta sea larga.
+    expect(tester.getTopLeft(find.text('67P7PW6H+C5')).dx - tester.getTopRight(find.text('Plus Code')).dx, greaterThanOrEqualTo(8));
     debugPrint('[prueba] galería: volver');
     await tester.tap(find.byType(BackButton));
     await tester.pump();

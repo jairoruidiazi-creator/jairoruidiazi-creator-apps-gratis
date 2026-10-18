@@ -274,7 +274,8 @@ class _CoordRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           children: <Widget>[
-            SizedBox(width: 110, child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
+            SizedBox(width: 104, child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
+            const SizedBox(width: 8),
             Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontFeatures: <FontFeature>[FontFeature.tabularFigures()]))),
             const Icon(Icons.copy_rounded, size: 16),
           ],
@@ -297,7 +298,8 @@ class _Line extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          SizedBox(width: 150, child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
+          SizedBox(width: 142, child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
+          const SizedBox(width: 8),
           Expanded(child: Text(value)),
         ],
       ),
