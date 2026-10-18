@@ -176,14 +176,20 @@ class FakeCameraPlatform extends CameraPlatform {
   @override
   Stream<CameraInitializedEvent> onCameraInitialized(int cameraId) => Stream<CameraInitializedEvent>.value(CameraInitializedEvent(cameraId, 1920, 1080, ExposureMode.auto, true, FocusMode.auto, true));
 
-  @override
-  Stream<CameraResolutionChangedEvent> onCameraResolutionChanged(int cameraId) => const Stream<CameraResolutionChangedEvent>.empty();
+  // Flujos que nunca emiten ni se cierran, como los de una cámara sin
+  // errores (el controlador espera el primer error con .first).
+  final StreamController<CameraResolutionChangedEvent> _resolution = StreamController<CameraResolutionChangedEvent>.broadcast();
+  final StreamController<CameraClosingEvent> _closing = StreamController<CameraClosingEvent>.broadcast();
+  final StreamController<CameraErrorEvent> _errors = StreamController<CameraErrorEvent>.broadcast();
 
   @override
-  Stream<CameraClosingEvent> onCameraClosing(int cameraId) => const Stream<CameraClosingEvent>.empty();
+  Stream<CameraResolutionChangedEvent> onCameraResolutionChanged(int cameraId) => _resolution.stream;
 
   @override
-  Stream<CameraErrorEvent> onCameraError(int cameraId) => const Stream<CameraErrorEvent>.empty();
+  Stream<CameraClosingEvent> onCameraClosing(int cameraId) => _closing.stream;
+
+  @override
+  Stream<CameraErrorEvent> onCameraError(int cameraId) => _errors.stream;
 
   @override
   Stream<DeviceOrientationChangedEvent> onDeviceOrientationChanged() => orientationCtrl.stream;

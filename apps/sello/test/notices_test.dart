@@ -49,6 +49,7 @@ void main() {
     expect(find.textContaining('no se pudo sellar'), findsOneWidget);
     expect(services.state.photoById('p1')!.status, PhotoStatus.failed);
     // "Ver" abre la foto, con su aviso y el botón para reintentar.
+    await tester.pump(const Duration(seconds: 1));
     await tester.tap(find.text('Ver'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));

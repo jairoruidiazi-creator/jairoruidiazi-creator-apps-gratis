@@ -61,4 +61,4 @@ Si la app cambia la forma en que maneja la información, actualizaremos esta pol
 
 ## Contacto
 
-Escríbenos como se explica en la página de soporte: https://github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/blob/main/docs/SOPORTE.md. Allí está cómo abrir un reporte y cómo pedir un contacto privado si no quieres publicar tu consulta.
+Para cualquier consulta, también las privadas, usa la página de soporte: github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/blob/main/docs/SOPORTE.md. Allí se explica cómo abrir un reporte en github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/issues y cómo pedir un contacto privado sin publicar datos personales.

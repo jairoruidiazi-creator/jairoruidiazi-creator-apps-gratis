@@ -85,11 +85,21 @@ void main() {
 
   RotatedBox stampBox(WidgetTester tester) => tester.widget<RotatedBox>(find.byWidgetPredicate((Widget w) => w is RotatedBox && w.child is CustomPaint && (w.child! as CustomPaint).painter is StampPainter));
 
+  /// Dispara y espera a que la foto quede guardada y en la cola (la cámara
+  /// queda libre para la siguiente).
   Future<void> shoot(WidgetTester tester, int expected) async {
     await tester.tap(labeled('Tomar foto'));
     await tester.pump();
-    await waitReal(tester, () => services.state.photos.length >= expected);
+    await waitReal(tester, () => pipeline.stamped.length >= expected);
     await pumpMany(tester, 3);
+    expect(pipeline.stamped.length, expected);
+  }
+
+  /// Transiciones del ciclo de vida de una en una, como las entrega el sistema.
+  void lifecycle(WidgetTester tester, List<AppLifecycleState> states) {
+    for (final AppLifecycleState s in states) {
+      tester.binding.handleAppLifecycleStateChanged(s);
+    }
   }
 
   testWidgets('Cada foto se toma con la orientación física del teléfono (B2, Android)', (WidgetTester tester) async {
@@ -241,11 +251,11 @@ void main() {
     expect(camera.calls, contains('pause'));
     expect(services.heading.running, isFalse);
     // A segundo plano: se libera la cámara.
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    lifecycle(tester, <AppLifecycleState>[AppLifecycleState.inactive, AppLifecycleState.hidden, AppLifecycleState.paused]);
     await pumpMany(tester);
     expect(camera.disposed, 1);
     // De vuelta, con la galería a la vista: no se abre la cámara ni la brújula.
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    lifecycle(tester, <AppLifecycleState>[AppLifecycleState.hidden, AppLifecycleState.inactive, AppLifecycleState.resumed]);
     await pumpMany(tester);
     expect(camera.created, 1);
     expect(services.heading.running, isFalse);

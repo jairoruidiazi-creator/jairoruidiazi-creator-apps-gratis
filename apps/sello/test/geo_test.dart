@@ -419,7 +419,7 @@ void main() {
       expect(lines.first, 'GPS: -12.046400, -77.042800');
       expect(lines.any((String l) => l.contains('CTM12') || l.contains('MAGNA')), isFalse);
       final StampData bogota = StampData(time: DateTime(2026, 3, 9), latitude: 4.711, longitude: -74.0721);
-      expect(bogota.lines(t).first, startsWith('CTM12: '));
+      expect(bogota.lines(t).first.text, startsWith('CTM12: '));
     });
 
     test('Los campos sin rótulo conocido no se escriben con la clave interna (G8)', () {

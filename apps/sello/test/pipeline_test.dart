@@ -190,10 +190,13 @@ void main() {
       final Uint8List original = syntheticJpeg(64, 48, orientation: 6, make: 'Acme', cameraLatitude: 4.7);
       final Uint8List clean = stripMetadata(original);
       expect(exifOrientation(clean), 6);
+      final img.ExifData exif = img.decodeJpgExif(clean)!;
+      expect(exif.imageIfd.orientation, 6);
+      expect(exif.imageIfd['Make'], isNull);
+      expect(exif.gpsIfd['GPSLatitude'], isNull);
+      // Se decodifica (de pie: 48 × 64).
       final img.Image im = img.decodeJpg(clean)!;
-      expect(im.exif.imageIfd.orientation, 6);
-      expect(im.exif.imageIfd['Make'], isNull);
-      expect(im.exif.gpsIfd['GPSLatitude'], isNull);
+      expect(<int>[im.width, im.height]..sort(), <int>[48, 64]);
       // Una foto ya derecha queda sin ningún EXIF.
       final Uint8List upright = stripMetadata(syntheticJpeg(64, 48, make: 'Acme'));
       expect(img.decodeJpgExif(upright)?.imageIfd['Make'], isNull);

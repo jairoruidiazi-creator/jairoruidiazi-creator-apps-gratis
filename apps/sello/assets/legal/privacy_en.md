@@ -61,4 +61,4 @@ If the app changes how it handles information, we will update this policy and it
 
 ## Contact
 
-Write to us as explained on the support page: https://github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/blob/main/docs/SOPORTE.md. It explains how to open an issue and how to ask for a private contact if you would rather not post your question.
+For any question, private ones included, use the support page: github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/blob/main/docs/SOPORTE.md. It explains how to open an issue at github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/issues and how to ask for private contact without posting personal data.

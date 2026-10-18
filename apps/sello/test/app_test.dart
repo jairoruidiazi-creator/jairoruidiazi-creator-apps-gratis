@@ -265,6 +265,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     debugPrint('[prueba] galería: detalle abierto');
     expect(find.text('Columna C-3'), findsWidgets);
+    await tester.scrollUntilVisible(find.text('67P7PW6H+C5'), 200, scrollable: find.byType(Scrollable).first);
+    await tester.pump();
     expect(find.text('18NXL0291020787'), findsOneWidget);
     expect(find.text('67P7PW6H+C5'), findsOneWidget);
     debugPrint('[prueba] galería: volver');
