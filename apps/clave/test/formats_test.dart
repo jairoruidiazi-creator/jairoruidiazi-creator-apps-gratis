@@ -1,17 +1,19 @@
 // Formatos por idioma (M15, M7), voz del conteo (M13), tipos de archivo de
-// preajustes (B4) y sesión de audio (M9).
+// preajustes (B4) y sesión de audio (M9, G3, G4).
 
 import 'dart:ui' show Locale;
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:clave/audio/audio_session.dart';
 import 'package:clave/audio/count_in_voice.dart';
+import 'package:clave/audio/mic_capture.dart';
 import 'package:clave/core/app_scope.dart';
 import 'package:clave/core/platform_actions.dart';
 import 'package:clave/core/settings.dart';
 import 'package:clave/music/notes.dart';
 import 'package:clave/ui/recorder/recorder_screen.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:record/record.dart';
 
 void main() {
   test('Porcentajes, decimales y tiempos según el idioma (M15)', () {
@@ -82,5 +84,20 @@ void main() {
     expect(c.iOS.category, AVAudioSessionCategory.playback);
     expect(c.iOS.options, contains(AVAudioSessionOptions.mixWithOthers));
     expect(c.android.audioFocus, AndroidAudioFocus.none);
+  });
+
+  test('Con el micrófono abierto: sin Bluetooth de llamada, sin cortar otras apps y con vibración (G3, G4)', () {
+    // iOS: sin allowBluetooth (HFP), el audio sigue por A2DP en calidad
+    // completa y se escucha el micrófono del teléfono.
+    expect(kMicIosConfig.categoryOptions, isNot(contains(IosAudioCategoryOption.allowBluetooth)));
+    expect(
+      kMicIosConfig.categoryOptions,
+      containsAll(<IosAudioCategoryOption>[IosAudioCategoryOption.allowBluetoothA2DP, IosAudioCategoryOption.mixWithOthers, IosAudioCategoryOption.defaultToSpeaker]),
+    );
+    expect(kMicIosConfig.allowHapticsAndSystemSoundsDuringRecording, isTrue);
+    // Android: sin enlace SCO y, en el afinador, sin procesado de voz.
+    expect(kTunerAndroidConfig.manageBluetooth, isFalse);
+    expect(kTakeAndroidConfig.manageBluetooth, isFalse);
+    expect(kTunerAndroidConfig.audioSource, AndroidAudioSource.voiceRecognition);
   });
 }

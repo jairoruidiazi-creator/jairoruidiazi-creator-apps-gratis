@@ -379,7 +379,8 @@ void main() {
     expect(find.text('Ensayo (2)'), findsNothing);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Deshacer'));
-    await pumpUntil(tester, () => find.text('Ensayo (2)').evaluate().isNotEmpty);
+    // La setlist vuelve en cuanto se toca; la activa, después de guardarla.
+    await pumpUntil(tester, () => t.services.settings.activeSetlistId == sl.id && find.text('Ensayo (2)').evaluate().isNotEmpty);
     expect(t.services.state.setlists.single.presetIds, <String>['p1', 'p2']);
     expect(t.services.settings.activeSetlistId, sl.id);
     expect(t.services.settings.activeSetlistIndex, 1);

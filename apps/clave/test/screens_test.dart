@@ -169,6 +169,35 @@ void main() {
     await t.shutdown(tester);
   });
 
+  testWidgets('Con clarinete en Si♭, el bordón y el teclado usan la nota escrita y suenan un tono abajo (M5)', (WidgetTester tester) async {
+    useScreen(tester, const Size(375, 667));
+    final SemanticsHandle handle = tester.ensureSemantics();
+    final TestServices t = await openApp(tester);
+    t.services.settings
+      ..instrumentId = 'clarinete'
+      ..transposition = 2;
+    await t.services.settings.save();
+    await goTab(tester, 'Tono');
+    Finder inDrone(Finder f) => find.descendant(of: find.byType(DroneScreen), matching: f);
+    // El bordón suena La3: para el clarinete es un Si3 escrito.
+    expect(t.services.drone.droneMidi, 57);
+    expect(inDrone(find.text('Si3')), findsOneWidget);
+    // El chip "Re" pide un Re escrito, que suena Do.
+    await tester.tap(inDrone(find.widgetWithText(ChoiceChip, 'Re')).first);
+    await tester.pump();
+    expect(t.services.drone.droneMidi, 48);
+    expect(inDrone(find.text('Re3')), findsOneWidget);
+    // Las teclas se nombran por la nota escrita y suenan la real.
+    await tester.scrollUntilVisible(find.byType(DroneKeyboard), 200, scrollable: mainScrollable(DroneScreen));
+    await tester.pumpAndSettle();
+    tester.semantics.tap(find.semantics.byLabel('Do 4'));
+    await tester.pump();
+    expect(t.services.drone.pressedKeys, <int>{58});
+    await tester.pump(const Duration(seconds: 1));
+    handle.dispose();
+    await t.shutdown(tester);
+  });
+
   testWidgets('El afinador anuncia la nota al lector sin saturarlo: como mucho un aviso cada 1,1 s (G7)', (WidgetTester tester) async {
     useScreen(tester, const Size(360, 640));
     final SemanticsHandle handle = tester.ensureSemantics();
