@@ -86,6 +86,10 @@
       "android.permission.WRITE_CONTACTS",
       "android.permission.GET_ACCOUNTS",
       "com.google.android.gms.permission.AD_ID"
-    ]
+    ],
+    "application": {
+      "dataExtractionRules": "@ref",
+      "fullBackupContent": "@ref"
+    }
   }
 }

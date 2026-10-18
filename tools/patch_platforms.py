@@ -256,6 +256,16 @@ APPS = {
         "android_files": {
             "native/android/ic_stat_rutinas.xml": "android/app/src/main/res/drawable/ic_stat_rutinas.xml",
             "native/android/keep.xml": "android/app/src/main/res/raw/keep.xml",
+            # Vibración nativa (canal rutinas/vibracion) y reglas de copia que dejan fuera
+            # la caché de avisos del complemento: restaurada sin sus alarmas, engañaba al
+            # plan de notificaciones.
+            "native/android/MainActivity.kt": "android/app/src/main/kotlin/co/appsgratis/rutinas/MainActivity.kt",
+            "native/android/data_extraction_rules.xml": "android/app/src/main/res/xml/data_extraction_rules.xml",
+            "native/android/backup_rules.xml": "android/app/src/main/res/xml/backup_rules.xml",
+        },
+        "android_application_attrs": {
+            "android:dataExtractionRules": "@xml/data_extraction_rules",
+            "android:fullBackupContent": "@xml/backup_rules",
         },
         # Sonidos propios (tools/gen_rutinas_sounds.py) para los canales de notificación.
         "android_binary_files": {
@@ -266,7 +276,10 @@ APPS = {
         # El delegado de notificaciones de iOS: toques y botones de los avisos.
         "ios_files": {
             "native/ios/AppDelegate.swift": "ios/Runner/AppDelegate.swift",
+            "native/ios/Runner.entitlements": "ios/Runner/Runner.entitlements",
         },
+        # Avisos «Time Sensitive» del temporizador (pasan los modos de concentración).
+        "ios_entitlements": "Runner/Runner.entitlements",
         "ios_plist": {
             "CFBundleDisplayName": "Rutinas",
             "ITSAppUsesNonExemptEncryption": False,
@@ -511,6 +524,10 @@ def patch_ios(cfg: dict) -> None:
     if pbx.exists():
         t = pbx.read_text(encoding="utf-8")
         t = re.sub(r"IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;", f"IPHONEOS_DEPLOYMENT_TARGET = {cfg['ios_min']};", t)
+        ent = cfg.get("ios_entitlements")
+        if ent and "CODE_SIGN_ENTITLEMENTS" not in t:
+            # Las tres configuraciones de Runner (Debug, Release, Profile) llevan el ícono.
+            t = t.replace("ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;", f"ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;\n\t\t\t\tCODE_SIGN_ENTITLEMENTS = {ent};")
         t = add_privacy_manifest(t, cfg)
         t = add_infoplist_strings(t, cfg, plist)
         pbx.write_text(t, encoding="utf-8")
