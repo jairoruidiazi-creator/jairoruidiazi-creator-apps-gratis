@@ -28,8 +28,12 @@ cada formulario de las tiendas están en `apps/<app>/store/COMPLIANCE.md`.
    número D-U-N-S.
 3. **Datos públicos del desarrollador:** nombre que verán los usuarios, correo de contacto
    (Google Play lo muestra en la ficha; las políticas remiten a él) y, si se quiere, sitio
-   web. La página de soporte usa el repositorio de GitHub; si se prefiere un correo, se
-   agrega en `docs/SOPORTE.md`.
+   web. Hoy la página de soporte solo ofrece reportes de GitHub, que piden una cuenta y son
+   públicos. **Antes de enviar a revisión hay que agregar un correo de soporte** en
+   `docs/SOPORTE.md` (sección «Cómo pedir ayuda», en español e inglés) y en la sección
+   «Contacto» de las políticas de cada app: Apple pide un contacto fácil (guía 1.5), sobre
+   todo en apps para niños y de aula como Pilas, y Google Play muestra ese correo en la
+   ficha. Es una decisión del titular: el repositorio no publica ningún correo personal.
 4. **Nombres disponibles:** confirmar en cada consola que los nombres de la ficha están
    libres ("Plata: finanzas personales", "Clave: afinador y metrónomo", "Sello: cámara GPS de
    campo", "Pilas: juegos para aprender", "Rutinas: hábitos e intervalos"). Si alguno está
