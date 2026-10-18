@@ -9,6 +9,18 @@ import 'choice_round.dart';
 class Opt {
   Opt._();
 
+  /// Dibujo con nombre dentro de una casilla: el texto se parte al ancho de la
+  /// casilla y, si el conjunto no cabe a lo alto (apaisado, teléfono pequeño),
+  /// se achica en lugar de salirse.
+  static Widget _fitInTile(Widget content) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints c) {
+        final Widget sized = c.hasBoundedWidth ? SizedBox(width: c.maxWidth, child: content) : content;
+        return FittedBox(fit: BoxFit.scaleDown, child: sized);
+      },
+    );
+  }
+
   static ChoiceOption emoji(String id, String code, String label, {bool showLabel = false}) {
     return ChoiceOption(
       id: id,
@@ -17,11 +29,8 @@ class Opt {
         if (!showLabel) {
           return EmojiImage(code, size: size, semanticsLabel: label);
         }
-        // En una casilla baja (apaisado, teléfono pequeño) el dibujo con su
-        // nombre se achica en lugar de salirse de la casilla.
-        return FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Column(
+        return _fitInTile(
+          Column(
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               EmojiImage(code, size: size * 0.8, semanticsLabel: label),
@@ -91,13 +100,15 @@ class Opt {
     return ChoiceOption(
       id: id,
       label: text,
-      build: (BuildContext context, double size) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          EmojiImage(code, size: size * 0.7, semanticsLabel: text),
-          const SizedBox(height: 6),
-          Text(text, textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-        ],
+      build: (BuildContext context, double size) => _fitInTile(
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            EmojiImage(code, size: size * 0.7, semanticsLabel: text),
+            const SizedBox(height: 6),
+            Text(text, textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+          ],
+        ),
       ),
     );
   }

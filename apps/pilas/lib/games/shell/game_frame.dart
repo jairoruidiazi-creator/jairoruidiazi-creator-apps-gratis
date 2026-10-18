@@ -201,28 +201,30 @@ class _GameFrameState extends State<GameFrame> {
             ),
           );
 
+    // Las capas de pista, celebración y respuesta cubren solo la zona de juego:
+    // la cabecera (salir, repetir) y la instrucción siguen a mano mientras se
+    // muestran. `StackFit.expand`: con restricciones sueltas, la capa vacía de
+    // "jugando" (un hijo sin posición de 0 × 0) dejaría el Stack en cero y el
+    // juego invisible e intocable.
     final Widget body = Column(
       children: <Widget>[
         header,
         instruction,
-        Expanded(child: widget.child),
+        Expanded(
+          child: Stack(
+            fit: StackFit.expand,
+            children: <Widget>[
+              widget.child,
+              if (engine != null) _EngineOverlays(engine: engine),
+            ],
+          ),
+        ),
       ],
     );
 
     return Scaffold(
       backgroundColor: widget.background ?? PilasColors.fondo,
-      body: SafeArea(
-        // El cuerpo del Scaffold llega con restricciones sueltas: sin `expand`,
-        // la capa vacía de "jugando" (un hijo sin posición de 0 × 0) dejaba el
-        // Stack en cero y el juego invisible e intocable.
-        child: Stack(
-          fit: StackFit.expand,
-          children: <Widget>[
-            Positioned.fill(child: body),
-            if (engine != null) _EngineOverlays(engine: engine),
-          ],
-        ),
-      ),
+      body: SafeArea(child: body),
     );
   }
 }
@@ -317,20 +319,24 @@ class _CenterCard extends StatelessWidget {
       color: Colors.black.withValues(alpha: 0.25),
       alignment: Alignment.center,
       padding: const EdgeInsets.all(24),
-      child: TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 0.7, end: 1),
-        duration: const Duration(milliseconds: 260),
-        curve: Curves.easeOutBack,
-        builder: (BuildContext context, double v, Widget? c) => Transform.scale(scale: v, child: c),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 420),
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(32),
-            boxShadow: const <BoxShadow>[BoxShadow(color: Color(0x33000000), blurRadius: 24, offset: Offset(0, 8))],
+      // En apaisado la zona de juego es baja: la tarjeta se achica si no cabe.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.7, end: 1),
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutBack,
+          builder: (BuildContext context, double v, Widget? c) => Transform.scale(scale: v, child: c),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 420),
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(32),
+              boxShadow: const <BoxShadow>[BoxShadow(color: Color(0x33000000), blurRadius: 24, offset: Offset(0, 8))],
+            ),
+            child: child,
           ),
-          child: child,
         ),
       ),
     );

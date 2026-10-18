@@ -224,9 +224,9 @@ class _TiendaScreenState extends State<TiendaScreen> {
             );
           }
           final double coinWidth = _coinWidth(pago, c.maxWidth);
-          if (c.maxHeight < 440) {
-            // Vertical pero bajo (pantalla pequeña o texto grande): todo se
-            // desplaza y la bandeja tiene un alto fijo.
+          if (c.maxHeight < 560) {
+            // Vertical pero bajo (la mayoría de los teléfonos, o texto grande):
+            // todo se desplaza y la bandeja tiene un alto fijo.
             return SingleChildScrollView(
               child: Column(
                 children: <Widget>[
