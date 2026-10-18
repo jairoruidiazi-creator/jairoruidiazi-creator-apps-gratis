@@ -192,7 +192,14 @@ APPS = {
             "native/android/MainActivity.kt": "android/app/src/main/kotlin/co/appsgratis/plata/MainActivity.kt",
             "native/android/BankNoticeListener.kt": "android/app/src/main/kotlin/co/appsgratis/plata/BankNoticeListener.kt",
             "native/android/data_extraction_rules.xml": "android/app/src/main/res/xml/data_extraction_rules.xml",
+            # Temas AppCompat: local_auth los exige para la huella en Android 8.1 y anteriores.
+            "native/android/styles.xml": "android/app/src/main/res/values/styles.xml",
+            "native/android/styles-night.xml": "android/app/src/main/res/values-night/styles.xml",
+            # Ícono pequeño de las notificaciones (vectorial y monocromo) y la regla que lo conserva.
+            "native/android/ic_stat_plata.xml": "android/app/src/main/res/drawable/ic_stat_plata.xml",
+            "native/android/keep.xml": "android/app/src/main/res/raw/keep.xml",
         },
+        "android_dependencies": ['implementation("androidx.appcompat:appcompat:1.7.0")'],
         "android_application_attrs": {
             "android:allowBackup": "false",
             "android:dataExtractionRules": "@xml/data_extraction_rules",
@@ -456,6 +463,13 @@ def patch_android(cfg: dict) -> None:
                 g = g.replace("compileOptions {", "compileOptions {\n        coreLibraryDesugaringEnabled true", 1)
                 g += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\n}\n"
             print(f"desugaring activado en {name}")
+        for dep in cfg.get("android_dependencies", []):
+            if dep not in g:
+                if "\ndependencies {\n" in g:
+                    g = g.replace("\ndependencies {\n", "\ndependencies {\n    " + dep + "\n", 1)
+                else:
+                    g += "\ndependencies {\n    " + dep + "\n}\n"
+                print(f"dependencia agregada en {name}: {dep}")
         if name.endswith(".kts") and "keystoreProperties" not in g:
             g = SIGNING_HEADER + g
             g = g.replace("\nandroid {", SIGNING_PROPS + "\nandroid {", 1)
