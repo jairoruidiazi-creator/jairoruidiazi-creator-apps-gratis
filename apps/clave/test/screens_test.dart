@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:clave/app.dart';
 import 'package:clave/ui/drone/drone_screen.dart';
 import 'package:clave/ui/metronome/metronome_screen.dart';
+import 'package:clave/ui/tuner/tuner_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -108,6 +109,8 @@ void main() {
         await tester.pump();
         // Preajustes, ajustes y calibración.
         await tester.scrollUntilVisible(find.text('Preajustes'), 200, scrollable: mainScrollable(MetronomeScreen));
+        // ensureVisible salta sin dibujar: hace falta un cuadro antes de tocar.
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Preajustes'));
         await tester.pumpAndSettle();
         expect(errors, isEmpty, reason: 'preajustes: ${report(errors)}');
@@ -116,6 +119,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(errors, isEmpty, reason: 'ajustes: ${report(errors)}');
         await tester.scrollUntilVisible(find.text('Calibrar con toques'), 200, scrollable: find.byType(Scrollable).last);
+        await tester.pumpAndSettle();
         await tester.tap(find.text('Calibrar con toques'));
         await tester.pumpAndSettle();
         expect(errors, isEmpty, reason: 'calibración: ${report(errors)}');
@@ -161,6 +165,42 @@ void main() {
     expect(t.services.drone.pressedKeys, <int>{81});
     await tester.pump(const Duration(seconds: 1));
     expect(t.services.drone.pressedKeys, isEmpty);
+    handle.dispose();
+    await t.shutdown(tester);
+  });
+
+  testWidgets('El afinador anuncia la nota al lector sin saturarlo: como mucho un aviso cada 1,1 s (G7)', (WidgetTester tester) async {
+    useScreen(tester, const Size(360, 640));
+    final SemanticsHandle handle = tester.ensureSemantics();
+    final TestServices t = TestServices();
+    await tester.pumpWidget(ClaveApp(services: t.services));
+    await tester.pump();
+    final Finder live = find.descendant(of: find.byType(TunerScreen), matching: find.byWidgetPredicate((Widget w) => w is Semantics && w.properties.liveRegion == true));
+    String label() => tester.getSemantics(live).label;
+    expect(label(), 'Toca una nota');
+    final List<int> changes = <int>[];
+    String last = label();
+    // Una nota distinta cada 100 ms durante 2 s.
+    for (int i = 0; i < 20; i++) {
+      t.services.tuner.feed(aString(220.0 * math.pow(2, i / 12).toDouble()));
+      await tester.pump(const Duration(milliseconds: 100));
+      final String now = label();
+      if (now != last) {
+        changes.add(i * 100);
+        last = now;
+      }
+    }
+    expect(changes, isNotEmpty);
+    for (int i = 1; i < changes.length; i++) {
+      expect(changes[i] - changes[i - 1], greaterThanOrEqualTo(1000), reason: 'avisos en $changes ms');
+    }
+    expect(changes.length, lessThanOrEqualTo(2));
+    // Al quedarse en una nota, el aviso llega con ella.
+    for (int i = 0; i < 12; i++) {
+      t.services.tuner.feed(aString(220.0 * math.pow(2, 19 / 12).toDouble()));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(label(), startsWith('Mi 5'));
     handle.dispose();
     await t.shutdown(tester);
   });

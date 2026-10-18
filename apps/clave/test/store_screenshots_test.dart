@@ -101,6 +101,8 @@ void main() {
           // Las pestañas ocultas siguen en el árbol: se desplaza la lista del metrónomo.
           final Finder metronomeList = find.descendant(of: find.byType(MetronomeScreen), matching: find.byType(Scrollable)).first;
           await tester.scrollUntilVisible(presets, 200, scrollable: metronomeList);
+          // ensureVisible salta sin dibujar: hace falta un cuadro antes de tocar.
+          await tester.pump();
           await tester.tap(presets);
           await _settle(tester);
           await tester.tap(find.textContaining(tr('Ensayo del sábado', 'Saturday rehearsal')));
