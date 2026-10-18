@@ -135,12 +135,10 @@ List<String> problemas(String texto, {bool frase = true}) {
   }
   // El signo × va con espacios ("1 × 1"): así se ve claro y la voz dice "por".
   no(RegExp(r'\d[×x]\d|\d×|×\d'), 'el signo × va con un espacio a cada lado', tal: true);
-  // Plantillas rotas: "La regla cada número…" (falta "es:" o un verbo).
-  for (final Match m in RegExp(r'\bla regla ([a-záéíóúñ]+)').allMatches(t)) {
-    if (!<String>{'es', 'de', 'del', 'que', 'era', 'fue', 'para', 'dice', 'se'}.contains(m.group(1))) {
-      out.add('plantilla rota: «${m.group(0)}»');
-    }
-  }
+  // Plantillas rotas: "La regla cada número…", "La regla suma 2…" (falta
+  // "es:"). "La regla" también es la de medir: "la regla cuesta", "la regla
+  // y la fresa" están bien.
+  no(RegExp(r'\bla regla (cada|suma|resta|multiplica|divide|alterna|empieza|sigue)\b'), 'plantilla rota (falta «es:» después de «La regla»)');
   // Tildes de los números.
   no(RegExp(r'\b(veintidos|veintitres|veintiseis|dieciseis)\b'), 'número sin tilde');
   // Género de las figuras.
