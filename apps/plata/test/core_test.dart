@@ -584,12 +584,13 @@ void main() {
       await l.addScheduled(Scheduled(id: 'n', name: 'Sin aviso', kind: TxKind.expense, amountMinor: 1, accountId: 'a_cash', nextDate: DateTime(2026, 10, 21), remindDaysBefore: -1));
       final NoopNotifier n = NoopNotifier();
       await Reminders.sync(ledger: l, settings: settings, notifier: n, now: d(2026, 10, 16, 8));
-      expect(n.log.first, 'cancelAll');
-      expect(n.log.where((String x) => x.startsWith('daily:1:20:30')).length, 1);
-      expect(n.log.any((String x) => x.startsWith('at:100:2026-10-19T09:00') && x.contains('Arriendo')), isTrue);
+      // Nada se cancela en bloque: los avisos ya mostrados siguen en la bandeja (M7).
+      expect(n.log, isNot(contains('cancelAll')));
+      expect(n.log.where((String x) => x.startsWith('daily:20:30:')).length, 1);
+      expect(n.log.any((String x) => x.startsWith('at:2026-10-19T09:00') && x.contains('Arriendo')), isTrue);
       expect(n.log.any((String x) => x.contains('Sin aviso')), isFalse);
       // Pago de la TC: corte 15 oct, pago 5 nov → aviso el 3 nov.
-      expect(n.log.any((String x) => x.startsWith('at:200:2026-11-03T09:00')), isTrue);
+      expect(n.log.any((String x) => x.startsWith('at:2026-11-03T09:00')), isTrue);
       l.dispose();
     });
 

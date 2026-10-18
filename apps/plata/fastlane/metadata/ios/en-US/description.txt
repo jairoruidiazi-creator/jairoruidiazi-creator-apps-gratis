@@ -1,4 +1,4 @@
-Plata is a personal finance app built around the way money works in Colombia: fortnightly pay, credit cards with statement dates, installment purchases, savings pockets and digital wallets. It is free, with no ads, no subscription and no account, and your data stays encrypted on your iPhone.
+Plata is a personal finance app built around the way money works in Colombia: pay that comes twice a month, credit cards with statement dates, installment purchases, savings pockets and digital wallets. It is free, with no ads, no subscription and no account, and your data stays encrypted on your iPhone.
 
 LOG IN SECONDS
 • The + button opens a calculator keypad that adds, subtracts, multiplies and divides as you type, handy for splitting a bill.
@@ -12,8 +12,8 @@ ACCOUNTS, POCKETS AND CARDS
 • Debit cards linked to their account.
 • Transfers, withdrawals and card payments that are not counted as spending, also between accounts in different currencies.
 
-FORTNIGHTS, BUDGETS AND SCHEDULED ITEMS
-• Your month can run from the 1st to the last day, start on payday or be split into fortnights.
+TWICE-A-MONTH PERIODS, BUDGETS AND SCHEDULED ITEMS
+• Your month can run from the 1st to the last day, start on payday or be split twice a month (1st–15th and 16th–end).
 • Budgets per category, per card or for all spending, with rollover and a daily allowance.
 • Rent, utilities, salary and installments are logged automatically when due, with a reminder beforehand.
 
@@ -28,7 +28,7 @@ Dollars, euros and other currencies with the official Colombian peso rate (TRM) 
 
 PRIVACY AND SECURITY
 • No account and no servers: we collect no data.
-• Everything encrypted on the iPhone with ChaCha20-Poly1305 and a key kept in the Keychain.
+• Everything encrypted on the iPhone with ChaCha20-Poly1305 and a key kept in the Keychain (or, if the iPhone does not offer it, in the app's private folder).
 • Passcode, Face ID or Touch ID, lock on leave, the app covers itself in the app switcher while a passcode is set and an option to hide balances. If you forget the passcode, you can erase everything from the lock screen and restore a backup.
 • Password-encrypted backups you can keep wherever you like and use to move your data to another iPhone.
 • The only connection is to download exchange rates, and it can be turned off.

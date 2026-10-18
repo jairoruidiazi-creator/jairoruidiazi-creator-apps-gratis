@@ -1,1 +1,1 @@
-budget,expense,savings,fortnight,installments,money,accounts,income,debt,encrypted,pesos,wallet
+budget,expense,savings,semimonthly,installments,money,accounts,income,debt,encrypted,pesos,wallet

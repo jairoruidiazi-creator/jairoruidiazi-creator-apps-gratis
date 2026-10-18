@@ -6,14 +6,59 @@ import '../../core/periods.dart';
 import '../../core/reminders.dart';
 import '../../model/models.dart';
 import '../../model/money.dart';
-import '../widgets/common.dart';
 import '../widgets/adaptive.dart';
+import '../widgets/common.dart';
+import 'erase_screen.dart';
 
 /// Ajustes generales.
-class SettingsScreen extends StatelessWidget {
+class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
-  Future<void> _syncReminders(Services s) => Reminders.sync(ledger: s.ledger, settings: s.settings, notifier: s.notifier, spanish: s.settings.spanish);
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObserver {
+  Future<void> _syncReminders(Services s) => Reminders.sync(ledger: s.ledger, settings: s.settings, notifier: s.notifier, spanish: s.settings.spanish, private: s.settings.hideBalances || s.lock.enabled);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkPermission());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Al volver de los ajustes del sistema el permiso pudo cambiar.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkPermission();
+    }
+  }
+
+  Future<void> _checkPermission() async {
+    if (!mounted) {
+      return;
+    }
+    final Services s = AppScope.of(context);
+    s.settings.setNotificationsAllowed(await s.notifier.permissionStatus());
+  }
+
+  Future<void> _grant(Services s) async {
+    bool ok = await s.notifier.requestPermission();
+    if (!ok) {
+      // Negado antes: el sistema ya no pregunta; se abren sus ajustes.
+      await s.notifier.openSettings();
+      ok = await s.notifier.permissionStatus() ?? false;
+    }
+    s.settings.setNotificationsAllowed(ok);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +78,7 @@ class SettingsScreen extends StatelessWidget {
               ListTile(
                 leading: const Icon(Icons.calendar_view_month_outlined),
                 title: Text(t(context, 'Cómo cuentas el mes', 'How you count the month')),
-                subtitle: Text(l.periodSpec.mode == PeriodMode.quincena ? t(context, 'Por quincenas (1–15 y 16–fin)', 'Fortnights (1–15 and 16–end)') : (l.periodSpec.startDay == 1 ? t(context, 'Mes calendario', 'Calendar month') : t(context, 'Mes que empieza el día ${l.periodSpec.startDay}', 'Month starting on day ${l.periodSpec.startDay}'))),
+                subtitle: Text(l.periodSpec.mode == PeriodMode.quincena ? t(context, 'Por quincenas (1–15 y 16–fin)', 'Twice a month (1st–15th and 16th–end)') : (l.periodSpec.startDay == 1 ? t(context, 'Mes calendario', 'Calendar month') : t(context, 'Mes que empieza el día ${l.periodSpec.startDay}', 'Month starting on day ${l.periodSpec.startDay}'))),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => _pickPeriod(context, s),
               ),
@@ -111,14 +156,12 @@ class SettingsScreen extends StatelessWidget {
                 subtitle: Text(t(context, 'En pesos normalmente no hacen falta.', 'Usually not needed for pesos.')),
               ),
               _header(context, t(context, 'Recordatorios', 'Reminders')),
+              _permissionTile(context, s),
               SwitchListTile(
                 secondary: const Icon(Icons.alarm_outlined),
                 value: s.settings.dailyReminder,
                 onChanged: (bool v) async {
-                  if (v && !await s.notifier.requestPermission()) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Sin permiso de notificaciones no se pueden mostrar recordatorios.', 'Reminders need the notifications permission.'))));
-                    }
+                  if (v && !await ensureNotifications(context, force: true, why: t(context, 'Para recordarte anotar tus gastos cada día, Plata necesita permiso para mostrar notificaciones.', 'To remind you to log your spending every day, Plata needs permission to show notifications.'))) {
                     return;
                   }
                   s.settings.dailyReminder = v;
@@ -147,7 +190,7 @@ class SettingsScreen extends StatelessWidget {
                 secondary: const Icon(Icons.event_available_outlined),
                 value: s.settings.billReminders,
                 onChanged: (bool v) async {
-                  if (v && !await s.notifier.requestPermission()) {
+                  if (v && !await ensureNotifications(context, force: true, why: t(context, 'Para avisarte antes de tus pagos programados y de la fecha límite de tus tarjetas, Plata necesita permiso para mostrar notificaciones.', 'To remind you before your scheduled payments and card due dates, Plata needs permission to show notifications.'))) {
                     return;
                   }
                   s.settings.billReminders = v;
@@ -155,7 +198,7 @@ class SettingsScreen extends StatelessWidget {
                   await _syncReminders(s);
                 },
                 title: Text(t(context, 'Avisar pagos programados y tarjetas', 'Remind scheduled payments and cards')),
-                subtitle: Text(t(context, 'Un aviso antes de cada programado y de la fecha límite de pago de las tarjetas.', 'A notice before each scheduled item and before each card payment due date.')),
+                subtitle: Text(t(context, 'Un aviso antes de cada programado y de la fecha límite de pago de las tarjetas, y otro si un pago de tarjeta se vence.', 'A notice before each scheduled item and card payment due date, and another if a card payment becomes overdue.')),
               ),
               if (s.settings.billReminders)
                 ListTile(
@@ -207,11 +250,32 @@ class SettingsScreen extends StatelessWidget {
                   },
                 ),
               ),
-              Padding(padding: const EdgeInsets.all(16), child: Text(t(context, 'Las categorías de fábrica cambian de idioma; las que creaste o les cambiaste el nombre se quedan como están.', 'Built-in categories switch language; the ones you created or renamed stay as they are.'), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6)))),
+              Padding(padding: const EdgeInsets.all(16), child: Text(t(context, 'Las categorías de fábrica cambian de idioma; las que creaste o les cambiaste el nombre se quedan como están.', 'Built-in categories switch language; the ones you created or renamed stay as they are.'), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))),
+              _header(context, t(context, 'Tus datos', 'Your data')),
+              ListTile(
+                leading: Icon(Icons.delete_forever_outlined, color: cs.error),
+                title: Text(t(context, 'Borrar todos los datos', 'Erase all data')),
+                subtitle: Text(t(context, 'Cuentas, movimientos, fotos, copias automáticas, avisos y la clave. La app queda como recién instalada.', 'Accounts, transactions, photos, automatic copies, notices and the passcode. The app is left as if just installed.')),
+                onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const EraseAllScreen())),
+              ),
             ],
           ),
         );
       },
+    );
+  }
+
+  /// Estado real del permiso de notificaciones, con un botón para darlo.
+  Widget _permissionTile(BuildContext context, Services s) {
+    final bool? allowed = s.settings.notificationsAllowed;
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return ListTile(
+      leading: Icon(allowed == false ? Icons.notifications_off_outlined : Icons.notifications_outlined, color: allowed == false ? cs.error : null),
+      title: Text(t(context, 'Permiso de notificaciones', 'Notification permission')),
+      subtitle: Text(allowed == true
+          ? t(context, 'Concedido: los recordatorios aparecen.', 'Granted: reminders show up.')
+          : (allowed == false ? t(context, 'Sin permiso: los recordatorios no aparecen.', 'Not granted: reminders do not show up.') : t(context, 'No se pudo comprobar.', 'Could not be checked.'))),
+      trailing: allowed == true ? null : TextButton(onPressed: () => _grant(s), child: Text(t(context, 'Dar permiso', 'Grant'))),
     );
   }
 
@@ -233,13 +297,13 @@ class SettingsScreen extends StatelessWidget {
                 showSelectedIcon: false,
                 segments: <ButtonSegment<PeriodMode>>[
                   ButtonSegment<PeriodMode>(value: PeriodMode.month, label: Text(t(context, 'Mensual', 'Monthly'))),
-                  ButtonSegment<PeriodMode>(value: PeriodMode.quincena, label: Text(t(context, 'Quincenal', 'Fortnightly'))),
+                  ButtonSegment<PeriodMode>(value: PeriodMode.quincena, label: Text(t(context, 'Quincenal', 'Twice a month'))),
                 ],
                 selected: <PeriodMode>{mode},
                 onSelectionChanged: (Set<PeriodMode> v) => setState(() => mode = v.first),
               ),
               const SizedBox(height: 8),
-              Text(mode == PeriodMode.month ? t(context, 'El mes empieza el día que elijas (por ejemplo tu día de pago).', 'The month starts on the day you choose (for example your payday).') : t(context, 'Del 1 al 15 y del 16 a fin de mes.', '1st–15th and 16th–end of month.'), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
+              Text(mode == PeriodMode.month ? t(context, 'El mes empieza el día que elijas (por ejemplo tu día de pago).', 'The month starts on the day you choose (for example your payday).') : t(context, 'Del 1 al 15 y del 16 a fin de mes.', '1st–15th and 16th–end of month.'), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
               const SizedBox(height: 8),
               if (mode == PeriodMode.month)
                 Row(

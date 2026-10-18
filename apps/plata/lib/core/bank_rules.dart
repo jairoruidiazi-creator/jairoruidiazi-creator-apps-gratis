@@ -146,7 +146,11 @@ class BankRules {
   static final RegExp _digits = RegExp(r'(?:\*+|terminad[ao]\s+en\s+|terminaci[oó]n\s+|tarjeta\s+(?:de\s+cr[eé]dito\s+|d[eé]bito\s+)?\*?|t\.?\s?(?:cred|deb)\w*\.?\s*\*?|cta\.?\s*\*?|cuenta\s+(?:de\s+ahorros\s+|corriente\s+)?\*?)(\d{4})\b', caseSensitive: false);
 
   /// Nunca son movimientos, aunque mencionen una compra o un pago.
-  static const List<String> _hardIgnore = <String>['clave dinámica', 'clave dinamica', 'otp', 'contraseña', 'intento de inicio', 'inicio de sesión', 'inicio de sesion', 'rechazad', 'declinad', 'no fue posible', 'no aprobad', 'fallid', 'anulad', 'reversad'];
+  static const List<String> _hardIgnore = <String>['clave dinámica', 'clave dinamica', 'contraseña', 'intento de inicio', 'inicio de sesión', 'inicio de sesion', 'rechazad', 'declinad', 'no fue posible', 'no aprobad', 'fallid', 'anulad'];
+
+  /// "OTP" como palabra suelta (un código de un solo uso), no dentro de un
+  /// nombre como "HOTPOT".
+  static final RegExp _otp = RegExp(r'(?<![a-záéíóúñ0-9])otp(?![a-záéíóúñ0-9])', caseSensitive: false);
 
   /// Publicidad y códigos. Un aviso con estas palabras solo cuenta si además
   /// trae un verbo de movimiento ya hecho ([_done]): "compra" o "pago" sueltos
@@ -154,17 +158,33 @@ class BankRules {
   /// letras con tilde no cuentan como letra para `\b` en Dart, de ahí los
   /// límites explícitos).
   static final RegExp _promo = RegExp(r'(?<![a-záéíóúñ])(?:c[oó]digo|ofertas?|promoci[oó]n|promo|descuentos?|aprovecha|cup[oó]n|sorteo|participa|gana|premios?|pre-?\s?aprobad[ao]s?|beneficios?|cashback|tasa especial)(?![a-záéíóúñ])|\d\s?%', caseSensitive: false);
-  static final RegExp _done = RegExp(r'(?<![a-záéíóúñ])(?:compraste|pagaste|recibiste|te lleg[oó]|te llegaron|retiraste|sacaste|transferiste|enviaste|pasaste|realizaste|se realiz[oó]|te enviaron|te envi[oó]|te pagaron|consignaron|abonaron|se debit[oó]|se acredit[oó]|le informa|exitos[ao]|aprobad[ao])(?![a-záéíóúñ])', caseSensitive: false);
+
+  /// "Aprobado" cuenta como hecho ("Compra aprobada"), pero no en
+  /// "pre-aprobado" o "pre aprobado", que es publicidad.
+  static final RegExp _done = RegExp(r'(?<![a-záéíóúñ])(?:compraste|pagaste|recibiste|te lleg[oó]|te llegaron|retiraste|sacaste|transferiste|enviaste|pasaste|realizaste|se realiz[oó]|te enviaron|te envi[oó]|te pagaron|consignaron|abonaron|se debit[oó]|se acredit[oó]|le informa|exitos[ao]|(?<!pre-)(?<!pre\s)aprobad[ao])(?![a-záéíóúñ])', caseSensitive: false);
+
+  /// Verbos de un movimiento que ya pasó (sin "le informa" ni "aprobado", que
+  /// también encabezan recordatorios).
+  static final RegExp _moved = RegExp(r'(?<![a-záéíóúñ])(?:compraste|pagaste|recibiste|te lleg[oó]|te llegaron|retiraste|sacaste|transferiste|enviaste|pasaste|realizaste|se realiz[oó]|te enviaron|te envi[oó]|te pagaron|consignaron|abonaron|se debit[oó]|se acredit[oó]|devolvimos|te devolv[ií][a-záéíóúñ]*|reversamos)(?![a-záéíóúñ])', caseSensitive: false);
+
+  /// Recordatorios y anuncios de algo que todavía no pasa ("Mañana
+  /// debitaremos…", "tu pago mínimo vence…", "te está cobrando…"). Sin un
+  /// verbo de movimiento hecho ([_moved]) no son movimientos.
+  static final RegExp _future = RegExp(r'(?<![a-záéíóúñ])(?:debitaremos|cobraremos|descontaremos|se debitar[aá]|se cobrar[aá]|se descontar[aá]|recuerda|recordatorio|vence|vencer[aá]|vencimiento|pago m[ií]nimo|fecha l[ií]mite|pr[oó]ximo pago|te est[aá]n? cobrando|solicitud de pago|te solicita|programad[oa] para|ma[ñn]ana)(?![a-záéíóúñ])', caseSensitive: false);
+
+  /// Reverso o devolución de una compra: plata que vuelve. Se sugiere como
+  /// ingreso (un reembolso) y siempre se revisa.
+  static final RegExp _refund = RegExp(r'(?<![a-záéíóúñ])(?:revers|devolvimos|te devolv|devoluci[oó]n|reembols|reintegr)', caseSensitive: false);
 
   static const List<String> _income = <String>['recibiste', 'te llegó', 'te llego', 'te llegaron', 'abono', 'consignaci', 'consignaron', 'depósito', 'deposito', 'ingreso de', 'recepción', 'recepcion', 'transferencia recibida', 'nómina', 'nomina', 'devolución', 'devolucion', 'reembolso', 'pago recibido', 'te pagaron', 'recibió', 'recibio', 'recibido', 'te envió', 'te envio', 'te enviaron', 'se acreditó', 'se acredito'];
   static const List<String> _expense = <String>['compra', 'pago', 'pagaste', 'retiro', 'retiraste', 'sacaste', 'enviaste', 'pasaste', 'transferiste', 'transferencia', 'débito', 'debito', 'cuota', 'cobro', 'avance', 'giro', 'recarga', 'cargo'];
 
   /// Pago de una tarjeta de crédito: "Pagaste … a tu tarjeta", "Pago de
-  /// tarjeta de crédito", "Abono a tu T.Crédito". "Pago con tu tarjeta" es una
-  /// compra, no un pago de la tarjeta.
+  /// tarjeta de crédito", "Abono a tu T.Crédito". "Pago con tu tarjeta" y
+  /// "pago … con cargo a tu tarjeta" son compras, no pagos de la tarjeta.
   /// Entre el verbo y la tarjeta puede ir el monto ("$500.000"): se admite un
   /// punto solo si le sigue una cifra.
-  static final RegExp _cardPayment = RegExp(r'\b(?:pag\w*|abon\w*)\b(?:[^.;]|\.(?=\d))*?\b(?:a|de|para)\s+(?:tu\s+|la\s+|su\s+)?(?:tarjeta|t\.?\s?cr[eé]d\w*)', caseSensitive: false);
+  static final RegExp _cardPayment = RegExp(r'\b(?:pag\w*|abon\w*)\b(?:[^.;]|\.(?=\d))*?(?<!cargo\s)\b(?:a|de|para)\s+(?:tu\s+|la\s+|su\s+)?(?:tarjeta|t\.?\s?cr[eé]d\w*)', caseSensitive: false);
 
   /// Plata que sale hacia una cuenta o un bolsillo propios.
   static final RegExp _ownOut = RegExp(r'\b(?:a|hacia)\s+(?:tu|tus)\s+(?:bolsillos?|colch[oó]n|metas?|cuentas?|otra\s+cuenta)\b|\bentre\s+(?:tus\s+)?cuentas\b|\bcuentas?\s+propias?\b', caseSensitive: false);
@@ -186,7 +206,13 @@ class BankRules {
         return null;
       }
     }
+    if (_otp.hasMatch(all)) {
+      return null;
+    }
     if (_promo.hasMatch(all) && !_done.hasMatch(all)) {
+      return null;
+    }
+    if (_future.hasMatch(all) && !_moved.hasMatch(all)) {
       return null;
     }
     final RegExpMatch? m = _amount.firstMatch(all) ?? _amountWord.firstMatch(all);
@@ -200,8 +226,9 @@ class BankRules {
     final String currency = m.group(0)!.toUpperCase().contains('US') ? 'USD' : 'COP';
     final int incomeIdx = _firstIndex(lower, _income);
     final int expenseIdx = _firstIndex(lower, _expense);
+    final bool refund = _refund.hasMatch(all);
     TxKind kind;
-    if (incomeIdx >= 0 && (expenseIdx < 0 || incomeIdx <= expenseIdx)) {
+    if (refund || (incomeIdx >= 0 && (expenseIdx < 0 || incomeIdx <= expenseIdx))) {
       kind = TxKind.income;
     } else if (expenseIdx >= 0) {
       kind = TxKind.expense;
@@ -212,7 +239,9 @@ class BankRules {
     String flow = NoticeFlow.normal;
     String last4 = digits.isEmpty ? '' : digits.first;
     String toLast4 = '';
-    if (_cardPayment.hasMatch(all)) {
+    if (refund) {
+      flow = NoticeFlow.refund;
+    } else if (_cardPayment.hasMatch(all)) {
       flow = NoticeFlow.cardPayment;
       // Los dígitos que siguen a "tarjeta" son los de la tarjeta que se paga;
       // los de "desde tu cuenta", los de origen.
@@ -227,7 +256,7 @@ class BankRules {
     } else if (kind == TxKind.income && _ownIn.hasMatch(all)) {
       flow = NoticeFlow.transferIn;
     }
-    if (flow != NoticeFlow.normal) {
+    if (flow != NoticeFlow.normal && flow != NoticeFlow.refund) {
       kind = TxKind.transfer;
     }
     return BankSuggestion(bank: bank, kind: kind, amountMinor: minor, currency: currency, merchant: kind == TxKind.transfer ? '' : _merchant(all, kind), last4: last4, toLast4: toLast4, flow: flow);

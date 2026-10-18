@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/app_scope.dart';
+import 'core/camera_draft.dart';
+import 'core/lock.dart';
 import 'core/reminders.dart';
 import 'model/models.dart';
 import 'ui/budgets/budgets_screen.dart';
@@ -28,7 +30,7 @@ class PlataColors {
   static const Color oro = Color(0xFFF2B33D);
 }
 
-class PlataApp extends StatelessWidget {
+class PlataApp extends StatefulWidget {
   const PlataApp({super.key, required this.services, this.startup = true});
 
   final Services services;
@@ -38,7 +40,21 @@ class PlataApp extends StatelessWidget {
   final bool startup;
 
   @override
+  State<PlataApp> createState() => _PlataAppState();
+}
+
+class _PlataAppState extends State<PlataApp> {
+  late final LockRouteGuard _guard = LockRouteGuard(widget.services.lock);
+
+  @override
+  void dispose() {
+    _guard.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final Services services = widget.services;
     return AppScope(
       services: services,
       child: ListenableBuilder(
@@ -67,13 +83,99 @@ class PlataApp extends StatelessWidget {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
+            navigatorObservers: <NavigatorObserver>[_guard],
             builder: (BuildContext context, Widget? child) => _LockGate(child: child ?? const SizedBox.shrink()),
-            home: HomeShell(startup: startup),
+            home: HomeShell(startup: widget.startup),
           );
         },
       ),
     );
   }
+}
+
+/// Mientras el candado está puesto, el botón o el gesto Atrás no actúan sobre
+/// lo que hay detrás: la pantalla de arriba (un movimiento a medio escribir,
+/// por ejemplo) no se cierra y la app no se va al fondo. Sigue la ruta de
+/// arriba del Navigator y le pide que no se deje cerrar mientras dure el
+/// bloqueo.
+class LockRouteGuard extends NavigatorObserver {
+  LockRouteGuard(this.lock) {
+    lock.addListener(_update);
+  }
+
+  final AppLock lock;
+  final _LockPopEntry _entry = _LockPopEntry();
+  ModalRoute<dynamic>? _top;
+  ModalRoute<dynamic>? _registeredOn;
+
+  void _track(Route<dynamic>? route) {
+    if (route is ModalRoute<dynamic>) {
+      _top = route;
+    }
+    _update();
+  }
+
+  void _update() {
+    final bool block = lock.locked;
+    _entry.canPop.value = !block;
+    final ModalRoute<dynamic>? target = block ? _top : null;
+    if (identical(target, _registeredOn)) {
+      return;
+    }
+    _registeredOn?.unregisterPopEntry(_entry);
+    _registeredOn = null;
+    if (target != null && target.isActive) {
+      target.registerPopEntry(_entry);
+      _registeredOn = target;
+    }
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) => _track(route);
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (identical(_registeredOn, route)) {
+      _registeredOn = null;
+    }
+    _track(previousRoute);
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (identical(_registeredOn, route)) {
+      _registeredOn = null;
+    }
+    if (identical(_top, route)) {
+      _track(previousRoute);
+    }
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    if (identical(_registeredOn, oldRoute)) {
+      _registeredOn = null;
+    }
+    if (identical(_top, oldRoute)) {
+      _track(newRoute);
+    }
+  }
+
+  void dispose() {
+    lock.removeListener(_update);
+    _registeredOn?.unregisterPopEntry(_entry);
+    _registeredOn = null;
+    _entry.canPop.dispose();
+  }
+}
+
+/// La "condición" que el candado agrega a la ruta de arriba: no se puede
+/// cerrar mientras está puesto.
+class _LockPopEntry extends PopEntry<Object?> {
+  final ValueNotifier<bool> canPop = ValueNotifier<bool>(true);
+
+  @override
+  ValueListenable<bool> get canPopNotifier => canPop;
 }
 
 /// Cubre la app con la pantalla de bloqueo mientras [AppLock.locked], o con
@@ -202,9 +304,19 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       unawaited(s.ledger.flush().catchError((Object e) => debugPrint('Guardar al salir: $e')));
     } else if (state == AppLifecycleState.resumed) {
       s.lock.onForeground();
+      // El permiso de notificaciones pudo cambiar en los ajustes del sistema.
+      unawaited(_checkNotifications(s));
       if (widget.startup) {
         unawaited(_resume(s));
       }
+    }
+  }
+
+  Future<void> _checkNotifications(Services s) async {
+    try {
+      s.settings.setNotificationsAllowed(await s.notifier.permissionStatus());
+    } catch (e) {
+      debugPrint('Permiso de notificaciones: $e');
     }
   }
 
@@ -227,7 +339,27 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     } catch (e) {
       debugPrint('Programados: $e');
     }
+    try {
+      await s.notifier.init();
+      await _checkNotifications(s);
+      _reminders = ReminderScheduler(ledger: s.ledger, settings: s.settings, notifier: s.notifier, private: () => s.settings.hideBalances || s.lock.enabled)..start();
+    } catch (e) {
+      debugPrint('Recordatorios: $e');
+    }
     await _resume(s);
+    await _recoverLostPhoto(s);
+  }
+
+  /// Al abrir y al volver a la app: programados vencidos, avisos pendientes,
+  /// la copia automática del día y las tasas (la app puede pasar días en
+  /// memoria sin cerrarse) y los recordatorios (pudo cambiar el día).
+  Future<void> _resume(Services s) async {
+    try {
+      s.ledger.processScheduled();
+      await s.notices.start();
+    } catch (e) {
+      debugPrint('Avisos: $e');
+    }
     try {
       if (s.settings.autoBackup) {
         await s.backups.autoBackup();
@@ -236,43 +368,57 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       debugPrint('Copia automática: $e');
     }
     await _refreshRates(s);
+    unawaited(_reminders?.syncNow());
+  }
+
+  /// Si Android cerró la app mientras la cámara estaba abierta, la foto que se
+  /// tomó y el movimiento a medio escribir se recuperan en el editor.
+  Future<void> _recoverLostPhoto(Services s) async {
+    if (defaultTargetPlatform != TargetPlatform.android || s.ledger.readOnly) {
+      return;
+    }
     try {
-      await s.notifier.init();
-      _reminders = ReminderScheduler(ledger: s.ledger, settings: s.settings, notifier: s.notifier)..start();
-      await _reminders!.syncNow();
+      final RecoveredDraft? draft = await recoverCameraDraft(s.ledger);
+      if (draft != null && mounted) {
+        await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TxEditor(existing: draft.existing, draft: draft.draft)));
+      }
     } catch (e) {
-      debugPrint('Recordatorios: $e');
+      debugPrint('Foto recuperada: $e');
     }
   }
 
-  Future<void> _resume(Services s) async {
-    try {
-      s.ledger.processScheduled();
-      await s.notices.start();
-    } catch (e) {
-      debugPrint('Avisos: $e');
-    }
-    // El día pudo cambiar mientras la app estaba en el fondo.
-    unawaited(_reminders?.syncNow());
-  }
+  /// Hora del último intento fallido de bajar tasas (en memoria): sin internet
+  /// se reintenta en una hora, no al día siguiente.
+  DateTime? _ratesFailedAt;
 
   Future<void> _refreshRates(Services s) async {
     final Set<String> foreign = <String>{...s.settings.extraCurrencies, ...s.ledger.accounts.map((Account a) => a.currency)}..remove(s.ledger.baseCurrency);
     if (!s.settings.ratesAuto || foreign.isEmpty || s.ledger.readOnly) {
       return;
     }
+    final DateTime now = clock.now();
     final DateTime? last = s.settings.lastRatesAttempt;
-    if (last != null && clock.now().difference(last).inHours < 20) {
+    if (last != null && now.difference(last).inHours < 20) {
       return;
     }
-    s.settings.lastRatesAttempt = clock.now();
-    await s.settings.save();
+    final DateTime? failed = _ratesFailedAt;
+    if (failed != null && now.difference(failed).inMinutes < 60) {
+      return;
+    }
+    bool ok = false;
     try {
-      if (await s.rates.refresh(s.ledger.rates, base: s.ledger.baseCurrency, currencies: foreign)) {
-        s.ledger.save();
-      }
+      ok = await s.rates.refresh(s.ledger.rates, base: s.ledger.baseCurrency, currencies: foreign);
     } catch (e) {
       debugPrint('Tasas: $e');
+    }
+    if (ok) {
+      _ratesFailedAt = null;
+      s.ledger.save();
+      // Solo cuenta como hecha la descarga que funcionó.
+      s.settings.lastRatesAttempt = now;
+      await s.settings.save();
+    } else {
+      _ratesFailedAt = now;
     }
   }
 
@@ -331,9 +477,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     }
     return Scaffold(
       body: body,
-      floatingActionButton: _index <= 1
-          ? FloatingActionButton(heroTag: null, tooltip: t(context, 'Anotar movimiento', 'Log transaction'), onPressed: add, child: const Icon(Icons.add))
-          : null,
+      floatingActionButton: floatingButton(_index <= 1 ? FloatingActionButton(heroTag: null, tooltip: t(context, 'Anotar movimiento', 'Log transaction'), onPressed: add, child: const Icon(Icons.add)) : null),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: _goTo,

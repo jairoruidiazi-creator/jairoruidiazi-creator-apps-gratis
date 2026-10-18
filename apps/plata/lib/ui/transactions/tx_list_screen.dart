@@ -134,16 +134,20 @@ class _TxListScreenState extends State<TxListScreen> {
     final List<Object> items = <Object>[];
     String? lastKey;
     final Map<String, int> dayNet = <String, int>{};
-    int income = 0;
-    int expense = 0;
+    // Ingresos y gastos con la misma regla de Inicio e Informes: un
+    // reembolso descuenta del gasto en vez de sumar como ingreso.
+    DateTime first = list.first.date;
+    DateTime last = list.first.date;
+    for (final Tx tx in list) {
+      first = tx.date.isBefore(first) ? tx.date : first;
+      last = tx.date.isAfter(last) ? tx.date : last;
+    }
+    final PeriodTotals sums = l.totalsOf(Period(dateOnly(first), addDays(dateOnly(last), 1)), list);
+    final int income = sums.incomeMinor;
+    final int expense = sums.expenseMinor;
     for (final Tx tx in list) {
       final int v = _net(l, tx);
       dayNet[tx.dayKey] = (dayNet[tx.dayKey] ?? 0) + v;
-      if (v > 0) {
-        income += v;
-      } else {
-        expense -= v;
-      }
       if (tx.dayKey != lastKey) {
         items.add(tx.date);
         lastKey = tx.dayKey;

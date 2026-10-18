@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
@@ -145,14 +146,35 @@ class CryptoBox {
 
   /// Clave derivada de una contraseña (respaldo portátil). PBKDF2-HMAC-SHA256,
   /// 120 000 iteraciones.
+  ///
+  /// Se calcula en otro hilo: son varios segundos de cálculo en un teléfono
+  /// modesto y la interfaz no debe congelarse.
   static Future<CryptoBox> fromPassword(String password, List<int> salt) async {
-    final Pbkdf2 kdf = Pbkdf2(macAlgorithm: Hmac.sha256(), iterations: 120000, bits: 256);
-    final SecretKey key = await kdf.deriveKeyFromPassword(password: password, nonce: salt);
-    return CryptoBox(key);
+    final List<int> bytes = await Isolate.run(() async {
+      final Pbkdf2 kdf = Pbkdf2(macAlgorithm: Hmac.sha256(), iterations: 120000, bits: 256);
+      final SecretKey key = await kdf.deriveKeyFromPassword(password: password, nonce: salt);
+      return key.extractBytes();
+    });
+    return CryptoBox(SecretKey(bytes));
   }
 
+  /// Desde este tamaño se cifra en otro hilo: ChaCha20 en Dart puro sobre un
+  /// libro grande (10 000 movimientos son unos 3 MB) congelaría la interfaz
+  /// en cada guardado. Lo pequeño se cifra aquí, sin el costo de crear el hilo.
+  static const int isolateThreshold = 32 * 1024;
+
+  List<int>? _rawKey;
+
   Future<Uint8List> encrypt(List<int> clear) async {
-    final SecretBox box = await _algo.encrypt(clear, secretKey: _key);
+    if (clear.length < isolateThreshold) {
+      return _encryptWith(_key, clear);
+    }
+    final List<int> key = _rawKey ??= await _key.extractBytes();
+    return Isolate.run(() => _encryptWith(SecretKey(key), clear));
+  }
+
+  static Future<Uint8List> _encryptWith(SecretKey key, List<int> clear) async {
+    final SecretBox box = await Chacha20.poly1305Aead().encrypt(clear, secretKey: key);
     return Uint8List.fromList(<int>[...magic, ...box.nonce, ...box.cipherText, ...box.mac.bytes]);
   }
 

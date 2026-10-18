@@ -112,7 +112,9 @@ class _CardPanelState extends State<_CardPanel> {
     final List<Tx> installments = l.txs.where((Tx tx) => tx.accountId == c.id && tx.installments > 1 && l.remainingInstallments(tx) > 0).toList();
     final int pendingInstallments = installments.fold<int>(0, (int a, Tx tx) => a + l.remainingInstallmentsMinor(tx));
     final List<Tx> cycleTxs = l.inPeriod(st.cycle.period, accountId: c.id);
-    final CardStatement next = l.nextPayment(c);
+    final CardDue due = l.cardDue(c);
+    final CardStatement next = due.next;
+    final int unit = Ledger.displayUnit(c.currency);
     return Card(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -128,13 +130,17 @@ class _CardPanelState extends State<_CardPanel> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text('${c.name}${c.last4.isNotEmpty ? ' *${c.last4}' : ''}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                      Text('${t(context, 'Corte', 'Statement')} ${c.cutDay} · ${t(context, 'Pago', 'Payment')} ${c.payDay}${available != null ? ' · ${t(context, 'cupo libre', 'available')} ${money(context, available, c.currency, compact: true)}' : ''}', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6))),
+                      Text('${t(context, 'Corte el', 'Closes on the')} ${dayOfMonth(context, c.cutDay ?? 1)} · ${t(context, 'pago el', 'due on the')} ${dayOfMonth(context, c.payDay ?? c.cutDay ?? 1)}${available != null ? ' · ${t(context, 'cupo libre', 'available')} ${money(context, available, c.currency, compact: true)}' : ''}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                     ],
                   ),
                 ),
                 IconButton(tooltip: t(context, 'Editar tarjeta', 'Edit card'), icon: const Icon(Icons.edit_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => AccountEditor(existing: c)))),
               ],
             ),
+            if (due.overdue) ...<Widget>[
+              const SizedBox(height: 8),
+              OverdueBanner(card: c, due: due),
+            ],
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -146,7 +152,8 @@ class _CardPanelState extends State<_CardPanel> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(t(context, 'Próximo pago (capital estimado)', 'Next payment (estimated principal)'), style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer.withValues(alpha: 0.8))),
-                        Text('${t(context, 'vence', 'due')} ${formatDate(next.cycle.payDate, 'EEE dd MMM', spanish: es)} · ${t(context, 'corte', 'statement')} ${formatDate(next.cycle.cut, 'dd MMM', spanish: es)}', style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer)),
+                        Text('${t(context, 'vence', 'due')} ${formatDate(next.cycle.payDate, 'EEE dd MMM', spanish: es)} · ${t(context, 'corte', 'closing')} ${formatDate(next.cycle.cut, 'dd MMM', spanish: es)}', style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer)),
+                        if (due.overdue && next.previousMinor > 0) Text(t(context, 'Incluye lo vencido', 'Includes the overdue amount'), style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer)),
                       ],
                     ),
                   ),
@@ -162,24 +169,31 @@ class _CardPanelState extends State<_CardPanel> {
                 IconButton(tooltip: t(context, 'Ciclo siguiente', 'Next cycle'), icon: const Icon(Icons.chevron_right), onPressed: _back == 0 ? null : () => setState(() => _back -= 1)),
               ],
             ),
-            if (st.previousMinor != 0) _row(context, st.previousMinor > 0 ? t(context, 'Saldo anterior sin pagar', 'Previous balance unpaid') : t(context, 'Saldo a favor anterior', 'Previous credit'), st.previousMinor > 0 ? money(context, st.previousMinor, c.currency) : '−${money(context, -st.previousMinor, c.currency)}'),
+            if (st.previousMinor != 0) _row(context, st.previousMinor > 0 ? (st.fromBankStatement ? t(context, 'Último extracto del banco (anotado al crear la tarjeta)', 'Last bank statement (entered when the card was created)') : t(context, 'Saldo anterior sin pagar', 'Previous balance unpaid')) : t(context, 'Saldo a favor anterior', 'Previous credit'), st.previousMinor > 0 ? money(context, st.previousMinor, c.currency) : '−${money(context, -st.previousMinor, c.currency)}'),
             _row(context, t(context, 'Compras del ciclo', 'Purchases this cycle'), money(context, st.purchasesMinor, c.currency)),
             if (st.advancesMinor != 0) _row(context, t(context, 'Avances y transferencias', 'Cash advances and transfers'), money(context, st.advancesMinor, c.currency)),
             _row(context, t(context, 'Cuotas que se facturan', 'Installments billed'), money(context, st.installmentsMinor, c.currency)),
             // Sin abonos se muestra "$ 0", no "−$ 0".
             _row(context, t(context, 'Abonos y devoluciones', 'Payments and refunds'), st.paymentsMinor == 0 ? money(context, 0, c.currency) : '−${money(context, st.paymentsMinor, c.currency)}'),
+            // Lo abonado de más sobre este estado se descontó de la deuda de
+            // antes de Plata: se muestra para que las líneas sumen el total.
+            if (st.toLegacyMinor > 0) _row(context, t(context, 'Abono de más que fue a la deuda de antes', 'Extra payment applied to the earlier debt'), money(context, st.toLegacyMinor, c.currency)),
             const Divider(),
             if (st.creditMinor > 0)
               _row(context, t(context, 'Saldo a favor', 'Credit balance'), money(context, st.creditMinor, c.currency), bold: true)
             else
               _row(context, t(context, 'Capital del estado de cuenta', 'Statement principal'), money(context, st.dueMinor, c.currency), bold: true),
-            Text('${t(context, 'Fecha límite de pago', 'Payment due date')}: ${formatDate(st.cycle.payDate, 'EEE dd MMM yyyy', spanish: es)}', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.65))),
+            Text('${t(context, 'Fecha límite de pago', 'Payment due date')}: ${formatDate(st.cycle.payDate, 'EEE dd MMM yyyy', spanish: es)}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
             const SizedBox(height: 4),
             if (balance > 0)
               _row(context, t(context, 'Saldo a favor hoy', 'Credit balance today'), money(context, balance, c.currency))
             else
               _row(context, t(context, 'Deuda total hoy (capital)', 'Total debt today (principal)'), money(context, -balance, c.currency)),
             _row(context, t(context, 'Cuotas por facturar', 'Installments still to bill'), money(context, pendingInstallments, c.currency)),
+            if (st.legacyMinor > 0) ...<Widget>[
+              _row(context, t(context, 'Deuda de antes de Plata', 'Debt from before Plata'), money(context, st.legacyMinor, c.currency)),
+              Text(t(context, 'Es parte de la deuda inicial que no vence en un solo pago (por ejemplo, cuotas de compras viejas): cuenta en la deuda total y en el cupo, pero no se suma al próximo pago porque Plata no sabe cómo la reparte tu banco. Lo que abones de más se descuenta de aquí.', 'It is the part of the starting debt that is not due in a single payment (for example, installments of older purchases): it counts toward the total debt and the limit, but it is not added to the next payment because Plata does not know how your bank splits it. Anything you pay beyond a statement is taken off here.'), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+            ],
             if (installments.isNotEmpty) ...<Widget>[
               const SizedBox(height: 6),
               Text(t(context, 'Compras a cuotas', 'Installment purchases'), style: Theme.of(context).textTheme.titleSmall),
@@ -189,7 +203,7 @@ class _CardPanelState extends State<_CardPanel> {
                   contentPadding: EdgeInsets.zero,
                   title: Text(tx.description.isEmpty ? (l.category(tx.categoryId)?.name ?? '') : tx.description, maxLines: 1, overflow: TextOverflow.ellipsis),
                   subtitle: Text('${formatDate(tx.date, 'dd MMM yyyy', spanish: es)} · ${tx.installments - l.remainingInstallments(tx)}/${tx.installments} ${t(context, 'facturadas', 'billed')}'),
-                  trailing: Text('${money(context, Ledger.installmentAmount(tx.amountMinor, tx.installments, 1), c.currency, compact: true)}/${t(context, 'cuota', 'inst.')}'),
+                  trailing: Text('${money(context, Ledger.installmentAmount(tx.amountMinor, tx.installments, 1, unit: unit), c.currency, compact: true)}/${t(context, 'cuota', 'inst.')}'),
                   onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => TxEditor(existing: tx))),
                 ),
             ],
@@ -221,4 +235,39 @@ class _CardPanelState extends State<_CardPanel> {
           ],
         ),
       );
+}
+
+/// Aviso de un pago de tarjeta vencido: la fecha límite del último estado
+/// pasó y quedó capital sin pagar.
+class OverdueBanner extends StatelessWidget {
+  const OverdueBanner({super.key, required this.card, required this.due});
+
+  final Account card;
+  final CardDue due;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(color: cs.errorContainer, borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        children: <Widget>[
+          Icon(Icons.warning_amber_rounded, color: cs.onErrorContainer),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text('${overdueLabel(context, due.overdueSince!)}: ${money(context, due.overdueMinor, card.currency)}', style: TextStyle(fontWeight: FontWeight.w700, color: cs.onErrorContainer)),
+                Text(t(context, 'Paga cuanto antes: el banco cobra intereses de mora y puede reportarlo.', 'Pay as soon as you can: the bank charges late interest and may report it.'), style: TextStyle(fontSize: 12, color: cs.onErrorContainer)),
+              ],
+            ),
+          ),
+          TextButton(onPressed: () => openCardPayment(context, card, due.overdueMinor), child: Text(t(context, 'Pagar', 'Pay'), style: TextStyle(color: cs.onErrorContainer))),
+        ],
+      ),
+    );
+  }
 }

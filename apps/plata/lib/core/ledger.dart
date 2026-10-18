@@ -83,7 +83,9 @@ class BudgetProgress {
   /// Sobrante (+) o déficit (−) arrastrado de periodos anteriores.
   final int carryMinor;
 
-  int get limitMinor => budget.amountMinor + carryMinor;
+  /// Tope del periodo (el que tenía entonces, si cambió después) más el
+  /// arrastre.
+  int get limitMinor => budget.amountFor(period.start) + carryMinor;
   int get availableMinor => limitMinor - spentMinor;
   double get fraction => limitMinor <= 0 ? (spentMinor > 0 ? 1 : 0) : (spentMinor / limitMinor).clamp(0.0, 1.0);
   bool get over => spentMinor > limitMinor;
@@ -94,13 +96,14 @@ class BudgetProgress {
 /// Es el **capital** que según lo anotado en Plata vence en la fecha de pago:
 /// no incluye intereses, cuota de manejo ni seguros, que solo conoce el banco.
 class CardStatement {
-  const CardStatement({required this.cycle, required this.previousMinor, required this.purchasesMinor, required this.advancesMinor, required this.installmentsMinor, required this.paymentsMinor});
+  const CardStatement({required this.cycle, required this.previousMinor, required this.purchasesMinor, required this.advancesMinor, required this.installmentsMinor, required this.paymentsMinor, this.toLegacyMinor = 0, this.legacyMinor = 0, this.fromBankStatement = false});
 
   final CardCycle cycle;
 
-  /// Saldo anterior: lo facturado en ciclos anteriores (y la deuda inicial de
-  /// la tarjeta) menos los abonos hechos hasta la fecha de pago anterior.
-  /// Negativo = saldo a favor que se descuenta de este estado.
+  /// Saldo anterior: lo facturado en ciclos anteriores (y el pago del último
+  /// extracto anotado al crear la tarjeta) menos los abonos hechos hasta la
+  /// fecha de pago anterior. Negativo = saldo a favor que se descuenta de este
+  /// estado.
   final int previousMinor;
 
   /// Compras de una cuota del ciclo.
@@ -116,17 +119,75 @@ class CardStatement {
   /// de este estado.
   final int paymentsMinor;
 
+  /// Parte de los abonos que pasó de lo que pedía este estado y se descontó de
+  /// la deuda de antes de Plata (cuotas viejas que el banco sigue cobrando).
+  final int toLegacyMinor;
+
+  /// Deuda de antes de Plata que queda después de este estado: no está en
+  /// ningún estado de cuenta de Plata porque no se sabe cómo la reparte el
+  /// banco; cuenta en la deuda total y en el cupo.
+  final int legacyMinor;
+
+  /// El saldo anterior de este estado es el pago del último extracto que se
+  /// anotó al crear la tarjeta (es el primer ciclo que lleva Plata).
+  final bool fromBankStatement;
+
   /// Lo nuevo que se factura en el ciclo.
   int get chargesMinor => purchasesMinor + advancesMinor + installmentsMinor;
 
   /// Capital estimado pendiente del estado (negativo = saldo a favor).
-  int get balanceMinor => previousMinor + chargesMinor - paymentsMinor;
+  int get balanceMinor => previousMinor + chargesMinor - paymentsMinor + toLegacyMinor;
 
   /// Lo que falta por pagar (nunca negativo).
   int get dueMinor => balanceMinor > 0 ? balanceMinor : 0;
 
   /// Saldo a favor (nunca negativo).
   int get creditMinor => balanceMinor < 0 ? -balanceMinor : 0;
+}
+
+/// Situación de pago de una tarjeta hoy: el próximo pago y, si la fecha
+/// límite del último estado pasó sin pagarlo completo, lo vencido.
+class CardDue {
+  const CardDue({required this.next, this.overdueMinor = 0, this.overdueSince});
+
+  /// Estado cuyo pago es el próximo (ver [Ledger.nextPayment]).
+  final CardStatement next;
+
+  /// Capital del último estado que sigue sin pagar después de su fecha límite.
+  final int overdueMinor;
+
+  /// Fecha límite que pasó (null si no hay nada vencido).
+  final DateTime? overdueSince;
+
+  bool get overdue => overdueMinor > 0;
+}
+
+/// Lo que suma una tarjeta en un ciclo (ver [Ledger.statement]).
+class _CycleSums {
+  int purchases = 0;
+  int advances = 0;
+  int installments = 0;
+  int payments = 0;
+}
+
+/// Movimientos de una tarjeta repartidos por ciclo, desde el primer ciclo que
+/// lleva Plata.
+class _CardBook {
+  _CardBook(this.firstCut);
+
+  /// Corte del primer ciclo: el del último extracto anotado al crear la
+  /// tarjeta o, si no se anotó, el del movimiento más antiguo.
+  final DateTime firstCut;
+
+  /// Saldo anterior del primer ciclo: el pago del último extracto (o un saldo
+  /// a favor inicial), más lo facturado antes y menos lo abonado antes.
+  int opening = 0;
+
+  /// Deuda inicial que no estaba en el último extracto.
+  int legacy = 0;
+  final Map<DateTime, _CycleSums> sums = <DateTime, _CycleSums>{};
+
+  _CycleSums at(DateTime cut) => sums.putIfAbsent(cut, _CycleSums.new);
 }
 
 /// Por qué un movimiento no se puede guardar.
@@ -275,9 +336,13 @@ class LedgerSnapshot {
 /// Todo el libro: cuentas, categorías, movimientos, programados, presupuestos,
 /// plantillas, avisos y tasas, con sus cálculos. Se guarda cifrado.
 class Ledger extends ChangeNotifier {
-  Ledger(this.store, {this.spanish = true, DateTime Function()? clock}) : _clock = clock ?? _systemNow;
+  Ledger(this.store, {this.spanish = true, DateTime Function()? clock, this.defaultCurrency = 'COP'}) : _clock = clock ?? _systemNow;
 
   final EncryptedStore store;
+
+  /// Moneda base de un libro nuevo (la del país del teléfono, ver
+  /// Defaults.currencyForLocales).
+  final String defaultCurrency;
 
   /// Idioma de los nombres de fábrica (ver [applyLanguage]).
   bool spanish;
@@ -299,6 +364,7 @@ class Ledger extends ChangeNotifier {
   bool _dirty = false;
   int _revision = 0;
   final Map<String, int> _spentCache = <String, int>{};
+  final Map<String, _CardBook> _cardCache = <String, _CardBook>{};
 
   static const String _file = kLedgerFile;
 
@@ -309,6 +375,7 @@ class Ledger extends ChangeNotifier {
   void notifyListeners() {
     _revision += 1;
     _spentCache.clear();
+    _cardCache.clear();
     super.notifyListeners();
   }
 
@@ -384,7 +451,7 @@ class Ledger extends ChangeNotifier {
     templates.clear();
     inbox.clear();
     rates = RateTable();
-    baseCurrency = 'COP';
+    baseCurrency = defaultCurrency;
     periodSpec = const PeriodSpec();
     if (snap != null) {
       accounts.addAll(snap.accounts);
@@ -402,7 +469,7 @@ class Ledger extends ChangeNotifier {
       categories.addAll(Defaults.categories(spanish: spanish));
     }
     if (accounts.isEmpty) {
-      accounts.addAll(Defaults.accounts(spanish: spanish));
+      accounts.addAll(Defaults.accounts(spanish: spanish, currency: baseCurrency));
     }
     _sortTxs();
   }
@@ -1031,11 +1098,20 @@ class Ledger extends ChangeNotifier {
     }
   }
 
-  /// Ordena la carpeta de fotos de recibos: borra los archivos que ningún
-  /// movimiento usa (por ejemplo, de un movimiento que no se llegó a guardar) y
-  /// quita las referencias a fotos que no están en este teléfono (al restaurar
-  /// una copia hecha en otro: las copias guardan los datos, no las fotos). Solo
-  /// corre si el libro se leyó bien, para no tocar nada si no se pudo descifrar.
+  /// Registro de fotos de recibos que ningún movimiento usa, con la fecha en
+  /// que quedaron así (ver [pruneAttachments]).
+  static const String orphansFile = 'attachments-orphans.json';
+
+  /// Cuánto se guarda una foto que ningún movimiento usa antes de borrarla.
+  static const Duration orphanGrace = Duration(days: 30);
+
+  /// Ordena la carpeta de fotos de recibos. Quita las referencias a fotos que
+  /// no están en este teléfono (al restaurar una copia hecha en otro: las
+  /// copias guardan los datos, no las fotos). Las fotos que ningún movimiento
+  /// usa no se borran de una vez: pueden ser de los datos que reemplazó una
+  /// restauración, y deshacerla (restaurar la copia automática previa) las
+  /// vuelve a usar. Se borran cuando llevan [orphanGrace] sin uso. Solo corre
+  /// si el libro se leyó bien, para no tocar nada si no se pudo descifrar.
   Future<void> pruneAttachments() async {
     if (readOnly || !loaded) {
       return;
@@ -1048,7 +1124,42 @@ class Ledger extends ChangeNotifier {
       t.attachments.removeWhere((String a) => !present.contains(a));
       changed = changed || t.attachments.length != before;
     }
-    await deleteAttachmentFiles(files);
+    final Set<String> used = <String>{for (final Tx t in txs) ...t.attachments};
+    Map<String, dynamic> orphans;
+    try {
+      orphans = await store.store.readJson(orphansFile) ?? <String, dynamic>{};
+    } catch (_) {
+      orphans = <String, dynamic>{};
+    }
+    final DateTime now = _clock();
+    final Map<String, dynamic> keep = <String, dynamic>{};
+    for (final String f in files) {
+      if (used.contains(f)) {
+        continue;
+      }
+      if (f.endsWith(JsonStore.tmpSuffix)) {
+        // Escritura cortada de una foto: nunca llegó a usarse.
+        await deleteAttachmentFiles(<String>[f]);
+        continue;
+      }
+      final DateTime? since = DateTime.tryParse('${orphans[f] ?? ''}');
+      if (since == null) {
+        keep[f] = now.toIso8601String();
+      } else if (now.difference(since) >= orphanGrace) {
+        await deleteAttachmentFiles(<String>[f]);
+      } else {
+        keep[f] = orphans[f];
+      }
+    }
+    try {
+      if (keep.isEmpty) {
+        await store.store.delete(orphansFile);
+      } else {
+        await store.store.writeJson(orphansFile, keep);
+      }
+    } catch (e) {
+      debugPrint('Registro de fotos: $e');
+    }
     if (changed) {
       save();
     }
@@ -1106,6 +1217,7 @@ class Ledger extends ChangeNotifier {
   /// Movimientos que cumplen el filtro, ordenados del más reciente al más antiguo.
   List<Tx> search(TxFilter f) {
     final String q = f.text.trim().toLowerCase();
+    final String qDigits = RegExp(r'^[\s$]*\d[\d.,\s]*$').hasMatch(q) ? q.replaceAll(RegExp(r'[^0-9]'), '') : '';
     return txs.where((Tx t) {
       if (f.kinds.isNotEmpty && !f.kinds.contains(t.kind)) {
         return false;
@@ -1145,7 +1257,9 @@ class Ledger extends ChangeNotifier {
       }
       if (q.isNotEmpty) {
         final String hay = '${t.description} ${t.payee} ${t.notes} ${t.tags.join(' ')} ${categoryPath(t.categoryId)} ${account(t.accountId)?.name ?? ''} ${t.checkNumber} ${Money.format(t.amountMinor, t.currency, withSymbol: false)} ${Money.format(t.amountMinor, t.currency, withSymbol: false, spanish: false)}'.toLowerCase();
-        if (!hay.contains(q)) {
+        // Un monto escrito sin separadores ("45000") encuentra $ 45.000.
+        final bool sameAmount = qDigits.isNotEmpty && (t.amountMinor % 100 == 0 ? '${t.amountMinor ~/ 100}' == qDigits : '${t.amountMinor}' == qDigits);
+        if (!sameAmount && !hay.contains(q)) {
           return false;
         }
       }
@@ -1161,10 +1275,14 @@ class Ledger extends ChangeNotifier {
   /// Totales de un periodo en moneda base: ingresos, gastos (positivos) y neto.
   /// Las transferencias y los ajustes de saldo no cuentan; los reembolsos
   /// (ingresos en una categoría de gasto) descuentan del gasto.
-  PeriodTotals totals(Period p, {String? accountId}) {
+  PeriodTotals totals(Period p, {String? accountId}) => totalsOf(p, inPeriod(p, accountId: accountId), accountId: accountId);
+
+  /// Ingresos y gastos de [list] con la misma regla de [totals]: sirve para
+  /// la cabecera de Movimientos, que suma lo que muestra la búsqueda.
+  PeriodTotals totalsOf(Period p, Iterable<Tx> list, {String? accountId}) {
     int income = 0;
     int expense = 0;
-    for (final Tx t in inPeriod(p, accountId: accountId)) {
+    for (final Tx t in list) {
       if (t.isAdjustment || t.kind == TxKind.transfer) {
         continue;
       }
@@ -1382,20 +1500,87 @@ class Ledger extends ChangeNotifier {
 
   BudgetProgress progress(Budget b, {DateTime? now}) {
     final Period current = BudgetPeriods.containing(b, now ?? _clock());
+    return BudgetProgress(budget: b, period: current, spentMinor: budgetSpent(b, current), carryMinor: b.rollover ? _carry(b, current) : 0);
+  }
+
+  /// Arrastre de un presupuesto hasta el periodo [current]: la suma, desde su
+  /// primer periodo, del tope de cada periodo (el que tenía entonces, ver
+  /// [Budget.amountFor]) menos lo gastado en él. Se recorre el libro una sola
+  /// vez y se reparte cada movimiento en su periodo.
+  int _carry(Budget b, Period current) {
+    final String key = 'carry|${b.id}|${b.accountId}|${b.categoryIds.join(',')}|${b.period.name}|${b.customDays}|${dayKey(b.startDate)}|${dayKey(current.start)}|${b.amountMinor}|${b.amountHistory.map((BudgetAmountChange c) => '${dayKey(c.until)}:${c.amountMinor}').join(',')}';
+    final int? cached = _spentCache[key];
+    if (cached != null) {
+      return cached;
+    }
+    final List<Period> periods = <Period>[];
+    Period p = BudgetPeriods.containing(b, dateOnly(b.startDate));
+    while (p.start.isBefore(current.start) && periods.length < 50000) {
+      periods.add(p);
+      p = BudgetPeriods.next(b, p);
+    }
     int carry = 0;
-    if (b.rollover) {
-      Period p = BudgetPeriods.previous(b, current);
-      int guard = 0;
-      final DateTime start = dateOnly(b.startDate);
-      while (!p.end.isBefore(addDays(start, 1)) && guard++ < 120) {
-        carry += b.amountMinor - budgetSpent(b, p);
-        if (!p.start.isAfter(start)) {
-          break;
+    if (periods.isNotEmpty) {
+      final List<int> spent = List<int>.filled(periods.length, 0);
+      final Set<String> cats = budgetCategories(b);
+      final DateTime from = periods.first.start;
+      final DateTime to = periods.last.end;
+      for (final Tx t in txs) {
+        if (t.date.isBefore(from) || !t.date.isBefore(to)) {
+          continue;
         }
-        p = BudgetPeriods.previous(b, p);
+        final int share = budgetShare(b, t, cats: cats);
+        if (share == 0) {
+          continue;
+        }
+        int lo = 0;
+        int hi = periods.length - 1;
+        while (lo < hi) {
+          final int mid = (lo + hi + 1) >> 1;
+          if (t.date.isBefore(periods[mid].start)) {
+            hi = mid - 1;
+          } else {
+            lo = mid;
+          }
+        }
+        if (periods[lo].contains(t.date)) {
+          spent[lo] += share;
+        }
+      }
+      for (int i = 0; i < periods.length; i++) {
+        carry += b.amountFor(periods[i].start) - spent[i];
       }
     }
-    return BudgetProgress(budget: b, period: current, spentMinor: budgetSpent(b, current), carryMinor: carry);
+    _spentCache[key] = carry;
+    return carry;
+  }
+
+  /// Si los avances de [list] se pueden sumar sin contar dos veces el mismo
+  /// gasto: todos en el mismo periodo, ninguno de "todo el gasto" y sin
+  /// categorías que se crucen (salvo que sean de cuentas distintas).
+  bool canSumBudgets(List<BudgetProgress> list) {
+    if (list.length < 2) {
+      return false;
+    }
+    final Period period = list.first.period;
+    final List<Set<String>> cats = <Set<String>>[];
+    for (final BudgetProgress p in list) {
+      if (p.period != period || p.budget.categoryIds.isEmpty) {
+        return false;
+      }
+      cats.add(budgetCategories(p.budget));
+    }
+    for (int i = 0; i < list.length; i++) {
+      for (int j = i + 1; j < list.length; j++) {
+        final String? a = list[i].budget.accountId;
+        final String? b = list[j].budget.accountId;
+        final bool sameMoney = a == null || b == null || effectiveAccountId(a) == effectiveAccountId(b);
+        if (sameMoney && cats[i].intersection(cats[j]).isNotEmpty) {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 
   // ------------------------------------------------------------- programados
@@ -1514,18 +1699,139 @@ class Ledger extends ChangeNotifier {
 
   // ---------------------------------------------------------------- tarjetas
 
-  /// Valor de la cuota [k] (1..[n]) de una compra de [total]: todas iguales y
-  /// la última con lo que sobra, para que las cuotas sumen exactamente el total.
-  static int installmentAmount(int total, int n, int k) {
+  /// Unidad más pequeña que se muestra de una moneda, en centavos: 100 si se
+  /// muestra sin decimales (el peso colombiano), 1 si con dos.
+  static int displayUnit(String currency) => Money.info(currency).decimals >= 2 ? 1 : 100;
+
+  /// Valor de la cuota [k] (1..[n]) de una compra de [total]: todas iguales,
+  /// redondeadas a la unidad que se muestra ([unit], ver [displayUnit]), y la
+  /// última con lo que sobra, para que sumen exactamente el total y cada línea
+  /// del estado de cuenta sea una cifra que se puede pagar.
+  static int installmentAmount(int total, int n, int k, {int unit = 1}) {
     if (n <= 1) {
       return total;
     }
-    final int base = total ~/ n;
+    final int u = unit < 1 ? 1 : unit;
+    final int base = (total ~/ n) ~/ u * u;
     return k == n ? total - base * (n - 1) : base;
   }
 
   /// Corte del ciclo en que cae una fecha.
   DateTime _cutOf(Account card, DateTime d) => CardCycle.current(card, d).cut;
+
+  /// Corte del estado al que se aplica un abono hecho el día [d]: el que tiene
+  /// la primera fecha de pago en o después de [d].
+  DateTime _paymentCut(Account card, DateTime d) {
+    CardCycle c = CardCycle.current(card, d);
+    for (int i = 0; i < 2; i++) {
+      final CardCycle p = c.previous(card);
+      if (!d.isAfter(p.payDate)) {
+        c = p;
+      } else {
+        break;
+      }
+    }
+    return c.cut;
+  }
+
+  /// Corte del extracto al que se refiere «el pago del último extracto» de
+  /// una tarjeta: el que quedó fijo al anotarlo o, si todavía no, el último
+  /// que cerró antes del primer movimiento de la tarjeta (o antes de hoy, si
+  /// no tiene ninguno). Así lo anotado en Plata nunca se cuenta dos veces.
+  DateTime referenceStatementCut(Account card) {
+    final DateTime? fixed = card.statementCut;
+    if (fixed != null) {
+      return CardCycle.current(card, fixed).cut;
+    }
+    DateTime? earliest;
+    if (card.id.isNotEmpty) {
+      for (final Tx t in txs) {
+        final bool touches = effectiveAccountId(t.accountId) == card.id || (t.kind == TxKind.transfer && t.toAccountId != null && effectiveAccountId(t.toAccountId!) == card.id);
+        if (touches && (earliest == null || t.date.isBefore(earliest))) {
+          earliest = t.date;
+        }
+      }
+    }
+    return CardCycle.current(card, earliest ?? _clock()).previous(card).cut;
+  }
+
+  /// Movimientos de una tarjeta repartidos por ciclo (se calcula una vez por
+  /// versión del libro).
+  _CardBook _cardBook(Account card) {
+    final String key = '${card.id}|${card.cutDay}|${card.payDay}|${card.initialMinor}|${card.statementDueMinor}|${card.statementCut?.toIso8601String()}|${card.currency}';
+    final _CardBook? cached = _cardCache[key];
+    if (cached != null) {
+      return cached;
+    }
+    bool touches(Tx t) => effectiveAccountId(t.accountId) == card.id || (t.kind == TxKind.transfer && t.toAccountId != null && effectiveAccountId(t.toAccountId!) == card.id);
+    DateTime? earliest;
+    for (final Tx t in txs) {
+      if (touches(t) && (earliest == null || t.date.isBefore(earliest))) {
+        earliest = t.date;
+      }
+    }
+    final DateTime? statementCut = card.statementCut;
+    final CardCycle first = statementCut != null
+        ? CardCycle.current(card, statementCut)
+        : (earliest != null ? CardCycle.current(card, earliest) : CardCycle.current(card, _clock()).previous(card));
+    final _CardBook book = _CardBook(first.cut);
+    final int debt = card.initialMinor < 0 ? -card.initialMinor : 0;
+    final int lastStatement = (card.statementDueMinor ?? 0).clamp(0, debt);
+    book.opening = card.initialMinor > 0 ? -card.initialMinor : lastStatement;
+    book.legacy = debt - lastStatement;
+    final int unit = displayUnit(card.currency);
+
+    void charge(DateTime cut, int amount, bool advance) {
+      if (cut.isBefore(book.firstCut)) {
+        book.opening += amount;
+      } else if (advance) {
+        book.at(cut).advances += amount;
+      } else {
+        book.at(cut).purchases += amount;
+      }
+    }
+
+    void credit(DateTime d, int amount) {
+      final DateTime cut = _paymentCut(card, d);
+      if (cut.isBefore(book.firstCut)) {
+        book.opening -= amount;
+      } else {
+        book.at(cut).payments += amount;
+      }
+    }
+
+    for (final Tx t in txs) {
+      final DateTime d = dateOnly(t.date);
+      final bool from = effectiveAccountId(t.accountId) == card.id;
+      if (from && t.kind == TxKind.expense) {
+        if (t.installments <= 1) {
+          charge(_cutOf(card, d), t.amountMinor, false);
+        } else {
+          // La cuota k se factura en el k-ésimo corte desde la compra: la
+          // primera, en el primer corte después de la compra.
+          final DateTime firstCut = _cutOf(card, d);
+          for (int k = 1; k <= t.installments; k++) {
+            final DateTime cut = CardCycle.cutAfter(card, firstCut, k - 1);
+            final int amount = installmentAmount(t.amountMinor, t.installments, k, unit: unit);
+            if (cut.isBefore(book.firstCut)) {
+              book.opening += amount;
+            } else {
+              book.at(cut).installments += amount;
+            }
+          }
+        }
+      } else if (from && t.kind == TxKind.transfer) {
+        charge(_cutOf(card, d), t.amountMinor, true);
+      } else if (from && t.kind == TxKind.income) {
+        credit(d, t.amountMinor);
+      }
+      if (t.kind == TxKind.transfer && t.toAccountId != null && effectiveAccountId(t.toAccountId!) == card.id) {
+        credit(d, receivedMinor(t));
+      }
+    }
+    _cardCache[key] = book;
+    return book;
+  }
 
   /// Estado de cuenta estimado de una tarjeta para el ciclo que contiene [date].
   ///
@@ -1536,86 +1842,97 @@ class Ledger extends ChangeNotifier {
   ///   en los bancos colombianos (ver docs/DECISIONES.md).
   /// - Abonos (pagos a la tarjeta y devoluciones): en la ventana entre la fecha
   ///   de pago anterior y la de este estado, que es como el banco los aplica.
-  /// - Lo facturado antes y no pagado, y la deuda inicial, llegan como saldo
-  ///   anterior; un abono de más llega como saldo a favor.
+  /// - Lo facturado antes y no pagado llega como saldo anterior; un abono de
+  ///   más llega como saldo a favor.
+  /// - La deuda inicial se reparte así: el pago del último extracto (si se
+  ///   anotó al crear la tarjeta) vence en ese extracto; el resto es deuda de
+  ///   antes de Plata, que el banco factura a su manera (cuotas viejas): no se
+  ///   suma a ningún estado y se muestra aparte. Lo que se abone de más sobre
+  ///   un estado se descuenta primero de esa deuda vieja.
   ///
   /// Es solo capital: Plata no calcula intereses ni cuota de manejo.
   CardStatement statement(Account card, {DateTime? date}) {
     final CardCycle cycle = CardCycle.current(card, date ?? _clock());
-    final DateTime cut = cycle.cut;
-    final DateTime prevPay = cycle.previous(card).payDate;
-    final DateTime payDate = cycle.payDate;
-    int previous = -card.initialMinor;
-    int purchases = 0;
-    int advances = 0;
-    int installments = 0;
-    int payments = 0;
-    void charge(DateTime d, int amount, bool advance) {
-      final DateTime c = _cutOf(card, d);
-      if (c == cut) {
-        if (advance) {
-          advances += amount;
-        } else {
-          purchases += amount;
-        }
-      } else if (c.isBefore(cut)) {
-        previous += amount;
-      }
+    final _CardBook book = _cardBook(card);
+    if (cycle.cut.isBefore(book.firstCut)) {
+      return CardStatement(cycle: cycle, previousMinor: 0, purchasesMinor: 0, advancesMinor: 0, installmentsMinor: 0, paymentsMinor: 0, legacyMinor: book.legacy);
     }
-
-    void credit(DateTime d, int amount) {
-      if (!d.isAfter(prevPay)) {
-        previous -= amount;
-      } else if (!d.isAfter(payDate)) {
-        payments += amount;
+    int carry = book.opening;
+    int legacy = book.legacy;
+    final _CycleSums empty = _CycleSums();
+    for (int i = 0; i < 1200; i++) {
+      final DateTime cut = CardCycle.cutAfter(card, book.firstCut, i);
+      final _CycleSums s = book.sums[cut] ?? empty;
+      int balance = carry + s.purchases + s.advances + s.installments - s.payments;
+      int toLegacy = 0;
+      if (balance < 0 && legacy > 0) {
+        toLegacy = legacy < -balance ? legacy : -balance;
+        legacy -= toLegacy;
+        balance += toLegacy;
       }
+      if (cut == cycle.cut || cut.isAfter(cycle.cut)) {
+        return CardStatement(cycle: cycle, previousMinor: carry, purchasesMinor: s.purchases, advancesMinor: s.advances, installmentsMinor: s.installments, paymentsMinor: s.payments, toLegacyMinor: toLegacy, legacyMinor: legacy, fromBankStatement: i == 0 && card.statementCut != null && (card.statementDueMinor ?? 0) > 0);
+      }
+      carry = balance;
     }
-
-    for (final Tx t in txs) {
-      final DateTime d = dateOnly(t.date);
-      final bool from = effectiveAccountId(t.accountId) == card.id;
-      if (from && t.kind == TxKind.expense) {
-        if (t.installments <= 1) {
-          charge(d, t.amountMinor, false);
-        } else {
-          final int n = t.installments;
-          // Cortes desde el de la compra hasta el de este ciclo: la cuota
-          // m + 1 es la de este estado y las m anteriores ya se facturaron.
-          final int m = CardCycle.cyclesBetween(_cutOf(card, d), cut);
-          for (int k = 1; k <= n && k <= m; k++) {
-            previous += installmentAmount(t.amountMinor, n, k);
-          }
-          if (m >= 0 && m < n) {
-            installments += installmentAmount(t.amountMinor, n, m + 1);
-          }
-        }
-      } else if (from && t.kind == TxKind.transfer) {
-        charge(d, t.amountMinor, true);
-      } else if (from && t.kind == TxKind.income) {
-        credit(d, t.amountMinor);
-      }
-      if (t.kind == TxKind.transfer && t.toAccountId != null && effectiveAccountId(t.toAccountId!) == card.id) {
-        credit(d, receivedMinor(t));
-      }
-    }
-    return CardStatement(cycle: cycle, previousMinor: previous, purchasesMinor: purchases, advancesMinor: advances, installmentsMinor: installments, paymentsMinor: payments);
+    return CardStatement(cycle: cycle, previousMinor: carry, purchasesMinor: 0, advancesMinor: 0, installmentsMinor: 0, paymentsMinor: 0, legacyMinor: legacy);
   }
 
-  /// Estado de cuenta cuyo pago es el próximo: el del ciclo ya cerrado si su
-  /// fecha de pago no ha pasado y aún debe algo; si no, el del ciclo en curso
-  /// (que ya trae como saldo anterior lo que no se pagó).
-  CardStatement nextPayment(Account card, {DateTime? now}) {
+  /// Abonos a una tarjeta hechos después de [after] y hasta el final de [until].
+  int _creditsBetween(Account card, DateTime after, DateTime until) {
+    final DateTime a = dateOnly(after);
+    final DateTime u = dateOnly(until);
+    int sum = 0;
+    for (final Tx t in txs) {
+      final DateTime d = dateOnly(t.date);
+      if (!d.isAfter(a) || d.isAfter(u)) {
+        continue;
+      }
+      if (effectiveAccountId(t.accountId) == card.id && t.kind == TxKind.income) {
+        sum += t.amountMinor;
+      } else if (t.kind == TxKind.transfer && t.toAccountId != null && effectiveAccountId(t.toAccountId!) == card.id) {
+        sum += receivedMinor(t);
+      }
+    }
+    return sum;
+  }
+
+  /// Situación de pago de una tarjeta hoy.
+  ///
+  /// - Próximo pago: el último estado cerrado mientras no pase su fecha
+  ///   límite (si debe algo); si no, el del ciclo en curso.
+  /// - Vencido: lo que quedó sin pagar del último estado cuya fecha límite ya
+  ///   pasó, menos lo abonado después de esa fecha. Sigue vencido (con
+  ///   intereses de mora en el banco) hasta que se pague, aunque entre tanto
+  ///   cierre otro estado que lo traiga como saldo anterior.
+  CardDue cardDue(Account card, {DateTime? now}) {
     final DateTime today = dateOnly(now ?? _clock());
     final CardCycle current = CardCycle.current(card, today);
     final CardCycle prev = current.previous(card);
+    CardStatement next;
     if (!prev.payDate.isBefore(today)) {
       final CardStatement closed = statement(card, date: prev.cut);
-      if (closed.dueMinor > 0) {
-        return closed;
-      }
+      next = closed.dueMinor > 0 ? closed : statement(card, date: today);
+    } else {
+      next = statement(card, date: today);
     }
-    return statement(card, date: today);
+    CardCycle passed = prev;
+    for (int i = 0; i < 3 && !passed.payDate.isBefore(today); i++) {
+      passed = passed.previous(card);
+    }
+    if (!passed.payDate.isBefore(today)) {
+      return CardDue(next: next);
+    }
+    final CardStatement last = statement(card, date: passed.cut);
+    final int late = last.dueMinor - _creditsBetween(card, passed.payDate, today);
+    return CardDue(next: next, overdueMinor: late > 0 ? late : 0, overdueSince: late > 0 ? passed.payDate : null);
   }
+
+  /// Estado de cuenta cuyo pago es el próximo (ver [cardDue]).
+  CardStatement nextPayment(Account card, {DateTime? now}) => cardDue(card, now: now).next;
+
+  /// Deuda de antes de Plata que queda hoy en una tarjeta (ver [statement]).
+  int legacyDebtMinor(Account card, {DateTime? now}) => statement(card, date: now ?? _clock()).legacyMinor;
 
   /// Cuotas de una compra diferida que aún no se han facturado al terminar el
   /// ciclo que contiene [now] (la primera cuota se factura en el primer corte
@@ -1632,9 +1949,10 @@ class Ledger extends ChangeNotifier {
   /// Capital de las cuotas que faltan por facturar de una compra diferida.
   int remainingInstallmentsMinor(Tx t, {DateTime? now}) {
     final int left = remainingInstallments(t, now: now);
+    final int unit = displayUnit(account(t.accountId)?.currency ?? t.currency);
     int sum = 0;
     for (int k = t.installments - left + 1; k <= t.installments; k++) {
-      sum += installmentAmount(t.amountMinor, t.installments, k);
+      sum += installmentAmount(t.amountMinor, t.installments, k, unit: unit);
     }
     return sum;
   }
@@ -1802,9 +2120,12 @@ class Ledger extends ChangeNotifier {
   }
 
   /// Anota ahora un programado (aunque no sea automático) y avanza su fecha.
-  /// Lanza [TxRejected] si no se puede (por ejemplo, falta la tasa).
+  /// El movimiento lleva la fecha y la hora de hoy: es "anotar ahora", aunque
+  /// el programado tocara otro día (si tocaba en el futuro, con su fecha no
+  /// contaría en el saldo de hoy). Lanza [TxRejected] si no se puede (por
+  /// ejemplo, falta la tasa).
   Future<Tx> postScheduled(Scheduled s, {DateTime? date}) async {
-    final Tx t = _txFromScheduled(s, date ?? _noon(s.nextDate));
+    final Tx t = _txFromScheduled(s, date ?? _clock());
     final Tx created = await addTx(t);
     s.lastPosted = created.date;
     s.nextDate = s.frequency.next(dateOnly(s.nextDate), anchor: s.anchorDate);
@@ -1834,12 +2155,44 @@ class Ledger extends ChangeNotifier {
       }
     }
     item.accountId ??= matchNotice(item).account?.id;
+    if (item.accountId != null && item.kind != TxKind.transfer) {
+      item.duplicateOf = likelyDuplicate(item, item.accountId!)?.id;
+    }
     inbox.insert(0, item);
     if (inbox.length > 200) {
       inbox.removeRange(200, inbox.length);
     }
     save();
     return item;
+  }
+
+  /// Movimiento ya anotado que parece ser el mismo de un aviso: de la misma
+  /// cuenta (o de una tarjeta débito suya), del mismo tipo, por el mismo monto
+  /// en la moneda de la cuenta y con dos días o menos de diferencia. Pasa con
+  /// un programado que se anotó solo o un gasto que se anotó a mano antes de
+  /// que llegara el aviso.
+  Tx? likelyDuplicate(InboxItem item, String accountId) {
+    final Account? a = account(accountId);
+    if (a == null) {
+      return null;
+    }
+    final int? amount = convert(item.amountMinor, item.currency, a.currency);
+    if (amount == null) {
+      return null;
+    }
+    for (final Tx t in txs) {
+      if (t.kind != item.kind || t.isAdjustment || t.amountMinor != amount) {
+        continue;
+      }
+      if (effectiveAccountId(t.accountId) != effectiveAccountId(a.id)) {
+        continue;
+      }
+      if (daysBetween(t.date, item.receivedAt).abs() > 2) {
+        continue;
+      }
+      return t;
+    }
+    return null;
   }
 
   /// Cuenta de un aviso: por sus últimos 4 dígitos entre las cuentas de ese

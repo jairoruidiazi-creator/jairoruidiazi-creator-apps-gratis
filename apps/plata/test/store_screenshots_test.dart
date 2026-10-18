@@ -24,6 +24,7 @@ import 'package:plata/core/notifications.dart';
 import 'package:plata/core/rates.dart';
 import 'package:plata/core/settings.dart';
 import 'package:plata/core/storage.dart';
+import 'package:plata/ui/widgets/adaptive.dart';
 import 'package:plata/ui/widgets/amount_keypad.dart';
 import 'package:plata/ui/widgets/common.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -116,7 +117,13 @@ void main() {
           await _settle(tester);
 
           // 1. Inicio: patrimonio, cuentas, el mes, presupuestos y próximos pagos.
+          // El botón + taparía la acción de la derecha del primer aviso: en
+          // esta escena se esconde (la 02 muestra cómo se anota).
+          hideFloatingButtons.value = true;
+          await _settle(tester);
           await takeStoreShot(tester, device, lang, '01-inicio');
+          hideFloatingButtons.value = false;
+          await _settle(tester);
 
           // 2. Anotar un gasto con la calculadora y las sugerencias.
           await tester.tap(find.byTooltip(tr('Anotar movimiento', 'Log transaction')).first);
@@ -143,7 +150,11 @@ void main() {
 
           // 4. Presupuestos.
           await _goTab(tester, tr('Presupuestos', 'Budgets'));
+          hideFloatingButtons.value = true;
+          await _settle(tester);
           await takeStoreShot(tester, device, lang, '04-presupuestos');
+          hideFloatingButtons.value = false;
+          await _settle(tester);
 
           // 5. Movimientos en calendario.
           await _goTab(tester, tr('Movimientos', 'Transactions'));

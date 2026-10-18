@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' show FlutterView;
+import 'dart:ui' show FlutterView, PlatformDispatcher;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +13,7 @@ import 'app.dart';
 import 'core/app_scope.dart';
 import 'core/backups.dart';
 import 'core/crypto_store.dart';
+import 'core/defaults.dart';
 import 'core/key_setup.dart';
 import 'core/ledger.dart';
 import 'core/lock.dart';
@@ -20,6 +21,7 @@ import 'core/notices.dart';
 import 'core/notifications.dart';
 import 'core/rates.dart';
 import 'core/settings.dart';
+import 'core/sharing.dart';
 import 'core/storage.dart';
 import 'ui/startup_error.dart';
 
@@ -69,17 +71,20 @@ Future<Services> _bootstrap(JsonStore store) async {
   // persiste y hay datos, no se crea una llave nueva (ver core/key_setup.dart).
   final KeySetup keys = await openLedgerKeys(secure: secure, file: FileKeyStore(store), dataExists: dataExists);
   final EncryptedStore encrypted = EncryptedStore(store, keys.box);
-  final Ledger ledger = Ledger(encrypted, spanish: settings.spanish);
+  // Un libro nuevo usa la moneda del país del teléfono.
+  final Ledger ledger = Ledger(encrypted, spanish: settings.spanish, defaultCurrency: Defaults.currencyForLocales(PlatformDispatcher.instance.locales));
   await ledger.load();
   // Las categorías de fábrica siguen el idioma de la app (por ejemplo, tras
   // restaurar una copia hecha en el otro idioma).
   if (!ledger.readOnly) {
     ledger.applyLanguage(settings.spanish);
   }
-  // Las exportaciones (CSV, Excel, copias) ya se compartieron y no van cifradas;
-  // las fotos de recibos huérfanas se borran, y también las copias sin cifrar
-  // que el selector de fotos haya dejado en la caché.
+  // Las exportaciones (CSV, Excel, copias) ya se compartieron y no van cifradas:
+  // se borran, junto con la copia que la hoja de compartir de Android guarda
+  // en la caché. Se ordenan las fotos de recibos y se borran las copias sin
+  // cifrar que el selector de fotos haya dejado.
   await store.clear('exports');
+  await clearShareCache();
   await ledger.pruneAttachments();
   await _clearPickerLeftovers();
 
@@ -90,30 +95,42 @@ Future<Services> _bootstrap(JsonStore store) async {
   final RateService rates = RateService();
   final NoticeService notices = NoticeService(bridge: PlatformNoticeBridge(), ledger: ledger, settings: settings);
   final BackupManager backups = BackupManager(store: store, ledger: ledger, settings: settings);
-  return Services(settings: settings, ledger: ledger, store: store, keys: keys.keys, lock: lock, notifier: notifier, rates: rates, notices: notices, backups: backups);
+  return Services(settings: settings, ledger: ledger, store: store, keys: keys.keys, lock: lock, notifier: notifier, rates: rates, notices: notices, backups: backups, keyInFile: keys.usesFile);
 }
 
 /// El selector de fotos copia la imagen (y, al reducirla, su original) en la
-/// caché de la app. La app las cifra al adjuntarlas y borra las copias; esto
-/// recoge las que hubieran quedado si la app se cerró a mitad de camino.
+/// caché de la app (en iOS, en tmp/, que no es la caché que da path_provider).
+/// La app las cifra al adjuntarlas y borra las copias; esto recoge las que
+/// hubieran quedado si la app se cerró a mitad de camino.
 Future<void> _clearPickerLeftovers() async {
+  final List<Directory> dirs = <Directory>[];
   try {
-    final Directory tmp = await getTemporaryDirectory();
-    if (!await tmp.exists()) {
-      return;
-    }
-    final DateTime old = DateTime.now().subtract(const Duration(minutes: 10));
-    await for (final FileSystemEntity e in tmp.list(recursive: true)) {
-      if (e is File && isPickerImage(e.path)) {
-        try {
-          if ((await e.lastModified()).isBefore(old)) {
-            await e.delete();
-          }
-        } catch (_) {}
-      }
-    }
+    dirs.add(await getTemporaryDirectory());
   } catch (e) {
     debugPrint('Caché de fotos: $e');
+  }
+  if (Platform.isIOS) {
+    // NSTemporaryDirectory: image_picker deja allí sus copias.
+    dirs.add(Directory.systemTemp);
+  }
+  final DateTime old = DateTime.now().subtract(const Duration(minutes: 10));
+  for (final Directory dir in dirs) {
+    try {
+      if (!await dir.exists()) {
+        continue;
+      }
+      await for (final FileSystemEntity e in dir.list(recursive: true)) {
+        if (e is File && isPickerImage(e.path)) {
+          try {
+            if ((await e.lastModified()).isBefore(old)) {
+              await e.delete();
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      debugPrint('Caché de fotos: $e');
+    }
   }
 }
 

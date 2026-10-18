@@ -93,7 +93,7 @@ class _NoticesScreenState extends State<NoticesScreen> with WidgetsBindingObserv
                         'When your bank or wallet app notifies a purchase or a deposit, Plata reads that notification on the phone, extracts the amount and merchant, and leaves it here as a suggestion. Nothing leaves the phone: the app has no access to your bank and sends no data to any server. Only notifications from the apps listed below are read; all others are ignored.',
                       )),
                       const SizedBox(height: 6),
-                      Text(t(context, 'Las sugerencias no son prueba de nada: revísalas y confírmalas. Un aviso duplicado, un rechazo, un código de seguridad o publicidad se descartan solos. Los pagos de tarjeta, retiros y movimientos entre tus cuentas se proponen como transferencias, para no contarlos como gasto.', 'Suggestions are not proof of anything: review and confirm them. Duplicates, declines, security codes and ads are dropped automatically. Card payments, withdrawals and moves between your own accounts are proposed as transfers so they are not counted as spending.'), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.7))),
+                      Text(t(context, 'Las sugerencias no son prueba de nada: revísalas y confírmalas. Un aviso duplicado, un rechazo, un código de seguridad o publicidad se descartan solos. Los pagos de tarjeta, retiros y movimientos entre tus cuentas se proponen como transferencias, para no contarlos como gasto.', 'Suggestions are not proof of anything: review and confirm them. Duplicates, declines, security codes and ads are dropped automatically. Card payments, withdrawals and moves between your own accounts are proposed as transfers so they are not counted as spending.'), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                     ],
                   ),
                 ),
@@ -178,7 +178,7 @@ class _NoticesScreenState extends State<NoticesScreen> with WidgetsBindingObserv
               ],
               const Divider(),
               Padding(padding: const EdgeInsets.fromLTRB(4, 4, 4, 4), child: Text('${t(context, 'Por confirmar', 'To confirm')} (${pending.length})', style: Theme.of(context).textTheme.titleMedium)),
-              if (pending.isEmpty) Padding(padding: const EdgeInsets.all(16), child: Text(t(context, 'Nada pendiente.', 'Nothing pending.'), style: TextStyle(color: cs.onSurface.withValues(alpha: 0.6)))),
+              if (pending.isEmpty) Padding(padding: const EdgeInsets.all(16), child: Text(t(context, 'Nada pendiente.', 'Nothing pending.'), style: TextStyle(color: cs.onSurfaceVariant))),
               for (final InboxItem i in pending) _InboxTile(item: i),
               if (pending.length > 1)
                 Align(
@@ -224,7 +224,7 @@ class _InboxTile extends StatelessWidget {
           ListTile(
             leading: CircleAvatar(backgroundColor: kindColor(context, item.kind).withValues(alpha: 0.15), child: Icon(noticeIcon(item), color: kindColor(context, item.kind))),
             title: Text('${item.merchant.isEmpty ? BankRules.displayName(item.bank, spanish: s.settings.spanish) : item.merchant} · ${money(context, item.amountMinor, item.currency)}'),
-            subtitle: Text('${BankRules.displayName(item.bank, spanish: s.settings.spanish)}${item.last4.isNotEmpty ? ' *${item.last4}' : ''} · ${formatDate(item.receivedAt, 'dd MMM HH:mm', spanish: s.settings.spanish)}${guess != null ? ' → ${guess.name}' : ''}${pending ? '' : ' · ${item.status == 'accepted' ? t(context, 'anotado', 'logged') : t(context, 'descartado', 'dismissed')}'}\n${item.rawText}', maxLines: 3, overflow: TextOverflow.ellipsis),
+            subtitle: Text('${pending ? noticeHint(context, item) : ''}${BankRules.displayName(item.bank, spanish: s.settings.spanish)}${item.last4.isNotEmpty ? ' *${item.last4}' : ''} · ${formatDate(item.receivedAt, 'dd MMM HH:mm', spanish: s.settings.spanish)}${guess != null ? ' → ${guess.name}' : ''}${pending ? '' : ' · ${item.status == 'accepted' ? t(context, 'anotado', 'logged') : t(context, 'descartado', 'dismissed')}'}\n${item.rawText}', maxLines: 3, overflow: TextOverflow.ellipsis),
             isThreeLine: true,
             onTap: pending ? log : null,
           ),

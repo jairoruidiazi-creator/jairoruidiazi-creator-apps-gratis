@@ -24,7 +24,7 @@ Everything lives on your phone, in the app's private folder. The data and receip
 - **Notification access (Android, optional):** only if you turn on bank notices. Plata reads only notifications from the bank and wallet apps on its list and ignores all others; what it reads is used on the phone. If you turn notices off in Plata, it stops reading even while the permission is still granted; you can revoke the permission at any time in the system settings.
 - **Camera and photos (optional):** to attach a photo of a receipt.
 - **Fingerprint or face (optional):** to unlock the app; the system does the check and Plata does not receive your biometric data.
-- **Notifications:** for your reminders to log expenses and to pay, which are scheduled on the phone.
+- **Notifications:** for your reminders to log expenses and to pay, which are scheduled on the phone. Plata asks for the permission the first time it is needed (when you save a scheduled item with a reminder or a card with a payment day, or turn on a reminder) and tells you why; under More › Settings you can see whether it is granted and grant it, and you can revoke it at any time in the system settings.
 - **Internet:** only for exchange rates (see below).
 
 ## What leaves the phone and to whom
@@ -35,7 +35,7 @@ The links in the guide (source code and report a problem) open the browser only 
 
 ## Sharing and exporting
 
-You decide when to export a CSV or Excel file, or make a backup (More › Backups). The encrypted backup is protected with the password you choose; the JSON backup (the app warns you first) and the CSV and Excel files are not encrypted. Backups hold your data, not receipt photos. Everything is shared with the system share sheet and is subject to the terms of whoever receives it; the app deletes its own copy of the file the next time you open it.
+You decide when to export a CSV or Excel file, or make a backup (More › Backups). The encrypted backup is protected with the password you choose; the JSON backup (the app warns you first) and the CSV and Excel files are not encrypted. Backups hold your data, not receipt photos. Everything is shared with the system share sheet and is subject to the terms of whoever receives it; the app deletes its own copy of the file, and the copy that the Android share sheet leaves in the app cache, the next time you open it and when you erase everything.
 
 ## Children
 
@@ -43,11 +43,11 @@ Plata is a personal finance tool for adults. It is not directed at children.
 
 ## Security
 
-Besides encryption, you can set a passcode and unlock with fingerprint or face; after several failed attempts the wait between attempts grows, even if you close the app. With a passcode, Plata covers itself when you leave it, so it does not show in recent apps, and Android does not allow screenshots of the app. Nobody can recover the passcode: if you forget it, the lock screen lets you erase everything Plata keeps on the phone and start over. We recommend protecting the phone with a screen lock and keeping encrypted backups somewhere safe: if you lose the phone or the passcode, we cannot recover your data.
+Besides encryption, you can set a passcode and unlock with fingerprint or face; after several failed attempts the wait between attempts grows, even if you close the app. With a passcode, Plata covers itself when you leave it, so it does not show in recent apps, and Android does not allow screenshots of the app. With a passcode or with hidden balances, reminders show no amounts and Android hides them on the lock screen. Nobody can recover the passcode: if you forget it, the lock screen lets you erase everything Plata keeps on the phone and start over. We recommend protecting the phone with a screen lock and keeping encrypted backups somewhere safe: if you lose the phone or the passcode, we cannot recover your data.
 
 ## Retention and deletion
 
-Your data stays on the phone until you delete it. You can delete transactions, accounts and backups in the app; erase everything with “Forgot the passcode?” on the lock screen, which removes data, photos, automatic backups, pending notices, the passcode and the encryption key; or uninstall it or clear its data in the system settings. Backups you exported outside the app are deleted by you wherever you saved them. Since we keep no copies, there is nothing else to delete on our side.
+Your data stays on the phone until you delete it. You can delete transactions and accounts in the app; the automatic backups under More › Backups › Delete the automatic copies; and everything under More › Settings › Erase all data or with “Forgot the passcode?” on the lock screen, which remove data, photos, automatic backups, pending notices, the passcode and the encryption key; or uninstall it or clear its data in the system settings. Backups you exported outside the app are deleted by you wherever you saved them. Since we keep no copies, there is nothing else to delete on our side.
 
 ## Your rights
 

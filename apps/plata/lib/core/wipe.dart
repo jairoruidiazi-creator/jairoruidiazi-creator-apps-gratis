@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'app_scope.dart';
 import 'crypto_store.dart';
+import 'sharing.dart';
 
 /// Borra todo lo que Plata guarda en el teléfono (cuentas, movimientos,
 /// presupuestos, fotos de recibos, copias automáticas, avisos pendientes, la
@@ -17,6 +18,8 @@ Future<void> wipeAllData(Services s) async {
   }
   await s.ledger.discardPendingWrites();
   await s.store.wipe();
+  // La copia sin cifrar de lo último que se compartió (Android).
+  await clearShareCache();
   await s.keys.deleteAll();
   // Llave nueva: lo que se escriba de aquí en adelante no depende de la vieja.
   s.ledger.store.box = await CryptoBox.fromKeyStore(s.keys);

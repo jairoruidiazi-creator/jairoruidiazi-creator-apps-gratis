@@ -147,6 +147,15 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Elige la cuenta de destino.', 'Choose the destination account.'))));
       return;
     }
+    // Con recordatorio: se pide el permiso de notificaciones ahora, que es
+    // cuando hace falta (si ya está concedido no pregunta nada).
+    final bool newReminder = _remind >= 0 && _enabled && _s!.settings.billReminders && (widget.existing == null || widget.existing!.remindDaysBefore < 0);
+    if (newReminder) {
+      await ensureNotifications(context, why: t(context, 'Para recordarte «$name» antes de que toque.', 'To remind you about "$name" before it is due.'));
+      if (!mounted) {
+        return;
+      }
+    }
     final int? toAmount = _crossCurrency(l) ? _toAmount : null;
     final Frequency f = Frequency(unit: _unit, every: (int.tryParse(_every.text) ?? 1).clamp(1, 365));
     final Scheduled? e = widget.existing;
@@ -300,7 +309,7 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
               },
             ),
           if (_crossCurrency(l) && _toAmount == null)
-            Padding(padding: const EdgeInsets.only(top: 4), child: Text(t(context, 'Si el día que toca no hay tasa entre las dos monedas, queda pendiente para que lo confirmes.', 'If there is no rate between the two currencies on the day, it waits for you to confirm it.'), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)))),
+            Padding(padding: const EdgeInsets.only(top: 4), child: Text(t(context, 'Si el día que toca no hay tasa entre las dos monedas, queda pendiente para que lo confirmes.', 'If there is no rate between the two currencies on the day, it waits for you to confirm it.'), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant))),
           if (_kind != TxKind.transfer)
             ListTile(
               contentPadding: EdgeInsets.zero,

@@ -53,6 +53,8 @@ class Account {
     this.last4 = '',
     this.notes = '',
     this.order = 0,
+    this.statementDueMinor,
+    this.statementCut,
   });
 
   final String id;
@@ -84,6 +86,14 @@ class Account {
   String notes;
   int order;
 
+  /// Tarjeta de crédito: lo que pedía pagar el último extracto del banco
+  /// cuando se anotó la deuda inicial (o al editarla), y el corte de ese
+  /// extracto. Es la parte de la deuda inicial que vence en ese pago; el resto
+  /// (cuotas viejas, por ejemplo) es deuda de antes de Plata que el banco irá
+  /// facturando y que Plata muestra aparte (ver Ledger.statement).
+  int? statementDueMinor;
+  DateTime? statementCut;
+
   bool get isCredit => type == AccountType.credit;
   bool get isPocket => type == AccountType.pocket;
   bool get isDebit => type == AccountType.debit;
@@ -107,6 +117,8 @@ class Account {
         'last4': last4,
         'notes': notes,
         'order': order,
+        'statementDueMinor': statementDueMinor,
+        'statementCut': statementCut?.toIso8601String(),
       };
 
   static Account fromJson(Map<String, dynamic> j) => Account(
@@ -128,6 +140,8 @@ class Account {
         last4: j['last4'] as String? ?? '',
         notes: j['notes'] as String? ?? '',
         order: (j['order'] as num?)?.toInt() ?? 0,
+        statementDueMinor: (j['statementDueMinor'] as num?)?.toInt(),
+        statementCut: j['statementCut'] == null ? null : DateTime.tryParse(j['statementCut'].toString()),
       );
 }
 
@@ -477,12 +491,46 @@ class Budget {
     DateTime? startDate,
     this.rollover = false,
     this.notes = '',
+    List<BudgetAmountChange>? amountHistory,
   })  : categoryIds = categoryIds ?? <String>[],
+        amountHistory = amountHistory ?? <BudgetAmountChange>[],
         startDate = startDate ?? DateTime(clock.now().year, clock.now().month);
 
   final String id;
   String name;
+
+  /// Tope vigente (el del periodo en curso y los que vienen).
   int amountMinor;
+
+  /// Topes anteriores: cada cambio guarda el tope viejo y desde qué periodo
+  /// dejó de valer. El arrastre de periodos pasados usa el tope de cada uno,
+  /// así que subir el tope hoy no suma de golpe lo de los meses anteriores.
+  final List<BudgetAmountChange> amountHistory;
+
+  /// Tope del periodo que empieza en [periodStart].
+  int amountFor(DateTime periodStart) {
+    for (final BudgetAmountChange c in amountHistory) {
+      if (periodStart.isBefore(c.until)) {
+        return c.amountMinor;
+      }
+    }
+    return amountMinor;
+  }
+
+  /// Cambia el tope desde el periodo que empieza en [from]; los periodos
+  /// anteriores conservan el que tenían.
+  void changeAmount(int newAmountMinor, {required DateTime from}) {
+    if (newAmountMinor == amountMinor) {
+      return;
+    }
+    // Dos cambios en el mismo periodo: vale el último, y los periodos
+    // anteriores siguen con el tope que tenían antes del primero.
+    if (!amountHistory.any((BudgetAmountChange c) => c.until == from)) {
+      amountHistory.add(BudgetAmountChange(until: from, amountMinor: amountMinor));
+      amountHistory.sort((BudgetAmountChange a, BudgetAmountChange b) => a.until.compareTo(b.until));
+    }
+    amountMinor = newAmountMinor;
+  }
 
   /// Vacío = todos los gastos.
   final List<String> categoryIds;
@@ -506,6 +554,7 @@ class Budget {
         'startDate': startDate.toIso8601String(),
         'rollover': rollover,
         'notes': notes,
+        'amountHistory': amountHistory.map((BudgetAmountChange c) => c.toJson()).toList(),
       };
 
   static Budget fromJson(Map<String, dynamic> j) => Budget(
@@ -519,7 +568,21 @@ class Budget {
         startDate: _parseDate(j['startDate']),
         rollover: j['rollover'] as bool? ?? false,
         notes: j['notes'] as String? ?? '',
+        amountHistory: ((j['amountHistory'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>().map(BudgetAmountChange.fromJson).toList()..sort((BudgetAmountChange a, BudgetAmountChange b) => a.until.compareTo(b.until)),
       );
+}
+
+/// Un tope anterior de un presupuesto: valió en los periodos que empiezan
+/// antes de [until].
+class BudgetAmountChange {
+  const BudgetAmountChange({required this.until, required this.amountMinor});
+
+  final DateTime until;
+  final int amountMinor;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{'until': until.toIso8601String(), 'amountMinor': amountMinor};
+
+  static BudgetAmountChange fromJson(Map<String, dynamic> j) => BudgetAmountChange(until: _parseDate(j['until']), amountMinor: (j['amountMinor'] as num?)?.toInt() ?? 0);
 }
 
 /// Plantilla / favorito: un movimiento frecuente que se anota con un toque.
@@ -612,6 +675,10 @@ class NoticeFlow {
 
   /// Retiro de efectivo (transferencia hacia la cuenta de efectivo).
   static const String withdrawal = 'withdrawal';
+
+  /// Reverso o devolución de una compra: un ingreso que siempre se revisa
+  /// (nunca se anota solo), porque la compra pudo no haberse anotado.
+  static const String refund = 'refund';
 }
 
 /// Aviso bancario leído (Android) pendiente de confirmar.
@@ -631,6 +698,7 @@ class InboxItem {
     this.rawText = '',
     this.accountId,
     this.status = 'pending',
+    this.duplicateOf,
   });
 
   final String id;
@@ -660,6 +728,10 @@ class InboxItem {
   /// pending | accepted | dismissed
   String status;
 
+  /// Movimiento ya anotado que parece ser el mismo (misma cuenta y monto,
+  /// fechas cercanas): el aviso queda para revisar en lugar de anotarse solo.
+  String? duplicateOf;
+
   Map<String, dynamic> toJson() => <String, dynamic>{
         'id': id,
         'bank': bank,
@@ -675,6 +747,7 @@ class InboxItem {
         'rawText': rawText,
         'accountId': accountId,
         'status': status,
+        'duplicateOf': duplicateOf,
       };
 
   static InboxItem fromJson(Map<String, dynamic> j) => InboxItem(
@@ -692,6 +765,7 @@ class InboxItem {
         rawText: j['rawText'] as String? ?? '',
         accountId: j['accountId'] as String?,
         status: j['status'] as String? ?? 'pending',
+        duplicateOf: j['duplicateOf'] as String?,
       );
 }
 

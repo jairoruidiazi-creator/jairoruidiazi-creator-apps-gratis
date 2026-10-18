@@ -141,10 +141,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
       return _categories(context, l, period);
     }
     if (_tab == 1) {
-      return _trend(context, l);
+      return _trend(context, l, period);
     }
     if (_tab == 2) {
-      return _budgets(context, l);
+      return _budgets(context, l, period);
     }
     return _accounts(context, l, period);
   }
@@ -217,9 +217,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
             centerSubtitle: _selected != null && _selected! < slices.length ? slices[_selected!].label : (_kind == CategoryKind.expense ? t(context, 'gastos', 'expenses') : t(context, 'ingresos', 'income')),
           ),
         ),
-        Text('${t(context, 'Ingresos', 'Income')} ${money(context, totals.incomeMinor, l.baseCurrency, compact: true)} · ${t(context, 'Gastos', 'Expenses')} ${money(context, totals.expenseMinor, l.baseCurrency, compact: true)} · ${t(context, 'Neto', 'Net')} ${money(context, totals.netMinor, l.baseCurrency, compact: true)}', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.7))),
+        Text('${t(context, 'Ingresos', 'Income')} ${money(context, totals.incomeMinor, l.baseCurrency, compact: true)} · ${t(context, 'Gastos', 'Expenses')} ${money(context, totals.expenseMinor, l.baseCurrency, compact: true)} · ${t(context, 'Neto', 'Net')} ${money(context, totals.netMinor, l.baseCurrency, compact: true)}', textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
         if (_kind == CategoryKind.expense)
-          Text(t(context, 'Los reembolsos descuentan del gasto de su categoría.', 'Refunds are subtracted from their category spending.'), textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6))),
+          Text(t(context, 'Los reembolsos descuentan del gasto de su categoría.', 'Refunds are subtracted from their category spending.'), textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
         const SizedBox(height: 8),
         if (data.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Text(t(context, 'Sin movimientos en este periodo.', 'No transactions in this period.'), textAlign: TextAlign.center)),
         for (int i = 0; i < data.length; i++)
@@ -276,9 +276,10 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }).toList();
   }
 
-  Widget _trend(BuildContext context, Ledger l) {
+  /// Los 6 periodos que terminan en el elegido con las flechas.
+  Widget _trend(BuildContext context, Ledger l, Period period) {
     final bool es = AppScope.of(context).settings.spanish;
-    final List<PeriodTotals> data = l.trend(6, accountId: _accountId);
+    final List<PeriodTotals> data = l.trend(6, now: period.start, accountId: _accountId);
     final List<String> labels = data.map((PeriodTotals p) => l.periodSpec.mode == PeriodMode.quincena ? '${p.period.start.day}–${p.period.lastDay.day} ${formatDate(p.period.start, 'MMM', spanish: es)}' : formatDate(p.period.start, 'MMM', spanish: es)).toList();
     final double avgExpense = data.isEmpty ? 0 : data.fold<int>(0, (int a, PeriodTotals p) => a + p.expenseMinor) / data.length;
     final double avgIncome = data.isEmpty ? 0 : data.fold<int>(0, (int a, PeriodTotals p) => a + p.incomeMinor) / data.length;
@@ -341,8 +342,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   Widget _legend(BuildContext context, Color c, String label) => Row(mainAxisSize: MainAxisSize.min, children: <Widget>[Container(width: 12, height: 12, decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(3))), const SizedBox(width: 6), Text(label, style: const TextStyle(fontSize: 12))]);
 
-  Widget _budgets(BuildContext context, Ledger l) {
-    final List<BudgetProgress> list = l.budgets.map((Budget b) => l.progress(b)).toList();
+  /// Presupuestos en el periodo elegido con las flechas: el de cada uno que
+  /// contiene su último día (o hoy, si es el periodo en curso).
+  Widget _budgets(BuildContext context, Ledger l, Period period) {
+    final DateTime today = clock.now();
+    final DateTime ref = period.contains(today) ? today : period.lastDay;
+    final List<BudgetProgress> list = l.budgets.map((Budget b) => l.progress(b, now: ref)).toList();
     if (list.isEmpty) {
       return Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(t(context, 'Aún no tienes presupuestos. Créalos en la pestaña Presupuestos.', 'No budgets yet. Create them in the Budgets tab.'), textAlign: TextAlign.center)));
     }
@@ -392,7 +397,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
       children: <Widget>[
         Text(t(context, 'Entradas y salidas por cuenta', 'In and out per account'), style: Theme.of(context).textTheme.titleMedium),
-        Text(t(context, 'Incluye transferencias entre cuentas.', 'Includes transfers between accounts.'), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.65))),
+        Text(t(context, 'Incluye transferencias entre cuentas.', 'Includes transfers between accounts.'), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
         const SizedBox(height: 8),
         if (flows.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Text(t(context, 'Sin movimientos en este periodo.', 'No transactions in this period.'), textAlign: TextAlign.center)),
         for (final AccountFlow f in flows)
@@ -460,7 +465,7 @@ class _CategoryRow extends StatelessWidget {
           Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(3), child: LinearProgressIndicator(value: fraction.clamp(0.0, 1.0), color: color, backgroundColor: color.withValues(alpha: 0.15), minHeight: 5))),
           const SizedBox(width: 8),
           Text('${(fraction * 100).toStringAsFixed(0)} %', style: const TextStyle(fontSize: 12)),
-          if (c != null && l.children(c.id).isNotEmpty && total.categoryId != null) Icon(Icons.chevron_right, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)) else const SizedBox(width: 16),
+          if (c != null && l.children(c.id).isNotEmpty && total.categoryId != null) Icon(Icons.chevron_right, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant) else const SizedBox(width: 16),
         ],
       ),
       onTap: onTap,

@@ -9,20 +9,127 @@ import 'ledger.dart';
 import 'notifications.dart';
 import 'settings.dart';
 
+/// Un aviso que la sincronización quiere dejar programado.
+class _Planned {
+  const _Planned({required this.when, required this.title, required this.body});
+
+  final DateTime when;
+  final String title;
+  final String body;
+}
+
 /// Programa los recordatorios locales a partir del libro: registro diario,
-/// movimientos programados próximos y fechas de pago de tarjetas.
+/// movimientos programados próximos, fechas de pago de tarjetas y pagos de
+/// tarjeta vencidos.
 class Reminders {
   Reminders._();
 
   static const int dailyId = 1;
 
-  static Future<void> sync({required Ledger ledger, required AppSettings settings, required Notifier notifier, DateTime? now, bool spanish = true}) async {
+  /// Id estable de un aviso a partir de su clave ("s:<programado>:<fecha>",
+  /// "c:<tarjeta>:<fecha de pago>"): el mismo aviso conserva su id entre una
+  /// sincronización y otra, así que se reemplaza en lugar de duplicarse.
+  static int idFor(String key) {
+    int h = 0x811C9DC5;
+    for (final int c in key.codeUnits) {
+      h = ((h ^ c) * 0x01000193) & 0x7FFFFFFF;
+    }
+    return 1000 + h % 2000000000;
+  }
+
+  /// Si hay algo que avisar: el recordatorio diario, o programados con
+  /// recordatorio y tarjetas con día de pago (con los avisos de pagos
+  /// encendidos). Sin permiso de notificaciones, Inicio lo dice.
+  static bool wanted(Ledger ledger, AppSettings settings) {
+    if (settings.dailyReminder) {
+      return true;
+    }
+    if (!settings.billReminders) {
+      return false;
+    }
+    return ledger.scheduled.any((Scheduled s) => s.enabled && s.remindDaysBefore >= 0) || ledger.activeAccounts.any((Account a) => a.isCredit && a.payDay != null);
+  }
+
+  /// Sincroniza los avisos con el libro. Solo cancela los avisos programados
+  /// que ya no tocan: los que ya se mostraron siguen en la bandeja aunque se
+  /// anote algo nuevo. Con [private] (clave de acceso o saldos ocultos) los
+  /// avisos no llevan montos y Android los oculta en la pantalla de bloqueo.
+  static Future<void> sync({required Ledger ledger, required AppSettings settings, required Notifier notifier, DateTime? now, bool spanish = true, bool private = false}) async {
     final DateTime moment = now ?? clock.now();
     final DateTime today = dateOnly(moment);
     notifier.setLanguage(spanish: spanish);
-    await notifier.cancelAll();
+    final List<int> pending = await notifier.pendingIds();
     if (ledger.readOnly) {
+      for (final int id in pending) {
+        await notifier.cancel(id);
+      }
       return;
+    }
+    final Map<int, _Planned> planned = <int, _Planned>{};
+    final List<MapEntry<String, _Planned>> overdue = <MapEntry<String, _Planned>>[];
+    String amountOf(int minor, String currency) => Money.format(minor, currency, showCents: settings.showCents, spanish: spanish);
+    if (settings.billReminders) {
+      for (final Scheduled s in ledger.upcoming(days: 45, now: today)) {
+        if (s.remindDaysBefore < 0) {
+          continue; // sin recordatorio
+        }
+        final int days = s.remindDaysBefore;
+        final DateTime when = DateTime(s.nextDate.year, s.nextDate.month, s.nextDate.day - days, 9);
+        if (!when.isAfter(moment)) {
+          continue;
+        }
+        final String amount = amountOf(s.amountMinor, ledger.account(s.accountId)?.currency ?? ledger.baseCurrency);
+        final String title = spanish ? (days == 0 ? 'Hoy: ${s.name}' : 'Pronto: ${s.name}') : (days == 0 ? 'Today: ${s.name}' : 'Coming up: ${s.name}');
+        final String date = spanish ? formatDate(s.nextDate, 'dd MMM') : formatDate(s.nextDate, 'MMM dd', spanish: false);
+        final String body = private ? (spanish ? 'Vence el $date' : 'Due $date') : (spanish ? '$amount el $date' : '$amount on $date');
+        planned[idFor('s:${s.id}:${dayKey(s.nextDate)}')] = _Planned(when: when, title: title, body: body);
+        if (planned.length > 80) {
+          break;
+        }
+      }
+      for (final Account a in ledger.activeAccounts) {
+        if (!a.isCredit || a.payDay == null) {
+          continue;
+        }
+        final CardDue due = ledger.cardDue(a, now: today);
+        if (due.overdue) {
+          // Vencido: se avisa de inmediato, una sola vez por fecha límite.
+          final String since = spanish ? formatDate(due.overdueSince!, 'dd MMM') : formatDate(due.overdueSince!, 'MMM dd', spanish: false);
+          final String amount = amountOf(due.overdueMinor, a.currency);
+          overdue.add(MapEntry<String, _Planned>(
+            'o:${a.id}:${dayKey(due.overdueSince!)}',
+            _Planned(
+              when: moment,
+              title: spanish ? 'Pago vencido: ${a.name}' : 'Overdue payment: ${a.name}',
+              body: private
+                  ? (spanish ? 'La fecha límite fue el $since. Págalo cuanto antes.' : 'It was due on $since. Pay it as soon as you can.')
+                  : (spanish ? 'Quedan unos $amount de capital sin pagar desde el $since. Págalo cuanto antes (revisa tu extracto).' : 'About $amount in principal unpaid since $since. Pay it as soon as you can (check your statement).'),
+            ),
+          ));
+        }
+        final CardStatement st = due.next;
+        final DateTime pay = st.cycle.payDate;
+        final DateTime when = DateTime(pay.year, pay.month, pay.day - settings.billReminderDaysBefore, 9);
+        if (st.dueMinor <= 0 || !when.isAfter(moment)) {
+          continue;
+        }
+        final String date = spanish ? formatDate(pay, 'dd MMM') : formatDate(pay, 'MMM dd', spanish: false);
+        final String due0 = amountOf(st.dueMinor, a.currency);
+        planned[idFor('c:${a.id}:${dayKey(pay)}')] = _Planned(
+          when: when,
+          title: spanish ? 'Pago de ${a.name}' : '${a.name} payment',
+          // Es el capital estimado: el extracto del banco suma intereses y cuota de manejo.
+          body: private ? (spanish ? 'Vence el $date (revisa tu extracto)' : 'Due $date (check your statement)') : (spanish ? 'Vence el $date: unos $due0 de capital (revisa tu extracto)' : 'Due $date: about $due0 in principal (check your statement)'),
+        );
+      }
+    }
+    // Solo se cancelan los programados que ya no tocan; el diario se deja si
+    // sigue encendido (cancelarlo quitaría también el de hoy de la bandeja).
+    for (final int id in pending) {
+      if (planned.containsKey(id) || (id == dailyId && settings.dailyReminder)) {
+        continue;
+      }
+      await notifier.cancel(id);
     }
     if (settings.dailyReminder) {
       await notifier.scheduleDaily(
@@ -31,51 +138,29 @@ class Reminders {
         minute: settings.dailyReminderMinute,
         title: spanish ? '¿Qué gastaste hoy?' : 'What did you spend today?',
         body: spanish ? 'Anota tus movimientos del día en Plata.' : 'Log today\'s transactions in Plata.',
+        private: private,
       );
     }
-    if (!settings.billReminders) {
-      return;
+    for (final MapEntry<int, _Planned> e in planned.entries) {
+      await notifier.scheduleAt(id: e.key, when: e.value.when, title: e.value.title, body: e.value.body, private: private);
     }
-    int id = 100;
-    for (final Scheduled s in ledger.upcoming(days: 45, now: today)) {
-      if (s.remindDaysBefore < 0) {
-        continue; // sin recordatorio
+    if (overdue.isNotEmpty) {
+      final Set<String> told = settings.overdueNotified.toSet();
+      bool changed = false;
+      for (final MapEntry<String, _Planned> e in overdue) {
+        if (told.contains(e.key)) {
+          continue;
+        }
+        await notifier.showNow(id: idFor(e.key), title: e.value.title, body: e.value.body, private: private);
+        told.add(e.key);
+        changed = true;
       }
-      final int days = s.remindDaysBefore;
-      final DateTime when = DateTime(s.nextDate.year, s.nextDate.month, s.nextDate.day - days, 9);
-      if (!when.isAfter(moment)) {
-        continue;
+      if (changed) {
+        // Solo se recuerdan los últimos avisos: una fecha límite no vuelve.
+        final List<String> list = told.toList();
+        settings.overdueNotified = list.length > 60 ? list.sublist(list.length - 60) : list;
+        await settings.save();
       }
-      final String amount = Money.format(s.amountMinor, ledger.account(s.accountId)?.currency ?? ledger.baseCurrency, showCents: settings.showCents, spanish: spanish);
-      await notifier.scheduleAt(
-        id: id++,
-        when: when,
-        title: spanish ? (days == 0 ? 'Hoy: ${s.name}' : 'Pronto: ${s.name}') : (days == 0 ? 'Today: ${s.name}' : 'Coming up: ${s.name}'),
-        body: spanish ? '$amount el ${formatDate(s.nextDate, 'dd MMM')}' : '$amount on ${formatDate(s.nextDate, 'MMM dd', spanish: false)}',
-      );
-      if (id > 180) {
-        break;
-      }
-    }
-    id = 200;
-    for (final Account a in ledger.activeAccounts) {
-      if (!a.isCredit || a.payDay == null) {
-        continue;
-      }
-      final CardStatement st = ledger.nextPayment(a, now: today);
-      final DateTime pay = st.cycle.payDate;
-      final DateTime when = DateTime(pay.year, pay.month, pay.day - settings.billReminderDaysBefore, 9);
-      if (st.dueMinor <= 0 || !when.isAfter(moment)) {
-        continue;
-      }
-      final String due = Money.format(st.dueMinor, a.currency, showCents: settings.showCents, spanish: spanish);
-      await notifier.scheduleAt(
-        id: id++,
-        when: when,
-        title: spanish ? 'Pago de ${a.name}' : '${a.name} payment',
-        // Es el capital estimado: el extracto del banco suma intereses y cuota de manejo.
-        body: spanish ? 'Vence el ${formatDate(pay, 'dd MMM')}: unos $due de capital (revisa tu extracto)' : 'Due ${formatDate(pay, 'MMM dd', spanish: false)}: about $due in principal (check your statement)',
-      );
     }
   }
 }
@@ -84,12 +169,15 @@ class Reminders {
 /// (un programado nuevo, un pago de tarjeta, otro idioma) los vuelve a
 /// programar, agrupando los cambios seguidos en una sola sincronización.
 class ReminderScheduler {
-  ReminderScheduler({required this.ledger, required this.settings, required this.notifier, this.delay = const Duration(seconds: 2)});
+  ReminderScheduler({required this.ledger, required this.settings, required this.notifier, this.delay = const Duration(seconds: 2), bool Function()? private}) : _private = private ?? (() => settings.hideBalances);
 
   final Ledger ledger;
   final AppSettings settings;
   final Notifier notifier;
   final Duration delay;
+
+  /// Si los avisos deben ir sin montos (clave de acceso o saldos ocultos).
+  final bool Function() _private;
   Timer? _timer;
   bool _started = false;
   Future<void>? _running;
@@ -133,7 +221,7 @@ class ReminderScheduler {
       if (previous != null) {
         await previous;
       }
-      await Reminders.sync(ledger: ledger, settings: settings, notifier: notifier, spanish: settings.spanish);
+      await Reminders.sync(ledger: ledger, settings: settings, notifier: notifier, spanish: settings.spanish, private: _private());
       syncs += 1;
     } catch (e) {
       debugPrint('Recordatorios: $e');

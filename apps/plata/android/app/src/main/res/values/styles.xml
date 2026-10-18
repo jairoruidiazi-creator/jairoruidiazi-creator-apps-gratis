@@ -1,18 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Temas de la actividad con el modo oscuro del sistema apagado. Heredan de
+     Theme.AppCompat porque local_auth lo exige: en Android 7 a 8.1 la huella se
+     pide con un diálogo de androidx.biometric que necesita atributos de
+     AppCompat, y con el tema de la plantilla la app se cerraba al abrirlo. -->
 <resources>
-    <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is off -->
-    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
-        <!-- Show a splash screen on the activity. Automatically removed when
-             the Flutter engine draws its first frame -->
+    <!-- Mientras arranca el proceso: el fondo con el ícono de la app. -->
+    <style name="LaunchTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowBackground">@drawable/launch_background</item>
     </style>
-    <!-- Theme applied to the Android Window as soon as the process has started.
-         This theme determines the color of the Android Window while your
-         Flutter UI initializes, as well as behind your Flutter UI while its
-         running.
-
-         This Theme is only used starting with V2 of Flutter's Android embedding. -->
-    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+    <!-- Desde que arranca: el color de la ventana detrás de Flutter. -->
+    <style name="NormalTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
 </resources>

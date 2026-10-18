@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:isolate';
 import 'dart:math';
 
 import 'package:clock/clock.dart';
@@ -43,14 +44,18 @@ class MemorySecureWindow implements SecureWindow {
 /// Bloqueo de la app: código numérico (guardado como PBKDF2 con sal en el
 /// llavero), huella/rostro del sistema y retardo creciente tras fallos.
 class AppLock extends ChangeNotifier {
-  AppLock(this.keys, {LocalAuthentication? auth, this.biometricsAvailable = true, SecureWindow? window})
+  AppLock(this.keys, {LocalAuthentication? auth, this.biometricsAvailable = true, SecureWindow? window, @visibleForTesting Future<bool> Function(String reason)? biometricPrompt})
       : _auth = auth,
-        _window = window;
+        _window = window,
+        _prompt = biometricPrompt;
 
   final KeyStore keys;
   final LocalAuthentication? _auth;
   final SecureWindow? _window;
   final bool biometricsAvailable;
+
+  /// Reemplaza el diálogo del sistema (pruebas).
+  final Future<bool> Function(String reason)? _prompt;
 
   bool _enabled = false;
   bool _biometric = false;
@@ -73,15 +78,19 @@ class AppLock extends ChangeNotifier {
   bool get enabled => _enabled;
   bool get biometric => _biometric;
 
-  /// Segundos que faltan para poder intentar de nuevo (0 si se puede).
+  /// Segundos que faltan para poder intentar de nuevo (0 si se puede),
+  /// redondeados hacia arriba: "Espera 1 s" dura hasta el final de la espera.
   int get waitSeconds {
     final DateTime? b = _blockedUntil;
     if (b == null) {
       return 0;
     }
-    final int s = b.difference(clock.now()).inSeconds;
-    return s > 0 ? s : 0;
+    final int ms = b.difference(clock.now()).inMilliseconds;
+    return ms > 0 ? (ms + 999) ~/ 1000 : 0;
   }
+
+  /// Hasta cuándo dura la espera tras varios fallos (null si no hay espera).
+  DateTime? get blockedUntil => waitSeconds > 0 ? _blockedUntil : null;
 
   /// Lee el estado guardado. Si el almacén seguro no responde, la app queda
   /// bloqueada (falla cerrada): el candado vuelve a intentar al verificar.
@@ -110,7 +119,11 @@ class AppLock extends ChangeNotifier {
     notifyListeners();
   }
 
-  static Future<List<int>> _hash(String code, List<int> salt) async {
+  /// PBKDF2 de la clave. Corre en otro isolate: en Dart puro tarda lo
+  /// suficiente para trabar la pantalla del candado.
+  static Future<List<int>> _hash(String code, List<int> salt) => Isolate.run(() => _hashNow(code, salt));
+
+  static Future<List<int>> _hashNow(String code, List<int> salt) async {
     final Pbkdf2 kdf = Pbkdf2(macAlgorithm: Hmac.sha256(), iterations: 60000, bits: 256);
     final SecretKey k = await kdf.deriveKeyFromPassword(password: code, nonce: salt);
     return k.extractBytes();
@@ -240,14 +253,43 @@ class AppLock extends ChangeNotifier {
     return diff == 0;
   }
 
-  /// Huella o rostro con la pantalla del sistema. Solo biometría: el PIN del
-  /// teléfono no reemplaza la clave de Plata.
-  Future<bool> authenticateBiometric(String reason) async {
-    if (!_biometric || !biometricsAvailable || _auth == null) {
+  /// Si el candado puede pedir la huella apenas aparece. No, si el intento
+  /// anterior nunca volvió (la app se cerró con el diálogo del sistema
+  /// abierto, como pasa si el teléfono no logra mostrarlo): así un fallo del
+  /// diálogo no deja la app cerrándose cada vez que se abre. La huella sigue
+  /// a un toque.
+  Future<bool> shouldPromptBiometricOnOpen() async {
+    if (!_biometric || !biometricsAvailable || (_auth == null && _prompt == null)) {
       return false;
     }
     try {
-      final bool ok = await _auth.authenticate(localizedReason: reason, biometricOnly: true);
+      if (await keys.read('lock.bioPending') == '1') {
+        await keys.delete('lock.bioPending');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('Biometría: $e');
+    }
+    return true;
+  }
+
+  /// Huella o rostro con la pantalla del sistema. Solo biometría: el PIN del
+  /// teléfono no reemplaza la clave de Plata.
+  Future<bool> authenticateBiometric(String reason) async {
+    final LocalAuthentication? auth = _auth;
+    if (!_biometric || !biometricsAvailable || (auth == null && _prompt == null)) {
+      return false;
+    }
+    try {
+      // Marca de "diálogo abierto": si la app se cierra antes de volver, el
+      // próximo candado no lo abre solo (ver shouldPromptBiometricOnOpen).
+      await keys.write('lock.bioPending', '1');
+    } catch (e) {
+      debugPrint('Biometría: $e');
+    }
+    try {
+      final Future<bool> Function(String reason)? prompt = _prompt;
+      final bool ok = prompt != null ? await prompt(reason) : await auth!.authenticate(localizedReason: reason, biometricOnly: true);
       if (ok) {
         await _resetFailures();
         locked = false;
@@ -258,6 +300,10 @@ class AppLock extends ChangeNotifier {
     } catch (e) {
       debugPrint('Biometría: $e');
       return false;
+    } finally {
+      try {
+        await keys.delete('lock.bioPending');
+      } catch (_) {}
     }
   }
 

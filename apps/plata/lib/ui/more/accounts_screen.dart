@@ -5,6 +5,7 @@ import '../../core/app_scope.dart';
 import '../../core/bank_rules.dart';
 import '../../core/defaults.dart';
 import '../../core/ledger.dart';
+import '../../core/periods.dart';
 import '../../model/models.dart';
 import '../../model/money.dart';
 import '../transactions/tx_list_screen.dart';
@@ -97,11 +98,16 @@ class _AccountRow extends StatelessWidget {
     final Ledger l = AppScope.of(context).ledger;
     final Account a = account;
     final int balance = l.balanceMinor(a.id);
-    final int shown = a.isCredit ? -balance : balance;
     final List<String> sub = <String>[accountTypeName(context, a.type)];
+    if (isDebtAccount(a) && balance > 0) {
+      sub.add(t(context, 'saldo a favor', 'credit balance'));
+    }
     if (a.isCredit) {
-      final CardStatement st = l.nextPayment(a);
-      if (st.dueMinor > 0) {
+      final CardDue due = l.cardDue(a);
+      final CardStatement st = due.next;
+      if (due.overdue) {
+        sub.add(overdueLabel(context, due.overdueSince!).toLowerCase());
+      } else if (st.dueMinor > 0) {
         sub.add('${t(context, 'pagar', 'pay')} ${money(context, st.dueMinor, a.currency, compact: true)} ${t(context, 'el', 'on')} ${formatDate(st.cycle.payDate, 'dd MMM', spanish: l.spanish)}');
       }
       final int? available = l.availableCreditMinor(a);
@@ -122,7 +128,7 @@ class _AccountRow extends StatelessWidget {
       subtitle: Text(sub.join(' · '), maxLines: 2, overflow: TextOverflow.ellipsis),
       trailing: a.isDebit
           ? const Icon(Icons.link)
-          : Text(money(context, shown, a.currency), style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: shown < 0 ? kindColor(context, TxKind.expense) : null, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
+          : Text(balanceText(context, a, balance), style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: balanceColor(context, a, balance), fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
       onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ReadableScaffold(appBar: AppBar(title: Text(a.name), actions: <Widget>[IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => AccountEditor(existing: a))))]), body: TxListScreen(initialFilter: TxFilter(accountIds: <String>{a.id}))))),
       onLongPress: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => AccountEditor(existing: a))),
     );
@@ -165,6 +171,10 @@ class _AccountEditorState extends State<AccountEditor> {
   late int _cutDay = _base.cutDay ?? 15;
   late int _payDay = _base.payDay ?? 5;
 
+  /// Lo que pide el último extracto del banco (null = no se sabe). Es lo que
+  /// vence; el resto de la deuda inicial es deuda de antes de Plata.
+  late int? _statementDue = _base.statementDueMinor;
+
   @override
   void dispose() {
     disposeLater(<ChangeNotifier>[_name, _last4, _notes]);
@@ -183,6 +193,7 @@ class _AccountEditorState extends State<AccountEditor> {
       return;
     }
     final Account? e = widget.existing;
+    final bool wasCardWithDay = e != null && e.isCredit && e.payDay != null;
     final Account a = e ?? Account(id: newId(), name: name);
     // Deuda en tarjetas y préstamos: negativa, como la lee el libro.
     final int initial = _isDebtType ? -_initial.abs() : _initial;
@@ -202,10 +213,28 @@ class _AccountEditorState extends State<AccountEditor> {
       ..bank = _bank
       ..last4 = _last4.text.trim()
       ..notes = _notes.text.trim();
+    if (_type == AccountType.credit && initial < 0 && _statementDue != null) {
+      final int debt = -initial;
+      a.statementDueMinor = _statementDue!.clamp(0, debt);
+      // El extracto al que se refiere queda fijo desde que se anota.
+      a.statementCut ??= l.referenceStatementCut(a);
+    } else {
+      a.statementDueMinor = null;
+      a.statementCut = null;
+    }
     if (e == null) {
       await l.addAccount(a);
     } else {
       l.save();
+    }
+    if (!mounted) {
+      return;
+    }
+    // Una tarjeta con día de pago trae recordatorio: es el momento de pedir
+    // el permiso de notificaciones, con una línea que dice para qué.
+    final Services s = AppScope.of(context);
+    if (a.isCredit && a.payDay != null && !wasCardWithDay && s.settings.billReminders) {
+      await ensureNotifications(context, why: t(context, 'Para avisarte antes de la fecha límite de pago de ${a.name}.', 'To remind you before the ${a.name} payment due date.'));
     }
     if (mounted) {
       Navigator.pop(context);
@@ -239,7 +268,8 @@ class _AccountEditorState extends State<AccountEditor> {
                 }
               },
               itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                PopupMenuItem<String>(value: 'adjust', child: Text(t(context, 'Ajustar saldo real…', 'Adjust real balance…'))),
+                // Una débito no tiene saldo propio: el ajuste se hace en su cuenta.
+                if (!widget.existing!.isDebit) PopupMenuItem<String>(value: 'adjust', child: Text(t(context, 'Ajustar saldo real…', 'Adjust real balance…'))),
                 PopupMenuItem<String>(value: 'archive', child: Text(widget.existing!.archived ? t(context, 'Desarchivar', 'Unarchive') : t(context, 'Archivar', 'Archive'))),
                 PopupMenuItem<String>(value: 'delete', child: Text(t(context, 'Eliminar', 'Delete'))),
               ],
@@ -315,7 +345,7 @@ class _AccountEditorState extends State<AccountEditor> {
             AmountTile(
               minor: _isDebtType ? _initial.abs() : _initial,
               currency: _currency,
-              label: _type == AccountType.credit ? t(context, 'Deuda inicial (lo que ya debes)', 'Starting debt (what you already owe)') : (_type == AccountType.loan ? t(context, 'Lo que debes del préstamo', 'What you owe on the loan') : t(context, 'Saldo inicial', 'Opening balance')),
+              label: _type == AccountType.credit ? t(context, 'Deuda total hoy (todo lo que debes)', 'Total debt today (all you owe)') : (_type == AccountType.loan ? t(context, 'Lo que debes del préstamo', 'What you owe on the loan') : t(context, 'Saldo inicial', 'Opening balance')),
               onTap: () async {
                 final int? v = await pickAmount(context, initialMinor: _initial.abs(), currency: _currency, title: _isDebtType ? t(context, 'Lo que debes hoy', 'What you owe today') : t(context, 'Saldo inicial', 'Opening balance'));
                 if (v != null) {
@@ -323,12 +353,16 @@ class _AccountEditorState extends State<AccountEditor> {
                 }
               },
             ),
-          if (_isDebtType) Padding(padding: const EdgeInsets.only(top: 4), child: Text(t(context, 'Es deuda: resta del patrimonio y cuenta en Deudas. Los pagos (transferencias hacia la cuenta) la acercan a cero.', 'It is debt: it lowers your net worth and counts as Debt. Payments (transfers into the account) bring it to zero.'), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)))),
+          if (_isDebtType) Padding(padding: const EdgeInsets.only(top: 4), child: Text(t(context, 'Es deuda: resta del patrimonio y cuenta en Deudas. Los pagos (transferencias hacia la cuenta) la acercan a cero.', 'It is debt: it lowers your net worth and counts as Debt. Payments (transfers into the account) bring it to zero.'), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant))),
+          if (_type == AccountType.credit && _initial != 0) ...<Widget>[
+            const SizedBox(height: 12),
+            _statementField(context, l),
+          ],
           if (_type == AccountType.credit) ...<Widget>[
             const SizedBox(height: 12),
             Row(
               children: <Widget>[
-                Expanded(child: _dayField(context, t(context, 'Día de corte', 'Statement day'), _cutDay, (int v) => setState(() => _cutDay = v))),
+                Expanded(child: _dayField(context, t(context, 'Día de corte', 'Closing day'), _cutDay, (int v) => setState(() => _cutDay = v))),
                 const SizedBox(width: 12),
                 Expanded(child: _dayField(context, t(context, 'Día de pago', 'Payment day'), _payDay, (int v) => setState(() => _payDay = v))),
               ],
@@ -372,6 +406,51 @@ class _AccountEditorState extends State<AccountEditor> {
     );
   }
 
+  /// Pago que pide el último extracto: lo que vence de la deuda inicial. Se
+  /// dice de qué extracto se trata (corte y fecha límite), porque cambia con
+  /// los días de corte y pago.
+  Widget _statementField(BuildContext context, Ledger l) {
+    final Account probe = Account(id: widget.existing?.id ?? '', name: '', type: AccountType.credit)
+      ..cutDay = _cutDay
+      ..payDay = _payDay
+      ..statementCut = widget.existing?.statementCut;
+    final DateTime cut = l.referenceStatementCut(probe);
+    final CardCycle cycle = CardCycle.current(probe, cut);
+    final bool es = l.spanish;
+    final int debt = _initial.abs();
+    final int? v = _statementDue;
+    final String which = es
+        ? 'Del extracto con corte el ${formatDate(cycle.cut, 'dd MMM yyyy', spanish: true)}, que vence el ${formatDate(cycle.payDate, 'dd MMM', spanish: true)}.'
+        : 'From the statement that closed on ${formatDate(cycle.cut, 'MMM dd yyyy', spanish: false)}, due on ${formatDate(cycle.payDate, 'MMM dd', spanish: false)}.';
+    final String rest = v == null
+        ? t(context, 'Si no lo sabes, déjalo en blanco: toda la deuda queda como deuda de antes de Plata y no se suma a ningún pago.', 'If you do not know it, leave it blank: all the debt is kept as debt from before Plata and is not added to any payment.')
+        : t(context, 'El resto (${money(context, debt - v.clamp(0, debt), _currency)}) queda como deuda de antes de Plata: cuenta en la deuda y el cupo, pero no en el próximo pago.', 'The rest (${money(context, debt - v.clamp(0, debt), _currency)}) is kept as debt from before Plata: it counts toward the debt and the limit, but not the next payment.');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: AmountTile(
+                minor: v ?? 0,
+                currency: _currency,
+                label: t(context, 'Pago del último extracto (opcional)', 'Last statement payment (optional)'),
+                onTap: () async {
+                  final int? n = await pickAmount(context, initialMinor: v ?? 0, currency: _currency, title: t(context, 'Pago total del último extracto', 'Last statement full payment'));
+                  if (n != null) {
+                    setState(() => _statementDue = n.clamp(0, debt));
+                  }
+                },
+              ),
+            ),
+            if (v != null) IconButton(tooltip: t(context, 'No lo sé', 'I do not know'), icon: const Icon(Icons.clear), onPressed: () => setState(() => _statementDue = null)),
+          ],
+        ),
+        Padding(padding: const EdgeInsets.only(top: 4), child: Text('$which $rest', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant))),
+      ],
+    );
+  }
+
   Widget _dayField(BuildContext context, String label, int value, ValueChanged<int> onChanged) => DropdownButtonFormField<int>(
         initialValue: value,
         isExpanded: true,
@@ -385,12 +464,41 @@ class _AccountEditorState extends State<AccountEditor> {
   Future<void> _adjust(BuildContext context, Account a) async {
     final Ledger l = AppScope.of(context).ledger;
     final int current = l.balanceMinor(a.id);
-    final bool debt = a.isCredit || a.type == AccountType.loan;
-    final int? real = await pickAmount(context, initialMinor: current.abs(), currency: a.currency, title: debt ? t(context, 'Lo que debes hoy', 'What you owe today') : t(context, 'Saldo real en la cuenta', 'Real account balance'));
-    if (real == null || !context.mounted) {
+    final bool debt = isDebtAccount(a);
+    int target;
+    if (debt) {
+      // En una deuda se pregunta qué hay hoy: lo que se debe o un saldo a
+      // favor (un pago de más), y el monto en positivo.
+      final bool? owe = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext c) => SimpleDialog(
+          title: Text(t(c, '¿Cómo está hoy?', 'Where does it stand today?')),
+          children: <Widget>[
+            SimpleDialogOption(onPressed: () => Navigator.pop(c, true), child: Text(t(c, 'Debo dinero', 'I owe money'))),
+            SimpleDialogOption(onPressed: () => Navigator.pop(c, false), child: Text(t(c, 'Tengo saldo a favor', 'I have a credit balance'))),
+          ],
+        ),
+      );
+      if (owe == null || !context.mounted) {
+        return;
+      }
+      final int start = owe ? (current < 0 ? -current : 0) : (current > 0 ? current : 0);
+      final int? v = await pickAmount(context, initialMinor: start, currency: a.currency, title: owe ? t(context, 'Lo que debes hoy', 'What you owe today') : t(context, 'Saldo a favor hoy', 'Credit balance today'));
+      if (v == null) {
+        return;
+      }
+      target = owe ? -v.abs() : v.abs();
+    } else {
+      final int? v = await pickAmount(context, initialMinor: current, currency: a.currency, title: t(context, 'Saldo real en la cuenta', 'Real account balance'));
+      if (v == null) {
+        return;
+      }
+      target = v;
+    }
+    if (!context.mounted) {
       return;
     }
-    final Tx? tx = await l.adjustBalance(a, debt ? -real.abs() : real, description: t(context, 'Ajuste de saldo', 'Balance adjustment'));
+    final Tx? tx = await l.adjustBalance(a, target, description: t(context, 'Ajuste de saldo', 'Balance adjustment'));
     if (!context.mounted) {
       return;
     }

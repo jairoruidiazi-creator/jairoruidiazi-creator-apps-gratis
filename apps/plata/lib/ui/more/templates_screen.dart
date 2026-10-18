@@ -217,7 +217,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
               },
             ),
           if (_kind == TxKind.transfer && toAccount == null)
-            Padding(padding: const EdgeInsets.only(top: 4), child: Text(t(context, 'Sin destino, la plantilla abre el editor para elegirlo cada vez.', 'Without a destination, the template opens the editor to choose it each time.'), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6)))),
+            Padding(padding: const EdgeInsets.only(top: 4), child: Text(t(context, 'Sin destino, la plantilla abre el editor para elegirlo cada vez.', 'Without a destination, the template opens the editor to choose it each time.'), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant))),
           if (_kind != TxKind.transfer)
             ListTile(
               contentPadding: EdgeInsets.zero,

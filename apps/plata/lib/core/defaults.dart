@@ -1,3 +1,5 @@
+import 'dart:ui' show Locale;
+
 import '../model/models.dart';
 
 /// Categorías de serie, pensadas para Colombia. Cada entrada: nombre, icono,
@@ -131,9 +133,57 @@ class Defaults {
     group('Otros ingresos', 'Other income', 'more', 0xFF757575, CategoryKind.income, <List<String>>[]);
   }
 
-  static List<Account> accounts({bool spanish = true}) => <Account>[
-        Account(id: 'a_cash', name: spanish ? accountNames['a_cash']![0] : accountNames['a_cash']![1], type: AccountType.cash, icon: 'cash', color: 0xFF2E7D32, order: 0),
+  static List<Account> accounts({bool spanish = true, String currency = 'COP'}) => <Account>[
+        Account(id: 'a_cash', name: spanish ? accountNames['a_cash']![0] : accountNames['a_cash']![1], type: AccountType.cash, currency: currency, icon: 'cash', color: 0xFF2E7D32, order: 0),
       ];
+
+  /// Moneda de cada país (de los que la app conoce). Los países del euro van
+  /// aparte.
+  static const Map<String, String> _countryCurrency = <String, String>{
+    'CO': 'COP',
+    'US': 'USD',
+    'EC': 'USD',
+    'SV': 'USD',
+    'PR': 'USD',
+    'PA': 'USD',
+    'MX': 'MXN',
+    'BR': 'BRL',
+    'PE': 'PEN',
+    'CL': 'CLP',
+    'AR': 'ARS',
+    'GB': 'GBP',
+    'CA': 'CAD',
+    'CH': 'CHF',
+    'JP': 'JPY',
+    'CN': 'CNY',
+    'CR': 'CRC',
+    'DO': 'DOP',
+    'UY': 'UYU',
+    'VE': 'VES',
+  };
+
+  static const Set<String> _euro = <String>{'ES', 'FR', 'DE', 'IT', 'PT', 'NL', 'BE', 'AT', 'IE', 'FI', 'GR', 'LU', 'SK', 'SI', 'EE', 'LV', 'LT', 'MT', 'CY', 'HR'};
+
+  /// Moneda base de un libro nuevo: la del país del teléfono (el primero de
+  /// sus idiomas que diga un país conocido). Sin país conocido: pesos
+  /// colombianos si el teléfono está en español y dólares si no, para que en
+  /// inglés "$" no sean pesos sin que nadie lo haya elegido.
+  static String currencyForLocales(List<Locale> locales) {
+    for (final Locale l in locales) {
+      final String? country = l.countryCode?.toUpperCase();
+      if (country == null || country.isEmpty) {
+        continue;
+      }
+      if (_euro.contains(country)) {
+        return 'EUR';
+      }
+      final String? c = _countryCurrency[country];
+      if (c != null) {
+        return c;
+      }
+    }
+    return locales.isNotEmpty && locales.first.languageCode == 'es' ? 'COP' : 'USD';
+  }
 
   /// Cuentas sugeridas al crear una nueva (nombre, tipo, icono, color, banco).
   static List<Account> presets({bool spanish = true}) => <Account>[

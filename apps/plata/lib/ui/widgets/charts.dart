@@ -61,7 +61,7 @@ class DonutChart extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     Text(centerTitle, style: TextStyle(fontSize: size * 0.1, fontWeight: FontWeight.w800), textAlign: TextAlign.center),
-                    if (centerSubtitle.isNotEmpty) Text(centerSubtitle, style: TextStyle(fontSize: size * 0.065, color: cs.onSurface.withValues(alpha: 0.7)), textAlign: TextAlign.center),
+                    if (centerSubtitle.isNotEmpty) Text(centerSubtitle, style: TextStyle(fontSize: size * 0.065, color: cs.onSurfaceVariant), textAlign: TextAlign.center),
                   ],
                 ),
               ),

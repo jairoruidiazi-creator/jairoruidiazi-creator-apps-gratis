@@ -12,6 +12,13 @@ import '../../model/models.dart';
 import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
 
+/// Grupo del selector para restaurar: sin filtro de extensión ni de tipo.
+/// En Android, file_selector convierte las extensiones en tipos MIME y
+/// `.plata` no tiene ninguno, así que el selector del sistema dejaba la copia
+/// cifrada deshabilitada; en iOS esto equivale a `public.data`. El archivo se
+/// reconoce después por su contenido ([BackupManager.detect]).
+const XTypeGroup backupPickerGroup = XTypeGroup(label: 'Plata');
+
 /// Copias de seguridad: automáticas locales, exportar (cifrada o abierta)
 /// e importar/restaurar.
 ///
@@ -26,6 +33,16 @@ class BackupScreen extends StatefulWidget {
   @override
   State<BackupScreen> createState() => _BackupScreenState();
 }
+
+/// Avisa con claridad que el archivo elegido no es una copia de Plata.
+Future<void> showNotPlata(BuildContext context, String name) => showDialog<void>(
+      context: context,
+      builder: (BuildContext c) => AlertDialog(
+        title: Text(t(c, 'No es una copia de Plata', 'Not a Plata backup')),
+        content: Text(t(c, '«$name» no es una copia de Plata, así que no se cambió nada. Elige la copia cifrada (.plata) o el JSON que exportaste desde Plata.', '"$name" is not a Plata backup, so nothing was changed. Choose the encrypted backup (.plata) or the JSON you exported from Plata.')),
+        actions: <Widget>[TextButton(onPressed: () => Navigator.of(c).pop(), child: Text(t(c, 'Entendido', 'OK')))],
+      ),
+    );
 
 class _BackupScreenState extends State<BackupScreen> {
   List<String> _auto = <String>[];
@@ -98,10 +115,9 @@ class _BackupScreenState extends State<BackupScreen> {
 
   Future<void> _import() async {
     final Services s = AppScope.of(context);
-    const XTypeGroup group = XTypeGroup(label: 'Plata', extensions: <String>['plata', 'json', 'enc'], uniformTypeIdentifiers: <String>['public.data', 'public.json']);
     XFile? file;
     try {
-      file = await openFile(acceptedTypeGroups: <XTypeGroup>[group]);
+      file = await openFile(acceptedTypeGroups: const <XTypeGroup>[backupPickerGroup]);
     } catch (e) {
       debugPrint('Selector de archivos: $e');
       if (mounted) {
@@ -112,12 +128,26 @@ class _BackupScreenState extends State<BackupScreen> {
     if (file == null || !mounted) {
       return;
     }
-    final Uint8List bytes = await file.readAsBytes();
+    Uint8List bytes;
+    try {
+      bytes = await file.readAsBytes();
+    } catch (e) {
+      debugPrint('Leer archivo: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'No se pudo leer el archivo. Intenta de nuevo.', 'The file could not be read. Try again.'))));
+      }
+      return;
+    }
     if (!mounted) {
       return;
     }
+    final BackupKind kind = BackupManager.detect(bytes);
+    if (kind == BackupKind.foreign) {
+      await showNotPlata(context, file.name);
+      return;
+    }
     String? pass;
-    if (BackupManager.isEncryptedBackup(bytes)) {
+    if (kind == BackupKind.encrypted) {
       pass = await askSecret(context, t(context, 'Contraseña de la copia', 'Backup password'));
       if (pass == null || !mounted) {
         return;
@@ -150,7 +180,7 @@ class _BackupScreenState extends State<BackupScreen> {
     final String replaced = s.ledger.readOnly
         ? t(context, 'Los datos que no se pudieron abrir quedan apartados en la carpeta de la app.', 'The data that could not be opened is set aside in the app folder.')
         : t(context, 'Lo que hay ahora en la app se sustituye por completo (antes se guarda una copia automática).', 'What is in the app now will be fully replaced (an automatic copy is saved first).');
-    if (!await confirm(context, t(context, '¿Reemplazar todos los datos?', 'Replace all data?'), '${t(context, 'La copia tiene $a cuentas y $n movimientos.', 'The backup has $a accounts and $n transactions.')} $replaced', yes: t(context, 'Restaurar', 'Restore')) || !mounted) {
+    if (!await confirm(context, t(context, '¿Reemplazar todos los datos?', 'Replace all data?'), '${t(context, 'La copia tiene', 'The backup has')} ${counted(context, a, oneEs: 'cuenta', manyEs: 'cuentas', oneEn: 'account', manyEn: 'accounts')} ${t(context, 'y', 'and')} ${counted(context, n, oneEs: 'movimiento', manyEs: 'movimientos', oneEn: 'transaction', manyEn: 'transactions')}. $replaced', yes: t(context, 'Restaurar', 'Restore')) || !mounted) {
       return;
     }
     await _run(() async {
@@ -162,6 +192,16 @@ class _BackupScreenState extends State<BackupScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Datos restaurados.', 'Data restored.'))));
       }
     }, failed: t(context, 'No se pudo restaurar la copia. Tus datos actuales no cambiaron.', 'The backup could not be restored. Your current data did not change.'));
+  }
+
+  Future<void> _deleteAuto(Services s) async {
+    if (!await confirm(context, t(context, '¿Borrar las copias automáticas?', 'Delete the automatic copies?'), t(context, 'Se borran las ${_auto.length} copias guardadas en este teléfono. Tus datos actuales y los archivos que exportaste no cambian.', 'The ${_auto.length} copies kept on this phone are deleted. Your current data and the files you exported do not change.'), yes: t(context, 'Borrar', 'Delete')) || !mounted) {
+      return;
+    }
+    await _run(() async {
+      await s.backups.deleteAutoBackups();
+      await _load();
+    }, failed: t(context, 'No se pudieron borrar las copias. Intenta de nuevo.', 'The copies could not be deleted. Try again.'));
   }
 
   Future<void> _startFresh(Services s) async {
@@ -206,7 +246,7 @@ class _BackupScreenState extends State<BackupScreen> {
                 else
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                    child: Text(t(context, 'Plata no tiene nube y sus datos no entran en las copias de Google o iCloud (la llave que los abre no sale del teléfono). Tú decides dónde guardar tus copias: Drive, correo o computador. Exporta una copia cifrada cada mes y antes de cambiar de teléfono. Las copias llevan tus datos, no las fotos de recibos.', 'Plata has no cloud and its data is not included in Google or iCloud backups (the key that opens it never leaves the phone). You decide where to keep your backups: Drive, email or computer. Export an encrypted copy every month and before switching phones. Backups carry your data, not receipt photos.'), style: TextStyle(color: cs.onSurface.withValues(alpha: 0.75))),
+                    child: Text(t(context, 'Plata no tiene nube y sus datos no entran en las copias de Google o iCloud (la llave que los abre no sale del teléfono). Tú decides dónde guardar tus copias: Drive, correo o computador. Exporta una copia cifrada cada mes y antes de cambiar de teléfono. Las copias llevan tus datos, no las fotos de recibos.', 'Plata has no cloud and its data is not included in Google or iCloud backups (the key that opens it never leaves the phone). You decide where to keep your backups: Drive, email or computer. Export an encrypted copy every month and before switching phones. Backups carry your data, not receipt photos.'), style: TextStyle(color: cs.onSurfaceVariant)),
                   ),
                 if (!recovery) ...<Widget>[
                   ListTile(
@@ -240,7 +280,7 @@ class _BackupScreenState extends State<BackupScreen> {
                     title: Text(t(context, 'Copia automática diaria', 'Daily automatic copy')),
                     subtitle: Text(t(context, 'Se guardan las últimas 7 en el almacenamiento privado de la app (se pierden si desinstalas).', 'The last 7 are kept in the app private storage (lost if you uninstall).')),
                   ),
-                  if (s.settings.lastBackupAt != null) Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text('${t(context, 'Última', 'Last')}: ${formatDate(s.settings.lastBackupAt!, 'dd MMM yyyy HH:mm', spanish: s.settings.spanish)}', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6)))),
+                  if (s.settings.lastBackupAt != null) Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text('${t(context, 'Última', 'Last')}: ${formatDate(s.settings.lastBackupAt!, 'dd MMM yyyy HH:mm', spanish: s.settings.spanish)}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: OutlinedButton.icon(
@@ -255,6 +295,15 @@ class _BackupScreenState extends State<BackupScreen> {
                       label: Text(t(context, 'Hacer copia local ahora', 'Make a local copy now')),
                     ),
                   ),
+                  if (_auto.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                      child: TextButton.icon(
+                        onPressed: _busy ? null : () => _deleteAuto(s),
+                        icon: const Icon(Icons.delete_outline),
+                        label: Text(t(context, 'Borrar las copias automáticas', 'Delete the automatic copies')),
+                      ),
+                    ),
                 ] else if (_auto.isNotEmpty)
                   Padding(padding: const EdgeInsets.fromLTRB(16, 4, 16, 4), child: Text(t(context, 'Copias automáticas en este teléfono', 'Automatic copies on this phone'), style: Theme.of(context).textTheme.titleSmall)),
                 for (final String rel in _auto)

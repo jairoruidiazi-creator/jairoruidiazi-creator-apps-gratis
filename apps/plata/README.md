@@ -41,7 +41,7 @@ flutter run
 ```
 
 - Código: Apache-2.0. Sin paquetes GPL.
-- Código nativo propio en `native/`: en Android la actividad (canales de avisos y de privacidad, `FLAG_SECURE`) y el lector de avisos; en iOS el `AppDelegate` (carpeta fuera de iCloud, canal de privacidad y cubierta del selector de apps). `tools/patch_platforms.py` los copia a `android/` e `ios/` al generar las plataformas.
+- Código nativo propio en `native/`: en Android la actividad (canales de avisos y de privacidad, `FLAG_SECURE`), el lector de avisos, los temas AppCompat de la actividad (`styles.xml` y `styles-night.xml`, que exige la huella de local_auth) y el ícono de las notificaciones (`ic_stat_plata.xml`, con `keep.xml`); en iOS el `AppDelegate` (carpeta fuera de iCloud, canal de privacidad y cubierta del selector de apps). `tools/patch_platforms.py` los copia a `android/` e `ios/` al generar las plataformas.
 - Pruebas: `test/money_test.dart`, `test/ledger_test.dart`, `test/storage_test.dart`, `test/notices_test.dart`, `test/reminders_test.dart`, `test/ui_test.dart` (cada una nombra los hallazgos de auditoría que cubre), además de `core_test`, `app_test`, `legal_document_test` y las capturas de tienda (`--tags screenshots`).
 - Ícono generado con `tools/gen_plata_assets.py`.
 - Decisiones de diseño: `docs/DECISIONES.md`.

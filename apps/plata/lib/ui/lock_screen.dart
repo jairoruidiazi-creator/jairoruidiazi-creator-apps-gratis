@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 
 import '../core/app_scope.dart';
@@ -19,7 +20,13 @@ class _LockScreenState extends State<LockScreen> {
   String _code = '';
   bool _error = false;
   bool _checking = false;
+  AppLock? _lock;
+
+  /// Repinta la cuenta regresiva cada segundo mientras hay espera.
   Timer? _tick;
+
+  /// Vuelve a habilitar las teclas justo cuando termina la espera.
+  Timer? _end;
   bool _triedBiometric = false;
 
   /// Se está mostrando el panel de "olvidé la clave".
@@ -30,29 +37,75 @@ class _LockScreenState extends State<LockScreen> {
   @override
   void initState() {
     super.initState();
-    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted && AppScope.of(context).lock.waitSeconds > 0) {
-        setState(() {});
-      }
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _biometric());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _biometric(onOpen: true));
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final AppLock lock = AppScope.of(context).lock;
+    if (!identical(lock, _lock)) {
+      _lock?.removeListener(_lockChanged);
+      _lock = lock..addListener(_lockChanged);
+      _schedule();
+    }
   }
 
   @override
   void dispose() {
+    _lock?.removeListener(_lockChanged);
     _tick?.cancel();
+    _end?.cancel();
     super.dispose();
   }
 
-  Future<void> _biometric() async {
+  /// El candado cambió (un intento fallido abre una espera, la huella lo
+  /// abre): la pantalla es constante dentro del Overlay, así que se repinta
+  /// sola.
+  void _lockChanged() {
+    if (mounted) {
+      setState(() {});
+      _schedule();
+    }
+  }
+
+  /// Mientras haya espera, un tic por segundo para la cuenta regresiva y un
+  /// temporizador hasta el final exacto de la espera, que vuelve a habilitar
+  /// las teclas aunque el último tic haya caído un instante antes.
+  void _schedule() {
+    final DateTime? until = _lock?.blockedUntil;
+    _tick?.cancel();
+    _end?.cancel();
+    _tick = null;
+    _end = null;
+    if (until == null) {
+      return;
+    }
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+    final Duration left = until.difference(clock.now());
+    _end = Timer(left.isNegative ? Duration.zero : left + const Duration(milliseconds: 1), () {
+      _tick?.cancel();
+      _tick = null;
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  Future<void> _biometric({bool onOpen = false}) async {
     if (_triedBiometric || !mounted) {
       return;
     }
     _triedBiometric = true;
     final AppLock lock = AppScope.of(context).lock;
-    if (lock.biometric) {
-      await lock.authenticateBiometric(t(context, 'Desbloquea Plata', 'Unlock Plata'));
+    if (!lock.biometric || (onOpen && !await lock.shouldPromptBiometricOnOpen()) || !mounted) {
+      return;
     }
+    await lock.authenticateBiometric(t(context, 'Desbloquea Plata', 'Unlock Plata'));
   }
 
   Future<void> _press(String k) async {
@@ -139,7 +192,7 @@ class _LockScreenState extends State<LockScreen> {
           const SizedBox(height: 4),
           Semantics(
             liveRegion: true,
-            child: Text(wait > 0 ? t(context, 'Espera $wait s para intentar de nuevo', 'Wait $wait s before trying again') : (_error ? t(context, 'Clave incorrecta', 'Wrong passcode') : t(context, 'Escribe tu clave', 'Enter your passcode')), style: TextStyle(color: _error || wait > 0 ? cs.error : cs.onSurface.withValues(alpha: 0.7))),
+            child: Text(wait > 0 ? t(context, 'Espera $wait s para intentar de nuevo', 'Wait $wait s before trying again') : (_error ? t(context, 'Clave incorrecta', 'Wrong passcode') : t(context, 'Escribe tu clave', 'Enter your passcode')), style: TextStyle(color: _error || wait > 0 ? cs.error : cs.onSurfaceVariant)),
           ),
           const SizedBox(height: 20),
           Semantics(

@@ -228,9 +228,10 @@ class NoticeService {
   /// Interpreta un aviso y lo deja en la bandeja; devuelve si produjo algo.
   ///
   /// Con "Anotar sin preguntar" solo se anota directo un gasto o un ingreso
-  /// cuya cuenta se identificó sin dudas ([NoticeMatch.certain]) y en la misma
-  /// moneda de la cuenta. Pagos de tarjeta, retiros y movimientos entre cuentas
-  /// propias siempre quedan para revisar (si no, contarían como gasto).
+  /// cuya cuenta se identificó sin dudas ([NoticeMatch.certain]), en la misma
+  /// moneda de la cuenta y que no parece repetir un movimiento ya anotado
+  /// ([InboxItem.duplicateOf]). Pagos de tarjeta, retiros, movimientos entre
+  /// cuentas propias y reversos siempre quedan para revisar.
   Future<bool> handle(RawNotice n) async {
     if (!settings.noticesEnabled || ledger.readOnly) {
       return false;
@@ -244,7 +245,9 @@ class NoticeService {
     if (!identical(stored, item)) {
       return false; // duplicado
     }
-    if (settings.noticesAutoPost && stored.kind != TxKind.transfer) {
+    // Un reverso o devolución, o un aviso que parece repetir un movimiento ya
+    // anotado (un programado, algo anotado a mano), siempre se revisa.
+    if (settings.noticesAutoPost && stored.kind != TxKind.transfer && stored.flow != NoticeFlow.refund && stored.duplicateOf == null) {
       final NoticeMatch m = ledger.matchNotice(stored);
       if (m.certain && m.account != null && m.account!.currency == stored.currency) {
         await ledger.acceptInbox(stored, accountId: m.account!.id);

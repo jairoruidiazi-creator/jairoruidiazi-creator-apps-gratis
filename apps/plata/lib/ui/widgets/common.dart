@@ -32,6 +32,47 @@ Color kindColor(BuildContext context, TxKind k) {
   }
 }
 
+/// Tarjetas y préstamos: su saldo es deuda.
+bool isDebtAccount(Account a) => a.isCredit || a.type == AccountType.loan;
+
+/// Saldo como se muestra: en tarjetas y préstamos, lo que se debe (positivo);
+/// en el resto, el saldo. Una sola regla para Inicio y Cuentas.
+int shownBalance(Account a, int balance) => isDebtAccount(a) ? -balance : balance;
+
+/// Texto del saldo: una deuda se muestra en positivo, sin signo, y un saldo a
+/// favor en una tarjeta o un préstamo también, pero en verde (ver
+/// [balanceColor]) y con «a favor» en la línea de abajo.
+String balanceText(BuildContext context, Account a, int balance) {
+  final int v = shownBalance(a, balance);
+  return money(context, isDebtAccount(a) ? v.abs() : v, a.currency);
+}
+
+/// Color del saldo: rojo si una cuenta está en negativo, verde si una deuda
+/// quedó con saldo a favor; si no, el normal.
+Color? balanceColor(BuildContext context, Account a, int balance) {
+  final int v = shownBalance(a, balance);
+  if (isDebtAccount(a)) {
+    return v < 0 ? kindColor(context, TxKind.income) : null;
+  }
+  return v < 0 ? kindColor(context, TxKind.expense) : null;
+}
+
+/// «Vencido desde el 05 oct» / «Overdue since Oct 05».
+String overdueLabel(BuildContext context, DateTime since) {
+  final bool es = AppScope.of(context).settings.spanish;
+  return es ? 'Vencido desde el ${formatDate(since, 'dd MMM', spanish: true)}' : 'Overdue since ${formatDate(since, 'MMM dd', spanish: false)}';
+}
+
+/// Día del mes como se dice: «15» en español, «15th» en inglés.
+String dayOfMonth(BuildContext context, int d) {
+  if (AppScope.of(context).settings.spanish) {
+    return '$d';
+  }
+  final int r100 = d % 100;
+  final String suffix = r100 >= 11 && r100 <= 13 ? 'th' : (d % 10 == 1 ? 'st' : (d % 10 == 2 ? 'nd' : (d % 10 == 3 ? 'rd' : 'th')));
+  return '$d$suffix';
+}
+
 /// Ámbar de "casi en el tope" con contraste suficiente en los dos temas.
 Color warnColor(BuildContext context) => Theme.of(context).brightness == Brightness.dark ? const Color(0xFFFFB74D) : const Color(0xFF9A5B00);
 
@@ -223,7 +264,7 @@ class IconColorPicker extends StatelessWidget {
               Semantics(
                 button: true,
                 selected: color == AppIcons.palette[i],
-                label: '${t(context, 'Color', 'Colour')} ${i + 1}',
+                label: 'Color ${i + 1}',
                 child: InkWell(
                   customBorder: const CircleBorder(),
                   onTap: () => onColor(AppIcons.palette[i]),
@@ -244,10 +285,11 @@ class IconColorPicker extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 10),
+        // Celdas de al menos 48 dp, como pide la guía de accesibilidad.
         SizedBox(
-          height: 150,
-          child: GridView.count(
-            crossAxisCount: 8,
+          height: 176,
+          child: GridView.extent(
+            maxCrossAxisExtent: 56,
             mainAxisSpacing: 4,
             crossAxisSpacing: 4,
             children: <Widget>[
@@ -376,6 +418,49 @@ Future<bool> confirm(BuildContext context, String title, String body, {String? y
   return ok ?? false;
 }
 
+/// Pide el permiso de notificaciones en el momento en que hace falta (un
+/// programado con aviso, una tarjeta con día de pago, un recordatorio que se
+/// enciende), con una línea que dice para qué. Si ya está concedido no
+/// pregunta nada. Fuera de Ajustes ([force] falso) se pregunta una sola vez:
+/// después solo se recuerda, con un botón, que están apagadas. Devuelve si
+/// quedó concedido.
+Future<bool> ensureNotifications(BuildContext context, {required String why, bool force = false}) async {
+  final Services s = AppScope.of(context);
+  final bool? status = await s.notifier.permissionStatus();
+  s.settings.setNotificationsAllowed(status);
+  if (status == true) {
+    return true;
+  }
+  if (!context.mounted) {
+    return false;
+  }
+  final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+  final SnackBar off = SnackBar(
+    content: Text(t(context, 'Las notificaciones están apagadas: los recordatorios no aparecerán. Puedes activarlas en Más › Ajustes.', 'Notifications are off: reminders will not show. You can turn them on under More › Settings.')),
+    action: SnackBarAction(label: t(context, 'Activar', 'Turn on'), onPressed: () => s.notifier.openSettings()),
+  );
+  if (s.settings.notificationsAsked && !force) {
+    messenger.showSnackBar(off);
+    return false;
+  }
+  s.settings.notificationsAsked = true;
+  await s.settings.save();
+  if (!context.mounted) {
+    return false;
+  }
+  final bool ok = await confirm(context, t(context, 'Activar las notificaciones', 'Turn on notifications'), why, yes: t(context, 'Permitir', 'Allow'));
+  if (!ok) {
+    messenger.showSnackBar(off);
+    return false;
+  }
+  final bool granted = await s.notifier.requestPermission();
+  s.settings.setNotificationsAllowed(granted);
+  if (!granted) {
+    messenger.showSnackBar(off);
+  }
+  return granted;
+}
+
 /// Campo de monto que abre el teclado calculadora.
 class AmountTile extends StatelessWidget {
   const AmountTile({super.key, required this.minor, required this.currency, required this.onTap, this.color, this.label});
@@ -398,7 +483,7 @@ class AmountTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(label ?? t(context, 'Monto', 'Amount'), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6))),
+            Text(label ?? t(context, 'Monto', 'Amount'), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
             Text(Money.format(minor, currency, showCents: AppScope.of(context).settings.showCents, spanish: AppScope.of(context).settings.spanish), style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: color ?? cs.onSurface, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
           ],
         ),
@@ -445,7 +530,7 @@ class _AmountSheetState extends State<_AmountSheet> {
             child: Row(
               children: <Widget>[
                 Expanded(child: Text(widget.title ?? t(context, 'Monto', 'Amount'), style: Theme.of(context).textTheme.titleMedium)),
-                Text(Money.info(widget.currency).symbol, style: TextStyle(color: cs.onSurface.withValues(alpha: 0.6))),
+                Text(Money.info(widget.currency).symbol, style: TextStyle(color: cs.onSurfaceVariant)),
               ],
             ),
           ),

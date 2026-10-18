@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ícono de la barra de estado de las notificaciones de Plata: una pila de
+     monedas en blanco sobre transparente (Android solo usa el canal alfa). Es
+     vectorial y monocromo: el ícono adaptativo de la app, con fondo opaco, se
+     ve como una mancha y en Android 8.0 hace fallar la notificación. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M8,3.5h8a2.25,2.25 0,0 1,0 4.5h-8a2.25,2.25 0,0 1,0 -4.5z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M6,9.75h12a2.25,2.25 0,0 1,0 4.5h-12a2.25,2.25 0,0 1,0 -4.5z" />
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M8,16h8a2.25,2.25 0,0 1,0 4.5h-8a2.25,2.25 0,0 1,0 -4.5z" />
+</vector>

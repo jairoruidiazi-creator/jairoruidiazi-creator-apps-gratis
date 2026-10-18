@@ -21,6 +21,7 @@ class Services {
     required this.rates,
     required this.notices,
     required this.backups,
+    this.keyInFile = false,
   });
 
   final AppSettings settings;
@@ -32,6 +33,10 @@ class Services {
   final RateService rates;
   final NoticeService notices;
   final BackupManager backups;
+
+  /// La llave de los datos vive en un archivo de la carpeta privada (el
+  /// teléfono no ofreció su almacén seguro al instalar Plata).
+  final bool keyInFile;
 }
 
 class AppScope extends InheritedWidget {

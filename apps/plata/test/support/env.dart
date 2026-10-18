@@ -43,7 +43,9 @@ class TestEnv {
 
 /// Crea los servicios. Con [demo], el libro trae los seis meses de ejemplo
 /// de las capturas de tienda (con "hoy" en [demoNow]).
-Future<TestEnv> makeEnv({String language = 'es', bool onboarded = true, bool demo = false, bool notices = false}) async {
+/// [notificationsGranted] y [grantOnRequest] fijan lo que responde el
+/// permiso de notificaciones (por defecto, concedido).
+Future<TestEnv> makeEnv({String language = 'es', bool onboarded = true, bool demo = false, bool notices = false, bool? notificationsGranted = true, bool grantOnRequest = true}) async {
   final Directory dir = await Directory.systemTemp.createTemp('plata_ui');
   SharedPreferences.setMockInitialValues(<String, Object>{'language': language, 'onboarded': onboarded, 'noticesEnabled': notices});
   final AppSettings settings = AppSettings();
@@ -62,7 +64,7 @@ Future<TestEnv> makeEnv({String language = 'es', bool onboarded = true, bool dem
   final AppLock lock = AppLock(keys, biometricsAvailable: false, window: window);
   await lock.load();
   final FakeNoticeBridge bridge = FakeNoticeBridge(supported: notices, enabled: notices);
-  final NoopNotifier notifier = NoopNotifier();
+  final NoopNotifier notifier = NoopNotifier(granted: notificationsGranted, grantOnRequest: grantOnRequest);
   final Services services = Services(
     settings: settings,
     ledger: ledger,

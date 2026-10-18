@@ -28,7 +28,7 @@ Dólares, euros y otras monedas con la TRM oficial de datos.gov.co, las tasas de
 
 PRIVACIDAD Y SEGURIDAD
 • Sin cuenta y sin servidores: no recogemos datos.
-• Todo cifrado en el iPhone con ChaCha20-Poly1305 y una llave que guarda el Llavero.
+• Todo cifrado en el iPhone con ChaCha20-Poly1305 y una llave que guarda el Llavero (si el iPhone no lo ofrece, la carpeta privada de la app).
 • Clave de acceso, Face ID o Touch ID, bloqueo al salir, la app se tapa en el selector de apps mientras hay clave y opción de ocultar los saldos. Si olvidas la clave, puedes borrar todo desde la pantalla de bloqueo y restaurar una copia.
 • Copias cifradas con contraseña para guardarlas donde quieras y pasar tus datos a otro iPhone.
 • La única conexión es para descargar las tasas de cambio, y se puede apagar.

@@ -157,7 +157,7 @@ Future<void> seedDemo(Ledger l, {required bool spanish, bool withNotices = true}
   // ------------------------------------------------------- presupuestos
   final DateTime june = DateTime(2026, 6);
   await l.addBudget(Budget(id: 'b_mercado', name: tr('Mercado', 'Groceries'), amountMinor: cop(950000), categoryIds: <String>['c_food_groceries'], startDate: june));
-  await l.addBudget(Budget(id: 'b_comer', name: tr('Comer fuera', 'Eating out'), amountMinor: cop(420000), categoryIds: <String>['c_food_restaurants', 'c_food_delivery', 'c_food_coffee_snacks'], startDate: june));
+  await l.addBudget(Budget(id: 'b_comer', name: tr('Comer fuera', 'Eating out'), amountMinor: cop(210000), categoryIds: <String>['c_food_restaurants', 'c_food_delivery', 'c_food_coffee_snacks'], period: BudgetPeriod.quincena, startDate: june));
   await l.addBudget(Budget(id: 'b_transporte', name: tr('Transporte', 'Transport'), amountMinor: cop(320000), categoryIds: <String>['c_transport'], startDate: june));
   await l.addBudget(Budget(id: 'b_ocio', name: tr('Entretenimiento', 'Entertainment'), amountMinor: cop(160000), categoryIds: <String>['c_entertainment'], startDate: june, rollover: true));
 

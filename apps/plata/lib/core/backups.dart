@@ -10,6 +10,18 @@ import 'ledger.dart';
 import 'settings.dart';
 import 'storage.dart';
 
+/// Lo que contiene un archivo elegido para restaurar.
+enum BackupKind {
+  /// Copia cifrada con contraseña (cabecera `PLATA-BK1`).
+  encrypted,
+
+  /// JSON sin cifrar exportado desde Plata.
+  plain,
+
+  /// Cualquier otro archivo.
+  foreign,
+}
+
 /// Respaldos: copia local automática diaria (cifrada con la clave del
 /// dispositivo) y archivos portátiles para la nube del usuario, cifrados con
 /// una contraseña o en JSON claro.
@@ -77,6 +89,45 @@ class BackupManager {
     return true;
   }
 
+  /// Qué es un archivo, mirando su contenido y no su nombre: en Android el
+  /// selector no filtra por extensión (un `.plata` guardado en Drive o en
+  /// Descargas llega como `application/octet-stream`), así que se reconoce
+  /// por la cabecera `PLATA-BK1` o por ser el JSON de un libro de Plata.
+  static BackupKind detect(List<int> bytes) {
+    if (isEncryptedBackup(bytes)) {
+      return BackupKind.encrypted;
+    }
+    int i = 0;
+    // Marca de orden de bytes UTF-8 y espacios antes del JSON.
+    if (bytes.length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF) {
+      i = 3;
+    }
+    while (i < bytes.length && (bytes[i] == 0x20 || bytes[i] == 0x0A || bytes[i] == 0x0D || bytes[i] == 0x09)) {
+      i++;
+    }
+    if (i >= bytes.length || bytes[i] != 0x7B) {
+      return BackupKind.foreign;
+    }
+    try {
+      final dynamic decoded = jsonDecode(utf8.decode(bytes.sublist(i)));
+      if (decoded is Map<String, dynamic> && decoded['accounts'] is List && decoded['txs'] is List) {
+        return BackupKind.plain;
+      }
+    } catch (_) {
+      // No es texto JSON.
+    }
+    return BackupKind.foreign;
+  }
+
+  /// Borra las copias automáticas guardadas en el teléfono.
+  Future<int> deleteAutoBackups() async {
+    final List<String> all = await listAutoBackups();
+    for (final String rel in all) {
+      await store.delete(rel);
+    }
+    return all.length;
+  }
+
   /// Lee un respaldo (cifrado con contraseña o JSON claro). Lanza
   /// [FormatException] si no se puede leer o la contraseña no sirve.
   static Future<Map<String, dynamic>> decode(List<int> bytes, {String? passphrase}) async {
@@ -95,7 +146,11 @@ class BackupManager {
     }
     dynamic decoded;
     try {
-      decoded = jsonDecode(utf8.decode(clear));
+      String text = utf8.decode(clear);
+      if (text.startsWith('\uFEFF')) {
+        text = text.substring(1);
+      }
+      decoded = jsonDecode(text);
     } on FormatException {
       throw const FormatException('No es un respaldo de Plata');
     }

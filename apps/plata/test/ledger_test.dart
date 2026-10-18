@@ -121,16 +121,20 @@ void main() {
     });
   });
 
-  test('B2: la deuda inicial de una tarjeta resta del patrimonio, del cupo y va al estado de cuenta', () async {
+  test('B2 y G4: la deuda inicial resta del patrimonio y del cupo, pero no se cobra entera en el próximo pago', () async {
     // Así la guarda el editor de cuentas: la deuda es negativa (ver app_test).
     final Account tc = await l.addAccount(Account(id: 'tc', name: 'Visa', type: AccountType.credit, initialMinor: -100000000, creditLimitMinor: 500000000, cutDay: 15, payDay: 5));
     expect(l.balanceMinor('tc'), -100000000);
     expect(l.debtMinor(), 100000000);
     expect(l.availableCreditMinor(tc), 400000000);
     expect(l.netWorthMinor(), -100000000);
+    // Sin el pago del último extracto, toda es deuda de antes de Plata: se
+    // muestra aparte y no se suma a ningún estado de cuenta.
     final CardStatement st = l.statement(tc);
-    expect(st.previousMinor, 100000000);
-    expect(st.dueMinor, 100000000);
+    expect(st.previousMinor, 0);
+    expect(st.dueMinor, 0);
+    expect(st.legacyMinor, 100000000);
+    expect(l.nextPayment(tc).dueMinor, 0);
   });
 
   group('G1: estado de cuenta estimado de la tarjeta', () {
@@ -144,12 +148,14 @@ void main() {
     test('la primera cuota llega en el primer corte después de la compra y las cuotas suman el total (M11)', () async {
       final Tx buy = await l.addTx(Tx(id: 'nevera', kind: TxKind.expense, amountMinor: 100000000, accountId: 'tc', date: d(2026, 9, 1), installments: 3, categoryId: 'c_household'));
       final List<int> billed = <int>[for (final DateTime cut in <DateTime>[DateTime(2026, 9, 15), DateTime(2026, 10, 15), DateTime(2026, 11, 15), DateTime(2026, 12, 15)]) l.statement(tc, date: cut).installmentsMinor];
-      expect(billed, <int>[33333333, 33333333, 33333334, 0]);
+      // En pesos, cada cuota es un número entero de pesos (M1 de la segunda
+      // ronda) y la última lleva el sobrante.
+      expect(billed, <int>[33333300, 33333300, 33333400, 0]);
       expect(billed.fold<int>(0, (int a, int b) => a + b), 100000000);
       expect(Ledger.installmentAmount(100000000, 3, 3), 33333334);
       // El 10 de septiembre ya se facturó la primera; faltan dos.
       expect(l.remainingInstallments(buy, now: DateTime(2026, 9, 10)), 2);
-      expect(l.remainingInstallmentsMinor(buy, now: DateTime(2026, 9, 10)), 66666667);
+      expect(l.remainingInstallmentsMinor(buy, now: DateTime(2026, 9, 10)), 66666700);
       expect(l.remainingInstallments(buy, now: DateTime(2026, 11, 20)), 0);
     });
 
@@ -381,11 +387,14 @@ void main() {
     final Period oct = l.periodSpec.containing(d(2026, 10, 16));
     expect(l.balanceMinor('a_cash', before: oct.end), 70000);
     expect(oct.contains(DateTime(2026, 11, 1)), isFalse);
-    // Anotar un programado cae al mediodía de su fecha, no a la medianoche.
+    // «Anotar ahora» un programado del 31 lo anota hoy (M23 de la segunda
+    // ronda): con su fecha futura no contaría en el saldo de hoy.
     final Scheduled s = await l.addScheduled(Scheduled(id: 's', name: 'Internet', kind: TxKind.expense, amountMinor: 100, accountId: 'a_cash', nextDate: DateTime(2026, 10, 31), autoPost: false));
     final Tx posted = await l.postScheduled(s);
-    expect(posted.date, DateTime(2026, 10, 31, 12));
+    expect(posted.date, d(2026, 10, 16));
     expect(oct.contains(posted.date), isTrue);
+    expect(l.balanceMinor('a_cash'), 100000 - 100);
+    expect(s.nextDate.isAfter(DateTime(2026, 10, 31)), isTrue);
   });
 
   test('G17: las categorías de fábrica siguen el idioma; las renombradas se respetan', () async {

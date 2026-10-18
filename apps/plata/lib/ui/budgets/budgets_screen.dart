@@ -26,6 +26,9 @@ class BudgetsScreen extends StatelessWidget {
         final List<BudgetProgress> list = l.budgets.map((Budget b) => l.progress(b)).toList();
         final int totalLimit = list.fold<int>(0, (int a, BudgetProgress p) => a + p.limitMinor);
         final int totalSpent = list.fold<int>(0, (int a, BudgetProgress p) => a + p.spentMinor);
+        // El total solo se muestra si no cuenta dos veces el mismo gasto
+        // (presupuestos que se cruzan o de periodos distintos).
+        final bool summable = l.canSumBudgets(list);
         return ReadableScaffold(
           appBar: AppBar(title: Text(t(context, 'Presupuestos', 'Budgets'))),
           floatingActionButton: FloatingActionButton.extended(
@@ -51,7 +54,7 @@ class BudgetsScreen extends StatelessWidget {
               : ListView(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
                   children: <Widget>[
-                    if (list.length > 1) _totalCard(context, l, totalSpent, totalLimit),
+                    if (summable) _totalCard(context, l, totalSpent, totalLimit),
                     for (final BudgetProgress p in list) _BudgetCard(progress: p),
                   ],
                 ),
@@ -84,7 +87,7 @@ class BudgetsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: <Widget>[
                 Text(money(context, totalLimit - totalSpent, l.baseCurrency, compact: true), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: over ? kindColor(context, TxKind.expense) : cs.primary)),
-                Text(over ? t(context, 'excedido', 'over') : t(context, 'disponible', 'left'), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.7))),
+                Text(over ? t(context, 'excedido', 'over') : t(context, 'disponible', 'left'), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
               ],
             ),
           ],
@@ -131,7 +134,7 @@ class _BudgetCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(b.name, style: const TextStyle(fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis),
-                        Text('$cats${b.accountId != null ? ' · ${l.account(b.accountId)?.name ?? ''}' : ''}', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.7)), maxLines: 2, overflow: TextOverflow.ellipsis),
+                        Text('$cats${b.accountId != null ? ' · ${l.account(b.accountId)?.name ?? ''}' : ''}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant), maxLines: 2, overflow: TextOverflow.ellipsis),
                       ],
                     ),
                   ),
@@ -140,7 +143,7 @@ class _BudgetCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: <Widget>[
                       Text(money(context, progress.availableMinor, l.baseCurrency, compact: true), style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: color)),
-                      Text(progress.over ? t(context, 'excedido', 'over') : t(context, 'disponible', 'left'), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.7))),
+                      Text(progress.over ? t(context, 'excedido', 'over') : t(context, 'disponible', 'left'), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                     ],
                   ),
                 ],
@@ -152,7 +155,7 @@ class _BudgetCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text('${money(context, progress.spentMinor, l.baseCurrency)} / ${money(context, progress.limitMinor, l.baseCurrency)}${progress.carryMinor != 0 ? ' (${progress.carryMinor > 0 ? '+' : ''}${money(context, progress.carryMinor, l.baseCurrency, compact: true)} ${t(context, 'arrastre', 'rollover')})' : ''}', style: const TextStyle(fontSize: 12)),
-              Text(<String>[_periodLabel(context, b, progress.period), if (days.isNotEmpty) days, if (perDay > 0) '${money(context, perDay, l.baseCurrency, compact: true)} ${t(context, 'al día', 'a day')}'].join(' · '), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.7))),
+              Text(<String>[_periodLabel(context, b, progress.period), if (days.isNotEmpty) days, if (perDay > 0) '${money(context, perDay, l.baseCurrency, compact: true)} ${t(context, 'al día', 'a day')}'].join(' · '), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton.icon(
@@ -230,7 +233,7 @@ String budgetPeriodName(BuildContext context, BudgetPeriod p) {
     case BudgetPeriod.week:
       return t(context, 'Semanal', 'Weekly');
     case BudgetPeriod.quincena:
-      return t(context, 'Quincenal', 'Fortnightly');
+      return t(context, 'Quincenal', 'Twice a month');
     case BudgetPeriod.month:
       return t(context, 'Mensual', 'Monthly');
     case BudgetPeriod.year:
@@ -284,7 +287,6 @@ class _BudgetEditorState extends State<BudgetEditor> {
     } else {
       e
         ..name = name
-        ..amountMinor = _amount
         ..accountId = _accountId
         ..period = _period
         ..customDays = int.tryParse(_days.text) ?? 30
@@ -294,6 +296,9 @@ class _BudgetEditorState extends State<BudgetEditor> {
       e.categoryIds
         ..clear()
         ..addAll(_cats);
+      // El tope nuevo vale desde el periodo en curso: los anteriores (y su
+      // arrastre) conservan el que tenían.
+      e.changeAmount(_amount, from: BudgetPeriods.containing(e, clock.now()).start);
       l.save();
     }
     if (mounted) {
@@ -375,7 +380,7 @@ class _BudgetEditorState extends State<BudgetEditor> {
           ),
           const Divider(),
           Text(t(context, 'Categorías', 'Categories'), style: Theme.of(context).textTheme.titleMedium),
-          Text(t(context, 'Sin selección = todos los gastos.', 'None selected = all expenses.'), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6))),
+          Text(t(context, 'Sin selección = todos los gastos.', 'None selected = all expenses.'), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
           const SizedBox(height: 6),
           for (final Category r in l.roots(CategoryKind.expense)) ...<Widget>[
             FilterChip(

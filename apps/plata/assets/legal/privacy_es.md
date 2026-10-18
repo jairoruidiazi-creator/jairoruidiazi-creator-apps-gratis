@@ -24,7 +24,7 @@ Todo vive en tu teléfono, en la carpeta privada de la app. Los datos y las foto
 - **Acceso a notificaciones (Android, opcional):** solo si activas los avisos bancarios. Plata lee únicamente las notificaciones de las apps de bancos y billeteras de su lista e ignora las demás; lo que lee se usa en el teléfono. Si apagas los avisos en Plata, deja de leer aunque el permiso siga concedido; puedes quitar el permiso cuando quieras en los ajustes del sistema.
 - **Cámara y fotos (opcional):** para adjuntar la foto de un recibo.
 - **Huella o rostro (opcional):** para desbloquear la app; la verificación la hace el sistema y Plata no recibe tus datos biométricos.
-- **Notificaciones:** para tus recordatorios de anotar y de pagos, que se programan en el teléfono.
+- **Notificaciones:** para tus recordatorios de anotar y de pagos, que se programan en el teléfono. Plata pide el permiso la primera vez que hace falta (al guardar un programado con recordatorio o una tarjeta con día de pago, o al encender un recordatorio) y te dice para qué; en Más › Ajustes ves si está concedido y lo puedes dar, y lo quitas cuando quieras en los ajustes del sistema.
 - **Internet:** solo para las tasas de cambio (ver abajo).
 
 ## Qué sale del teléfono y a quién
@@ -35,7 +35,7 @@ Los enlaces de la guía (código fuente y reportar un problema) abren el navegad
 
 ## Compartir y exportar
 
-Tú decides cuándo exportar un CSV o un Excel, o hacer una copia de seguridad (Más › Copias de seguridad). La copia cifrada queda protegida con la contraseña que elijas; la copia en JSON (la app te lo advierte antes) y los archivos CSV y Excel no van cifrados. Las copias guardan tus datos, no las fotos de recibos. Todo se comparte con la hoja de compartir del sistema y queda sujeto a las condiciones de quien lo recibe; la app borra su propio ejemplar del archivo la siguiente vez que la abres.
+Tú decides cuándo exportar un CSV o un Excel, o hacer una copia de seguridad (Más › Copias de seguridad). La copia cifrada queda protegida con la contraseña que elijas; la copia en JSON (la app te lo advierte antes) y los archivos CSV y Excel no van cifrados. Las copias guardan tus datos, no las fotos de recibos. Todo se comparte con la hoja de compartir del sistema y queda sujeto a las condiciones de quien lo recibe; la app borra su propio ejemplar del archivo, y la copia que la hoja de compartir de Android deja en la caché de la app, la siguiente vez que la abres y al borrar todo.
 
 ## Niños
 
@@ -43,11 +43,11 @@ Plata es una herramienta de finanzas personales para adultos. No está dirigida 
 
 ## Seguridad
 
-Además del cifrado, puedes poner una clave de acceso y desbloquear con huella o rostro; tras varios intentos fallidos la espera entre intentos crece, aunque cierres la app. Con la clave puesta, Plata se tapa al salir de ella, para que no se vea en las apps recientes, y Android no deja tomar capturas de pantalla de la app. Nadie puede recuperar la clave: si la olvidas, en la pantalla de bloqueo puedes borrar todo lo de Plata en el teléfono y empezar de nuevo. Recomendamos proteger el teléfono con bloqueo de pantalla y guardar copias cifradas en un lugar seguro: si pierdes el teléfono o la clave, nosotros no podemos recuperar tus datos.
+Además del cifrado, puedes poner una clave de acceso y desbloquear con huella o rostro; tras varios intentos fallidos la espera entre intentos crece, aunque cierres la app. Con la clave puesta, Plata se tapa al salir de ella, para que no se vea en las apps recientes, y Android no deja tomar capturas de pantalla de la app. Con la clave puesta o con los saldos ocultos, los recordatorios no muestran montos y Android los oculta en la pantalla de bloqueo. Nadie puede recuperar la clave: si la olvidas, en la pantalla de bloqueo puedes borrar todo lo de Plata en el teléfono y empezar de nuevo. Recomendamos proteger el teléfono con bloqueo de pantalla y guardar copias cifradas en un lugar seguro: si pierdes el teléfono o la clave, nosotros no podemos recuperar tus datos.
 
 ## Conservación y borrado
 
-Tus datos permanecen en el teléfono hasta que los borres. Puedes borrar movimientos, cuentas y copias desde la app; borrar todo con «¿Olvidaste la clave?» en la pantalla de bloqueo, que quita datos, fotos, copias automáticas, avisos pendientes, la clave y la llave de cifrado; o desinstalarla o limpiar sus datos en los ajustes del sistema. Las copias que hayas exportado fuera de la app las borras tú donde las guardaste. Como no guardamos copias, no hay nada más que borrar de nuestro lado.
+Tus datos permanecen en el teléfono hasta que los borres. Puedes borrar movimientos y cuentas desde la app; las copias automáticas en Más › Copias de seguridad › Borrar las copias automáticas; y todo en Más › Ajustes › Borrar todos los datos o con «¿Olvidaste la clave?» en la pantalla de bloqueo, que quitan datos, fotos, copias automáticas, avisos pendientes, la clave y la llave de cifrado; o desinstalarla o limpiar sus datos en los ajustes del sistema. Las copias que hayas exportado fuera de la app las borras tú donde las guardaste. Como no guardamos copias, no hay nada más que borrar de nuestro lado.
 
 ## Tus derechos
 

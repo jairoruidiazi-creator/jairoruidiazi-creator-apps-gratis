@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Recursos que solo se nombran desde Dart: el ícono de la barra de estado de
+     las notificaciones. Sin esto, la reducción de recursos de la compilación de
+     release lo quitaría y las notificaciones fallarían. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_plata" />

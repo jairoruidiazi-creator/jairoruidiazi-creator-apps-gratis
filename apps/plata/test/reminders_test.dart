@@ -27,7 +27,7 @@ void main() {
       final Scheduled s = await l.addScheduled(Scheduled(id: 's', name: 'Arriendo', kind: TxKind.expense, amountMinor: 150000000, accountId: 'a_cash', nextDate: DateTime(2026, 10, 20)));
       await later();
       expect(r.syncs, 1);
-      expect(n.log.any((String x) => x.startsWith('at:100:2026-10-19T09:00') && x.contains('Arriendo')), isTrue);
+      expect(n.log.any((String x) => x.startsWith('at:2026-10-19T09:00') && x.contains('Arriendo')), isTrue);
       // Varios cambios seguidos se agrupan en una sola sincronización.
       n.log.clear();
       s.name = 'Arriendo apartamento';
@@ -36,7 +36,7 @@ void main() {
       l.save();
       await later();
       expect(r.syncs, 2);
-      expect(n.log.any((String x) => x.startsWith('at:100:2026-10-24T09:00') && x.contains('Arriendo apartamento')), isTrue);
+      expect(n.log.any((String x) => x.startsWith('at:2026-10-24T09:00') && x.contains('Arriendo apartamento')), isTrue);
       // Otro idioma: el canal y los textos cambian.
       settings.language = 'en';
       settings.refresh();
@@ -49,7 +49,8 @@ void main() {
       settings.billReminders = false;
       settings.refresh();
       await later();
-      expect(n.log, <String>['cancelAll']);
+      expect(n.pending, isEmpty);
+      expect(n.log, isNot(contains('cancelAll')));
       r.stop();
       l.save();
       await later();

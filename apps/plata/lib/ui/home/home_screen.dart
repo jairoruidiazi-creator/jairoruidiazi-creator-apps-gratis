@@ -8,6 +8,7 @@ import '../../core/app_scope.dart';
 import '../../core/bank_rules.dart';
 import '../../core/ledger.dart';
 import '../../core/periods.dart';
+import '../../core/reminders.dart';
 import '../../model/models.dart';
 import '../more/accounts_screen.dart';
 import '../more/currencies_screen.dart';
@@ -43,11 +44,13 @@ class HomeScreen extends StatelessWidget {
         final List<InboxItem> inbox = l.pendingInbox;
         final bool noticesAvailable = defaultTargetPlatform == TargetPlatform.android;
         final List<Scheduled> upcoming = l.upcoming(days: 7, now: now);
+        // Una tarjeta aparece si vence en 10 días o menos y, mientras quede
+        // algo sin pagar después de la fecha límite, como vencida.
         final List<_CardDue> cardDues = <_CardDue>[
           for (final Account a in l.activeAccounts)
             if (a.isCredit && a.payDay != null)
-              _CardDue(a, l.nextPayment(a, now: now)),
-        ].where((_CardDue c) => c.statement.dueMinor > 0 && daysBetween(now, c.statement.cycle.payDate) <= 10).toList();
+              _CardDue(a, l.cardDue(a, now: now)),
+        ].where((_CardDue c) => c.due.overdue || (c.statement.dueMinor > 0 && daysBetween(now, c.statement.cycle.payDate) <= 10)).toList();
         final List<BudgetProgress> budgets = l.budgets.map((Budget b) => l.progress(b, now: now)).toList()..sort((BudgetProgress a, BudgetProgress b) => b.fraction.compareTo(a.fraction));
         return ReadableScaffold(
           appBar: AppBar(
@@ -74,6 +77,7 @@ class HomeScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 96),
             children: <Widget>[
               if (!s.settings.onboarded) _welcome(context, s),
+              if (s.settings.notificationsAllowed == false && Reminders.wanted(l, s.settings)) _notificationsOff(context),
               _netWorth(context, l, period),
               const SizedBox(height: 12),
               _sectionTitle(context, t(context, 'Cuentas', 'Accounts'), action: t(context, 'Ver todas', 'See all'), onAction: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const AccountsScreen()))),
@@ -108,14 +112,24 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 _sectionTitle(context, t(context, 'Próximos pagos', 'Upcoming'), action: t(context, 'Programados', 'Scheduled'), onAction: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const ScheduledScreen()))),
                 for (final _CardDue c in cardDues)
-                  ListTile(
-                    dense: true,
-                    leading: IconBadge(icon: c.account.icon, color: c.account.color, size: 34),
-                    title: Text('${t(context, 'Pago', 'Payment')} ${c.account.name}'),
-                    subtitle: Text('${t(context, 'Vence', 'Due')} ${formatDate(c.statement.cycle.payDate, 'EEE dd MMM', spanish: s.settings.spanish)} · ${t(context, 'capital estimado', 'estimated principal')}'),
-                    trailing: Text(money(context, c.statement.dueMinor, c.account.currency), style: const TextStyle(fontWeight: FontWeight.w700)),
-                    onTap: () => openCardPayment(context, c.account, c.statement.dueMinor),
-                  ),
+                  if (c.due.overdue)
+                    ListTile(
+                      dense: true,
+                      leading: IconBadge(icon: c.account.icon, color: c.account.color, size: 34),
+                      title: Text('${t(context, 'Pago', 'Payment')} ${c.account.name}'),
+                      subtitle: Text('${overdueLabel(context, c.due.overdueSince!)} · ${t(context, 'capital estimado', 'estimated principal')}', style: TextStyle(color: kindColor(context, TxKind.expense), fontWeight: FontWeight.w600)),
+                      trailing: Text(money(context, c.due.overdueMinor, c.account.currency), style: TextStyle(fontWeight: FontWeight.w700, color: kindColor(context, TxKind.expense))),
+                      onTap: () => openCardPayment(context, c.account, c.due.overdueMinor),
+                    )
+                  else
+                    ListTile(
+                      dense: true,
+                      leading: IconBadge(icon: c.account.icon, color: c.account.color, size: 34),
+                      title: Text('${t(context, 'Pago', 'Payment')} ${c.account.name}'),
+                      subtitle: Text('${t(context, 'Vence', 'Due')} ${formatDate(c.statement.cycle.payDate, 'EEE dd MMM', spanish: s.settings.spanish)} · ${t(context, 'capital estimado', 'estimated principal')}'),
+                      trailing: Text(money(context, c.statement.dueMinor, c.account.currency), style: const TextStyle(fontWeight: FontWeight.w700)),
+                      onTap: () => openCardPayment(context, c.account, c.statement.dueMinor),
+                    ),
                 for (final Scheduled sch in upcoming.take(5)) _ScheduledRow(item: sch),
               ],
               const SizedBox(height: 12),
@@ -163,6 +177,24 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  /// Hay recordatorios pero el sistema no deja mostrarlos: se dice aquí,
+  /// con un botón para dar el permiso.
+  Widget _notificationsOff(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    return Card(
+      color: cs.secondaryContainer,
+      child: ListTile(
+        leading: Icon(Icons.notifications_off_outlined, color: cs.onSecondaryContainer),
+        title: Text(t(context, 'Tus recordatorios no aparecerán', 'Your reminders will not show'), style: TextStyle(color: cs.onSecondaryContainer)),
+        subtitle: Text(t(context, 'Las notificaciones de Plata están apagadas.', 'Plata notifications are turned off.'), style: TextStyle(color: cs.onSecondaryContainer)),
+        trailing: TextButton(
+          onPressed: () => ensureNotifications(context, force: true, why: t(context, 'Para avisarte antes de tus pagos programados y de la fecha límite de tus tarjetas.', 'To remind you before your scheduled payments and card due dates.')),
+          child: Text(t(context, 'Activar', 'Turn on')),
+        ),
+      ),
+    );
+  }
+
   Widget _netWorth(BuildContext context, Ledger l, Period period) {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final int net = l.netWorthMinor();
@@ -177,7 +209,7 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(t(context, 'Patrimonio neto', 'Net worth'), style: TextStyle(color: cs.onSurface.withValues(alpha: 0.65))),
+                  Text(t(context, 'Patrimonio neto', 'Net worth'), style: TextStyle(color: cs.onSurfaceVariant)),
                   Text(money(context, net, l.baseCurrency), style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: net < 0 ? kindColor(context, TxKind.expense) : cs.onSurface, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
                   if (debt > 0) Text('${t(context, 'Deudas', 'Debt')}: ${money(context, debt, l.baseCurrency)}', style: TextStyle(color: kindColor(context, TxKind.expense), fontSize: 13)),
                   if (missing.isNotEmpty)
@@ -205,8 +237,8 @@ class HomeScreen extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: <Widget>[
-                Text(l.periodSpec.label(period, spanish: l.spanish), style: TextStyle(color: cs.onSurface.withValues(alpha: 0.65), fontSize: 12)),
-                Text(counted(context, period.days, oneEs: 'día', manyEs: 'días', oneEn: 'day', manyEn: 'days'), style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5), fontSize: 12)),
+                Text(l.periodSpec.label(period, spanish: l.spanish), style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
+                Text(counted(context, period.days, oneEs: 'día', manyEs: 'días', oneEn: 'day', manyEn: 'days'), style: TextStyle(color: cs.onSurfaceVariant, fontSize: 12)),
               ],
             ),
           ],
@@ -238,7 +270,7 @@ class HomeScreen extends StatelessWidget {
                 Expanded(child: _kpi(context, t(context, 'Neto', 'Net'), money(context, totals.netMinor, l.baseCurrency, compact: true), totals.netMinor < 0 ? kindColor(context, TxKind.expense) : cs.onSurface)),
               ],
             ),
-            if (daysLeft > 0 && totals.netMinor > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Text('${daysLeft == 1 ? t(context, 'Te queda 1 día', '1 day left') : t(context, 'Te quedan $daysLeft días', '$daysLeft days left')} · ${money(context, perDay, l.baseCurrency)}/${t(context, 'día', 'day')}', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6)))),
+            if (daysLeft > 0 && totals.netMinor > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Text('${daysLeft == 1 ? t(context, 'Te queda 1 día', '1 day left') : t(context, 'Te quedan $daysLeft días', '$daysLeft days left')} · ${money(context, perDay, l.baseCurrency)}/${t(context, 'día', 'day')}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))),
             if (budgets.isNotEmpty) ...<Widget>[
               const Divider(height: 18),
               for (final BudgetProgress p in budgets.take(3)) _BudgetLine(progress: p, onTap: () => onGoTo(2)),
@@ -252,7 +284,7 @@ class HomeScreen extends StatelessWidget {
   Widget _kpi(BuildContext context, String label, String value, Color color) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
+          Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
           Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()]), maxLines: 1, overflow: TextOverflow.ellipsis),
         ],
       );
@@ -262,7 +294,7 @@ class HomeScreen extends StatelessWidget {
     if (list.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-        child: Text(t(context, 'Guarda un movimiento como plantilla (menú ⋮ del editor) y anótalo aquí con un toque.', 'Save a transaction as a template (⋮ menu in the editor) and log it here with one tap.'), style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6))),
+        child: Text(t(context, 'Guarda un movimiento como plantilla (menú ⋮ del editor) y anótalo aquí con un toque.', 'Save a transaction as a template (⋮ menu in the editor) and log it here with one tap.'), style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
       );
     }
     return Wrap(
@@ -320,10 +352,12 @@ class HomeScreen extends StatelessWidget {
 }
 
 class _CardDue {
-  const _CardDue(this.account, this.statement);
+  const _CardDue(this.account, this.due);
 
   final Account account;
-  final CardStatement statement;
+  final CardDue due;
+
+  CardStatement get statement => due.next;
 }
 
 class _AccountCard extends StatelessWidget {
@@ -349,9 +383,22 @@ class _AccountCard extends StatelessWidget {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final int balance = l.balanceWithPockets(account.id);
     String sub;
+    Color? subColor;
     if (account.isCredit) {
-      final CardStatement st = l.nextPayment(account);
-      sub = st.dueMinor > 0 ? '${t(context, 'Pagar', 'Pay')} ${money(context, st.dueMinor, account.currency, compact: true)} · ${formatDate(st.cycle.payDate, 'dd MMM', spanish: l.spanish)}' : t(context, 'Al día', 'Up to date');
+      final CardDue due = l.cardDue(account);
+      final CardStatement st = due.next;
+      if (due.overdue) {
+        sub = overdueLabel(context, due.overdueSince!);
+        subColor = kindColor(context, TxKind.expense);
+      } else if (st.dueMinor > 0) {
+        sub = '${t(context, 'Pagar', 'Pay')} ${money(context, st.dueMinor, account.currency, compact: true)} · ${formatDate(st.cycle.payDate, 'dd MMM', spanish: l.spanish)}';
+      } else if (balance > 0) {
+        sub = t(context, 'Saldo a favor', 'Credit balance');
+      } else {
+        sub = t(context, 'Al día', 'Up to date');
+      }
+    } else if (isDebtAccount(account) && balance > 0) {
+      sub = t(context, 'Saldo a favor', 'Credit balance');
     } else {
       final List<Account> pockets = l.activeAccounts.where((Account p) => p.parentId == account.id).toList();
       sub = pockets.isEmpty ? accountTypeName(context, account.type) : '${counted(context, pockets.length, oneEs: 'bolsillo', manyEs: 'bolsillos', oneEn: 'pocket', manyEn: 'pockets')} · ${money(context, l.balanceMinor(account.id), account.currency, compact: true)} ${t(context, 'libre', 'free')}';
@@ -376,8 +423,8 @@ class _AccountCard extends StatelessWidget {
                   ],
                 ),
                 const Spacer(),
-                Text(money(context, account.isCredit ? -balance : balance, account.currency), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: (account.isCredit ? -balance : balance) < 0 ? kindColor(context, TxKind.expense) : cs.onSurface, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
-                Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.6))),
+                Text(balanceText(context, account, balance), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: balanceColor(context, account, balance) ?? cs.onSurface, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
+                Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: subColor ?? cs.onSurfaceVariant, fontWeight: subColor != null ? FontWeight.w600 : null)),
               ],
             ),
           ),
@@ -432,7 +479,7 @@ class _InboxRow extends StatelessWidget {
       dense: true,
       leading: CircleAvatar(backgroundColor: kindColor(context, item.kind).withValues(alpha: 0.15), child: Icon(noticeIcon(item), color: kindColor(context, item.kind), size: 18)),
       title: Text('${item.merchant.isEmpty ? BankRules.displayName(item.bank, spanish: s.settings.spanish) : item.merchant} · ${money(context, item.amountMinor, item.currency)}', maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text('${BankRules.displayName(item.bank, spanish: s.settings.spanish)}${item.last4.isNotEmpty ? ' *${item.last4}' : ''} · ${formatDate(item.receivedAt, 'dd MMM HH:mm', spanish: s.settings.spanish)}${guess != null ? ' → ${guess.name}' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text('${noticeHint(context, item)}${BankRules.displayName(item.bank, spanish: s.settings.spanish)}${item.last4.isNotEmpty ? ' *${item.last4}' : ''} · ${formatDate(item.receivedAt, 'dd MMM HH:mm', spanish: s.settings.spanish)}${guess != null ? ' → ${guess.name}' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
@@ -466,6 +513,18 @@ class _ScheduledRow extends StatelessWidget {
       onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ScheduledEditor(existing: item))),
     );
   }
+}
+
+/// Prefijo de un aviso que pide más cuidado: posible duplicado de algo ya
+/// anotado, o devolución (entra como ingreso, no como gasto).
+String noticeHint(BuildContext context, InboxItem item) {
+  if (item.duplicateOf != null) {
+    return '${t(context, 'Posible duplicado', 'Possible duplicate')} · ';
+  }
+  if (item.flow == NoticeFlow.refund) {
+    return '${t(context, 'Devolución', 'Refund')} · ';
+  }
+  return '';
 }
 
 /// Ícono de un aviso: entra, sale o se mueve entre cuentas propias.

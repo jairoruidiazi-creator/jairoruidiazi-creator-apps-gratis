@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/app_scope.dart';
 import '../../core/lock.dart';
@@ -31,7 +32,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
     if (a == null || !context.mounted) {
       return;
     }
-    if (a.length < 4 || a.length > 8 || int.tryParse(a) == null) {
+    // Solo cifras: el teclado del candado no tiene signos ni espacios.
+    if (!validPasscode(a)) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Usa entre 4 y 8 dígitos.', 'Use 4 to 8 digits.'))));
       return;
     }
@@ -50,6 +52,32 @@ class _SecurityScreenState extends State<SecurityScreen> {
     }
   }
 
+  /// Pide la clave actual. Durante la espera tras varios fallos no se puede
+  /// comprobar: se dice cuánto falta en lugar de "clave incorrecta".
+  Future<bool> _checkCurrent(BuildContext context, AppLock lock) async {
+    void tell(String es, String en) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, es, en))));
+      }
+    }
+
+    final int before = lock.waitSeconds;
+    if (before > 0) {
+      tell('Espera $before s para intentar de nuevo.', 'Wait $before s before trying again.');
+      return false;
+    }
+    final String? cur = await askPasscode(context, t(context, 'Clave actual', 'Current passcode'));
+    if (cur == null || !context.mounted) {
+      return false;
+    }
+    if (await lock.verify(cur)) {
+      return true;
+    }
+    final int wait = lock.waitSeconds;
+    tell(wait > 0 ? 'Clave incorrecta. Espera $wait s para intentar de nuevo.' : 'Clave incorrecta.', wait > 0 ? 'Wrong passcode. Wait $wait s before trying again.' : 'Wrong passcode.');
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final Services s = AppScope.of(context);
@@ -66,14 +94,7 @@ class _SecurityScreenState extends State<SecurityScreen> {
               subtitle: Text(lock.enabled ? t(context, 'La app pide la clave al abrirla.', 'The app asks for the passcode when opened.') : t(context, 'Sin clave, cualquiera con el teléfono desbloqueado ve tus cuentas.', 'Without one, anyone holding the unlocked phone sees your accounts.')),
               onTap: () async {
                 if (lock.enabled) {
-                  final String? cur = await askPasscode(context, t(context, 'Clave actual', 'Current passcode'));
-                  if (cur == null || !context.mounted) {
-                    return;
-                  }
-                  if (!await lock.verify(cur)) {
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Clave incorrecta.', 'Wrong passcode.'))));
-                    }
+                  if (!await _checkCurrent(context, lock)) {
                     return;
                   }
                 }
@@ -87,14 +108,8 @@ class _SecurityScreenState extends State<SecurityScreen> {
                 leading: const Icon(Icons.lock_open_outlined),
                 title: Text(t(context, 'Quitar la clave', 'Remove passcode')),
                 onTap: () async {
-                  final String? cur = await askPasscode(context, t(context, 'Clave actual', 'Current passcode'));
-                  if (cur == null || !context.mounted) {
-                    return;
-                  }
-                  if (await lock.verify(cur)) {
+                  if (await _checkCurrent(context, lock)) {
                     await lock.clearPasscode();
-                  } else if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Clave incorrecta.', 'Wrong passcode.'))));
                   }
                 },
               ),
@@ -132,11 +147,14 @@ class _SecurityScreenState extends State<SecurityScreen> {
             const Divider(),
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Text(t(
-                context,
-                'Tus datos se guardan cifrados (ChaCha20-Poly1305) en el almacenamiento privado de la app; la llave vive en el Keystore de Android o el Llavero de iOS. La clave de acceso se guarda como un hash PBKDF2, no en claro. Tras 3 intentos fallidos la espera entre intentos se duplica, aunque cierres la app. Con clave, Android no deja tomar capturas de Plata y la vista de apps recientes no muestra tus saldos. Si olvidas la clave, desde la pantalla de bloqueo puedes borrar todo y empezar de nuevo: sin ella tus datos no se pueden abrir.',
-                'Your data is stored encrypted (ChaCha20-Poly1305) in the app private storage; the key lives in the Android Keystore or iOS Keychain. The passcode is stored as a PBKDF2 hash, never in clear. After 3 failed attempts the wait doubles each time, even if you close the app. With a passcode, Android blocks screenshots of Plata and the recent apps view does not show your balances. If you forget the passcode, the lock screen lets you erase everything and start over: without it your data cannot be opened.',
-              ), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65))),
+              child: Text(
+                '${s.keyInFile ? t(context, 'Tus datos se guardan cifrados (ChaCha20-Poly1305) en el almacenamiento privado de la app. Este teléfono no ofreció su almacén seguro al instalar Plata, así que la llave quedó en un archivo de esa misma carpeta privada: la protege el sistema, no el hardware.', 'Your data is stored encrypted (ChaCha20-Poly1305) in the app private storage. This phone did not offer its secure store when Plata was installed, so the key is kept in a file in that same private folder: the system protects it, not the hardware.') : t(context, 'Tus datos se guardan cifrados (ChaCha20-Poly1305) en el almacenamiento privado de la app; la llave vive en el Keystore de Android o el Llavero de iOS.', 'Your data is stored encrypted (ChaCha20-Poly1305) in the app private storage; the key lives in the Android Keystore or iOS Keychain.')} ${t(
+                  context,
+                  'La clave de acceso se guarda como un hash PBKDF2, no en claro. Tras 3 intentos fallidos la espera entre intentos se duplica, aunque cierres la app. Con clave, Android no deja tomar capturas de Plata y la vista de apps recientes no muestra tus saldos. Si olvidas la clave, desde la pantalla de bloqueo puedes borrar todo y empezar de nuevo: sin ella tus datos no se pueden abrir.',
+                  'The passcode is stored as a PBKDF2 hash, never in clear. After 3 failed attempts the wait doubles each time, even if you close the app. With a passcode, Android blocks screenshots of Plata and the recent apps view does not show your balances. If you forget the passcode, the lock screen lets you erase everything and start over: without it your data cannot be opened.',
+                )}',
+                style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+              ),
             ),
           ],
         ),
@@ -163,7 +181,7 @@ Future<String?> askPasscode(BuildContext context, String title) async {
     context: context,
     builder: (BuildContext context) => AlertDialog(
       title: Text(title),
-      content: TextField(controller: ctrl, autofocus: true, obscureText: true, autocorrect: false, enableSuggestions: false, enableIMEPersonalizedLearning: false, keyboardType: TextInputType.number, maxLength: 8, decoration: const InputDecoration(counterText: ''), onSubmitted: (String s) => Navigator.pop(context, s)),
+      content: TextField(controller: ctrl, autofocus: true, obscureText: true, autocorrect: false, enableSuggestions: false, enableIMEPersonalizedLearning: false, keyboardType: TextInputType.number, inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly], maxLength: 8, decoration: const InputDecoration(counterText: ''), onSubmitted: (String s) => Navigator.pop(context, s)),
       actions: <Widget>[
         TextButton(onPressed: () => Navigator.pop(context), child: Text(t(context, 'Cancelar', 'Cancel'))),
         FilledButton(onPressed: () => Navigator.pop(context, ctrl.text), child: Text(t(context, 'Aceptar', 'OK'))),
@@ -173,3 +191,7 @@ Future<String?> askPasscode(BuildContext context, String title) async {
   disposeLater(<ChangeNotifier>[ctrl]);
   return v;
 }
+
+/// Una clave de acceso válida: de 4 a 8 cifras y nada más (el teclado del
+/// candado no tiene signos: "-123" o "+123" no se podrían escribir).
+bool validPasscode(String code) => RegExp(r'^[0-9]{4,8}$').hasMatch(code);

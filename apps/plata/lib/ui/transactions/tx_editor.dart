@@ -4,9 +4,9 @@ import 'dart:typed_data';
 import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../core/app_scope.dart';
+import '../../core/camera_draft.dart';
 import '../../core/ledger.dart';
 import '../../model/models.dart';
 import '../../model/money.dart';
@@ -17,7 +17,7 @@ import '../widgets/icons.dart';
 
 /// Alta y edición de un movimiento.
 class TxEditor extends StatefulWidget {
-  const TxEditor({super.key, this.existing, this.kind, this.template, this.inbox, this.initialAccountId, this.initialToAccountId, this.initialMinor, this.initialToMinor, this.initialDate, this.initialDescription});
+  const TxEditor({super.key, this.existing, this.kind, this.template, this.inbox, this.initialAccountId, this.initialToAccountId, this.initialMinor, this.initialToMinor, this.initialDate, this.initialDescription, this.draft});
 
   final Tx? existing;
   final TxKind? kind;
@@ -33,6 +33,10 @@ class TxEditor extends StatefulWidget {
   final int? initialToMinor;
   final DateTime? initialDate;
   final String? initialDescription;
+
+  /// Movimiento a medio escribir que se recuperó después de que Android
+  /// cerrara la app con la cámara abierta (trae la foto ya adjunta).
+  final Tx? draft;
 
   @override
   State<TxEditor> createState() => _TxEditorState();
@@ -80,7 +84,7 @@ class _TxEditorState extends State<TxEditor> {
   @override
   void initState() {
     super.initState();
-    final Tx? e = widget.existing;
+    final Tx? e = widget.draft ?? widget.existing;
     final TxTemplate? tpl = widget.template;
     final InboxItem? ib = widget.inbox;
     _kind = e?.kind ?? tpl?.kind ?? ib?.kind ?? widget.kind ?? TxKind.expense;
@@ -105,7 +109,8 @@ class _TxEditorState extends State<TxEditor> {
     _tags.addAll(e?.tags ?? tpl?.tags ?? <String>[]);
     _splits.addAll(e?.splits ?? <TxSplit>[]);
     _attachments.addAll(e?.attachments ?? <String>[]);
-    _savedAttachments.addAll(_attachments);
+    _savedAttachments.addAll(widget.existing?.attachments ?? <String>[]);
+    _more = widget.draft != null;
     _installments = e?.installments ?? 1;
     _reconciled = e?.reconciled ?? false;
     _keypad = e == null && _minor == 0 && widget.initialToMinor == null && ib == null;
@@ -257,7 +262,14 @@ class _TxEditorState extends State<TxEditor> {
   }
 
   Future<void> _addAttachment(ImageSource source) async {
+    final Ledger l = _s!.ledger;
+    // Android puede cerrar la app mientras la cámara está abierta: se guarda
+    // lo escrito para recuperarlo junto con la foto al volver.
+    final bool keepDraft = source == ImageSource.camera && Platform.isAndroid;
     try {
+      if (keepDraft) {
+        await CameraDraft.save(l, _compose(), existingId: widget.existing?.id);
+      }
       final XFile? f = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 82);
       if (f == null) {
         return;
@@ -265,8 +277,8 @@ class _TxEditorState extends State<TxEditor> {
       // La foto del recibo se guarda cifrada, igual que el resto del libro, y
       // las copias sin cifrar que deja el selector se borran.
       final String rel = 'attachments/${newId()}.jpg.enc';
-      await _s!.ledger.store.writeBytes(rel, await f.readAsBytes());
-      await _deletePickerCopies(f);
+      await l.store.writeBytes(rel, await f.readAsBytes());
+      await deletePickerCopies(f);
       if (mounted) {
         setState(() => _attachments.add(rel));
       }
@@ -275,41 +287,10 @@ class _TxEditorState extends State<TxEditor> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'No se pudo adjuntar la foto. Intenta de nuevo.', 'The photo could not be attached. Try again.'))));
       }
-    }
-  }
-
-  /// El selector deja la foto en la caché de la app y, cuando la reduce
-  /// (`scaled_` delante del nombre), también la original. Solo se borra lo que está
-  /// dentro de la carpeta privada de la app: nunca la foto de la galería.
-  Future<void> _deletePickerCopies(XFile f) async {
-    try {
-      final String container = (await getApplicationDocumentsDirectory()).parent.path;
-      final String sep = Platform.pathSeparator;
-      if (!f.path.startsWith('$container$sep')) {
-        return;
+    } finally {
+      if (keepDraft) {
+        await CameraDraft.clear(l);
       }
-      final File picked = File(f.path);
-      final String name = picked.uri.pathSegments.last;
-      final List<File> copies = <File>[picked];
-      if (name.startsWith('scaled_')) {
-        final String original = name.substring('scaled_'.length);
-        copies.add(File('${picked.parent.path}$sep$original'));
-        final Directory tmp = await getTemporaryDirectory();
-        if (await tmp.exists()) {
-          await for (final FileSystemEntity e in tmp.list(recursive: true)) {
-            if (e is File && e.uri.pathSegments.last == original) {
-              copies.add(e);
-            }
-          }
-        }
-      }
-      for (final File c in copies) {
-        if (c.path.startsWith('$container$sep') && await c.exists()) {
-          await c.delete();
-        }
-      }
-    } catch (e) {
-      debugPrint('Copia del selector: $e');
     }
   }
 
@@ -369,6 +350,40 @@ class _TxEditorState extends State<TxEditor> {
     return null;
   }
 
+  /// El movimiento tal como está escrito en el formulario (sin validar).
+  Tx _compose() {
+    final Tx? e = widget.existing;
+    final Tx tx = e == null ? Tx(id: newId(), kind: _kind, amountMinor: _minor, accountId: _accountId ?? '', date: _date) : Tx.fromJson(e.toJson());
+    tx.kind = _kind;
+    tx.amountMinor = _minor;
+    tx.accountId = _accountId ?? '';
+    tx.toAccountId = _kind == TxKind.transfer ? _toAccountId : null;
+    final int? received = _kind == TxKind.transfer ? _receivedToSave() : null;
+    tx.toAmountMinor = received;
+    tx.toAmountAuto = received != null && _toAuto;
+    tx.categoryId = _splits.isEmpty ? _categoryId : null;
+    tx.date = _date;
+    tx.description = _desc.text.trim();
+    tx.payee = _payee.text.trim();
+    tx.notes = _notes.text.trim();
+    tx.checkNumber = _check.text.trim();
+    tx.tags
+      ..clear()
+      ..addAll(_tags);
+    tx.splits
+      ..clear()
+      ..addAll(_kind == TxKind.transfer ? const <TxSplit>[] : _splits);
+    tx.attachments
+      ..clear()
+      ..addAll(_attachments);
+    tx.installments = (_account?.isCredit ?? false) && _kind == TxKind.expense ? _installments : 1;
+    tx.reconciled = _reconciled;
+    if (widget.inbox != null) {
+      tx.source = 'notice';
+    }
+    return tx;
+  }
+
   Future<void> _save() async {
     if (_saving) {
       return;
@@ -395,34 +410,7 @@ class _TxEditorState extends State<TxEditor> {
     }
     final Tx? e = widget.existing;
     // Se arma un borrador: si el libro lo rechaza, el original queda intacto.
-    final Tx tx = e == null ? Tx(id: newId(), kind: _kind, amountMinor: _minor, accountId: _accountId!, date: _date) : Tx.fromJson(e.toJson());
-    tx.kind = _kind;
-    tx.amountMinor = _minor;
-    tx.accountId = _accountId!;
-    tx.toAccountId = _kind == TxKind.transfer ? _toAccountId : null;
-    final int? received = _kind == TxKind.transfer ? _receivedToSave() : null;
-    tx.toAmountMinor = received;
-    tx.toAmountAuto = received != null && _toAuto;
-    tx.categoryId = _splits.isEmpty ? _categoryId : null;
-    tx.date = _date;
-    tx.description = _desc.text.trim();
-    tx.payee = _payee.text.trim();
-    tx.notes = _notes.text.trim();
-    tx.checkNumber = _check.text.trim();
-    tx.tags
-      ..clear()
-      ..addAll(_tags);
-    tx.splits
-      ..clear()
-      ..addAll(_kind == TxKind.transfer ? const <TxSplit>[] : _splits);
-    tx.attachments
-      ..clear()
-      ..addAll(_attachments);
-    tx.installments = (_account?.isCredit ?? false) && _kind == TxKind.expense ? _installments : 1;
-    tx.reconciled = _reconciled;
-    if (widget.inbox != null) {
-      tx.source = 'notice';
-    }
+    final Tx tx = _compose();
     setState(() => _saving = true);
     try {
       if (e == null) {
@@ -528,6 +516,7 @@ class _TxEditorState extends State<TxEditor> {
     }
 
     return ReadableScaffold(
+      safeBottom: false,
       appBar: AppBar(
         title: Text(widget.existing == null ? t(context, 'Nuevo movimiento', 'New transaction') : t(context, 'Editar movimiento', 'Edit transaction')),
         actions: <Widget>[
@@ -574,7 +563,7 @@ class _TxEditorState extends State<TxEditor> {
                 if (widget.existing?.isAdjustment ?? false)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(t(context, 'Ajuste de saldo: corrige el saldo de la cuenta y no cuenta como gasto ni ingreso en informes ni presupuestos.', 'Balance adjustment: it corrects the account balance and does not count as spending or income in reports or budgets.'), style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.7))),
+                    child: Text(t(context, 'Ajuste de saldo: corrige el saldo de la cuenta y no cuenta como gasto ni ingreso en informes ni presupuestos.', 'Balance adjustment: it corrects the account balance and does not count as spending or income in reports or budgets.'), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                   ),
                 SegmentedButton<TxKind>(
                   segments: <ButtonSegment<TxKind>>[

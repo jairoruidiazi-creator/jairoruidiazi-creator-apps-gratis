@@ -70,7 +70,7 @@ void main() {
       await settle(tester);
       await tester.tap(find.widgetWithText(ListTile, 'Tarjeta de crédito').first);
       await settle(tester);
-      await tester.tap(find.text('Deuda inicial (lo que ya debes)'));
+      await tester.tap(find.text('Deuda total hoy (todo lo que debes)'));
       await settle(tester);
       for (final String k in <String>['1', '0', '0', '0', '0', '0', '0']) {
         await tapKey(tester, k);
@@ -277,6 +277,13 @@ void main() {
         await tester.tap(find.byType(FloatingActionButton));
         await settle(tester);
         await tapKey(tester, '5');
+        await tester.tap(find.text('Listo'));
+        await settle(tester);
+        // También la mitad de abajo: «Más campos» abierto y desplazado al final.
+        await tester.tap(find.textContaining('Más campos'));
+        await settle(tester);
+        await tester.drag(find.byType(Scrollable).first, const Offset(0, -3000));
+        await settle(tester);
         await back(tester);
         debugPrint('[M2 $scale] movimientos');
         await goTab(tester, 'Movimientos');
@@ -297,6 +304,9 @@ void main() {
         for (final String entry in <String>['Cuentas', 'Tarjetas de crédito', 'Programados', 'Monedas', 'Seguridad', 'Copias de seguridad', 'Ajustes']) {
           debugPrint('[M2 $scale] $entry');
           await openMore(tester, entry);
+          // Hasta el final de la pantalla, no solo lo que se ve al abrirla.
+          await tester.drag(find.byType(Scrollable).first, const Offset(0, -4000));
+          await settle(tester);
           await back(tester);
         }
         debugPrint('[M2 $scale] candado');

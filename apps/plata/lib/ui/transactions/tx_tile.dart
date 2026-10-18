@@ -21,7 +21,7 @@ class TxTile extends StatelessWidget {
     final Account? to = l.account(tx.toAccountId);
     final Category? c = tx.splits.isEmpty ? l.category(tx.categoryId) : null;
     final bool refund = tx.kind == TxKind.income && tx.splits.isEmpty && l.isRefundCategory(tx.categoryId);
-    final Color color = tx.isAdjustment ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.75) : kindColor(context, tx.kind);
+    final Color color = tx.isAdjustment ? Theme.of(context).colorScheme.onSurfaceVariant : kindColor(context, tx.kind);
     final String title = tx.description.isNotEmpty
         ? tx.description
         : (tx.kind == TxKind.transfer

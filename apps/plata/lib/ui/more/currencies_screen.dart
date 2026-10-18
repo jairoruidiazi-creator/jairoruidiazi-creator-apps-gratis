@@ -104,7 +104,7 @@ class _CurrenciesScreenState extends State<CurrenciesScreen> {
                 title: Text(t(context, 'Actualizar tasas automáticamente', 'Update rates automatically')),
                 subtitle: Text(t(context, 'Una vez al día si hay internet: TRM oficial (datos.gov.co), Banco Central Europeo (Frankfurter) y, para las monedas que el BCE no publica, ExchangeRate-API. Es la única conexión que hace la app.', 'Once a day when online: official TRM (datos.gov.co), the European Central Bank (Frankfurter) and, for currencies the ECB does not publish, ExchangeRate-API. It is the only connection the app makes.')),
               ),
-              if (table.updatedAt != null) Padding(padding: const EdgeInsets.fromLTRB(16, 4, 16, 4), child: Text('${t(context, 'Última actualización', 'Last update')}: ${formatDate(table.updatedAt!, 'dd MMM yyyy HH:mm', spanish: es)} · ${table.source}', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.6)))),
+              if (table.updatedAt != null) Padding(padding: const EdgeInsets.fromLTRB(16, 4, 16, 4), child: Text('${t(context, 'Última actualización', 'Last update')}: ${formatDate(table.updatedAt!, 'dd MMM yyyy HH:mm', spanish: es)} · ${table.source}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))),
               if (usesErApi)
                 Align(
                   alignment: Alignment.centerLeft,

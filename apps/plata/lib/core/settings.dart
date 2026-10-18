@@ -25,8 +25,21 @@ class AppSettings extends ChangeNotifier {
   /// app no se conecta a internet.
   List<String> extraCurrencies = <String>[];
   DateTime? lastBackupAt;
+
+  /// Última descarga de tasas que funcionó (se intenta una vez al día).
   DateTime? lastRatesAttempt;
   bool hideBalances = false;
+
+  /// Pagos de tarjeta vencidos de los que ya se avisó ("o:<tarjeta>:<fecha>").
+  List<String> overdueNotified = <String>[];
+
+  /// Si el sistema deja mostrar notificaciones (no se guarda: se consulta al
+  /// abrir y al volver a la app). Null si no se sabe.
+  bool? notificationsAllowed;
+
+  /// Ya se explicó y se pidió el permiso de notificaciones una vez: después
+  /// no se vuelve a preguntar solo (se puede dar en Ajustes).
+  bool notificationsAsked = false;
 
   bool get spanish => language == 'es';
 
@@ -68,7 +81,17 @@ class AppSettings extends ChangeNotifier {
     lastBackupAt = DateTime.tryParse(p.getString('lastBackupAt') ?? '');
     lastRatesAttempt = DateTime.tryParse(p.getString('lastRatesAttempt') ?? '');
     hideBalances = p.getBool('hideBalances') ?? false;
+    overdueNotified = p.getStringList('overdueNotified') ?? <String>[];
+    notificationsAsked = p.getBool('notificationsAsked') ?? false;
     notifyListeners();
+  }
+
+  /// Guarda el estado del permiso de notificaciones (y avisa si cambió).
+  void setNotificationsAllowed(bool? allowed) {
+    if (allowed != notificationsAllowed) {
+      notificationsAllowed = allowed;
+      notifyListeners();
+    }
   }
 
   void refresh() => notifyListeners();
@@ -90,8 +113,10 @@ class AppSettings extends ChangeNotifier {
     autoBackup = true;
     extraCurrencies = <String>[];
     lastBackupAt = null;
+    notificationsAsked = false;
     lastRatesAttempt = null;
     hideBalances = false;
+    overdueNotified = <String>[];
     await save();
   }
 
@@ -119,5 +144,7 @@ class AppSettings extends ChangeNotifier {
     await p.setString('lastBackupAt', lastBackupAt?.toIso8601String() ?? '');
     await p.setString('lastRatesAttempt', lastRatesAttempt?.toIso8601String() ?? '');
     await p.setBool('hideBalances', hideBalances);
+    await p.setStringList('overdueNotified', overdueNotified);
+    await p.setBool('notificationsAsked', notificationsAsked);
   }
 }
