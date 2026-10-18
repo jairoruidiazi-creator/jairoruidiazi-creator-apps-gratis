@@ -601,8 +601,7 @@ class NoticePlanner {
     if (r.notes.trim().isNotEmpty) {
       return r.notes.trim();
     }
-    final String when = formatTime(due, spanish: spanish);
-    return spanish ? 'Para las $when' : 'Due at $when';
+    return spanish ? 'Para ${spanishClock(due)}' : 'Due at ${formatTime(due, spanish: false)}';
   }
 
   /// Texto de las repeticiones. La solicitud que se repite lleva la fecha:
@@ -611,9 +610,9 @@ class NoticePlanner {
     final String time = formatTime(alert, spanish: spanish);
     String since;
     if (repeating) {
-      since = spanish ? 'el ${formatShortDate(alert, spanish: true)} a las $time' : '${formatShortDate(alert, spanish: false)} at $time';
+      since = spanish ? 'el ${formatShortDate(alert, spanish: true)} a ${spanishClock(alert)}' : '${formatShortDate(alert, spanish: false)} at $time';
     } else {
-      since = spanish ? 'las $time' : time;
+      since = spanish ? spanishClock(alert) : time;
     }
     if (r.isCountdown) {
       return spanish ? 'Sonando desde $since. Toca Hecho para apagarla.' : 'Ringing since $since. Tap Done to turn it off.';

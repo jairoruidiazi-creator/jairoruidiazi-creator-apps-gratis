@@ -180,10 +180,10 @@ class _Running extends StatelessWidget {
     String? budgetNote;
     if (!snap.paused && changesLeft > capacity) {
       final int last = snap.index + capacity;
-      final String at = formatTime(run.wallTimeOf(run.startOf(last)), spanish: es);
+      final DateTime lastAt = run.wallTimeOf(run.startOf(last));
       budgetNote = es
-          ? 'Si bloqueas la pantalla, los avisos llegan hasta el intervalo ${last + 1} de ${run.segments.length} (a las $at). Para los siguientes, vuelve a abrir Rutinas antes.'
-          : 'If you lock the screen, alerts arrive up to interval ${last + 1} of ${run.segments.length} (at $at). For the rest, open Rutinas again before then.';
+          ? 'Si bloqueas la pantalla, los avisos llegan hasta el intervalo ${last + 1} de ${run.segments.length} (a ${spanishClock(lastAt)}). Para los siguientes, vuelve a abrir Rutinas antes.'
+          : 'If you lock the screen, alerts arrive up to interval ${last + 1} of ${run.segments.length} (at ${formatTime(lastAt, spanish: false)}). For the rest, open Rutinas again before then.';
     }
     Widget note(String text, {String? action, VoidCallback? onAction}) => Container(
           margin: const EdgeInsets.only(bottom: 6),

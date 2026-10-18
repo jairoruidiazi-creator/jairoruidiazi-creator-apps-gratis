@@ -83,7 +83,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _dayTimer = Timer.periodic(const Duration(seconds: 30), (Timer _) => _checkDay());
+    _dayTimer = Timer.periodic(const Duration(seconds: 30), (Timer _) {
+      // Con la app abierta, un recordatorio vencido pasa a la ocurrencia que
+      // toca cuando llega la siguiente (como al abrir la app).
+      _services?.reminders.rollOverAll();
+      _checkDay();
+    });
   }
 
   void _checkDay() {

@@ -140,6 +140,15 @@ void main() {
       expect(nags.every((PlannedNotice n) => n.occurrence == at(14, 20)), isTrue);
     });
 
+    test('«la 1:30», no «las 1:30»', () {
+      final List<PlannedNotice> p = plan(reminders: <Reminder>[reminder('a', at(15, 1, 30), nag: 5), reminder('b', at(15, 13, 30))]);
+      expect(p.first.body, 'Para la 1:30');
+      expect(p[1].body, 'Sigue pendiente desde la 1:30. Toca Hecho si ya lo hiciste.');
+      expect(p.last.body, 'Para las 13:30');
+      final List<PlannedNotice> overdue = build(when: at(15, 1, 45), reminders: <Reminder>[reminder('c', at(15, 1, 30), nag: 5)]).notices;
+      expect(overdue.single.body, 'Sigue pendiente desde el jue 15 oct a la 1:30. Toca Hecho si ya lo hiciste.');
+    });
+
     test('pospuesto: suena a la nueva hora', () {
       final Reminder r = reminder('a', at(14, 8))..snoozedUntil = at(14, 9, 30);
       final List<PlannedNotice> p = plan(reminders: <Reminder>[r]);
@@ -469,6 +478,54 @@ void main() {
         expect(gateway.scheduled, hasLength(n));
         expect(again.pendingFullResync, isFalse);
         again.dispose();
+      });
+    });
+
+    test('reprogramar todo: primero se programa y después se cancela lo que sobra (M1)', () async {
+      await withClock(Clock.fixed(now), () async {
+        reminders.reminders.add(reminder('a', at(14, 10), nag: 30));
+        reminders.reminders.add(reminder('b', at(16, 18)));
+        await service.sync();
+        // b se borra mientras la app está cerrada; el proceso nuevo no le cree a la caché.
+        reminders.reminders.removeWhere((Reminder r) => r.id == 'b');
+        gateway.ops.clear();
+        final NoticeService again = make(gateway);
+        await again.sync();
+        final int lastSchedule = gateway.ops.lastIndexWhere((String o) => o.startsWith('programar:'));
+        final int firstCancel = gateway.ops.indexWhere((String o) => o.startsWith('cancelar:'));
+        expect(firstCancel, greaterThan(lastSchedule));
+        expect(gateway.cancelAllCalls, 0);
+        expect(gateway.scheduled.values.every((PlannedNotice n) => n.route == 'reminder:a'), isTrue);
+        expect(gateway.cache.length, gateway.scheduled.length);
+        again.dispose();
+      });
+    });
+
+    test('iOS: al aplicar diferencias se cancela antes de programar y nunca se pasa del cupo (M1)', () async {
+      DateTime t = intenseNow;
+      await withClock(Clock(() => t), () async {
+        final FakeNotificationGateway ios = FakeNotificationGateway(ios: true);
+        final NoticeService s = make(ios);
+        reminders.reminders.addAll(intenseReminders());
+        habits.habits.addAll(intenseHabits());
+        // Un Tabata en marcha con la pantalla bloqueada: sus cambios llenan el cupo.
+        final Workout tabata = WorkoutTemplates.create(WorkoutTemplate.tabata, spanish: true, now: t);
+        timers.run = TimerRun(kind: RunKind.workout, name: tabata.name, segments: TimerEngine.flatten(tabata.nodes), startedAt: t);
+        s.background = true;
+        await s.sync();
+        expect(ios.scheduled.values.where((PlannedNotice n) => n.isTimer).length, kIosLimits.timerCapacity);
+        // De vuelta en la app: salen los del temporizador y entran los recordatorios.
+        t = t.add(const Duration(seconds: 30));
+        timers.run = null;
+        s.background = false;
+        ios.ops.clear();
+        await s.sync();
+        final int lastCancel = ios.ops.lastIndexWhere((String o) => o.startsWith('cancelar:'));
+        final int firstSchedule = ios.ops.indexWhere((String o) => o.startsWith('programar:'));
+        expect(lastCancel, lessThan(firstSchedule));
+        expect(ios.peak, lessThanOrEqualTo(kIosLimits.budget));
+        expect(ios.scheduled.values.where((PlannedNotice n) => n.isTimer), isEmpty);
+        s.dispose();
       });
     });
 

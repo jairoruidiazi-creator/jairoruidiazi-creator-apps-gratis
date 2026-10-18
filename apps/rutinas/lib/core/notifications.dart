@@ -541,6 +541,12 @@ class FakeNotificationGateway implements NotificationGateway {
   final List<bool> languages = <bool>[];
   int scheduleCalls = 0;
   int cancelAllCalls = 0;
+
+  /// Orden de las llamadas (`programar:<id>` y `cancelar:<id>`).
+  final List<String> ops = <String>[];
+
+  /// Lo más que hubo programado a la vez (iOS guarda 64).
+  int peak = 0;
   void Function(NoticeResponse)? _onResponse;
   NoticeResponse? launch;
 
@@ -632,7 +638,11 @@ class FakeNotificationGateway implements NotificationGateway {
   @override
   Future<void> schedule(PlannedNotice notice, int id, {required bool exact, required String payload}) async {
     scheduleCalls++;
+    ops.add('programar:$id');
     scheduled[id] = notice;
+    if (scheduled.length > peak) {
+      peak = scheduled.length;
+    }
     payloads[id] = payload;
     cache[id] = payload;
     exactById[id] = exact;
@@ -641,6 +651,7 @@ class FakeNotificationGateway implements NotificationGateway {
   @override
   Future<void> cancel(int id) async {
     cancelled.add(id);
+    ops.add('cancelar:$id');
     scheduled.remove(id);
     payloads.remove(id);
     cache.remove(id);

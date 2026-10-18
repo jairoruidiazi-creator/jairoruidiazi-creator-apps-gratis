@@ -149,6 +149,10 @@ String formatTimeOfDay(int hour, int minute, {required bool spanish}) {
 
 String formatTime(DateTime d, {required bool spanish}) => formatTimeOfDay(d.hour, d.minute, spanish: spanish);
 
+/// La hora en español con su artículo: «la 1:30» (de la 1:00 a la 1:59) y
+/// «las 18:30» en las demás.
+String spanishClock(DateTime d) => '${d.hour == 1 ? 'la' : 'las'} ${formatTime(d, spanish: true)}';
+
 /// Minutos desde la medianoche ("7:30" = 450) como texto.
 String formatMinuteOfDay(int minutes, {required bool spanish}) => formatTimeOfDay(minutes ~/ 60, minutes % 60, spanish: spanish);
 

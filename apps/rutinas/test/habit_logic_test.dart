@@ -262,6 +262,33 @@ void main() {
       expect(back.frequencyOn(today).type, FrequencyType.daily);
     });
 
+    test('de 3 por semana a todos los días: la racha no mezcla semanas con días (M2)', () {
+      // Seis semanas cumplidas (lunes, miércoles y viernes) y hoy, miércoles 14, el cambio.
+      final Habit h = habit(start: d(8, 31), frequency: const Frequency(type: FrequencyType.perWeek, n: 3));
+      final List<DateTime> mwf = range(d(8, 31), d(10, 11)).where((DateTime x) => x.weekday == DateTime.monday || x.weekday == DateTime.wednesday || x.weekday == DateTime.friday).toList();
+      final Map<String, HabitEntry> e = log(done(mwf));
+      final StreakInfo weeks = HabitLogic.streak(h, e, d(10, 11), weekStart: DateTime.monday);
+      expect(weeks.current, 6);
+      expect(weeks.unit, StreakUnit.weeks);
+      h.changeRule(frequency: const Frequency(), goal: 1, today: today, since: d(8, 31));
+      // Hoy en curso: la racha en días empieza en cero, y la mejor también.
+      StreakInfo days = HabitLogic.streak(h, e, today, weekStart: DateTime.monday);
+      expect(days.unit, StreakUnit.days);
+      expect(days.current, 0);
+      expect(days.best, 0);
+      // Las seis semanas siguen en el cumplimiento.
+      expect(days.met, greaterThanOrEqualTo(6));
+      // Dos días hechos: dos días de racha, no «6 semanas + 2 días».
+      e[dayKey(today)] = HabitEntry(value: 1);
+      e[dayKey(d(10, 15))] = HabitEntry(value: 1);
+      days = HabitLogic.streak(h, e, d(10, 16), weekStart: DateTime.monday);
+      expect(days.current, 2);
+      expect(days.best, 2);
+      // Un cambio que no cambia la estructura (todos los días → lunes a viernes) no la reinicia.
+      h.changeRule(frequency: const Frequency(type: FrequencyType.weekdays, weekdays: <int>[1, 2, 3, 4, 5]), goal: 1, today: d(10, 16), since: d(8, 31));
+      expect(HabitLogic.streak(h, e, d(10, 16), weekStart: DateTime.monday).current, 2);
+    });
+
     test('subir la meta no deshace los días que ya estaban hechos', () {
       final Habit h = habit(kind: HabitKind.count, goal: 8, start: d(10, 1));
       final Map<String, HabitEntry> e = log(<DateTime, int>{for (final DateTime x in range(d(10, 1), d(10, 13))) x: 8, today: 8});

@@ -167,7 +167,7 @@ class _RemindersPageState extends State<RemindersPage> {
             _Banner(
               icon: Icons.event_busy_outlined,
               text: es
-                  ? 'Tienes más avisos de los que el teléfono puede guardar: están programados hasta el ${formatShortDate(covered, spanish: true)} a las ${formatTime(covered, spanish: true)}. Abre Rutinas antes de esa hora para que sigan llegando.'
+                  ? 'Tienes más avisos de los que el teléfono puede guardar: están programados hasta el ${formatShortDate(covered, spanish: true)} a ${spanishClock(covered)}. Abre Rutinas antes de esa hora para que sigan llegando.'
                   : 'You have more alerts than the phone can hold: they are scheduled until ${formatShortDate(covered, spanish: false)} at ${formatTime(covered, spanish: false)}. Open Rutinas before then so they keep arriving.',
             ),
           _QuickCountdown(onPick: (int m) => _quick(s, m), onOther: () => _otherCountdown(s), nag: s.settings.countdownNag, cap: s.notices.limits.nagCap),

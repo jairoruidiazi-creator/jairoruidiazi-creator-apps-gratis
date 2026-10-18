@@ -701,7 +701,23 @@ void main() {
     }, ios: true);
   });
 
+  testWidgets('con la app abierta, un vencido pasa a la ocurrencia siguiente cuando llega (M3)', (WidgetTester tester) async {
+    await withApp(tester, (Services s) async {
+      await goTab(tester, 'Avisos');
+      expect(find.text('Vencidos (1)'), findsOneWidget);
+      // La app sigue abierta hasta mañana a las 8:01.
+      await tester.pump(const Duration(hours: 22, minutes: 31));
+      await tester.pump(const Duration(seconds: 31));
+      expect(s.reminders.byId('pastilla')!.dueAt, DateTime(2026, 10, 15, 8));
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.textContaining('Hoy, 8:00'), findsOneWidget);
+    }, seeded: true);
+  });
+
   test('textos de las cuentas regresivas que suenan (M5)', () {
+    expect(ReminderTexts.ringingSince(DateTime(2026, 10, 14, 1, 30), DateTime(2026, 10, 14, 1, 40), true), 'Sonando desde la 1:30');
+    expect(spanishClock(DateTime(2026, 10, 14, 13, 5)), 'las 13:05');
+    expect(spanishClock(DateTime(2026, 10, 14, 0, 15)), 'las 0:15');
     final DateTime alert = DateTime(2026, 10, 14, 9, 30);
     expect(ReminderTexts.ringingSince(alert, DateTime(2026, 10, 14, 9, 30, 20), true), 'Sonando desde las 9:30');
     expect(ReminderTexts.ringingSince(alert, DateTime(2026, 10, 15, 7), true), 'Sonando desde ayer a las 9:30');

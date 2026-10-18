@@ -9,7 +9,7 @@ Las cinco apps son gratuitas, de código abierto y funcionan sin cuenta. Como no
 - **Reportar un problema o pedir una función:** abre un reporte en [github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/issues](https://github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/issues). Indica la app, la versión (está en Ajustes o en Acerca de), el modelo del teléfono y los pasos para que el problema se repita. No incluyas datos personales ni capturas con información privada.
 - **Asuntos privados** (una consulta sobre tus datos o los de un niño, o algo que no quieras publicar): abre un reporte con el título «Contacto privado» y el nombre de la app, sin ningún dato personal; te responderemos allí mismo para seguir la conversación por un canal privado.
 - Para abrir un reporte basta una cuenta gratuita de GitHub; el mismo canal sirve desde Android, iPhone o un computador.
-- **Privacidad:** cada app tiene su política dentro de la app y en el repositorio: [Pilas](../apps/pilas/assets/legal/privacy_es.md), [Clave](../apps/clave/assets/legal/privacy_es.md), [Sello](../apps/sello/assets/legal/privacy_es.md) y [Plata](../apps/plata/assets/legal/privacy_es.md).
+- **Privacidad:** cada app tiene su política dentro de la app y en el repositorio: [Pilas](../apps/pilas/assets/legal/privacy_es.md), [Clave](../apps/clave/assets/legal/privacy_es.md), [Sello](../apps/sello/assets/legal/privacy_es.md), [Plata](../apps/plata/assets/legal/privacy_es.md) y [Rutinas](../apps/rutinas/assets/legal/privacy_es.md).
 
 ## Preguntas frecuentes
 
@@ -72,7 +72,7 @@ The five apps are free, open source and work without an account. We have no serv
 - **Report a problem or request a feature:** open an issue at [github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/issues](https://github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/issues). Include the app, its version (in Settings or About), your phone model and the steps to reproduce the problem. Do not include personal data or screenshots with private information.
 - **Private matters** (a question about your data or a child's, or anything you would rather not post publicly): open an issue titled "Private contact" with the app's name and no personal data; we will reply there to continue the conversation through a private channel.
 - Opening an issue only needs a free GitHub account; the same channel works from Android, iPhone or a computer.
-- **Privacy:** each app has its policy inside the app and in the repository: [Clave](../apps/clave/assets/legal/privacy_en.md), [Sello](../apps/sello/assets/legal/privacy_en.md), [Plata](../apps/plata/assets/legal/privacy_en.md) and [Pilas](../apps/pilas/assets/legal/privacy_en.md) (Pilas itself is in Spanish).
+- **Privacy:** each app has its policy inside the app and in the repository: [Clave](../apps/clave/assets/legal/privacy_en.md), [Sello](../apps/sello/assets/legal/privacy_en.md), [Plata](../apps/plata/assets/legal/privacy_en.md), [Rutinas](../apps/rutinas/assets/legal/privacy_en.md) and [Pilas](../apps/pilas/assets/legal/privacy_en.md) (Pilas itself is in Spanish).
 
 ## Frequently asked questions
 

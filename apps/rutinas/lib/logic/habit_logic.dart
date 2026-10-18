@@ -118,7 +118,7 @@ class HabitLogic {
   /// Clave de la estructura de periodos: dos reglas seguidas con la misma
   /// clave comparten periodos (por ejemplo, de 3 a 4 veces por semana la
   /// semana del cambio se evalúa entera con la regla nueva).
-  static String _structure(Frequency f) {
+  static String structureOf(Frequency f) {
     switch (f.type) {
       case FrequencyType.daily:
       case FrequencyType.weekdays:
@@ -140,7 +140,7 @@ class HabitLogic {
       if (b.isBefore(a)) {
         return;
       }
-      if (out.isNotEmpty && _structure(out.last.frequency) == _structure(f) && sameDay(addDays(out.last.end, 1), a)) {
+      if (out.isNotEmpty && structureOf(out.last.frequency) == structureOf(f) && sameDay(addDays(out.last.end, 1), a)) {
         out.last.end = b;
       } else {
         out.add(_Run(a, b, f));
@@ -248,20 +248,36 @@ class HabitLogic {
   /// Racha actual y mejor racha. La racha no se rompe por los días que no
   /// tocan, por los saltados a propósito, por el periodo de hoy sin terminar
   /// ni por los tramos archivados.
+  ///
+  /// La racha se cuenta en la unidad de la frecuencia vigente (días, veces,
+  /// semanas o meses). Si la frecuencia cambió de estructura (por ejemplo, de
+  /// 3 por semana a todos los días), la racha vuelve a contar desde el cambio,
+  /// y la mejor racha solo mira los tramos con la estructura de ahora: así el
+  /// número nunca mezcla semanas con días. Los periodos anteriores siguen en el
+  /// cumplimiento y en el calendario.
   static StreakInfo streak(Habit h, Map<String, HabitEntry> entries, DateTime today, {required int weekStart}) {
     if (h.isNegative) {
       return negativeStreak(h, entries, today);
     }
+    final String current = structureOf(h.frequency.normalized());
+    String? previous;
     int run = 0;
     int best = 0;
     int met = 0;
     int missed = 0;
     for (final HabitSlot s in slots(h, entries, today, weekStart: weekStart)) {
+      final String structure = structureOf(s.frequency.normalized());
+      if (previous != null && structure != previous) {
+        run = 0;
+      }
+      previous = structure;
       switch (s.state) {
         case SlotState.met:
           run++;
           met++;
-          best = math.max(best, run);
+          if (structure == current) {
+            best = math.max(best, run);
+          }
           break;
         case SlotState.missed:
           run = 0;

@@ -121,6 +121,14 @@ class NoticeService extends ChangeNotifier {
     return permissions;
   }
 
+  /// Con la app abierta: pasa los recordatorios vencidos a la ocurrencia que
+  /// toca y vuelve a planear (al sonar el primer aviso de algo que insiste o al
+  /// llegar al final de lo cubierto).
+  void _transitionNow() {
+    reminders.rollOverAll();
+    requestSync();
+  }
+
   /// Al volver a la app: si cambió el permiso de alarmas exactas (por ejemplo,
   /// se concedió en Configuración), todo se vuelve a programar con el modo nuevo.
   Future<void> resumed() async {
@@ -229,25 +237,50 @@ class NoticeService extends ChangeNotifier {
     // En iOS la lista de pendientes es la real; en Android, la primera vez en
     // cada proceso no se le cree a la lista del plugin.
     final bool full = _fullResync || (!gateway.isIOS && !_syncedOnce);
+    final Map<int, String?> current = <int, String?>{};
+    for (final PendingNotice p in await gateway.pending()) {
+      current[p.id] = p.payload;
+    }
+    if (!background) {
+      // De vuelta en la app: se quitan del panel los avisos del temporizador
+      // que ya sonaron (los que siguen pendientes los cancela lo de abajo).
+      for (final int id in _timerIds) {
+        if (!byId.containsKey(id) && !current.containsKey(id)) {
+          await gateway.cancel(id);
+        }
+      }
+      _timerIds.clear();
+    }
     if (full) {
-      await gateway.cancelAllPending();
+      // Primero se programa todo (el mismo número reemplaza la alarma que
+      // hubiera) y después se cancela lo que sobra: si el proceso muere a mitad
+      // de camino, lo que ya estaba programado sigue en pie. Lo que sobra sale
+      // de la lista del plugin y del registro propio (lo que todavía no sonó).
+      final Set<int> stale = <int>{
+        ...current.keys,
+        for (final MapEntry<int, _Shown> e in _scheduled.entries)
+          if (e.value.when.isAfter(now)) e.key,
+      };
       for (final MapEntry<int, PlannedNotice> e in byId.entries) {
         await gateway.schedule(e.value, e.key, exact: exact, payload: e.value.payload(exact: exact));
       }
+      for (final int id in stale) {
+        if (!byId.containsKey(id)) {
+          await gateway.cancel(id);
+        }
+      }
     } else {
-      final Map<int, String?> current = <int, String?>{};
-      for (final PendingNotice p in await gateway.pending()) {
-        current[p.id] = p.payload;
+      // Primero se cancela lo que sobra y después se programa lo nuevo: así
+      // nunca hay más pendientes que el cupo (iOS guarda 64).
+      for (final int id in current.keys) {
+        if (!byId.containsKey(id)) {
+          await gateway.cancel(id);
+        }
       }
       for (final MapEntry<int, PlannedNotice> e in byId.entries) {
         final String payload = e.value.payload(exact: exact);
         if (!current.containsKey(e.key) || current[e.key] != payload) {
           await gateway.schedule(e.value, e.key, exact: exact, payload: payload);
-        }
-      }
-      for (final int id in current.keys) {
-        if (!byId.containsKey(id)) {
-          await gateway.cancel(id);
         }
       }
     }
@@ -258,15 +291,6 @@ class NoticeService extends ChangeNotifier {
     final Set<int> timerIds = byId.entries.where((MapEntry<int, PlannedNotice> e) => e.value.isTimer).map((MapEntry<int, PlannedNotice> e) => e.key).toSet();
     if (background) {
       _timerIds.addAll(timerIds);
-    } else {
-      // De vuelta en la app: se quitan también los avisos del temporizador que
-      // ya se mostraron.
-      for (final int id in _timerIds) {
-        if (!byId.containsKey(id)) {
-          await gateway.cancel(id);
-        }
-      }
-      _timerIds.clear();
     }
     _scheduled
       ..clear()
@@ -310,7 +334,7 @@ class NoticeService extends ChangeNotifier {
     if (wait > const Duration(days: 1)) {
       wait = const Duration(days: 1);
     }
-    _transition = Timer(wait, requestSync);
+    _transition = Timer(wait, _transitionNow);
   }
 
   // ------------------------------------------------------------------ registro

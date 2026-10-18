@@ -77,11 +77,11 @@ class ReminderTexts {
     final String time = formatTime(alert, spanish: es);
     final int days = daysBetween(alert, now);
     if (days == 0) {
-      return es ? 'Sonando desde las $time' : 'Ringing since $time';
+      return es ? 'Sonando desde ${spanishClock(alert)}' : 'Ringing since $time';
     }
     if (days == 1) {
-      return es ? 'Sonando desde ayer a las $time' : 'Ringing since yesterday at $time';
+      return es ? 'Sonando desde ayer a ${spanishClock(alert)}' : 'Ringing since yesterday at $time';
     }
-    return es ? 'Sonando desde el ${formatShortDate(alert, spanish: true)} a las $time' : 'Ringing since ${formatShortDate(alert, spanish: false)} at $time';
+    return es ? 'Sonando desde el ${formatShortDate(alert, spanish: true)} a ${spanishClock(alert)}' : 'Ringing since ${formatShortDate(alert, spanish: false)} at $time';
   }
 }
