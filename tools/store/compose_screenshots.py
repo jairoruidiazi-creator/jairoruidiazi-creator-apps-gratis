@@ -110,8 +110,18 @@ def luminance(img: Image.Image) -> float:
     return sum(px) / len(px)
 
 
-def draw_status_bar(shot: Image.Image, device: str) -> None:
-    """Hora, señal, wifi y batería en la franja superior de la captura cruda."""
+def status_clock(hhmm: str) -> str:
+    """Hora de la barra de estado como la muestran iOS y Android con reloj de
+    12 horas (el habitual en Colombia y en EE. UU.): «18:40» → «6:40»."""
+    h, m = (int(x) for x in hhmm.split(":"))
+    return f"{h % 12 or 12}:{m:02d}"
+
+
+def draw_status_bar(shot: Image.Image, device: str, clock: str = "9:41") -> None:
+    """Hora, señal, wifi y batería en la franja superior de la captura cruda.
+
+    [clock] es la hora de la escena (store/screenshots.json, «status_time»), para
+    que la barra no diga 9:41 mientras la app muestra otra hora."""
     top, bottom = SAFE[device]
     w, h = shot.size
     strip = shot.crop((0, 0, w, int(top)))
@@ -123,7 +133,7 @@ def draw_status_bar(shot: Image.Image, device: str) -> None:
     f = ImageFont.truetype(str(FONTS / ("Inter-SemiBold.ttf" if ios else "Roboto-Medium.ttf")), size)
     cy = top * (0.52 if device == "iphone" else 0.5)
     margin = w * {"iphone": 0.075, "android_phone": 0.085, "android_tablet": 0.04, "ipad": 0.035}[device]
-    d.text((margin + (w * 0.03 if device == "iphone" else 0), cy), "9:41", font=f, fill=ink, anchor="lm")
+    d.text((margin + (w * 0.03 if device == "iphone" else 0), cy), clock, font=f, fill=ink, anchor="lm")
     # Batería
     bh = size * 0.62
     bw = bh * 2.1
@@ -314,7 +324,7 @@ def main() -> int:
                     continue
                 n += 1
                 img = Image.open(src).convert("RGB")
-                draw_status_bar(img, device)
+                draw_status_bar(img, device, status_clock(shot.get("status_time", spec.get("status_time", "9:41"))))
                 result = compose(img, device, shot[lang], spec["brand"])
                 name = re.sub(r"^\d+-", "", shot["id"])
                 if platform == "android":

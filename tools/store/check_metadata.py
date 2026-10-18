@@ -221,6 +221,10 @@ def check_screenshots_spec(r: Report, app_dir: Path) -> list[str]:
     ids = [s.get("id", "") for s in spec.get("shots", [])]
     if len(set(ids)) != len(ids):
         r.fail("store/screenshots.json: hay capturas con el mismo id")
+    # Hora de la barra de estado (la de la escena de demostración), en formato 24 h.
+    for where, value in [("status_time", spec.get("status_time"))] + [(f"{s.get('id')}.status_time", s.get("status_time")) for s in spec.get("shots", [])]:
+        if value is not None and not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", str(value)):
+            r.fail(f"store/screenshots.json: {where} debe ser HH:MM en 24 horas (es «{value}»)")
     android = [s for s in spec.get("shots", []) if "android" in s.get("platforms", ["android", "ios"])]
     ios = [s for s in spec.get("shots", []) if "ios" in s.get("platforms", ["android", "ios"])]
     if not 2 <= len(android) <= 8:
