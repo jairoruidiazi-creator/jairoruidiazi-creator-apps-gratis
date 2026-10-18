@@ -1,8 +1,8 @@
-# Soporte de Pilas, Clave, Sello y Plata
+# Soporte de Pilas, Clave, Sello, Plata y Rutinas
 
 [English below](#support)
 
-Las cuatro apps son gratuitas, de código abierto y funcionan sin cuenta. Como no tenemos servidores ni recogemos datos, no podemos ver tu información ni recuperarla: todo lo que necesites revisar está en tu teléfono.
+Las cinco apps son gratuitas, de código abierto y funcionan sin cuenta. Como no tenemos servidores ni recogemos datos, no podemos ver tu información ni recuperarla: todo lo que necesites revisar está en tu teléfono.
 
 ## Cómo pedir ayuda
 
@@ -41,11 +41,20 @@ Las cuatro apps son gratuitas, de código abierto y funcionan sin cuenta. Como n
 - **¿Qué bancos se leen en Android?** Mi Bancolombia, Nequi, Daviplata, Davivienda, BBVA, Banco de Bogotá, Banco de Occidente, DAVIbank (antes Scotiabank Colpatria), Lulo Bank, Nu y MOVii. Si un aviso no cae en la cuenta correcta, elige el banco de la cuenta y escribe sus últimos 4 dígitos en Más › Cuentas.
 - **¿Por qué no veo los avisos del banco en iPhone?** iOS no permite que una app lea las notificaciones de otras; esa función existe solo en Android.
 
+### Rutinas
+
+- **Los avisos llegan tarde o no suenan con la pantalla apagada.** En Ajustes › Permisos revisa que las notificaciones estén permitidas y, en Android, permite las alarmas exactas (la app te lleva al ajuste del sistema «Alarmas y recordatorios»). Si el teléfono ahorra batería de forma agresiva, quita a Rutinas de la optimización de batería en los ajustes del sistema.
+- **¿El temporizador sigue si apago la pantalla?** Sí. Rutinas programa un aviso con sonido para cada cambio de intervalo y, al volver, muestra el tiempo exacto. La voz y el «3, 2, 1» suenan con la app abierta; mientras entrenas, la pantalla se mantiene encendida.
+- **La voz no anuncia los intervalos.** Rutinas usa la voz del sistema en el idioma de la app: instala una voz en español (o en inglés) en los ajustes de texto a voz del teléfono. Mientras tanto suenan pitidos.
+- **Estuve enfermo o de viaje, ¿pierdo la racha?** No si marcas esos días como saltados: mantén presionado el hábito (o toca el día en su calendario) y activa «Saltar este día».
+- **Cambié de teléfono, ¿cómo paso mis datos?** En el teléfono viejo: Ajustes › Copia de seguridad › Exportar copia. En el nuevo: instala Rutinas y entra a Ajustes › Copia de seguridad › Restaurar desde archivo.
+- **¿Dónde está su política de privacidad?** En Ajustes › Política de privacidad y en el [repositorio](../apps/rutinas/assets/legal/privacy_es.md).
+
 ---
 
 ## Support
 
-The four apps are free, open source and work without an account. We have no servers and collect no data, so we cannot see or recover your information: everything is on your phone.
+The five apps are free, open source and work without an account. We have no servers and collect no data, so we cannot see or recover your information: everything is on your phone.
 
 ## How to get help
 
@@ -77,3 +86,12 @@ The four apps are free, open source and work without an account. We have no serv
 - **The card payment does not match my statement.** Plata shows the estimated principal (the purchases, installments, cash advances and payments you log), without interest or card fees. Pay based on your bank statement or app.
 - **Which banks are read on Android?** Mi Bancolombia, Nequi, Daviplata, Davivienda, BBVA, Banco de Bogotá, Banco de Occidente, DAVIbank (formerly Scotiabank Colpatria), Lulo Bank, Nu and MOVii. If a notice lands in the wrong account, choose the account's bank and type its last 4 digits under More › Accounts.
 - **Why are there no bank notifications on iPhone?** iOS does not let an app read other apps' notifications; that feature exists only on Android.
+
+### Rutinas
+
+- **Alerts arrive late or do not ring with the screen off.** In Settings › Permissions, make sure notifications are allowed and, on Android, allow exact alarms (the app takes you to the system's "Alarms & reminders" setting). If the phone saves battery aggressively, exclude Rutinas from battery optimization in the system settings.
+- **Does the timer keep going if I turn off the screen?** Yes. Rutinas schedules an alert with sound for each interval change and shows the exact time when you come back. The voice and the "3, 2, 1" play while the app is open; the screen stays on while you train.
+- **The voice does not announce the intervals.** Rutinas uses the system voice in the app's language: install an English (or Spanish) voice in the phone's text-to-speech settings. Meanwhile, beeps play instead.
+- **I was sick or travelling; do I lose my streak?** Not if you mark those days as skipped: press and hold the habit (or tap the day in its calendar) and turn on "Skip this day".
+- **I changed phones; how do I move my data?** On the old phone: Settings › Backup › Export backup. On the new one: install Rutinas and go to Settings › Backup › Restore from file.
+- **Where is its privacy policy?** In Settings › Privacy policy and in the [repository](../apps/rutinas/assets/legal/privacy_en.md).

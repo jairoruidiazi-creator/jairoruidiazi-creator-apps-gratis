@@ -8,6 +8,7 @@ Aplicaciones gratuitas para Android e iOS, sin anuncios, sin suscripciones y sin
 | Clave | `apps/clave` | Kit de práctica musical: afinador, metrónomo, bordón y teclado, grabadora y registro de práctica | v1 lista |
 | Sello | `apps/sello` | Cámara de campo con sello GPS: coordenadas en UTM, MGRS, Plus Code y proyección oficial de Colombia, norte verdadero, proyectos, galería, mapa y exportación (CSV, KML, KMZ, ZIP, PDF) | v1 lista |
 | Plata | `apps/plata` | Finanzas personales sin conexión: gastos en 5 segundos, cuentas, bolsillos, tarjetas con corte y cuotas, presupuestos, quincenas, programados, avisos de bancos colombianos, informes, TRM, todo cifrado en el teléfono | v1 lista |
+| Rutinas | `apps/rutinas` | Hábitos con racha (diarios, por días de la semana, cada N días o N veces por semana o por mes; de sí o no, con meta, con tiempo y para dejar algo), recordatorios con repeticiones de calendario e insistencia, cuentas regresivas, temporizador de intervalos con bloques anidados, voz y sonidos propios, cronómetro y resúmenes | v1 lista |
 
 ## Cómo se compila
 

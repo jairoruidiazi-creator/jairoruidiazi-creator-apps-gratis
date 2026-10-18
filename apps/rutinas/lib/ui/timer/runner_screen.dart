@@ -162,11 +162,15 @@ class _Running extends StatelessWidget {
       child: Column(
         children: <Widget>[
           Text(name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: tt.headlineMedium?.copyWith(color: fg, fontWeight: FontWeight.w800)),
-          // El tiempo crece hasta llenar el espacio libre (o se achica si no cabe).
+          // El tiempo crece hasta llenar el espacio libre (o se achica si no
+          // cabe), con un margen para que no toque los bordes.
           Expanded(
-            child: FittedBox(
-              fit: BoxFit.contain,
-              child: Text(remaining, style: TextStyle(fontSize: 120, fontWeight: FontWeight.w800, color: fg, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()], height: 1.05)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: FittedBox(
+                fit: BoxFit.contain,
+                child: Text(remaining, style: TextStyle(fontSize: 120, fontWeight: FontWeight.w800, color: fg, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()], height: 1.05)),
+              ),
             ),
           ),
           Padding(

@@ -1,4 +1,4 @@
-# Cómo publicar Pilas, Clave, Sello y Plata
+# Cómo publicar Pilas, Clave, Sello, Plata y Rutinas
 
 Esta guía junta lo que ya está hecho en el repositorio y lo que solo puede
 hacer el titular de las cuentas de desarrollador. Las respuestas exactas de
@@ -32,8 +32,9 @@ cada formulario de las tiendas están en `apps/<app>/store/COMPLIANCE.md`.
    agrega en `docs/SOPORTE.md`.
 4. **Nombres disponibles:** confirmar en cada consola que los nombres de la ficha están
    libres ("Plata: finanzas personales", "Clave: afinador y metrónomo", "Sello: cámara GPS de
-   campo", "Pilas: juegos para aprender"). Si alguno está tomado, se cambia en
-   `fastlane/metadata/*/title.txt` y `name.txt`; `check_metadata.py` vigila los límites.
+   campo", "Pilas: juegos para aprender", "Rutinas: hábitos e intervalos"). Si alguno está
+   tomado, se cambia en `fastlane/metadata/*/title.txt` y `name.txt`; `check_metadata.py`
+   vigila los límites.
 5. **Identificadores:** las apps usan `co.appsgratis.<app>`. Si se prefiere otro prefijo,
    hay que cambiarlo **antes de la primera subida** (después no se puede): `applicationId`
    en `apps/<app>/android/app/build.gradle.kts`, `PRODUCT_BUNDLE_IDENTIFIER` en
