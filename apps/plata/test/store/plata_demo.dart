@@ -31,11 +31,11 @@ Future<void> seedDemo(Ledger l, {required bool spanish, bool withNotices = true}
   await l.addAccount(Account(id: 'cdt', name: tr('CDT a 6 meses', '6-month CD'), type: AccountType.investment, icon: 'trending', color: 0xFF00695C, initialMinor: cop(5000000)));
   cash.order = 10;
 
-  Future<void> tx(DateTime d, TxKind k, int pesos, String account, String? category, _Desc desc, {String? to, int installments = 1}) async {
+  Future<void> txMinor(DateTime d, TxKind k, int minor, String account, String? category, _Desc desc, {String? to, int installments = 1}) async {
     await l.addTx(Tx(
       id: newId(),
       kind: k,
-      amountMinor: cop(pesos),
+      amountMinor: minor,
       accountId: account,
       toAccountId: to,
       categoryId: category,
@@ -45,6 +45,8 @@ Future<void> seedDemo(Ledger l, {required bool spanish, bool withNotices = true}
       createdAt: d,
     ));
   }
+
+  Future<void> tx(DateTime d, TxKind k, int pesos, String account, String? category, _Desc desc, {String? to, int installments = 1}) => txMinor(d, k, cop(pesos), account, category, desc, to: to, installments: installments);
 
   const _Desc salary = _Desc('Quincena', 'Paycheck');
   const _Desc rent = _Desc('Arriendo apartamento', 'Apartment rent');
@@ -127,16 +129,24 @@ Future<void> seedDemo(Ledger l, {required bool spanish, bool withNotices = true}
     if (m == 6 || m == 9) {
       await add(26, TxKind.expense, m == 6 ? 189000 : 254000, 'tarjeta', 'c_personal_clothing_shoes', clothes, hour: 16);
     }
-    // Ahorro al bolsillo y pago de la tarjeta
+    // Compras a cuotas en la tarjeta
+    if (m == 6) {
+      await tx(DateTime(2026, 6, 10, 15, 20), TxKind.expense, 1689000, 'tarjeta', 'c_personal', const _Desc('Celular nuevo', 'New phone'), installments: 6);
+    }
+    if (m == 8) {
+      await tx(DateTime(2026, 8, 22, 11, 5), TxKind.expense, 2399900, 'tarjeta', 'c_household_furniture_appliances', const _Desc('Nevera', 'Refrigerator'), installments: 12);
+    }
+    // Ahorro al bolsillo y pago de la tarjeta: el día 5 se paga completo el
+    // estado de cuenta que cortó el 15 del mes anterior (lo que ya está anotado
+    // hasta ese corte, con sus cuotas).
     await add(16, TxKind.transfer, 300000, 'ahorros', null, saving, to: 'viaje', hour: 8);
-    await add(5, TxKind.transfer, 980000 + v * 45000, 'ahorros', null, cardPayment, to: 'tarjeta', hour: 10);
+    final int due = l.statement(l.account('tarjeta')!, date: DateTime(2026, m - 1, 15)).dueMinor;
+    if (due > 0 && past(day(5, 10))) {
+      await txMinor(day(5, 10), TxKind.transfer, due, 'ahorros', null, cardPayment, to: 'tarjeta');
+    }
     // Retiro de efectivo
     await add(2, TxKind.transfer, 100000, 'ahorros', null, const _Desc('Retiro en cajero', 'ATM withdrawal'), to: 'a_cash', hour: 18);
   }
-  // Compras a cuotas en la tarjeta
-  await tx(DateTime(2026, 6, 10, 15, 20), TxKind.expense, 1689000, 'tarjeta', 'c_personal', const _Desc('Celular nuevo', 'New phone'), installments: 6);
-  await tx(DateTime(2026, 8, 22, 11, 5), TxKind.expense, 2399900, 'tarjeta', 'c_household_furniture_appliances', const _Desc('Nevera', 'Refrigerator'), installments: 12);
-
   // ------------------------------------------------------- presupuestos
   final DateTime june = DateTime(2026, 6);
   await l.addBudget(Budget(id: 'b_mercado', name: tr('Mercado', 'Groceries'), amountMinor: cop(950000), categoryIds: <String>['c_food_groceries'], startDate: june));

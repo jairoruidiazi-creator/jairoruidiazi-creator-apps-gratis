@@ -283,6 +283,7 @@ void main() {
       await tester.tap(find.byType(BackButton));
       await settle(tester);
       await openMore(tester, 'Guía y acerca de');
+      await tester.scrollUntilVisible(find.text('Acerca de Plata'), 200, scrollable: find.byType(Scrollable).first);
       expect(find.text('Acerca de Plata'), findsOneWidget);
       await tester.tap(find.byType(BackButton));
       await settle(tester);

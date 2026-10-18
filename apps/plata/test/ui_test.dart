@@ -225,6 +225,8 @@ void main() {
         await goTab(tester, 'Más');
         await openMore(tester, 'Ajustes');
         await tester.scrollUntilVisible(find.text('English'), 200, scrollable: find.byType(Scrollable).first);
+        await tester.ensureVisible(find.text('English'));
+        await settle(tester);
         await tester.tap(find.text('English'));
         await settle(tester);
         await back(tester);
