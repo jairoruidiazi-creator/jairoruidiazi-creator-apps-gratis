@@ -36,24 +36,28 @@ class SettingsScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 40),
             children: <Widget>[
               _Section(t(context, 'Idioma y apariencia', 'Language and appearance')),
-              _left(SegmentedButton<String>(
-                segments: <ButtonSegment<String>>[
-                  ButtonSegment<String>(value: 'device', label: Text(t(context, 'Idioma del teléfono', 'Phone language'))),
-                  const ButtonSegment<String>(value: 'es', label: Text('Español')),
-                  const ButtonSegment<String>(value: 'en', label: Text('English')),
+              // Tres opciones que en un teléfono angosto no caben en una fila:
+              // pasan a la siguiente.
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: <Widget>[
+                  for (final String option in const <String>['device', 'es', 'en'])
+                    ChoiceChip(
+                      label: Text(option == 'device' ? t(context, 'Idioma del teléfono', 'Phone language') : (option == 'es' ? 'Español' : 'English')),
+                      selected: (st.followsDeviceLanguage ? 'device' : st.language) == option,
+                      onSelected: (bool _) {
+                        if (option == 'device') {
+                          st.useDeviceLanguage();
+                        } else {
+                          st.language = option;
+                        }
+                        s.location.localeIdentifier = st.geocoderLocale;
+                        save();
+                      },
+                    ),
                 ],
-                selected: <String>{st.followsDeviceLanguage ? 'device' : st.language},
-                showSelectedIcon: false,
-                onSelectionChanged: (Set<String> v) {
-                  if (v.first == 'device') {
-                    st.useDeviceLanguage();
-                  } else {
-                    st.language = v.first;
-                  }
-                  s.location.localeIdentifier = st.geocoderLocale;
-                  save();
-                },
-              )),
+              ),
               const SizedBox(height: 8),
               _left(SegmentedButton<String>(
                 segments: <ButtonSegment<String>>[

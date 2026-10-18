@@ -332,6 +332,7 @@ void main() {
       await restore(ok, 'Copia restaurada');
       expect(File(ok).existsSync(), isFalse);
       // La carpeta del selector quedó vacía y también se borró.
+      await waitReal(tester, () => !Directory(inbox).existsSync());
       expect(Directory(inbox).existsSync(), isFalse);
       // Un archivo que no es una copia: falla y la copia igual se borra.
       Directory(inbox).createSync(recursive: true);
