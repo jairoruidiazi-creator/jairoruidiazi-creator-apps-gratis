@@ -66,6 +66,10 @@ void main() {
       await settle(tester);
       await typeAmount(tester, '450000');
       expect(find.text('¿Es el pago mínimo?'), findsNothing);
+      // Pregunta si ya se pagó (G1 de la ronda 5): todavía no.
+      expect(find.text('¿Ya lo pagaste?'), findsOneWidget);
+      await tester.tap(find.text('Todavía no'));
+      await settle(tester);
       expect(find.textContaining(r'El resto ($ 3.550.000) queda como deuda de antes de Plata'), findsOneWidget);
       await tester.tap(find.text('Guardar'));
       await settle(tester);

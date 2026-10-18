@@ -56,7 +56,9 @@ class Account {
     this.statementDueMinor,
     this.statementCut,
     Map<String, int>? statementMinimums,
-  }) : statementMinimums = statementMinimums ?? <String, int>{};
+    List<String>? paidStatements,
+  })  : statementMinimums = statementMinimums ?? <String, int>{},
+        paidStatements = paidStatements ?? <String>[];
 
   final String id;
   String name;
@@ -99,6 +101,10 @@ class Account {
   /// (`dayKey`). Solo contra un mínimo conocido se declara un pago vencido.
   final Map<String, int> statementMinimums;
 
+  /// Extractos (por fecha de corte) que la persona dijo que ya pagó, aunque el
+  /// pago no esté anotado en Plata: con ellos nunca se declara mora.
+  final List<String> paidStatements;
+
   bool get isCredit => type == AccountType.credit;
   bool get isPocket => type == AccountType.pocket;
   bool get isDebit => type == AccountType.debit;
@@ -125,6 +131,7 @@ class Account {
         'statementDueMinor': statementDueMinor,
         'statementCut': statementCut?.toIso8601String(),
         'statementMinimums': statementMinimums,
+        'paidStatements': paidStatements,
       };
 
   static Account fromJson(Map<String, dynamic> j) => Account(
@@ -152,6 +159,7 @@ class Account {
           for (final MapEntry<String, dynamic> e in ((j['statementMinimums'] as Map<String, dynamic>?) ?? <String, dynamic>{}).entries)
             if (e.value is num) e.key: (e.value as num).toInt(),
         },
+        paidStatements: <String>[for (final dynamic x in (j['paidStatements'] as List<dynamic>?) ?? <dynamic>[]) x.toString()],
       );
 }
 

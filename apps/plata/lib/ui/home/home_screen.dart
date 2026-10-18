@@ -135,7 +135,7 @@ class HomeScreen extends StatelessWidget {
                       dense: true,
                       leading: IconBadge(icon: c.account.icon, color: c.account.color, size: 34),
                       title: Text('${t(context, 'Pago', 'Payment')} ${c.account.name}'),
-                      subtitle: Text('${t(context, 'Vence', 'Due')} ${formatDate(c.statement.cycle.payDate, 'EEE dd MMM', spanish: s.settings.spanish)} · ${t(context, 'capital estimado', 'estimated principal')}'),
+                      subtitle: Text('${t(context, 'Vence', 'Due')} ${payDateText(context, l, c.account, c.statement.cycle.payDate)} · ${t(context, 'capital estimado', 'estimated principal')}'),
                       trailing: Text(money(context, c.statement.dueMinor, c.account.currency), style: const TextStyle(fontWeight: FontWeight.w700)),
                       onTap: () => openCardPayment(context, c.account, c.statement.dueMinor),
                     ),
@@ -400,7 +400,7 @@ class _AccountCard extends StatelessWidget {
         sub = overdueLabel(context, due.overdueSince!);
         subColor = kindColor(context, TxKind.expense);
       } else if (st.dueMinor > 0) {
-        sub = '${t(context, 'Pagar', 'Pay')} ${money(context, st.dueMinor, account.currency, compact: true)} · ${formatDate(st.cycle.payDate, 'dd MMM', spanish: l.spanish)}';
+        sub = '${t(context, 'Pagar', 'Pay')} ${money(context, st.dueMinor, account.currency, compact: true)} · ${dayText(context, l.effectivePayDate(account, st.cycle.payDate))}';
       } else if (balance > 0) {
         sub = t(context, 'Saldo a favor', 'Credit balance');
       } else {

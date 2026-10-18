@@ -136,7 +136,7 @@ void main() {
     // Con el permiso dado, sale en la siguiente sincronización.
     n.granted = true;
     await Reminders.sync(ledger: l, settings: settings, notifier: n, now: DateTime(2026, 10, 6, 9));
-    expect(n.shown, <String>['Pago vencido: Visa']);
+    expect(n.shown, <String>['Revisa el pago de Visa']);
     expect(settings.overdueNotified, hasLength(1));
     // En iOS el AppDelegate es el delegado del centro de notificaciones, para
     // que se vean con la app abierta.

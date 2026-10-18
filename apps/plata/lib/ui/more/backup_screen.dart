@@ -27,6 +27,22 @@ class BackupScreen extends StatefulWidget {
   State<BackupScreen> createState() => _BackupScreenState();
 }
 
+/// Nombre legible de una copia automática: «18 oct 2026» o «18 oct 2026 ·
+/// antes de restaurar (09:12)», en vez del nombre del archivo.
+String backupLabel(BuildContext context, String rel) {
+  final String name = rel.split('/').last;
+  final RegExpMatch? m = RegExp(r'^plata-(\d{4})-(\d{2})-(\d{2})(?:-antes-(\d{2})(\d{2})\d{2}(?:-\d+)?)?\.json\.enc$').firstMatch(name);
+  if (m == null) {
+    return name;
+  }
+  final DateTime day = DateTime(int.parse(m.group(1)!), int.parse(m.group(2)!), int.parse(m.group(3)!));
+  final String date = dayText(context, day, year: true);
+  if (m.group(4) == null) {
+    return date;
+  }
+  return '$date · ${t(context, 'antes de restaurar', 'before restoring')} (${m.group(4)}:${m.group(5)})';
+}
+
 /// Avisa con claridad que el archivo elegido no es una copia de Plata.
 Future<void> showNotPlata(BuildContext context, String name) => showDialog<void>(
       context: context,
@@ -305,7 +321,7 @@ class _BackupScreenState extends State<BackupScreen> {
                       s.settings.save();
                     },
                     title: Text(t(context, 'Copia automática diaria', 'Daily automatic copy')),
-                    subtitle: Text(t(context, 'Se guardan las últimas 7 en el almacenamiento privado de la app (se pierden si desinstalas).', 'The last 7 are kept in the app private storage (lost if you uninstall).')),
+                    subtitle: Text(t(context, 'Se guardan las últimas 7 diarias y las 5 de antes de restaurar, en el almacenamiento privado de la app (se pierden si desinstalas).', 'The last 7 daily copies and the 5 made before restoring are kept in the app private storage (lost if you uninstall).')),
                   ),
                   if (s.settings.lastBackupAt != null) Padding(padding: const EdgeInsets.fromLTRB(16, 0, 16, 8), child: Text('${t(context, 'Última', 'Last')}: ${formatDate(s.settings.lastBackupAt!, 'dd MMM yyyy HH:mm', spanish: s.settings.spanish)}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))),
                   Padding(
@@ -337,7 +353,7 @@ class _BackupScreenState extends State<BackupScreen> {
                   ListTile(
                     dense: true,
                     leading: const Icon(Icons.restore_page_outlined),
-                    title: Text(rel.split('/').last),
+                    title: Text(backupLabel(context, rel)),
                     trailing: TextButton(
                       onPressed: _busy
                           ? null

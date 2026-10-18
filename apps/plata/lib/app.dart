@@ -9,12 +9,14 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/app_scope.dart';
 import 'core/camera_draft.dart';
 import 'core/lock.dart';
+import 'core/notifications.dart';
 import 'core/reminders.dart';
 import 'model/models.dart';
 import 'ui/budgets/budgets_screen.dart';
 import 'ui/home/home_screen.dart';
 import 'ui/lock_screen.dart';
 import 'ui/more/backup_screen.dart';
+import 'ui/more/cards_screen.dart';
 import 'ui/more/more_screen.dart';
 import 'ui/reports/reports_screen.dart';
 import 'ui/transactions/tx_editor.dart';
@@ -274,14 +276,42 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _s ??= AppScope.of(context);
+    _notificationTaps ??= _s!.notifier.responses.listen(_onNotification);
     if (!_started) {
       _started = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_startup()));
     }
   }
 
+  StreamSubscription<NotifierResponse>? _notificationTaps;
+
+  /// Un toque en un aviso de pago pendiente (`o:<tarjeta>:<corte>`): su botón
+  /// «Ya lo pagué» marca ese extracto como pagado; tocar el aviso abre
+  /// Tarjetas.
+  void _onNotification(NotifierResponse r) {
+    final Services? s = _s;
+    if (s == null || !mounted) {
+      return;
+    }
+    final List<String> parts = r.payload.split(':');
+    if (parts.length != 3 || parts.first != 'o') {
+      return;
+    }
+    final Account? card = s.ledger.account(parts[1]);
+    final DateTime? cut = DateTime.tryParse(parts[2]);
+    if (card == null || cut == null) {
+      return;
+    }
+    if (r.actionId == Notifier.paidAction) {
+      markPaidFromBanner(context, card, cut, s.ledger.cardDue(card).overdueMinor);
+    } else {
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CardsScreen()));
+    }
+  }
+
   @override
   void dispose() {
+    unawaited(_notificationTaps?.cancel());
     WidgetsBinding.instance.removeObserver(this);
     _reminders?.stop();
     unawaited(_s?.notices.stop());
@@ -340,8 +370,14 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       debugPrint('Programados: $e');
     }
     try {
+      // El idioma antes de iniciar: iOS registra ahí el botón «Ya lo pagué».
+      s.notifier.setLanguage(spanish: s.settings.spanish);
       await s.notifier.init();
       await _checkNotifications(s);
+      final NotifierResponse? launch = await s.notifier.launchResponse();
+      if (launch != null) {
+        _onNotification(launch);
+      }
       _reminders = ReminderScheduler(ledger: s.ledger, settings: s.settings, notifier: s.notifier, private: () => s.settings.hideBalances || s.lock.enabled, privacy: s.lock)..start();
     } catch (e) {
       debugPrint('Recordatorios: $e');

@@ -180,7 +180,7 @@ void main() {
       });
       await settle(tester);
       // Solo el estimado de Plata: se informa, sin hablar de mora.
-      const String info = r'Según lo anotado, quedan $ 1.000.000 del extracto del 30 sep; si pagaste el mínimo del banco, anótalo.';
+      const String info = r'Según lo anotado, quedan $ 1.000.000 del extracto del 30 sep. Si ya pagaste, regístralo; si pagaste solo el mínimo del banco, anótalo.';
       expect(find.text(info), findsOneWidget);
       expect(find.textContaining('Vencido'), findsNothing);
       await goTab(tester, 'Más');
@@ -188,12 +188,15 @@ void main() {
       expect(find.byType(UnconfirmedBanner), findsOneWidget);
       expect(find.byType(OverdueBanner), findsNothing);
       // Se anota el mínimo que pidió el banco y no está pagado: ahora sí vence.
-      await tester.tap(find.text('Anotar el mínimo'));
+      await tester.tap(find.widgetWithText(TextButton, 'Anotar'));
       await settle(tester);
       for (final String k in <String>['8', '0', '0', '0', '0']) {
         await tapKey(tester, k);
       }
       await tester.tap(find.text('Listo'));
+      await settle(tester);
+      expect(find.text('¿Ya lo pagaste?'), findsOneWidget);
+      await tester.tap(find.text('Todavía no'));
       await settle(tester);
       expect(find.byType(OverdueBanner), findsOneWidget);
       expect(find.text(r'Vencido desde el 15 oct: faltan $ 80.000 del pago mínimo'), findsOneWidget);

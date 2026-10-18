@@ -8,6 +8,7 @@ import '../model/money.dart';
 import 'bank_rules.dart';
 import 'crypto_store.dart';
 import 'defaults.dart';
+import 'holidays.dart';
 import 'key_setup.dart';
 import 'periods.dart';
 import 'storage.dart';
@@ -2030,7 +2031,19 @@ class Ledger extends ChangeNotifier {
         adjustCredit = -legacy;
         legacy = 0;
       }
-      final int payments = s.payments + adjustCredit;
+      int payments = s.payments + adjustCredit;
+      // Un extracto que la persona dijo que ya pagó (fuera de Plata) cuenta
+      // como abonado su mínimo conocido, si lo anotado no llega a él: así el
+      // estado siguiente no lo arrastra como saldo sin pagar.
+      if (card.paidStatements.isNotEmpty && isStatementPaid(card, cut)) {
+        final int? minimum = statementMinimum(card, cut);
+        if (minimum != null) {
+          final int logged = _creditsBetween(card, cut, CardCycle.current(card, cut).payDate);
+          if (minimum > logged) {
+            payments += minimum - logged;
+          }
+        }
+      }
       int balance = carry + s.purchases + s.advances + s.installments - payments;
       int toLegacy = 0;
       if (balance < 0 && legacy > 0) {
@@ -2082,26 +2095,61 @@ class Ledger extends ChangeNotifier {
     final CardCycle current = CardCycle.current(card, today);
     final CardCycle prev = current.previous(card);
     CardStatement next;
-    if (!prev.payDate.isBefore(today)) {
+    // La fecha límite que cae en sábado, domingo o festivo se corre al
+    // siguiente día hábil: hasta ese día el extracto sigue siendo el próximo.
+    if (!effectivePayDate(card, prev.payDate).isBefore(today) && !isStatementPaid(card, prev.cut)) {
       final CardStatement closed = statement(card, date: prev.cut);
       next = closed.dueMinor > 0 ? closed : statement(card, date: today);
     } else {
       next = statement(card, date: today);
     }
     CardCycle passed = prev;
-    for (int i = 0; i < 3 && !passed.payDate.isBefore(today); i++) {
+    for (int i = 0; i < 3 && !effectivePayDate(card, passed.payDate).isBefore(today); i++) {
       passed = passed.previous(card);
     }
-    if (!passed.payDate.isBefore(today) || passed.cut.isBefore(_cardBook(card).firstCut)) {
+    final DateTime due = effectivePayDate(card, passed.payDate);
+    if (!due.isBefore(today) || passed.cut.isBefore(_cardBook(card).firstCut) || isStatementPaid(card, passed.cut)) {
+      // Sin extracto vencido, de antes de Plata, o que la persona dijo que ya
+      // pagó: no hay nada que avisar.
       return CardDue(next: next);
     }
     final int? minimum = statementMinimum(card, passed.cut);
     if (minimum != null) {
       final int late = minimum - _creditsBetween(card, passed.cut, today);
-      return CardDue(next: next, overdueMinor: late > 0 ? late : 0, overdueSince: late > 0 ? passed.payDate : null, statementCut: passed.cut, statementPayDate: passed.payDate);
+      return CardDue(next: next, overdueMinor: late > 0 ? late : 0, overdueSince: late > 0 ? due : null, statementCut: passed.cut, statementPayDate: due);
     }
     final int left = statement(card, date: passed.cut).dueMinor - _creditsBetween(card, passed.payDate, today);
-    return CardDue(next: next, unconfirmedMinor: left > 0 ? left : 0, statementCut: passed.cut, statementPayDate: passed.payDate);
+    return CardDue(next: next, unconfirmedMinor: left > 0 ? left : 0, statementCut: passed.cut, statementPayDate: due);
+  }
+
+  /// Fecha límite real de un pago: la nominal o, si cae en sábado, domingo o
+  /// festivo de Colombia, el siguiente día hábil (art. 829 del Código de
+  /// Comercio y práctica de los bancos). Se aplica a las tarjetas en pesos y
+  /// a las de un libro en pesos; para las demás se deja la nominal.
+  DateTime effectivePayDate(Account card, DateTime nominal) {
+    if (card.currency != 'COP' && baseCurrency != 'COP') {
+      return dateOnly(nominal);
+    }
+    return ColombianHolidays.nextBusinessDay(nominal);
+  }
+
+  /// Si la persona dijo que ya pagó el extracto que cortó en [cut].
+  bool isStatementPaid(Account card, DateTime cut) => card.paidStatements.contains(dayKey(cut));
+
+  /// Marca (o desmarca) como pagado el extracto que cortó en [cut], aunque el
+  /// pago no esté anotado: desde Tarjetas, al anotar el mínimo o desde la
+  /// notificación de pago pendiente.
+  void markStatementPaid(Account card, DateTime cut, {bool paid = true}) {
+    final String key = dayKey(cut);
+    card.paidStatements.remove(key);
+    if (paid) {
+      card.paidStatements.add(key);
+      card.paidStatements.sort();
+      while (card.paidStatements.length > 24) {
+        card.paidStatements.removeAt(0);
+      }
+    }
+    save();
   }
 
   /// Pago mínimo conocido del extracto que cortó en [cut]: el que se anotó
@@ -2480,8 +2528,37 @@ class Ledger extends ChangeNotifier {
     }
     item.status = 'accepted';
     item.accountId = a.id;
+    linkNoticeToScheduled(item, t);
     save();
     return t;
+  }
+
+  /// Un aviso confirmado que es la ocurrencia de un programado (marcado
+  /// `programado:<id>` al llegar, o con la misma cuenta, monto y fecha
+  /// cercana): el movimiento queda como de ese programado y el programado
+  /// pasa a su siguiente fecha, como si se hubiera anotado él. Así no queda
+  /// retenido para siempre y los meses siguientes se anotan solos.
+  Scheduled? linkNoticeToScheduled(InboxItem item, Tx t) {
+    if (t.kind == TxKind.transfer) {
+      return null;
+    }
+    Scheduled? s;
+    final String? mark = item.duplicateOf;
+    if (mark != null && mark.startsWith('programado:')) {
+      final String id = mark.substring('programado:'.length);
+      s = scheduled.where((Scheduled x) => x.id == id).firstOrNull;
+    }
+    s ??= scheduledDuplicateFor(item);
+    if (s == null || !s.enabled || effectiveAccountId(s.accountId) != effectiveAccountId(t.accountId) || s.amountMinor != t.amountMinor || daysBetween(s.nextDate, t.date).abs() > 2) {
+      return null;
+    }
+    t.scheduledId = s.id;
+    s.lastPosted = t.date;
+    s.nextDate = s.frequency.next(dateOnly(s.nextDate), anchor: s.anchorDate);
+    if (s.endDate != null && s.nextDate.isAfter(s.endDate!)) {
+      s.enabled = false;
+    }
+    return s;
   }
 
   void dismissInbox(InboxItem item) {

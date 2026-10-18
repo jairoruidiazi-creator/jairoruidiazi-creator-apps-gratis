@@ -130,7 +130,7 @@ void main() {
       expect(n.shown, isEmpty);
       l.setStatementMinimum(l.account('tc')!, DateTime(2026, 9, 15), 8000000);
       await Reminders.sync(ledger: l, settings: settings, notifier: n, now: DateTime(2026, 10, 6, 8));
-      expect(n.shown, <String>['Pago vencido: Visa']);
+      expect(n.shown, <String>['Revisa el pago de Visa']);
       expect(n.log.last, contains('vencía el 05 oct'));
       await Reminders.sync(ledger: l, settings: settings, notifier: n, now: DateTime(2026, 10, 6, 9));
       expect(n.shown, hasLength(1));

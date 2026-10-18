@@ -62,26 +62,26 @@ void main() {
       // El 3 dic paga el mínimo del banco ($ 80.000 = 1/24 + intereses).
       l.setStatementMinimum(tc, DateTime(2026, 11, 15), 8000000);
       await l.addTx(pay('minimo', 8000000, d(2026, 12, 3)));
-      final CardDue dec6 = l.cardDue(tc, now: DateTime(2026, 12, 6));
+      final CardDue dec6 = l.cardDue(tc, now: DateTime(2026, 12, 8));
       expect(dec6.overdue, isFalse);
       expect(dec6.unconfirmed, isFalse);
-      expect(await mora(DateTime(2026, 12, 6, 8)), isEmpty);
+      expect(await mora(DateTime(2026, 12, 8, 8)), isEmpty);
       // Las cuotas que faltan se ven como las de las compras.
-      expect(l.remainingInstallments(advance, now: DateTime(2026, 12, 6)), 22);
+      expect(l.remainingInstallments(advance, now: DateTime(2026, 12, 8)), 22);
     });
 
     test('un avance anotado a 1 cuota (como antes) ya no produce mora falsa: sin mínimo es informativo', () async {
       final Account tc = await card();
       await l.addTx(Tx(id: 'avance', kind: TxKind.transfer, amountMinor: 120000000, accountId: 'tc', toAccountId: 'a_cash', date: d(2026, 10, 20)));
       await l.addTx(pay('minimo', 8000000, d(2026, 12, 3)));
-      final CardDue dec6 = l.cardDue(tc, now: DateTime(2026, 12, 6));
+      final CardDue dec6 = l.cardDue(tc, now: DateTime(2026, 12, 8));
       expect(dec6.overdue, isFalse);
       expect(dec6.unconfirmed, isTrue);
       expect(dec6.unconfirmedMinor, 112000000);
-      expect(await mora(DateTime(2026, 12, 6, 8)), isEmpty);
+      expect(await mora(DateTime(2026, 12, 8, 8)), isEmpty);
       // Con el mínimo del banco anotado y pagado, ni eso.
       l.setStatementMinimum(tc, DateTime(2026, 11, 15), 8000000);
-      final CardDue paid = l.cardDue(tc, now: DateTime(2026, 12, 6));
+      final CardDue paid = l.cardDue(tc, now: DateTime(2026, 12, 8));
       expect(paid.overdue, isFalse);
       expect(paid.unconfirmed, isFalse);
     });
@@ -97,12 +97,12 @@ void main() {
       final Account tc = await card();
       await l.addTx(Tx(id: 'tv', kind: TxKind.expense, amountMinor: 240000000, accountId: 'tc', date: d(2026, 10, 20), source: 'notice'));
       await l.addTx(pay('minimo', 15000000, d(2026, 12, 2)));
-      final CardDue estimate = l.cardDue(tc, now: DateTime(2026, 12, 6));
+      final CardDue estimate = l.cardDue(tc, now: DateTime(2026, 12, 8));
       expect(estimate.overdue, isFalse);
       expect(estimate.unconfirmedMinor, 225000000);
-      expect(await mora(DateTime(2026, 12, 6, 8)), isEmpty);
+      expect(await mora(DateTime(2026, 12, 8, 8)), isEmpty);
       l.setStatementMinimum(tc, DateTime(2026, 11, 15), 15000000);
-      expect(l.cardDue(tc, now: DateTime(2026, 12, 6)).overdue, isFalse);
+      expect(l.cardDue(tc, now: DateTime(2026, 12, 8)).overdue, isFalse);
     });
 
     test('el caso que ya funcionaba: con el mínimo anotado y sin pagar, está vencido y avisa una vez', () async {
@@ -111,18 +111,19 @@ void main() {
       l.setStatementMinimum(tc, DateTime(2026, 11, 15), 5000000);
       // Pagó menos del mínimo después del corte.
       await l.addTx(pay('poco', 2000000, d(2026, 11, 20)));
-      final CardDue dec6 = l.cardDue(tc, now: DateTime(2026, 12, 6));
+      final CardDue dec6 = l.cardDue(tc, now: DateTime(2026, 12, 8));
       expect(dec6.overdue, isTrue);
       expect(dec6.overdueMinor, 3000000);
-      expect(dec6.overdueSince, DateTime(2026, 12, 5));
-      expect(await mora(DateTime(2026, 12, 6, 8)), <String>['Pago vencido: Visa']);
+      // El 5 de diciembre de 2026 es sábado: la fecha límite real es el lunes 7.
+      expect(dec6.overdueSince, DateTime(2026, 12, 7));
+      expect(await mora(DateTime(2026, 12, 8, 8)), <String>['Revisa el pago de Visa']);
       // Un pago antes del corte ya está en el extracto (el mínimo lo tiene en
       // cuenta): no se suma a lo pagado después del corte.
       await l.addTx(pay('antes', 3000000, d(2026, 11, 10)));
-      expect(l.cardDue(tc, now: DateTime(2026, 12, 6)).overdueMinor, 3000000);
+      expect(l.cardDue(tc, now: DateTime(2026, 12, 8)).overdueMinor, 3000000);
       // Pagar de más que el mínimo deja la tarjeta al día.
-      await l.addTx(pay('resto', 9000000, d(2026, 12, 7)));
-      expect(l.cardDue(tc, now: DateTime(2026, 12, 8)).overdue, isFalse);
+      await l.addTx(pay('resto', 9000000, d(2026, 12, 9)));
+      expect(l.cardDue(tc, now: DateTime(2026, 12, 10)).overdue, isFalse);
     });
 
     test('un reverso después del corte cuenta como abono; una devolución no crea mora', () async {
@@ -130,7 +131,7 @@ void main() {
       await l.addTx(Tx(id: 'c', kind: TxKind.expense, amountMinor: 50000000, accountId: 'tc', date: d(2026, 10, 20)));
       l.setStatementMinimum(tc, DateTime(2026, 11, 15), 5000000);
       await l.addTx(Tx(id: 'rev', kind: TxKind.income, amountMinor: 50000000, accountId: 'tc', categoryId: 'c_food', date: d(2026, 11, 18)));
-      expect(l.cardDue(tc, now: DateTime(2026, 12, 6)).overdue, isFalse);
+      expect(l.cardDue(tc, now: DateTime(2026, 12, 8)).overdue, isFalse);
     });
 
     test('el mínimo anotado se guarda con la tarjeta', () async {

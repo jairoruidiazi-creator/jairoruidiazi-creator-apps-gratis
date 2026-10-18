@@ -12,11 +12,14 @@ import 'settings.dart';
 
 /// Un aviso que la sincronización quiere dejar programado.
 class _Planned {
-  const _Planned({required this.when, required this.title, required this.body});
+  const _Planned({required this.when, required this.title, required this.body, this.payload});
 
   final DateTime when;
   final String title;
   final String body;
+
+  /// Para los avisos de pago pendiente: `o:<tarjeta>:<corte>`.
+  final String? payload;
 }
 
 /// Programa los recordatorios locales a partir del libro: registro diario,
@@ -125,16 +128,19 @@ class Reminders {
           // Vencido contra un pago mínimo que la persona anotó: se avisa de
           // inmediato, una sola vez por fecha límite. Sin mínimo conocido no
           // hay aviso de mora (ver Ledger.cardDue).
+          // Tono prudente: es lo que dice lo anotado en Plata, y puede que el
+          // pago se haya hecho fuera. El aviso trae «Ya lo pagué».
           final String since = spanish ? formatDate(due.overdueSince!, 'dd MMM') : formatDate(due.overdueSince!, 'MMM dd', spanish: false);
           final String amount = amountOf(due.overdueMinor, a.currency);
           overdue.add(MapEntry<String, _Planned>(
             'o:${a.id}:${dayKey(due.overdueSince!)}',
             _Planned(
               when: moment,
-              title: spanish ? 'Pago vencido: ${a.name}' : 'Overdue payment: ${a.name}',
+              title: spanish ? 'Revisa el pago de ${a.name}' : 'Check your ${a.name} payment',
               body: private
-                  ? (spanish ? 'La fecha límite fue el $since. Págalo cuanto antes.' : 'It was due on $since. Pay it as soon as you can.')
-                  : (spanish ? 'Faltan $amount del pago mínimo que vencía el $since. Págalo cuanto antes.' : '$amount of the minimum payment due on $since is still unpaid. Pay it as soon as you can.'),
+                  ? (spanish ? 'Según lo anotado en Plata, el pago mínimo que vencía el $since no está completo. Si ya pagaste, toca «Ya lo pagué».' : 'According to what you logged in Plata, the minimum payment due on $since is not complete. If you already paid, tap "I already paid".')
+                  : (spanish ? 'Según lo anotado en Plata, faltan $amount del pago mínimo que vencía el $since. Si ya pagaste, toca «Ya lo pagué».' : 'According to what you logged in Plata, $amount of the minimum payment due on $since is missing. If you already paid, tap "I already paid".'),
+              payload: 'o:${a.id}:${dayKey(due.statementCut!)}',
             ),
           ));
         }
@@ -148,7 +154,9 @@ class Reminders {
           final bool first = k == 0;
           final bool worth = first ? st.dueMinor > 0 : ledger.balanceMinor(a.id) < 0;
           if (worth && when.isAfter(moment)) {
-            final String date = spanish ? formatDate(pay, 'dd MMM') : formatDate(pay, 'MMM dd', spanish: false);
+            // La fecha que se dice es la real (corrida si cae en un día no hábil).
+            final DateTime real = ledger.effectivePayDate(a, pay);
+            final String date = spanish ? formatDate(real, 'dd MMM') : formatDate(real, 'MMM dd', spanish: false);
             final String due0 = amountOf(st.dueMinor, a.currency);
             planned[idFor('c:${a.id}:${dayKey(pay)}')] = _Planned(
               when: when,
@@ -199,7 +207,7 @@ class Reminders {
         }
         // Solo se da por avisado si de verdad se mostró (con permiso): si no,
         // se vuelve a intentar en la próxima sincronización.
-        if (await notifier.showNow(id: idFor(e.key), title: e.value.title, body: e.value.body, private: private)) {
+        if (await notifier.showNow(id: idFor(e.key), title: e.value.title, body: e.value.body, private: private, payload: e.value.payload, paidButton: true)) {
           told.add(e.key);
           changed = true;
         }

@@ -57,6 +57,27 @@ Color? balanceColor(BuildContext context, Account a, int balance) {
   return v < 0 ? kindColor(context, TxKind.expense) : null;
 }
 
+/// Fecha corta en el formato del idioma: «lun 07 dic 2026» / «Mon Dec 07
+/// 2026» (el día de la semana y el año, si se piden). Un solo formato por
+/// idioma en toda la pantalla de tarjetas.
+String dayText(BuildContext context, DateTime d, {bool weekday = false, bool year = false}) {
+  final bool es = AppScope.of(context).settings.spanish;
+  final String base = es ? 'dd MMM' : 'MMM dd';
+  final String pattern = '${weekday ? 'EEE ' : ''}$base${year ? ' yyyy' : ''}';
+  return formatDate(d, pattern, spanish: es);
+}
+
+/// Fecha límite de un pago de tarjeta: la real y, si se corrió porque la
+/// nominal no es hábil, cuál era: «lun 07 dic (el sáb 05 no es hábil)».
+String payDateText(BuildContext context, Ledger l, Account card, DateTime nominal, {bool year = false}) {
+  final DateTime real = l.effectivePayDate(card, nominal);
+  final String shown = dayText(context, real, weekday: true, year: year);
+  if (real == dateOnly(nominal)) {
+    return shown;
+  }
+  return '$shown ${t(context, '(el ${dayText(context, nominal, weekday: true)} no es hábil)', '(${dayText(context, nominal, weekday: true)} is not a business day)')}';
+}
+
 /// «Vencido desde el 05 oct» / «Overdue since Oct 05».
 String overdueLabel(BuildContext context, DateTime since) {
   final bool es = AppScope.of(context).settings.spanish;
@@ -403,14 +424,14 @@ Future<String?> askSecret(BuildContext context, String title, {String? help, boo
   return v;
 }
 
-Future<bool> confirm(BuildContext context, String title, String body, {String? yes}) async {
+Future<bool> confirm(BuildContext context, String title, String body, {String? yes, String? no}) async {
   final bool? ok = await showDialog<bool>(
     context: context,
     builder: (BuildContext context) => AlertDialog(
       title: Text(title),
       content: Text(body),
       actions: <Widget>[
-        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t(context, 'Cancelar', 'Cancel'))),
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(no ?? t(context, 'Cancelar', 'Cancel'))),
         FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(yes ?? t(context, 'Aceptar', 'OK'))),
       ],
     ),

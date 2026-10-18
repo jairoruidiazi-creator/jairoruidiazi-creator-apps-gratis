@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show Color;
 
 import 'package:clock/clock.dart';
@@ -5,8 +6,28 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+/// Lo que hizo la persona con un aviso: tocarlo ([actionId] nulo) o tocar
+/// uno de sus botones. [payload] dice de qué era (por ejemplo,
+/// `o:<tarjeta>:<corte>` para un pago pendiente).
+class NotifierResponse {
+  const NotifierResponse({required this.payload, this.actionId});
+
+  final String payload;
+  final String? actionId;
+}
+
 /// Recordatorios locales (facturas y registro diario). Sin servidor.
 abstract class Notifier {
+  /// Botón «Ya lo pagué» del aviso de pago pendiente.
+  static const String paidAction = 'pagado';
+
+  /// Toques en los avisos y en sus botones mientras la app está abierta (o
+  /// la abren: los botones traen la app al frente).
+  Stream<NotifierResponse> get responses;
+
+  /// El aviso con que se abrió la app, si se abrió desde uno.
+  Future<NotifierResponse?> launchResponse();
+
   Future<void> init();
 
   /// Si la app puede mostrar notificaciones, sin preguntarle nada al usuario
@@ -34,8 +55,9 @@ abstract class Notifier {
 
   /// Aviso inmediato (por ejemplo, un pago de tarjeta que se venció).
   /// Devuelve si de verdad se mostró: sin permiso, o si el sistema lo
-  /// rechaza, es falso y quien llama puede volver a intentarlo después.
-  Future<bool> showNow({required int id, required String title, required String body, bool private = false});
+  /// rechaza, es falso y quien llama puede volver a intentarlo después. Con
+  /// [paidButton], el aviso trae el botón «Ya lo pagué» ([paidAction]).
+  Future<bool> showNow({required int id, required String title, required String body, bool private = false, String? payload, bool paidButton = false});
 
   /// Avisos programados que aún no se han mostrado.
   Future<List<int>> pendingIds();
@@ -56,6 +78,23 @@ class NoopNotifier implements Notifier {
   int requests = 0;
   int settingsOpened = 0;
   final List<String> log = <String>[];
+
+  /// Botones y datos de los avisos mostrados, por id.
+  final Map<int, String> payloads = <int, String>{};
+  final Set<int> withPaidButton = <int>{};
+  final StreamController<NotifierResponse> _responses = StreamController<NotifierResponse>.broadcast();
+
+  /// Respuesta con que "se abrió" la app (pruebas).
+  NotifierResponse? launch;
+
+  /// Simula que la persona toca un aviso o uno de sus botones.
+  void respond(NotifierResponse r) => _responses.add(r);
+
+  @override
+  Stream<NotifierResponse> get responses => _responses.stream;
+
+  @override
+  Future<NotifierResponse?> launchResponse() async => launch;
 
   /// Avisos programados por id: `daily:20:30:título` o `at:<fecha>:título:texto`.
   final Map<int, String> pending = <int, String>{};
@@ -110,7 +149,13 @@ class NoopNotifier implements Notifier {
   }
 
   @override
-  Future<bool> showNow({required int id, required String title, required String body, bool private = false}) async {
+  Future<bool> showNow({required int id, required String title, required String body, bool private = false, String? payload, bool paidButton = false}) async {
+    if (payload != null) {
+      payloads[id] = payload;
+    }
+    if (paidButton) {
+      withPaidButton.add(id);
+    }
     if (granted != true) {
       log.add('blocked:$title');
       return false;
@@ -158,7 +203,36 @@ class LocalNotifier implements Notifier {
 
   /// El canal se crea (o se renombra) con cada aviso programado, en el idioma
   /// actual de la app.
-  NotificationDetails _details({required bool private}) => NotificationDetails(
+  final StreamController<NotifierResponse> _responses = StreamController<NotifierResponse>.broadcast();
+
+  @override
+  Stream<NotifierResponse> get responses => _responses.stream;
+
+  static NotifierResponse? _from(NotificationResponse r) {
+    final String? payload = r.payload;
+    return payload == null || payload.isEmpty ? null : NotifierResponse(payload: payload, actionId: r.actionId);
+  }
+
+  @override
+  Future<NotifierResponse?> launchResponse() async {
+    await init();
+    if (!_ready) {
+      return null;
+    }
+    try {
+      final NotificationAppLaunchDetails? d = await _plugin.getNotificationAppLaunchDetails();
+      final NotificationResponse? r = d?.notificationResponse;
+      return d != null && d.didNotificationLaunchApp && r != null ? _from(r) : null;
+    } catch (e) {
+      debugPrint('Aviso de arranque: $e');
+      return null;
+    }
+  }
+
+  /// Categoría de iOS con el botón «Ya lo pagué» (se registra al iniciar).
+  static const String _paidCategory = 'plata_pago';
+
+  NotificationDetails _details({required bool private, bool paidButton = false}) => NotificationDetails(
         android: AndroidNotificationDetails(
           'plata_recordatorios',
           _spanish ? 'Recordatorios' : 'Reminders',
@@ -170,8 +244,10 @@ class LocalNotifier implements Notifier {
           // Con clave o saldos ocultos, la pantalla de bloqueo solo dice que hay
           // un aviso de Plata.
           visibility: private ? NotificationVisibility.private : NotificationVisibility.public,
+          // El botón trae la app al frente, que es donde se marca el pago.
+          actions: paidButton ? <AndroidNotificationAction>[AndroidNotificationAction(Notifier.paidAction, _spanish ? 'Ya lo pagué' : 'I already paid', showsUserInterface: true)] : null,
         ),
-        iOS: const DarwinNotificationDetails(),
+        iOS: DarwinNotificationDetails(categoryIdentifier: paidButton ? _paidCategory : null),
       );
 
   @override
@@ -190,10 +266,25 @@ class LocalNotifier implements Notifier {
     tz.setLocalLocation(_local);
     try {
       await _plugin.initialize(
-        settings: const InitializationSettings(
-          android: AndroidInitializationSettings(_icon),
-          iOS: DarwinInitializationSettings(requestAlertPermission: false, requestBadgePermission: false, requestSoundPermission: false),
+        settings: InitializationSettings(
+          android: const AndroidInitializationSettings(_icon),
+          iOS: DarwinInitializationSettings(
+            requestAlertPermission: false,
+            requestBadgePermission: false,
+            requestSoundPermission: false,
+            notificationCategories: <DarwinNotificationCategory>[
+              DarwinNotificationCategory(_paidCategory, actions: <DarwinNotificationAction>[
+                DarwinNotificationAction.plain(Notifier.paidAction, _spanish ? 'Ya lo pagué' : 'I already paid', options: const <DarwinNotificationActionOption>{DarwinNotificationActionOption.foreground}),
+              ]),
+            ],
+          ),
         ),
+        onDidReceiveNotificationResponse: (NotificationResponse r) {
+          final NotifierResponse? n = _from(r);
+          if (n != null) {
+            _responses.add(n);
+          }
+        },
       );
       _ready = true;
     } catch (e) {
@@ -287,13 +378,13 @@ class LocalNotifier implements Notifier {
   }
 
   @override
-  Future<bool> showNow({required int id, required String title, required String body, bool private = false}) async {
+  Future<bool> showNow({required int id, required String title, required String body, bool private = false, String? payload, bool paidButton = false}) async {
     await init();
     if (!_ready || await permissionStatus() != true) {
       return false;
     }
     try {
-      await _plugin.show(id: id, title: title, body: body, notificationDetails: _details(private: private));
+      await _plugin.show(id: id, title: title, body: body, notificationDetails: _details(private: private, paidButton: paidButton), payload: payload);
       return true;
     } catch (e) {
       debugPrint('No se pudo mostrar el aviso: $e');

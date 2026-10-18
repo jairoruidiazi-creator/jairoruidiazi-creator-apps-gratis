@@ -109,7 +109,7 @@ class _AccountRow extends StatelessWidget {
       if (due.overdue) {
         sub.add(overdueLabel(context, due.overdueSince!).toLowerCase());
       } else if (st.dueMinor > 0) {
-        sub.add('${t(context, 'pagar', 'pay')} ${money(context, st.dueMinor, a.currency, compact: true)} ${t(context, 'el', 'on')} ${formatDate(st.cycle.payDate, 'dd MMM', spanish: l.spanish)}');
+        sub.add('${t(context, 'pagar', 'pay')} ${money(context, st.dueMinor, a.currency, compact: true)} ${t(context, 'el', 'on')} ${dayText(context, l.effectivePayDate(a, st.cycle.payDate))}');
       }
       final int? available = l.availableCreditMinor(a);
       if (available != null) {
@@ -440,8 +440,13 @@ class _AccountEditorState extends State<AccountEditor> {
     // Si la fecha límite de ese extracto ya pasó, lo que se escriba queda
     // vencido: se dice, para que quien ya lo pagó escriba 0.
     final bool passed = cycle.payDate.isBefore(dateOnly(clock.now()));
-    final String late = passed ? t(context, ' Ya venció: si lo pagaste, escribe 0.', ' It is already past due: if you paid it, enter 0.') : '';
-    final String rest = v == null
+    // Siempre se dice: quien instala Plata justo después de pagar el extracto
+    // no debe anotarlo como pendiente (terminaría en una mora falsa).
+    final String late = passed ? t(context, ' Ya venció.', ' It is already past due.') : '';
+    final String paidHint = t(context, 'Si ya lo pagaste, escribe 0 (o contesta «Sí» cuando Plata pregunte).', 'If you already paid it, enter 0 (or answer "Yes" when Plata asks).');
+    final String rest = v == 0
+        ? t(context, 'Ese extracto ya está pagado: de él no vence nada, y toda la deuda queda como deuda de antes de Plata.', 'That statement is already paid: nothing from it is due, and all the debt is kept as debt from before Plata.')
+        : v == null
         ? t(context, 'Si no lo sabes, déjalo en blanco: toda la deuda queda como deuda de antes de Plata y no se suma a ningún pago.', 'If you do not know it, leave it blank: all the debt is kept as debt from before Plata and is not added to any payment.')
         : t(context, 'El resto (${money(context, debt - v.clamp(0, debt), _currency)}) queda como deuda de antes de Plata: cuenta en la deuda y el cupo, pero no en el próximo pago. Si pagas al menos el mínimo, la tarjeta queda al día.', 'The rest (${money(context, debt - v.clamp(0, debt), _currency)}) is kept as debt from before Plata: it counts toward the debt and the limit, but not the next payment. If you pay at least the minimum, the card is up to date.');
     // El extracto colombiano trae dos cifras: el pago mínimo (la cuota del mes)
@@ -474,14 +479,28 @@ class _AccountEditorState extends State<AccountEditor> {
                       return;
                     }
                   }
-                  setState(() => _statementDue = n.clamp(0, debt));
+                  // ¿Ya se pagó? Pagado, de ese extracto no queda nada por vencer.
+                  bool paid = false;
+                  if (n > 0) {
+                    paid = await confirm(
+                      context,
+                      t(context, '¿Ya lo pagaste?', 'Have you already paid it?'),
+                      t(context, 'Si ya pagaste este mínimo, Plata no lo cuenta como pendiente: tu próximo pago empieza en cero y nunca te avisará mora por este extracto.', 'If you already paid this minimum, Plata does not count it as pending: your next payment starts at zero and it will never warn you about this statement.'),
+                      yes: t(context, 'Sí, ya lo pagué', 'Yes, I paid it'),
+                      no: t(context, 'Todavía no', 'Not yet'),
+                    );
+                    if (!context.mounted) {
+                      return;
+                    }
+                  }
+                  setState(() => _statementDue = paid ? 0 : n.clamp(0, debt));
                 },
               ),
             ),
             if (v != null) IconButton(tooltip: t(context, 'No lo sé', 'I do not know'), icon: const Icon(Icons.clear), onPressed: () => setState(() => _statementDue = null)),
           ],
         ),
-        Padding(padding: const EdgeInsets.only(top: 4), child: Text('$what $which$late $rest', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant))),
+        Padding(padding: const EdgeInsets.only(top: 4), child: Text('$what $which$late $paidHint $rest', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant))),
       ],
     );
   }

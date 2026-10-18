@@ -101,7 +101,6 @@ class _CardPanelState extends State<_CardPanel> {
     final Ledger l = s.ledger;
     final Account c = widget.card;
     final ColorScheme cs = Theme.of(context).colorScheme;
-    final bool es = s.settings.spanish;
     CardCycle cycle = CardCycle.current(c, clock.now());
     for (int i = 0; i < _back; i++) {
       cycle = cycle.previous(c);
@@ -158,7 +157,7 @@ class _CardPanelState extends State<_CardPanel> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(t(context, 'Próximo pago (capital estimado)', 'Next payment (estimated principal)'), style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer.withValues(alpha: 0.8))),
-                        Text('${t(context, 'vence', 'due')} ${formatDate(next.cycle.payDate, 'EEE dd MMM', spanish: es)} · ${t(context, 'corte', 'closing')} ${formatDate(next.cycle.cut, 'dd MMM', spanish: es)}', style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer)),
+                        Text('${t(context, 'vence', 'due')} ${payDateText(context, l, c, next.cycle.payDate)} · ${t(context, 'corte', 'closing')} ${dayText(context, next.cycle.cut)}', style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer)),
                         if ((due.overdue || due.unconfirmed) && next.previousMinor > 0) Text(t(context, 'Incluye lo que quedó del extracto anterior', 'Includes what was left of the previous statement'), style: TextStyle(fontSize: 12, color: cs.onPrimaryContainer)),
                       ],
                     ),
@@ -174,8 +173,8 @@ class _CardPanelState extends State<_CardPanel> {
                 Expanded(
                   child: Text(
                     lastMinimum == null
-                        ? t(context, 'Pago mínimo del extracto del ${formatDate(lastClosed.cut, 'dd MMM', spanish: true)}: sin anotar', 'Minimum payment on the ${formatDate(lastClosed.cut, 'MMM dd', spanish: false)} statement: not entered')
-                        : '${t(context, 'Pago mínimo del extracto del ${formatDate(lastClosed.cut, 'dd MMM', spanish: true)}', 'Minimum payment on the ${formatDate(lastClosed.cut, 'MMM dd', spanish: false)} statement')}: ${money(context, lastMinimum, c.currency)}',
+                        ? t(context, 'Pago mínimo del extracto del ${dayText(context, lastClosed.cut)}: sin anotar', 'Minimum payment on the ${dayText(context, lastClosed.cut)} statement: not entered')
+                        : '${t(context, 'Pago mínimo del extracto del ${dayText(context, lastClosed.cut)}', 'Minimum payment on the ${dayText(context, lastClosed.cut)} statement')}: ${money(context, lastMinimum, c.currency)}${l.isStatementPaid(c, lastClosed.cut) ? t(context, ' · pagado', ' · paid') : ''}',
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                 ),
@@ -185,7 +184,7 @@ class _CardPanelState extends State<_CardPanel> {
             Row(
               children: <Widget>[
                 IconButton(tooltip: t(context, 'Ciclo anterior', 'Previous cycle'), icon: const Icon(Icons.chevron_left), onPressed: () => setState(() => _back += 1)),
-                Expanded(child: Text('${formatDate(st.cycle.start, 'dd MMM', spanish: es)} – ${formatDate(st.cycle.cut, 'dd MMM yyyy', spanish: es)}', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600))),
+                Expanded(child: Text('${dayText(context, st.cycle.start)} – ${dayText(context, st.cycle.cut, year: true)}', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600))),
                 IconButton(tooltip: t(context, 'Ciclo siguiente', 'Next cycle'), icon: const Icon(Icons.chevron_right), onPressed: _back == 0 ? null : () => setState(() => _back -= 1)),
               ],
             ),
@@ -203,7 +202,7 @@ class _CardPanelState extends State<_CardPanel> {
               _row(context, t(context, 'Saldo a favor', 'Credit balance'), money(context, st.creditMinor, c.currency), bold: true)
             else
               _row(context, t(context, 'Capital del estado de cuenta', 'Statement principal'), money(context, st.dueMinor, c.currency), bold: true),
-            Text('${t(context, 'Fecha límite de pago', 'Payment due date')}: ${formatDate(st.cycle.payDate, 'EEE dd MMM yyyy', spanish: es)}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+            Text('${t(context, 'Fecha límite de pago', 'Payment due date')}: ${payDateText(context, l, c, st.cycle.payDate, year: true)}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
             const SizedBox(height: 4),
             if (balance > 0)
               _row(context, t(context, 'Saldo a favor hoy', 'Credit balance today'), money(context, balance, c.currency))
@@ -222,7 +221,7 @@ class _CardPanelState extends State<_CardPanel> {
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   title: Text(tx.description.isEmpty ? (l.category(tx.categoryId)?.name ?? '') : tx.description, maxLines: 1, overflow: TextOverflow.ellipsis),
-                  subtitle: Text('${formatDate(tx.date, 'dd MMM yyyy', spanish: es)} · ${tx.installments - l.remainingInstallments(tx)}/${tx.installments} ${t(context, 'facturadas', 'billed')}'),
+                  subtitle: Text('${dayText(context, tx.date, year: true)} · ${tx.installments - l.remainingInstallments(tx)}/${tx.installments} ${t(context, 'facturadas', 'billed')}'),
                   trailing: Text('${money(context, Ledger.installmentAmount(tx.amountMinor, tx.installments, 1, unit: unit), c.currency, compact: true)}/${t(context, 'cuota', 'inst.')}'),
                   onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => TxEditor(existing: tx))),
                 ),
@@ -281,31 +280,85 @@ class OverdueBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text('${overdueLabel(context, due.overdueSince!)}: ${t(context, 'faltan', 'still owed')} ${money(context, due.overdueMinor, card.currency)} ${t(context, 'del pago mínimo', 'of the minimum payment')}', style: TextStyle(fontWeight: FontWeight.w700, color: cs.onErrorContainer)),
-                Text(t(context, 'Paga cuanto antes: el banco cobra intereses de mora y puede reportarlo.', 'Pay as soon as you can: the bank charges late interest and may report it.'), style: TextStyle(fontSize: 12, color: cs.onErrorContainer)),
+                Text(t(context, 'Según lo anotado en Plata. Si no lo has pagado, hazlo cuanto antes: el banco cobra intereses de mora y puede reportarlo. Si ya pagaste, regístralo o toca «Ya lo pagué».', 'According to what you logged in Plata. If you have not paid it, do it as soon as you can: the bank charges late interest and may report it. If you already paid, log it or tap "Already paid".'), style: TextStyle(fontSize: 12, color: cs.onErrorContainer)),
               ],
             ),
           ),
-          TextButton(onPressed: () => openCardPayment(context, card, due.overdueMinor), child: Text(t(context, 'Pagar', 'Pay'), style: TextStyle(color: cs.onErrorContainer))),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: <Widget>[
+              TextButton(onPressed: () => openCardPayment(context, card, due.overdueMinor), child: Text(t(context, 'Pagar', 'Pay'), style: TextStyle(color: cs.onErrorContainer))),
+              TextButton(onPressed: () => markPaidFromBanner(context, card, due.statementCut!, due.overdueMinor), child: Text(t(context, 'Ya lo pagué', 'Already paid'), style: TextStyle(color: cs.onErrorContainer))),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
+/// Respuesta a «¿Ya lo pagaste?».
+enum _Paid { notYet, paid, paidAndLog }
+
 /// Pide el pago mínimo que el banco cobra en el extracto que cortó en [cut]
-/// y lo anota en la tarjeta.
-Future<void> askStatementMinimum(BuildContext context, Account card, DateTime cut) async {
+/// y lo anota en la tarjeta. Enseguida pregunta si ya se pagó: un mínimo que
+/// ya se pagó fuera de Plata, anotado como pendiente, terminaría en una mora
+/// falsa. Con [alreadyPaid] (el botón «Pagué solo el mínimo») no pregunta.
+Future<void> askStatementMinimum(BuildContext context, Account card, DateTime cut, {bool alreadyPaid = false}) async {
   final Ledger l = AppScope.of(context).ledger;
-  final bool es = AppScope.of(context).settings.spanish;
   final int? v = await pickAmount(
     context,
     initialMinor: l.statementMinimum(card, cut) ?? 0,
     currency: card.currency,
-    title: es ? 'Pago mínimo del extracto del ${formatDate(cut, 'dd MMM', spanish: true)}' : 'Minimum payment on the ${formatDate(cut, 'MMM dd', spanish: false)} statement',
+    title: t(context, 'Pago mínimo del extracto del ${dayText(context, cut)}', 'Minimum payment on the ${dayText(context, cut)} statement'),
   );
-  if (v != null) {
-    l.setStatementMinimum(card, cut, v);
+  if (v == null || !context.mounted) {
+    return;
   }
+  l.setStatementMinimum(card, cut, v);
+  if (v == 0) {
+    return;
+  }
+  _Paid answer = _Paid.paid;
+  if (!alreadyPaid) {
+    answer = await showDialog<_Paid>(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext c) => AlertDialog(
+            title: Text(t(c, '¿Ya lo pagaste?', 'Have you already paid it?')),
+            content: Text(t(c, 'Si ya pagaste este mínimo (en la app del banco, por ejemplo), Plata lo da por pagado y no te avisará mora por este extracto. Si lo pagaste desde una cuenta que tienes en Plata, regístralo para que el saldo cuadre.', 'If you already paid this minimum (in your bank app, for example), Plata counts it as paid and will not warn you about this statement. If you paid from an account you have in Plata, log it so the balance adds up.')),
+            actions: <Widget>[
+              TextButton(onPressed: () => Navigator.pop(c, _Paid.notYet), child: Text(t(c, 'Todavía no', 'Not yet'))),
+              TextButton(onPressed: () => Navigator.pop(c, _Paid.paid), child: Text(t(c, 'Sí, ya lo pagué', 'Yes, I paid it'))),
+              FilledButton(onPressed: () => Navigator.pop(c, _Paid.paidAndLog), child: Text(t(c, 'Sí, registrar el pago', 'Yes, log the payment'))),
+            ],
+          ),
+        ) ??
+        _Paid.notYet;
+  }
+  if (answer == _Paid.notYet || !context.mounted) {
+    return;
+  }
+  l.markStatementPaid(card, cut);
+  if (answer == _Paid.paidAndLog) {
+    await openCardPayment(context, card, v);
+  } else if (alreadyPaid) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(t(context, 'El extracto queda pagado. Si lo pagaste desde una cuenta que tienes en Plata, regístralo.', 'The statement is marked as paid. If you paid from an account you have in Plata, log it.')),
+      action: SnackBarAction(label: t(context, 'Registrar', 'Log'), onPressed: () => openCardPayment(context, card, v)),
+    ));
+  }
+}
+
+/// Marca como pagado el extracto de un aviso de pago pendiente, aunque el
+/// pago no esté anotado, y ofrece registrarlo.
+void markPaidFromBanner(BuildContext context, Account card, DateTime cut, int amount) {
+  AppScope.of(context).ledger.markStatementPaid(card, cut);
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    content: Text(t(context, 'Marcado como pagado. Si lo pagaste desde una cuenta que tienes en Plata, regístralo.', 'Marked as paid. If you paid from an account you have in Plata, log it.')),
+    action: SnackBarAction(label: t(context, 'Registrar', 'Log'), onPressed: () => openCardPayment(context, card, amount)),
+  ));
 }
 
 /// Sin un mínimo conocido, lo que el estimado de Plata dice que quedó de un
@@ -331,8 +384,10 @@ class UnconfirmedBanner extends StatelessWidget {
           Wrap(
             alignment: WrapAlignment.end,
             children: <Widget>[
-              TextButton(onPressed: () => askStatementMinimum(context, card, due.statementCut!), child: Text(t(context, 'Anotar el mínimo', 'Enter the minimum'))),
-              TextButton(onPressed: () => openCardPayment(context, card, due.unconfirmedMinor), child: Text(t(context, 'Registrar pago', 'Log payment'))),
+              // Primero, registrar el pago: es lo más común (un pago que no se
+              // anotó). Aparte, quien pagó solo el mínimo lo anota ya pagado.
+              TextButton(onPressed: () => openCardPayment(context, card, due.unconfirmedMinor), child: Text(t(context, 'Ya pagué: registrar el pago', 'I paid: log the payment'))),
+              TextButton(onPressed: () => askStatementMinimum(context, card, due.statementCut!, alreadyPaid: true), child: Text(t(context, 'Pagué solo el mínimo: anotarlo', 'I paid only the minimum: enter it'))),
             ],
           ),
         ],
@@ -347,6 +402,6 @@ String unconfirmedText(BuildContext context, CardDue due, String currency) {
   final bool es = AppScope.of(context).settings.spanish;
   final String amount = money(context, due.unconfirmedMinor, currency);
   return es
-      ? 'Según lo anotado, quedan $amount del extracto del ${formatDate(due.statementCut!, 'dd MMM', spanish: true)}; si pagaste el mínimo del banco, anótalo.'
-      : 'According to what you logged, $amount is left of the ${formatDate(due.statementCut!, 'MMM dd', spanish: false)} statement; if you paid the bank minimum, enter it.';
+      ? 'Según lo anotado, quedan $amount del extracto del ${dayText(context, due.statementCut!)}. Si ya pagaste, regístralo; si pagaste solo el mínimo del banco, anótalo.'
+      : 'According to what you logged, $amount is left of the ${dayText(context, due.statementCut!)} statement. If you already paid, log it; if you paid only the bank minimum, enter it.';
 }

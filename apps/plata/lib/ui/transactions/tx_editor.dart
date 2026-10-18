@@ -457,6 +457,10 @@ class _TxEditorState extends State<TxEditor> {
     if (widget.inbox != null) {
       widget.inbox!.status = 'accepted';
       widget.inbox!.accountId = _accountId;
+      // Si el aviso era la ocurrencia de un programado, el programado avanza.
+      if (e == null) {
+        l.linkNoticeToScheduled(widget.inbox!, tx);
+      }
       l.save();
     }
     await l.deleteAttachmentFiles(_savedAttachments.difference(_attachments.toSet()));
