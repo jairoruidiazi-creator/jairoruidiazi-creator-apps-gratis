@@ -32,7 +32,11 @@ void main() {
   late FakeKeepAwake keepAwake;
   final List<String> log = <String>[];
 
+  late StreamController<CameraInterruption> interruptions;
+
   setUp(() async {
+    interruptions = StreamController<CameraInterruption>.broadcast();
+    CameraScreen.interruptions = () => interruptions.stream;
     tmp = await Directory.systemTemp.createTemp('sello_camera');
     SharedPreferences.setMockInitialValues(<String, Object>{});
     log.clear();
@@ -58,6 +62,7 @@ void main() {
   });
 
   tearDown(() async {
+    await interruptions.close();
     await acc.close();
     await mag.close();
     await tmp.delete(recursive: true);
@@ -357,7 +362,7 @@ void main() {
     }
     await pumpMany(tester);
     expect(camera.disposed, 0);
-    expect(find.textContaining('dejó de responder'), findsNothing);
+    expect(find.textContaining('Otra app está usando la cámara'), findsNothing);
     expect(labeled('Tomar foto'), findsOneWidget);
 
     // Linterna y cambio a la frontal: la linterna no pasa a la frontal, que
@@ -374,7 +379,7 @@ void main() {
     expect(camera.calls.sublist(before).where((String c) => c.startsWith('flash:')), isEmpty);
     expect(startsWith('Flash'), findsNothing);
     expect(camera.disposed, 1);
-    expect(find.textContaining('dejó de responder'), findsNothing);
+    expect(find.textContaining('Reintentar'), findsNothing);
     // De vuelta a la trasera, la linterna sigue apagada.
     await tester.tap(find.byTooltip('Cambiar cámara'));
     await pumpMany(tester);
@@ -384,7 +389,9 @@ void main() {
     camera.emitError('Optional(Error Domain=AVFoundationErrorDomain Code=-11819 "Cannot Complete Action")');
     await pumpMany(tester);
     expect(camera.disposed, 3);
-    expect(find.textContaining('dejó de responder'), findsOneWidget);
+    expect(find.textContaining('El sistema de la cámara tuvo un error'), findsOneWidget);
+    // El texto técnico de iOS nunca va a la pantalla (M2 de la ronda 4).
+    expect(find.textContaining('AVFoundationErrorDomain'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await pumpMany(tester, 30);
   });
@@ -439,13 +446,77 @@ void main() {
     camera.emitError('The camera was already in use, possibly by a higher-priority camera client.');
     await pumpMany(tester);
     expect(camera.disposed, 1);
-    expect(find.textContaining('dejó de responder'), findsOneWidget);
-    expect(find.textContaining('already in use'), findsOneWidget);
+    // Mensaje propio, en el idioma de la app; el del complemento no se ve.
+    expect(find.textContaining('Otra app está usando la cámara'), findsOneWidget);
+    expect(find.textContaining('already in use'), findsNothing);
     await tester.tap(find.widgetWithText(FilledButton, 'Reintentar'));
     await pumpMany(tester);
     expect(camera.created, 2);
-    expect(find.textContaining('dejó de responder'), findsNothing);
+    expect(find.textContaining('Otra app está usando la cámara'), findsNothing);
     expect(labeled('Tomar foto'), findsOneWidget);
+    // En inglés, el mismo caso con su texto.
+    services.settings.language = 'en';
+    services.settings.refresh();
+    camera.emitError('The camera could not be opened because "Do Not Disturb" mode is enabled. Please disable this mode, and try opening the camera again.');
+    await pumpMany(tester);
+    expect(find.textContaining('Do Not Disturb is on'), findsOneWidget);
+    expect(find.textContaining('Please disable this mode'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpMany(tester);
+  });
+
+  testWidgets('Un error que llega mientras la cámara se abre también se atiende (M5 de la ronda 4)', (WidgetTester tester) async {
+    phone(tester);
+    camera.errorDuringInit = 'The camera was closed due to a fatal error. This may require the Android device be shut down and restarted to restore camera function or may indicate a persistent camera hardware problem.';
+    await tester.pumpWidget(cameraApp());
+    await pumpMany(tester);
+    expect(camera.created, 1);
+    expect(camera.disposed, 1);
+    expect(find.textContaining('El sistema de la cámara tuvo un error'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Reintentar'));
+    await pumpMany(tester);
+    expect(camera.created, 2);
+    expect(labeled('Tomar foto'), findsOneWidget);
+    // Un aviso inofensivo durante la apertura no la cierra.
+    camera.errorDuringInit = kHarmlessCameraXNotices.first;
+    await tester.tap(find.byTooltip('Cambiar cámara'));
+    await pumpMany(tester);
+    expect(camera.created, 3);
+    expect(camera.disposed, 2);
+    expect(find.text('Reintentar'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpMany(tester);
+  });
+
+  testWidgets('iPad con otra app en pantalla: se dice por qué la cámara no está y vuelve sola (M1 de la ronda 4)', (WidgetTester tester) async {
+    phone(tester);
+    await tester.pumpWidget(cameraApp());
+    await pumpMany(tester);
+    expect(labeled('Tomar foto'), findsOneWidget);
+    // iOS interrumpe la sesión (Split View, Slide Over, Stage Manager): la app
+    // sigue activa y sin error de cámara.
+    interruptions.add(const CameraInterruption(interrupted: true, reason: CameraInterruption.multipleForegroundApps));
+    await pumpMany(tester);
+    expect(find.textContaining('otra app en pantalla'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Reintentar'), findsOneWidget);
+    // Al volver a pantalla completa, iOS termina la interrupción y la vista vuelve sola.
+    interruptions.add(const CameraInterruption(interrupted: false));
+    await pumpMany(tester);
+    expect(find.textContaining('otra app en pantalla'), findsNothing);
+    expect(camera.created, 1);
+    // Otra vez, y ahora con «Reintentar»: se cierra y se abre de nuevo.
+    interruptions.add(const CameraInterruption(interrupted: true, reason: CameraInterruption.inUseByAnotherClient));
+    await pumpMany(tester);
+    expect(find.textContaining('Otra app está usando la cámara'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Reintentar'));
+    await pumpMany(tester);
+    expect(camera.disposed, 1);
+    expect(camera.created, 2);
+    expect(labeled('Tomar foto'), findsOneWidget);
+    // La interrupción por pasar a segundo plano no se muestra (la cámara ya se libera por el ciclo de vida).
+    interruptions.add(const CameraInterruption(interrupted: true, reason: CameraInterruption.inBackground));
+    await pumpMany(tester);
+    expect(find.text('Reintentar'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await pumpMany(tester);
   });

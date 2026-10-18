@@ -100,6 +100,31 @@ void main() {
     expect(progress.last[1], greaterThanOrEqualTo(5));
   });
 
+  test('Si la restauración falla a mitad se deshace lo copiado (M3 de la ronda 4)', () async {
+    final AppState source = await testState(a);
+    for (final String id in <String>['f1', 'f2', 'f3']) {
+      await source.store.writeBytes('photos/general/x_$id.jpg', syntheticJpeg(32, 24));
+      await source.addPhoto(PhotoRecord(id: id, projectId: 'general', originalFile: '', stampedFile: 'photos/general/x_$id.jpg', takenAt: DateTime.utc(2026, 3, 9, 12, int.parse(id.substring(1)))));
+    }
+    final String zip = '${a.path}/copia.zip';
+    await writeZipFile(zip, await Backup.entries(source));
+    final AppState target = await testState(b);
+    // Una de las fotos no se puede escribir (como un disco lleno a mitad):
+    // donde iría su temporal hay una carpeta.
+    final List<String> names = (await Backup.entries(source)).map((ArchiveEntry e) => e.name).where((String n) => n.endsWith('.jpg')).toList();
+    final String last = names.last;
+    Directory('${b.path}/sello/$last.tmp-restore').createSync(recursive: true);
+    await expectLater(Backup.restore(zip, target), throwsA(anything));
+    // Ni fichas ni fotos sueltas: las que alcanzaron a copiarse se borraron.
+    expect(target.photos, isEmpty);
+    for (final String n in names) {
+      expect(File('${b.path}/sello/$n').existsSync(), isFalse, reason: n);
+    }
+    final AppState reopened = await testState(b);
+    expect(reopened.photos, isEmpty);
+    expect(reopened.notices, isEmpty);
+  });
+
   test('Un ZIP cualquiera no se toma por una copia', () async {
     final String zip = '${a.path}/otro.zip';
     await writeZipFile(zip, <ArchiveEntry>[const ArchiveEntry.bytes('hola.txt', <int>[104, 111, 108, 97])]);

@@ -1,11 +1,37 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show Locale, WidgetsBinding;
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// Idioma de la app para un idioma del teléfono: español para cualquier
+/// variante de español; inglés para todo lo demás.
+String appLanguageFor(Locale? device) => device?.languageCode.toLowerCase() == 'es' ? 'es' : 'en';
 
 /// Preferencias del usuario.
 class AppSettings extends ChangeNotifier {
+  /// [deviceLocale] es el idioma del teléfono: manda mientras el usuario no
+  /// elija otro en Ajustes. Sin él (pruebas), español.
+  AppSettings({this.deviceLocale});
+
+  /// Con el idioma que tiene el teléfono ahora.
+  factory AppSettings.forDevice() => AppSettings(deviceLocale: WidgetsBinding.instance.platformDispatcher.locale);
+
+  final Locale? deviceLocale;
   SharedPreferences? _prefs;
 
-  String language = 'es';
+  String _language = 'es';
+
+  /// Verdadero si el usuario eligió el idioma en Ajustes; si no, se sigue el
+  /// del teléfono y no se guarda (cambiar el del teléfono cambia el de la app).
+  bool _languageChosen = false;
+
+  String get language => _language;
+  set language(String v) {
+    _language = v;
+    _languageChosen = true;
+  }
+
+  /// Idioma del geocodificador (dirección aproximada), el mismo de la app.
+  String get geocoderLocale => spanish ? 'es_CO' : 'en_US';
   String themeMode = 'system';
   // high | veryHigh | ultraHigh | max. Por defecto la máxima: todo el campo
   // del sensor (4:3), sin el recorte del 16:9 (ver docs/DECISIONES.md).
@@ -41,7 +67,9 @@ class AppSettings extends ChangeNotifier {
   Future<void> load() async {
     final SharedPreferences p = await SharedPreferences.getInstance();
     _prefs = p;
-    language = p.getString('language') ?? 'es';
+    final String? saved = p.getString('language');
+    _languageChosen = saved != null;
+    _language = saved ?? (deviceLocale == null ? 'es' : appLanguageFor(deviceLocale));
     themeMode = p.getString('themeMode') ?? 'system';
     resolution = p.getString('resolution') ?? 'max';
     jpegQuality = p.getInt('jpegQuality') ?? 92;
@@ -71,7 +99,9 @@ class AppSettings extends ChangeNotifier {
     if (p == null) {
       return;
     }
-    await p.setString('language', language);
+    if (_languageChosen) {
+      await p.setString('language', _language);
+    }
     await p.setString('themeMode', themeMode);
     await p.setString('resolution', resolution);
     await p.setInt('jpegQuality', jpegQuality);

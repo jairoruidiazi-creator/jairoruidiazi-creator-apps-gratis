@@ -1,3 +1,4 @@
+import AVFoundation
 import CoreLocation
 import CoreMotion
 import Flutter
@@ -19,6 +20,59 @@ import UIKit
     }
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "SelloFiles") {
       SelloFiles.register(with: registrar)
+    }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "SelloCameraInterruption") {
+      SelloCameraInterruption.register(with: registrar)
+    }
+  }
+}
+
+/// Interrupciones de la sesión de cámara (canal co.appsgratis.sello/camera_interruption).
+///
+/// camera_avfoundation 0.9.23+2 observa `AVCaptureSession.wasInterruptedNotification`
+/// pero no se lo dice al lado Dart: en iPad con otra app en pantalla (Split
+/// View, Slide Over, Stage Manager, ventanas) la app sigue activa y la vista
+/// previa queda congelada. Aquí se escuchan las notificaciones de cualquier
+/// sesión (la del complemento es privada) y se envía
+/// `{"interrupted": true, "reason": <AVCaptureSession.InterruptionReason>}` o
+/// `{"interrupted": false}` cuando termina.
+final class SelloCameraInterruption: NSObject, FlutterStreamHandler {
+  private static var instance: SelloCameraInterruption?
+  private var sink: FlutterEventSink?
+
+  static func register(with registrar: FlutterPluginRegistrar) {
+    let handler = SelloCameraInterruption()
+    let channel = FlutterEventChannel(name: "co.appsgratis.sello/camera_interruption", binaryMessenger: registrar.messenger())
+    channel.setStreamHandler(handler)
+    instance = handler
+  }
+
+  func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+    sink = events
+    let center = NotificationCenter.default
+    center.addObserver(self, selector: #selector(wasInterrupted(_:)), name: AVCaptureSession.wasInterruptedNotification, object: nil)
+    center.addObserver(self, selector: #selector(interruptionEnded(_:)), name: AVCaptureSession.interruptionEndedNotification, object: nil)
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    NotificationCenter.default.removeObserver(self)
+    sink = nil
+    return nil
+  }
+
+  @objc private func wasInterrupted(_ notification: Notification) {
+    let reason = (notification.userInfo?[AVCaptureSessionInterruptionReasonKey] as? NSNumber)?.intValue ?? 0
+    send(["interrupted": true, "reason": reason])
+  }
+
+  @objc private func interruptionEnded(_ notification: Notification) {
+    send(["interrupted": false])
+  }
+
+  private func send(_ event: [String: Any]) {
+    DispatchQueue.main.async { [weak self] in
+      self?.sink?(event)
     }
   }
 }

@@ -188,9 +188,19 @@ class FakeCameraPlatform extends CameraPlatform {
   Future<int> createCamera(CameraDescription cameraDescription, ResolutionPreset? resolutionPreset, {bool enableAudio = false}) =>
       createCameraWithSettings(cameraDescription, MediaSettings(resolutionPreset: resolutionPreset, enableAudio: enableAudio));
 
+  /// Error que la plataforma emite mientras la cámara se abre (lo anota
+  /// CameraController en su valor antes de terminar de abrirla).
+  String? errorDuringInit;
+
   @override
   Future<void> initializeCamera(int cameraId, {ImageFormatGroup imageFormatGroup = ImageFormatGroup.unknown}) async {
     _log('init');
+    final String? early = errorDuringInit;
+    if (early != null) {
+      errorDuringInit = null;
+      _errors.add(CameraErrorEvent(cameraId, early));
+      await Future<void>.microtask(() {});
+    }
     final Completer<void>? gate = initGate;
     if (gate != null) {
       await gate.future;
@@ -427,6 +437,22 @@ class FakeDeviceFiles extends DeviceFiles {
     saved.add(sourcePath);
     savedSizes.add(File(sourcePath).lengthSync());
     return true;
+  }
+
+  /// iPhone: la copia que el selector de archivos deja en tmp (null: cancela).
+  String? toPickCopy;
+  final List<String> deletedCopies = <String>[];
+
+  @override
+  Future<String?> pickZipCopy() async => toPickCopy;
+
+  @override
+  Future<void> deletePickedCopy(String path) async {
+    deletedCopies.add(path);
+    final File f = File(path);
+    if (f.existsSync()) {
+      f.deleteSync();
+    }
   }
 
   @override

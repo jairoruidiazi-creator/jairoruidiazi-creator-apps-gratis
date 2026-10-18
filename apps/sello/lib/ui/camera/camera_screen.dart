@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import '../../core/app_scope.dart';
 import '../../core/capture_session.dart';
 import '../../core/settings.dart';
+import '../../core/user_errors.dart';
 import '../../geo/coords.dart';
 import '../../geo/device_orientation.dart';
 import '../../geo/heading.dart';
@@ -23,6 +24,7 @@ import '../gallery/gallery_screen.dart';
 import '../gallery/photo_detail_screen.dart';
 import '../settings/settings_screen.dart';
 import 'camera_errors.dart';
+import 'camera_interruptions.dart';
 import 'gps_sheet.dart';
 import 'photo_data_sheet.dart';
 
@@ -38,6 +40,11 @@ class CameraScreen extends StatefulWidget {
   /// brújula y la ubicación, y la pantalla puede apagarse.
   final bool active;
 
+  /// De dónde llegan las interrupciones de la sesión de iOS (las pruebas la
+  /// cambian por una simulada).
+  @visibleForTesting
+  static Stream<CameraInterruption> Function() interruptions = systemCameraInterruptions;
+
   @override
   State<CameraScreen> createState() => _CameraScreenState();
 }
@@ -52,6 +59,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   /// Error de la cámara ya abierta (otra app la tomó, el sistema la cerró…).
   String? _runtimeError;
   StreamSubscription<CameraErrorEvent>? _errorSub;
+  StreamSubscription<CameraInterruption>? _interruptionSub;
+
+  /// Motivo de la interrupción de iOS en curso (ver [CameraInterruption]).
+  int _interruptionReason = 0;
 
   /// Disparo en curso (nunca falla): liberar la cámara lo espera para no
   /// perder la foto.
@@ -114,6 +125,9 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       s.session.addListener(_refresh);
       s.queue.addListener(_refresh);
       s.location.geocodingEnabled = s.settings.geocoding;
+      if (widget.enabled) {
+        _interruptionSub = CameraScreen.interruptions().listen(_onInterruption);
+      }
       if (widget.enabled && widget.active) {
         unawaited(_start());
       }
@@ -294,9 +308,11 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         _onCameraError(c, early);
       }
     } on CameraException catch (e) {
-      _error = e.code.startsWith('CameraAccess') || e.code == 'cameraPermission' ? 'denied' : (e.description ?? e.code);
+      debugPrint('No se pudo abrir la cámara: ${e.code} ${e.description}');
+      _error = e.code.startsWith('CameraAccess') || e.code == 'cameraPermission' ? 'denied' : 'open-failed';
     } catch (e) {
-      _error = e.toString();
+      debugPrint('No se pudo abrir la cámara: $e');
+      _error = 'open-failed';
     } finally {
       _refresh();
     }
@@ -345,6 +361,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       debugPrint('Aviso de la cámara (se ignora): $description');
       return;
     }
+    debugPrint('Error de la cámara: $description');
     if (!mounted || !identical(_controller, c) || _runtimeError != null) {
       return;
     }
@@ -352,6 +369,38 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     _error = 'runtime';
     _cancelCountdown();
     unawaited(_releaseCamera());
+  }
+
+  /// iOS interrumpió la sesión (iPad con otra app en pantalla, otra app con
+  /// la cámara, el equipo muy caliente): la vista previa se congela sin error
+  /// y la app sigue activa. Se dice por qué y se ofrece reintentar; cuando la
+  /// interrupción termina, la vista vuelve sola. En segundo plano no hace
+  /// falta: la cámara ya se liberó por el ciclo de vida.
+  void _onInterruption(CameraInterruption e) {
+    if (!mounted) {
+      return;
+    }
+    if (e.interrupted) {
+      if (e.reason == CameraInterruption.inBackground || !_appResumed || !widget.active || _controller == null || _error != null) {
+        return;
+      }
+      debugPrint('Sesión de cámara interrumpida: motivo ${e.reason}');
+      _cancelCountdown();
+      setState(() {
+        _interruptionReason = e.reason;
+        _error = 'interrupted';
+      });
+    } else if (_error == 'interrupted') {
+      setState(() => _error = null);
+    }
+  }
+
+  /// «Reintentar»: cierra lo que haya y abre la cámara de nuevo.
+  Future<void> _retry() async {
+    _error = null;
+    _runtimeError = null;
+    await _releaseCamera();
+    await _initCamera();
   }
 
   Future<void> _restartCamera() async {
@@ -477,6 +526,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
 
   Future<void> _shutter() async {
     final Services s = _services!;
+    // Con la cámara en error o interrumpida no hay qué disparar.
+    if (_error != null) {
+      return;
+    }
     // Tocar el obturador durante la cuenta regresiva la cancela.
     if (_countdown > 0) {
       _cancelCountdown();
@@ -562,7 +615,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         file = await taking;
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'No se pudo tomar la foto', 'Could not take the photo')}: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'No se pudo tomar la foto. Inténtalo de nuevo.', 'Could not take the photo. Try again.'))));
         }
         return;
       }
@@ -582,7 +635,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       _refreshWith(() => _lastId = rec.id);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'Error al guardar', 'Error saving')}: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'No se pudo guardar la foto', 'Could not save the photo')}: ${errorReason(e, spanish: s.settings.spanish)}.')));
       }
     } finally {
       _capturing = false;
@@ -597,6 +650,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _disposing = true;
+    unawaited(_interruptionSub?.cancel());
     _countdownTimer?.cancel();
     _focusTimer?.cancel();
     unawaited(_releaseCamera());
@@ -716,22 +770,20 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                       : (_error == 'no-camera'
                           ? t(context, 'Este equipo no tiene cámara.', 'This device has no camera.')
                           : (_error == 'runtime'
-                              ? t(context, 'La cámara dejó de responder; puede que otra app la esté usando. Toca Reintentar.', 'The camera stopped responding; another app may be using it. Tap Retry.')
-                              : '${t(context, 'Error de cámara', 'Camera error')}: $_error')),
+                              ? cameraFailureMessage(cameraFailureOf(_runtimeError ?? ''), spanish: s.settings.spanish)
+                              : (_error == 'interrupted'
+                                  ? cameraInterruptionMessage(_interruptionReason, spanish: s.settings.spanish)
+                                  : t(context, 'No se pudo abrir la cámara. Toca Reintentar.', 'Could not open the camera. Tap Retry.')))),
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.white),
                 ),
-                if (_error == 'runtime' && (_runtimeError ?? '').isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 6),
-                  Text(_runtimeError!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                ],
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   alignment: WrapAlignment.center,
                   children: <Widget>[
-                    FilledButton(onPressed: _initCamera, child: Text(t(context, 'Reintentar', 'Retry'))),
+                    FilledButton(onPressed: _retry, child: Text(t(context, 'Reintentar', 'Retry'))),
                     if (_error == 'denied') OutlinedButton(style: OutlinedButton.styleFrom(foregroundColor: Colors.white), onPressed: () => s.location.backend.openAppSettings(), child: Text(t(context, 'Abrir ajustes', 'Open settings'))),
                   ],
                 ),

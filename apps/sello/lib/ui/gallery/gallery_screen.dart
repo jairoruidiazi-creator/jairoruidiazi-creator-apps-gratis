@@ -11,6 +11,7 @@ import '../../core/exports.dart';
 import '../../core/report.dart';
 import '../../core/sharing.dart';
 import '../../core/storage.dart';
+import '../../core/user_errors.dart';
 import '../../geo/coords.dart';
 import '../../geo/location_service.dart';
 import '../../model/models.dart';
@@ -385,7 +386,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
       await shareFiles(paths, origin: origin, text: list.length == 1 ? list.first.description : null);
     } catch (e) {
       if (mounted) {
-        _toast('${t(context, 'No se pudo compartir', 'Could not share')}: $e');
+        _toast('${t(context, 'No se pudo compartir', 'Could not share')}: ${errorReason(e, spanish: AppScope.of(context).settings.spanish)}.');
       }
     } finally {
       if (mounted) {
@@ -418,7 +419,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
       _selected.clear();
     } catch (e) {
       if (mounted) {
-        _toast('${t(context, 'No se pudo borrar', 'Could not delete')}: $e');
+        _toast('${t(context, 'No se pudo borrar', 'Could not delete')}: ${errorReason(e, spanish: AppScope.of(context).settings.spanish)}.');
       }
     } finally {
       if (mounted) {
@@ -547,7 +548,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
     } catch (e) {
       progress.close();
       if (mounted) {
-        _toast('${t(context, 'No se pudo exportar', 'Export failed')}: $e');
+        _toast('${t(context, 'No se pudo exportar', 'Export failed')}: ${errorReason(e, spanish: AppScope.of(context).settings.spanish)}.');
       }
     } finally {
       if (mounted) {

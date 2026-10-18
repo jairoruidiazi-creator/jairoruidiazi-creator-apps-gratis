@@ -8,6 +8,7 @@ import '../../core/app_scope.dart';
 import '../../core/app_state.dart';
 import '../../core/maps_links.dart';
 import '../../core/sharing.dart';
+import '../../core/user_errors.dart';
 import '../../geo/coords.dart';
 import '../../model/models.dart';
 import '../../stamp/capture_pipeline.dart';
@@ -250,7 +251,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
       await shareFiles(<String>[f.path], origin: origin, text: <String>[if (p.description.isNotEmpty) p.description, if (link.isNotEmpty) link].join('\n'));
     } catch (e) {
       if (mounted) {
-        _toast('${t(context, 'No se pudo compartir', 'Could not share')}: $e');
+        _toast('${t(context, 'No se pudo compartir', 'Could not share')}: ${errorReason(e, spanish: AppScope.of(context).settings.spanish)}.');
       }
     }
   }
@@ -363,7 +364,8 @@ String _errorText(BuildContext context, String error) {
     case AppState.kErrorRecoveredOriginal:
       return t(context, 'se recuperó de la carpeta sin sus datos de sellado', 'it was recovered from the folder without its stamp data');
   }
-  return error;
+  // Otro error (memoria, disco…): su texto técnico no se muestra.
+  return t(context, 'ocurrió un error inesperado al sellarla', 'an unexpected error occurred while stamping it');
 }
 
 class _StatusBanner extends StatelessWidget {

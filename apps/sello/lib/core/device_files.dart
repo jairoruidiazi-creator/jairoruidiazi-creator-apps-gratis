@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'exports.dart';
 
@@ -58,6 +61,28 @@ class DeviceFiles {
   Future<bool> saveDocument(String sourcePath, String name, {String mime = 'application/zip'}) async {
     final Object? ok = await _channel.invokeMethod<Object>('saveDocument', <String, Object>{'source': sourcePath, 'name': name, 'mime': mime});
     return ok == true;
+  }
+
+  /// iPhone: el selector de archivos del sistema, que copia el ZIP elegido a
+  /// la carpeta temporal de la app (`asCopy`). Devuelve esa copia; null si
+  /// cancela.
+  Future<String?> pickZipCopy() async {
+    const XTypeGroup zip = XTypeGroup(label: 'ZIP', extensions: <String>['zip'], mimeTypes: <String>['application/zip', 'application/x-zip-compressed'], uniformTypeIdentifiers: <String>['public.zip-archive']);
+    return (await openFile(acceptedTypeGroups: <XTypeGroup>[zip]))?.path;
+  }
+
+  /// Borra la copia que dejó [pickZipCopy], solo si está en la carpeta
+  /// temporal de la app (nunca un archivo del usuario).
+  Future<void> deletePickedCopy(String path) async {
+    try {
+      final String tmp = (await getTemporaryDirectory()).resolveSymbolicLinksSync();
+      final File f = File(File(path).resolveSymbolicLinksSync());
+      if (f.path.startsWith('$tmp${Platform.pathSeparator}') && await f.exists()) {
+        await f.delete();
+      }
+    } catch (e) {
+      debugPrint('No se pudo borrar la copia del selector: $e');
+    }
   }
 
   /// Pide al usuario un documento, sin copiarlo todavía. Null si cancela.

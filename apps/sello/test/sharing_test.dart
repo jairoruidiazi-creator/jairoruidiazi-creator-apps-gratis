@@ -286,6 +286,51 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
+    testWidgets('iPhone: la copia que deja el selector en tmp se borra al terminar o al fallar (M4 de la ronda 4)', (WidgetTester tester) async {
+      final String zip = '${tmp.path}/copia.zip';
+      await tester.runAsync(() async {
+        await writeZipFile(zip, await Backup.entries(services.state));
+        await services.state.deletePhotos(services.state.photos.toList());
+      });
+      // Restaurada con éxito.
+      final String copy = '${tmp.path}/tmp/copia-selector.zip';
+      File(copy).parent.createSync(recursive: true);
+      File(zip).copySync(copy);
+      files
+        ..picker = false
+        ..free = 8 * 1024 * 1024 * 1024
+        ..toPickCopy = copy;
+      await openSettings(tester, 'Restaurar una copia');
+      await waitReal(tester, () => find.text('Restaurar').evaluate().isNotEmpty);
+      await tester.tap(find.text('Restaurar'));
+      await waitReal(tester, () => find.textContaining('Copia restaurada').evaluate().isNotEmpty, maxTenths: 150);
+      await waitReal(tester, () => files.deletedCopies.isNotEmpty);
+      expect(files.deletedCopies, <String>[copy]);
+      expect(File(copy).existsSync(), isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+      // Un archivo que no es una copia: falla, y la copia también se borra.
+      final String bad = '${tmp.path}/tmp/otro.zip';
+      await tester.runAsync(() => writeZipFile(bad, <ArchiveEntry>[const ArchiveEntry.bytes('hola.txt', <int>[104, 111, 108, 97])]));
+      files.toPickCopy = bad;
+      await openSettings(tester, 'Restaurar una copia');
+      await waitReal(tester, () => find.text('Restaurar').evaluate().isNotEmpty);
+      await tester.tap(find.text('Restaurar'));
+      await waitReal(tester, () => find.textContaining('no es una copia de Sello').evaluate().isNotEmpty, maxTenths: 150);
+      await waitReal(tester, () => files.deletedCopies.length == 2);
+      expect(File(bad).existsSync(), isFalse);
+      // Y si se cancela en el diálogo.
+      final String third = '${tmp.path}/tmp/tercera.zip';
+      File(zip).copySync(third);
+      files.toPickCopy = third;
+      await tester.pumpWidget(const SizedBox.shrink());
+      await openSettings(tester, 'Restaurar una copia');
+      await waitReal(tester, () => find.text('Cancelar').evaluate().isNotEmpty);
+      await tester.tap(find.text('Cancelar'));
+      await waitReal(tester, () => files.deletedCopies.length == 3);
+      expect(File(third).existsSync(), isFalse);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
     Future<String> backupWithoutPhotos(WidgetTester tester) async {
       final String zip = '${tmp.path}/copia.zip';
       await tester.runAsync(() async {

@@ -89,6 +89,31 @@ class Backup {
     if (!ex.valid) {
       throw const NotABackup();
     }
+    // Si algo falla al agregar las fichas (por ejemplo, el disco se llena al
+    // guardar el índice), se deshace todo: fichas nuevas y archivos copiados.
+    final Set<String> projectsBefore = <String>{for (final Project p in state.projects) p.id};
+    final Set<String> templatesBefore = <String>{for (final StampTemplate t in state.templates) t.id};
+    final Set<String> photosBefore = <String>{for (final PhotoRecord p in state.photos) p.id};
+    try {
+      return await _merge(ex, state);
+    } catch (_) {
+      state.projects.removeWhere((Project p) => !projectsBefore.contains(p.id));
+      state.templates.removeWhere((StampTemplate t) => !templatesBefore.contains(t.id));
+      state.photos.removeWhere((PhotoRecord p) => !photosBefore.contains(p.id));
+      for (final String path in ex.created) {
+        try {
+          File(path).deleteSync();
+        } catch (_) {}
+      }
+      try {
+        await state.saveProjects();
+        await state.savePhotos();
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
+  static Future<RestoreSummary> _merge(_Extracted ex, AppState state) async {
     int projects = 0;
     int templates = 0;
     int photos = 0;
@@ -155,7 +180,10 @@ Object? _decode(String text) {
 }
 
 class _Extracted {
-  const _Extracted({required this.valid, this.projectsJson, this.photosJson, this.files = 0, this.cancelled = false});
+  const _Extracted({required this.valid, this.projectsJson, this.photosJson, this.files = 0, this.cancelled = false, this.created = const <String>[]});
+
+  /// Archivos que se copiaron (para deshacerlo si falla lo que sigue).
+  final List<String> created;
 
   final bool valid;
   final bool cancelled;
@@ -257,18 +285,23 @@ _Extracted _extract(String zipPath, String root, {void Function(int done, int to
     int files = 0;
     final List<ArchiveFile> entries = archive.files.where((ArchiveFile f) => f.isFile).toList();
     final List<String> created = <String>[];
+    // Lo que se alcanzó a copiar se borra si se cancela o algo falla a mitad
+    // (disco lleno, una entrada dañada): sin sus fichas, el reindexado lo
+    // "recuperaría" como fotos sueltas.
+    void undo() {
+      for (final String path in created) {
+        try {
+          File(path).deleteSync();
+        } catch (_) {}
+      }
+    }
+
     int seen = 0;
     for (final ArchiveFile f in entries) {
       progress?.call(seen, entries.length);
       seen++;
       if (cancelled != null && cancelled()) {
-        // Lo que se alcanzó a copiar se borra: sin sus fichas, el reindexado
-        // lo "recuperaría" como fotos sueltas.
-        for (final String path in created) {
-          try {
-            File(path).deleteSync();
-          } catch (_) {}
-        }
+        undo();
         return const _Extracted(valid: true, cancelled: true);
       }
       final String name = f.name.replaceAll('\\', '/');
@@ -287,17 +320,31 @@ _Extracted _extract(String zipPath, String root, {void Function(int done, int to
       if (dest.existsSync()) {
         continue;
       }
-      dest.parent.createSync(recursive: true);
       final String tmp = '${dest.path}.tmp-restore';
-      final OutputFileStream out = OutputFileStream(tmp);
-      f.writeContent(out);
-      out.closeSync();
-      File(tmp).renameSync(dest.path);
+      try {
+        dest.parent.createSync(recursive: true);
+        final OutputFileStream out = OutputFileStream(tmp);
+        try {
+          f.writeContent(out);
+        } finally {
+          out.closeSync();
+        }
+        File(tmp).renameSync(dest.path);
+      } catch (e) {
+        try {
+          final File t = File(tmp);
+          if (t.existsSync()) {
+            t.deleteSync();
+          }
+        } catch (_) {}
+        undo();
+        rethrow;
+      }
       created.add(dest.path);
       files++;
     }
     progress?.call(entries.length, entries.length);
-    return _Extracted(valid: true, projectsJson: projects, photosJson: photos, files: files);
+    return _Extracted(valid: true, projectsJson: projects, photosJson: photos, files: files, created: created);
   } finally {
     input.closeSync();
   }

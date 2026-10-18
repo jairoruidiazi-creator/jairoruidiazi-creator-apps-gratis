@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
 import '../../core/app_state.dart';
+import '../../core/user_errors.dart';
 import '../../geo/coords.dart';
 import '../../model/models.dart';
 import '../../stamp/stamp_data.dart';
@@ -120,7 +121,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
       file = await openFile(acceptedTypeGroups: <XTypeGroup>[images]);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'No se pudo abrir el selector', 'Could not open the picker')}: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'No se pudo abrir el selector', 'Could not open the picker')}: ${errorReason(e, spanish: AppScope.of(context).settings.spanish)}.')));
       }
       return;
     }

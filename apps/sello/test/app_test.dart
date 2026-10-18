@@ -366,6 +366,40 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
+  for (final Locale device in const <Locale>[Locale('en', 'US'), Locale('es', 'CO'), Locale('es', 'MX'), Locale('pt', 'BR')]) {
+    testWidgets('Sin idioma elegido, la app usa el del teléfono: $device (G1 de la ronda 4)', (WidgetTester tester) async {
+      tester.platformDispatcher.localeTestValue = device;
+      tester.platformDispatcher.localesTestValue = <Locale>[device];
+      addTearDown(tester.platformDispatcher.clearLocaleTestValue);
+      addTearDown(tester.platformDispatcher.clearLocalesTestValue);
+      SharedPreferences.setMockInitialValues(<String, Object>{});
+      final AppSettings settings = AppSettings.forDevice();
+      await settings.load();
+      final bool es = device.languageCode == 'es';
+      expect(settings.language, es ? 'es' : 'en');
+      // El geocodificador (dirección aproximada) arranca en el mismo idioma.
+      expect(settings.geocoderLocale, es ? 'es_CO' : 'en_US');
+      final Services s = Services(settings: settings, state: services.state, store: services.store, location: LocationService(), heading: HeadingService());
+      await tester.pumpWidget(SelloApp(services: s, cameraEnabled: false));
+      await tester.pump();
+      expect(find.widgetWithText(NavigationDestination, es ? 'Cámara' : 'Camera'), findsOneWidget);
+      expect(find.widgetWithText(NavigationDestination, es ? 'Galería' : 'Gallery'), findsOneWidget);
+      // Guardar otro ajuste no fija el idioma: si el teléfono cambia, la app lo sigue.
+      settings.grid = false;
+      await settings.save();
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('language'), isNull);
+      // Elegirlo en Ajustes sí lo guarda y manda sobre el del teléfono.
+      settings.language = es ? 'en' : 'es';
+      await settings.save();
+      final AppSettings again = AppSettings.forDevice();
+      await again.load();
+      expect(again.language, es ? 'en' : 'es');
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 1));
+    });
+  }
+
   test('Los ajustes se guardan en preferencias', () async {
     final AppSettings s = services.settings;
     // Sin ajuste guardado, la resolución máxima (M15).

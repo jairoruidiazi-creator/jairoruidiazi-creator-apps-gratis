@@ -22,7 +22,8 @@ Future<void> main() async {
     yield LicenseEntryWithLineBreaks(<String>['Roboto'], await rootBundle.loadString('assets/legal/OFL-Roboto.txt'));
     yield LicenseEntryWithLineBreaks(<String>['DejaVu Sans (Simbolos)'], await rootBundle.loadString('assets/legal/LICENSE-DejaVu.txt'));
   });
-  final AppSettings settings = AppSettings();
+  // Sin idioma elegido, el del teléfono (español o inglés).
+  final AppSettings settings = AppSettings.forDevice();
   await settings.load();
   final JsonStore store = JsonStore();
   // Lo exportado ya se compartió: la copia de la app se borra al abrirla de nuevo.
@@ -36,7 +37,7 @@ Future<void> main() async {
   }
   final LocationService location = LocationService()
     ..geocodingEnabled = settings.geocoding
-    ..localeIdentifier = settings.spanish ? 'es_CO' : 'en_US';
+    ..localeIdentifier = settings.geocoderLocale;
   final HeadingService heading = HeadingService();
   final DeclinationLink declinationLink = DeclinationLink(settings: settings, location: location, heading: heading);
   final Services services = Services(settings: settings, state: state, store: store, location: location, heading: heading, declinationLink: declinationLink);
