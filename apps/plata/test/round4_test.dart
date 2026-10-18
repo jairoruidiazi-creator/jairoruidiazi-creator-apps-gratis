@@ -48,7 +48,7 @@ void main() {
   }
 
   group('G1: avances a cuotas', () {
-    test('el caso del Árbitro: avance de $ 1.200.000 a 24 cuotas, pagar el mínimo del banco no deja la tarjeta vencida', () async {
+    test('el caso del Árbitro: avance de \$ 1.200.000 a 24 cuotas, pagar el mínimo del banco no deja la tarjeta vencida', () async {
       final Account tc = await card();
       final Tx advance = await l.addTx(Tx(id: 'avance', kind: TxKind.transfer, amountMinor: 120000000, accountId: 'tc', toAccountId: 'a_cash', date: d(2026, 10, 20), installments: 24));
       expect(advance.installments, 24);
