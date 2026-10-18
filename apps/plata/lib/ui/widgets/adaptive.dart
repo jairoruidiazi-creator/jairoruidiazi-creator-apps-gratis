@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Ancho desde el que la app usa el diseño de tableta con menú lateral

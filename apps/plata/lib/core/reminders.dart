@@ -26,8 +26,8 @@ class Reminders {
 
   static const int dailyId = 1;
 
-  /// Id estable de un aviso a partir de su clave ("s:<programado>:<fecha>",
-  /// "c:<tarjeta>:<fecha de pago>"): el mismo aviso conserva su id entre una
+  /// Id estable de un aviso a partir de su clave (`s:<programado>:<fecha>`,
+  /// `c:<tarjeta>:<fecha de pago>`): el mismo aviso conserva su id entre una
   /// sincronización y otra, así que se reemplaza en lugar de duplicarse.
   static int idFor(String key) {
     int h = 0x811C9DC5;
@@ -169,7 +169,7 @@ class Reminders {
 /// (un programado nuevo, un pago de tarjeta, otro idioma) los vuelve a
 /// programar, agrupando los cambios seguidos en una sola sincronización.
 class ReminderScheduler {
-  ReminderScheduler({required this.ledger, required this.settings, required this.notifier, this.delay = const Duration(seconds: 2), bool Function()? private}) : _private = private ?? (() => settings.hideBalances);
+  ReminderScheduler({required this.ledger, required this.settings, required this.notifier, this.delay = const Duration(seconds: 2), bool Function()? private, this.privacy}) : _private = private ?? (() => settings.hideBalances);
 
   final Ledger ledger;
   final AppSettings settings;
@@ -178,6 +178,12 @@ class ReminderScheduler {
 
   /// Si los avisos deben ir sin montos (clave de acceso o saldos ocultos).
   final bool Function() _private;
+
+  /// Lo que puede cambiar [_private] fuera de los ajustes (el candado al
+  /// poner o quitar la clave): solo se resincroniza si ese valor cambió, no
+  /// con cada bloqueo y desbloqueo.
+  final Listenable? privacy;
+  bool? _lastPrivate;
   Timer? _timer;
   bool _started = false;
   Future<void>? _running;
@@ -192,6 +198,16 @@ class ReminderScheduler {
     _started = true;
     ledger.addListener(_changed);
     settings.addListener(_changed);
+    _lastPrivate = _private();
+    privacy?.addListener(_privacyChanged);
+  }
+
+  void _privacyChanged() {
+    final bool now = _private();
+    if (now != _lastPrivate) {
+      _lastPrivate = now;
+      _changed();
+    }
   }
 
   void stop() {
@@ -201,6 +217,7 @@ class ReminderScheduler {
     _started = false;
     ledger.removeListener(_changed);
     settings.removeListener(_changed);
+    privacy?.removeListener(_privacyChanged);
     _timer?.cancel();
     _timer = null;
   }

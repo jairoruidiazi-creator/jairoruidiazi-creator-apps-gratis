@@ -30,7 +30,7 @@ class AppSettings extends ChangeNotifier {
   DateTime? lastRatesAttempt;
   bool hideBalances = false;
 
-  /// Pagos de tarjeta vencidos de los que ya se avisó ("o:<tarjeta>:<fecha>").
+  /// Pagos de tarjeta vencidos de los que ya se avisó (`o:<tarjeta>:<fecha>`).
   List<String> overdueNotified = <String>[];
 
   /// Si el sistema deja mostrar notificaciones (no se guarda: se consulta al

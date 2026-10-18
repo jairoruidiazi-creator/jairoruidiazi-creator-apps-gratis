@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
@@ -422,6 +423,10 @@ class _AccountEditorState extends State<AccountEditor> {
     final String which = es
         ? 'Del extracto con corte el ${formatDate(cycle.cut, 'dd MMM yyyy', spanish: true)}, que vence el ${formatDate(cycle.payDate, 'dd MMM', spanish: true)}.'
         : 'From the statement that closed on ${formatDate(cycle.cut, 'MMM dd yyyy', spanish: false)}, due on ${formatDate(cycle.payDate, 'MMM dd', spanish: false)}.';
+    // Si la fecha límite de ese extracto ya pasó, lo que se escriba queda
+    // vencido: se dice, para que quien ya lo pagó escriba 0.
+    final bool passed = cycle.payDate.isBefore(dateOnly(clock.now()));
+    final String late = passed ? t(context, ' Ya venció: si lo pagaste, escribe 0.', ' It is already past due: if you paid it, enter 0.') : '';
     final String rest = v == null
         ? t(context, 'Si no lo sabes, déjalo en blanco: toda la deuda queda como deuda de antes de Plata y no se suma a ningún pago.', 'If you do not know it, leave it blank: all the debt is kept as debt from before Plata and is not added to any payment.')
         : t(context, 'El resto (${money(context, debt - v.clamp(0, debt), _currency)}) queda como deuda de antes de Plata: cuenta en la deuda y el cupo, pero no en el próximo pago.', 'The rest (${money(context, debt - v.clamp(0, debt), _currency)}) is kept as debt from before Plata: it counts toward the debt and the limit, but not the next payment.');
@@ -446,7 +451,7 @@ class _AccountEditorState extends State<AccountEditor> {
             if (v != null) IconButton(tooltip: t(context, 'No lo sé', 'I do not know'), icon: const Icon(Icons.clear), onPressed: () => setState(() => _statementDue = null)),
           ],
         ),
-        Padding(padding: const EdgeInsets.only(top: 4), child: Text('$which $rest', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant))),
+        Padding(padding: const EdgeInsets.only(top: 4), child: Text('$which$late $rest', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant))),
       ],
     );
   }

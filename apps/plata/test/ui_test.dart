@@ -280,7 +280,9 @@ void main() {
         await tester.tap(find.text('Listo'));
         await settle(tester);
         // También la mitad de abajo: «Más campos» abierto y desplazado al final.
-        await tester.tap(find.textContaining('Más campos'));
+        final Finder more = find.textContaining('Más campos');
+        await tester.scrollUntilVisible(more, 200, scrollable: find.byType(Scrollable).first);
+        await tester.tap(more);
         await settle(tester);
         await tester.drag(find.byType(Scrollable).first, const Offset(0, -3000));
         await settle(tester);

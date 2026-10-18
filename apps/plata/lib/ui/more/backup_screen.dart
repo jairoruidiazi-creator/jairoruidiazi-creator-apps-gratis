@@ -19,6 +19,10 @@ import '../widgets/common.dart';
 /// reconoce después por su contenido ([BackupManager.detect]).
 const XTypeGroup backupPickerGroup = XTypeGroup(label: 'Plata');
 
+/// Tamaño máximo de un archivo para restaurar (un libro de 10 000
+/// movimientos son unos 3 MB).
+const int maxBackupBytes = 200 * 1024 * 1024;
+
 /// Copias de seguridad: automáticas locales, exportar (cifrada o abierta)
 /// e importar/restaurar.
 ///
@@ -130,6 +134,14 @@ class _BackupScreenState extends State<BackupScreen> {
     }
     Uint8List bytes;
     try {
+      // Una copia de Plata pesa pocos megas: un video o algo enorme no se
+      // carga en memoria para descubrir que no lo es.
+      if (await file.length() > maxBackupBytes) {
+        if (mounted) {
+          await showNotPlata(context, file.name);
+        }
+        return;
+      }
       bytes = await file.readAsBytes();
     } catch (e) {
       debugPrint('Leer archivo: $e');

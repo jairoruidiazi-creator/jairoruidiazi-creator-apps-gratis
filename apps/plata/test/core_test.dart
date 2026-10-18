@@ -396,8 +396,9 @@ void main() {
       l.dispose();
     });
 
-    test('las fotos de recibos se borran con su movimiento y las huérfanas al abrir', () async {
-      final Ledger l = await newLedger(tmp);
+    test('las fotos de recibos se borran con su movimiento y las huérfanas a los 30 días', () async {
+      DateTime now = d(2026, 10, 16);
+      final Ledger l = await newLedger(tmp, clock: () => now);
       final EncryptedStore es = l.store;
       await es.writeBytes('attachments/a.jpg.enc', <int>[9, 9, 9]);
       await es.writeBytes('attachments/b.jpg.enc', <int>[8, 8, 8]);
@@ -406,8 +407,13 @@ void main() {
       await l.addTx(Tx(id: 't2', kind: TxKind.expense, amountMinor: 200, accountId: 'a_cash', date: d(2026, 10, 11), attachments: <String>['attachments/b.jpg.enc']));
       expect(await es.readBytes('attachments/a.jpg.enc'), <int>[9, 9, 9]);
       await l.pruneAttachments();
-      expect(await es.store.list('attachments'), <String>['attachments/a.jpg.enc', 'attachments/b.jpg.enc']);
+      // La huérfana se guarda un tiempo (puede volver a usarse si se deshace
+      // una restauración, M19 de la segunda ronda) y se borra a los 30 días.
+      expect(await es.store.list('attachments'), <String>['attachments/a.jpg.enc', 'attachments/b.jpg.enc', 'attachments/huerfana.jpg.enc']);
       expect(l.tx('t1')!.attachments, <String>['attachments/a.jpg.enc']);
+      now = d(2026, 11, 16);
+      await l.pruneAttachments();
+      expect(await es.store.list('attachments'), <String>['attachments/a.jpg.enc', 'attachments/b.jpg.enc']);
       await l.deleteTx('t2');
       expect(await es.store.list('attachments'), <String>['attachments/a.jpg.enc']);
       l.dispose();

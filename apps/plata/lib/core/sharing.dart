@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
@@ -24,7 +23,7 @@ Future<String> shareBytes(JsonStore store, String fileName, Uint8List bytes, {St
   return path;
 }
 
-/// En Android, la hoja de compartir copia cada archivo en <caché>/share_plus y
+/// En Android, la hoja de compartir copia cada archivo en `<caché>/share_plus` y
 /// solo vacía esa carpeta al compartir otra vez: ahí quedaría el último CSV,
 /// Excel o JSON sin cifrar. Se borra al abrir la app y al borrar todo (no al
 /// terminar de compartir: la app que lo recibe puede leerlo más tarde).

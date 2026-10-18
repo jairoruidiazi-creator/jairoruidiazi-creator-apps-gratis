@@ -55,7 +55,7 @@ class NoopNotifier implements Notifier {
   int settingsOpened = 0;
   final List<String> log = <String>[];
 
-  /// Avisos programados por id: 'daily:20:30:título' o 'at:<fecha>:título'.
+  /// Avisos programados por id: `daily:20:30:título` o `at:<fecha>:título:texto`.
   final Map<int, String> pending = <int, String>{};
 
   /// Títulos de los avisos mostrados al instante.

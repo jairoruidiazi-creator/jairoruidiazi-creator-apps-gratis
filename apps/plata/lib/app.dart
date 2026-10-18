@@ -342,7 +342,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     try {
       await s.notifier.init();
       await _checkNotifications(s);
-      _reminders = ReminderScheduler(ledger: s.ledger, settings: s.settings, notifier: s.notifier, private: () => s.settings.hideBalances || s.lock.enabled)..start();
+      _reminders = ReminderScheduler(ledger: s.ledger, settings: s.settings, notifier: s.notifier, private: () => s.settings.hideBalances || s.lock.enabled, privacy: s.lock)..start();
     } catch (e) {
       debugPrint('Recordatorios: $e');
     }

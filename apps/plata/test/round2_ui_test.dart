@@ -185,7 +185,8 @@ void main() {
       await openMore(tester, 'Tarjetas de crédito');
       expect(find.byType(OverdueBanner), findsOneWidget);
       expect(find.text(r'Vencido desde el 15 oct: $ 1.000.000'), findsOneWidget);
-      expect(find.text('Incluye lo vencido'), findsNothing); // aún no cierra el estado siguiente
+      // El próximo pago (el del ciclo en curso) trae lo vencido como saldo anterior.
+      expect(find.text('Incluye lo vencido'), findsOneWidget);
       await syncLedger(tester, env);
       await finish(tester);
     });
@@ -257,6 +258,7 @@ void main() {
       expect(find.text('El saldo ya coincidía.'), findsOneWidget);
       expect(l.balanceMinor('tc'), 5000000);
       expect(l.txs, hasLength(1));
+      await back(tester);
       await syncLedger(tester, env);
       await finish(tester);
     });

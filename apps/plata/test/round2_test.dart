@@ -153,7 +153,7 @@ void main() {
       expect(nov2.creditMinor, 0);
       expect(nov2.legacyMinor, 255000000);
       expect(nov2.previousMinor + nov2.chargesMinor - nov2.paymentsMinor + nov2.toLegacyMinor, nov2.balanceMinor);
-      expect(l.balanceMinor('tc'), -255000000);
+      expect(l.balanceMinor('tc', before: DateTime(2026, 12, 1)), -255000000);
       expect(l.legacyDebtMinor(tc, now: DateTime(2026, 12, 1)), 255000000);
     });
 

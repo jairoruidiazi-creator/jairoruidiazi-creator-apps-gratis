@@ -326,8 +326,10 @@ void main() {
         await tester.tap(find.descendant(of: find.byType(LockScreen), matching: find.text(k)));
         await tester.pump();
       }
+      // La clave se calcula en otro hilo: se le da tiempo real.
       for (int i = 0; i < 300 && find.text('Clave incorrecta').evaluate().isEmpty; i++) {
-        await tester.pump(const Duration(milliseconds: 50));
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump();
       }
       expect(find.text('Clave incorrecta'), findsOneWidget);
       expect(services.lock.locked, isTrue);
@@ -336,7 +338,8 @@ void main() {
         await tester.pump();
       }
       for (int i = 0; i < 300 && services.lock.locked; i++) {
-        await tester.pump(const Duration(milliseconds: 50));
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+        await tester.pump();
       }
       expect(services.lock.locked, isFalse);
       await settle(tester);
