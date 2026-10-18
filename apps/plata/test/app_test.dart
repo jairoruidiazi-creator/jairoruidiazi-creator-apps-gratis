@@ -289,6 +289,7 @@ void main() {
       await settle(tester);
       await openMore(tester, 'Copias de seguridad');
       expect(find.text('Exportar copia cifrada'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('Hacer copia local ahora'), 150, scrollable: find.byType(Scrollable).first);
       await tester.tap(find.text('Hacer copia local ahora'));
       await tester.pump();
       // La copia corre con E/S real; mientras tanto la pantalla muestra el indicador.

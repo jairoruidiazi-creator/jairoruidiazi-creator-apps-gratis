@@ -203,11 +203,12 @@ void main() {
       l.processScheduled(now: DateTime(2026, 11, 5));
       expect(charges(), 0);
       expect(s.nextDate, DateTime(2026, 11, 5));
-      // Al confirmar el aviso queda un cargo, y el programado sigue retenido.
+      // Al confirmar el aviso queda un cargo, y el programado pasa a su
+      // siguiente fecha (M1 de la ronda 5): no se anota otra vez.
       await l.acceptInbox(notice, accountId: 'ah');
       l.processScheduled(now: DateTime(2026, 11, 6));
       expect(charges(), 1);
-      expect(l.noticeDuplicateFor(s), isNotNull);
+      expect(s.nextDate, DateTime(2026, 12, 5));
     });
 
     test('C: «Anotar sin preguntar» encendido pero con dos cuentas del banco: un solo cargo', () async {

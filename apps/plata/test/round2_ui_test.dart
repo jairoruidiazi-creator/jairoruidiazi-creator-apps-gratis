@@ -188,6 +188,8 @@ void main() {
       expect(find.byType(UnconfirmedBanner), findsOneWidget);
       expect(find.byType(OverdueBanner), findsNothing);
       // Se anota el mínimo que pidió el banco y no está pagado: ahora sí vence.
+      await tester.ensureVisible(find.widgetWithText(TextButton, 'Anotar'));
+      await settle(tester);
       await tester.tap(find.widgetWithText(TextButton, 'Anotar'));
       await settle(tester);
       for (final String k in <String>['8', '0', '0', '0', '0']) {
