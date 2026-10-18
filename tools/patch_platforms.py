@@ -141,6 +141,10 @@ APPS = {
             "NSPhotoLibraryAddUsageDescription": "Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges.",
             "NSPhotoLibraryUsageDescription": "Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges.",
             "NSMotionUsageDescription": "Sello usa los sensores de movimiento para calcular el rumbo de la cámara.",
+            # Precisión completa temporal cuando el permiso es «aproximada» (iOS 14+).
+            "NSLocationTemporaryUsageDescriptionDictionary": {
+                "FieldPhotoCoordinates": "Sello necesita tu ubicación precisa para que las coordenadas de la foto sirvan en campo: la aproximada puede estar a kilómetros.",
+            },
             # El complemento de cámara enlaza la grabación de audio: sin el texto, App Store
             # Connect devuelve ITMS-90683 aunque Sello nunca pida el micrófono (M17).
             "NSMicrophoneUsageDescription": "Sello solo toma fotos: no usa el micrófono ni graba audio.",
@@ -156,6 +160,7 @@ APPS = {
             "NSPhotoLibraryAddUsageDescription": "Sello saves a copy of the stamped photos to your photo library if you choose to.",
             "NSPhotoLibraryUsageDescription": "Sello saves a copy of the stamped photos to your photo library if you choose to.",
             "NSMotionUsageDescription": "Sello uses the motion sensors to work out the camera heading.",
+            "FieldPhotoCoordinates": "Sello needs your precise location so the photo's coordinates are useful in the field: approximate location can be kilometres off.",
             "NSMicrophoneUsageDescription": "Sello only takes photos: it does not use the microphone or record audio.",
         },
         # Cámara: la interfaz va en vertical y el sello sigue la orientación del teléfono.
@@ -623,6 +628,12 @@ def add_infoplist_strings(t: str, cfg: dict, plist: dict) -> str:
     keys = [k for k in plist if k == "CFBundleDisplayName" or k.endswith("UsageDescription")]
     langs = cfg.get("ios_localizations", ["es", "en"])
     es = {k: plist[k] for k in keys}
+    # Los diccionarios de propósitos (p. ej. NSLocationTemporaryUsageDescriptionDictionary)
+    # se traducen por la clave de cada propósito.
+    for k, v in plist.items():
+        if k.endswith("UsageDescriptionDictionary") and isinstance(v, dict):
+            es.update(v)
+            keys += list(v)
     en = dict(cfg.get("ios_strings_en", {}))
     missing = [k for k in keys if k not in en]
     if "en" in langs and missing:
