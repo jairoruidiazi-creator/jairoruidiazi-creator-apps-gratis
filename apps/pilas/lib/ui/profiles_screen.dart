@@ -132,7 +132,11 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
-                                Text(S.appName, style: Theme.of(context).textTheme.headlineMedium),
+                                if (compacta)
+                                  // Una sola línea: si no cabe, se achica.
+                                  FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(S.appName, maxLines: 1, style: Theme.of(context).textTheme.headlineMedium))
+                                else
+                                  Text(S.appName, style: Theme.of(context).textTheme.headlineMedium),
                                 if (!compacta) Text(S.lema, style: TextStyle(fontSize: 16, color: pal.tintaSuave)),
                               ],
                             ),
@@ -156,7 +160,10 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
                       return Row(children: <Widget>[Expanded(child: titulo), adulto]);
                     }),
                     SizedBox(height: compacta ? 8 : 20),
-                    Text(S.quienJuega, textAlign: TextAlign.center, style: compacta ? Theme.of(context).textTheme.titleLarge : Theme.of(context).textTheme.headlineSmall),
+                    if (compacta)
+                      FittedBox(fit: BoxFit.scaleDown, child: Text(S.quienJuega, maxLines: 1, style: Theme.of(context).textTheme.titleLarge))
+                    else
+                      Text(S.quienJuega, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
                     if (profiles.isEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
