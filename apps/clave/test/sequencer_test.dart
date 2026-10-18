@@ -190,6 +190,24 @@ void main() {
     final RhythmConfig empty = RhythmConfig.fromJson(<String, dynamic>{'bpm': 'rápido', 'beatsPerBar': -3});
     expect(empty.bpm, 100);
     expect(empty.beatsPerBar, 1);
+    // BPM 0 o negativo, compás vacío, sumas 0 en los compases mudos y un
+    // entrenador que bajaría el tempo a cero: el planificador sigue en pie.
+    for (final Map<String, dynamic> j in <Map<String, dynamic>>[
+      <String, dynamic>{'bpm': 0, 'beatsPerBar': 0, 'beats': <Object>[], 'muteBars': <String, dynamic>{'soundBars': 0, 'muteBars': 0}},
+      <String, dynamic>{'bpm': -120, 'trainer': <String, dynamic>{'targetBpm': -5, 'stepBpm': 0, 'everyBars': 0}},
+      <String, dynamic>{'bpm': double.nan, 'subdivision': 0, 'swing': double.infinity},
+    ]) {
+      final RhythmConfig h = RhythmConfig.fromJson(j);
+      expect(h.bpm, inInclusiveRange(RhythmConfig.minBpm, RhythmConfig.maxBpm), reason: '$j');
+      expect(h.beatsPerBar, greaterThanOrEqualTo(1));
+      final ClickScheduler sched = ClickScheduler(h, startSample: 0);
+      final List<ClickEvent> ev = sched.eventsUntil(44100 * 60);
+      expect(ev, isNotEmpty, reason: '$j');
+      for (int i = 1; i < ev.length; i++) {
+        expect(ev[i].sample, greaterThanOrEqualTo(ev[i - 1].sample), reason: '$j');
+      }
+      expect(sched.currentBpm, inInclusiveRange(RhythmConfig.minBpm, RhythmConfig.maxBpm));
+    }
     // Valores imposibles creados en código también se acotan.
     final ClickScheduler s = ClickScheduler(const RhythmConfig(bpm: double.infinity, beatsPerBar: 0, subdivision: 0), startSample: 0);
     final List<ClickEvent> ev = s.eventsUntil(44100 * 3600);

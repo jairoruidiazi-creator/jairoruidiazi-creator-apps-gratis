@@ -1,6 +1,7 @@
 {
   "name": "Clave",
   "languages": ["es", "en"],
+  "status_time": "18:32",
   "brand": {"background": ["#14213D", "#26375F"], "text": "#FFFFFF", "accent": "#FCA311"},
   "feature": {"es": "Afinador, metrónomo, bordón y grabadora", "en": "Tuner, metronome, drone and recorder"},
   "shots": [

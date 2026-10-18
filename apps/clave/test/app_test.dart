@@ -8,7 +8,9 @@ import 'dart:io';
 import 'package:clave/app.dart';
 import 'package:clave/audio/sequencer.dart';
 import 'package:clave/core/app_scope.dart';
+import 'package:clave/core/settings.dart';
 import 'package:clave/model/models.dart';
+import 'package:clave/ui/metronome/metronome_screen.dart';
 import 'package:clave/ui/metronome/presets_screen.dart';
 import 'package:clave/ui/settings/settings_screen.dart';
 import 'package:file_selector/file_selector.dart' show XFile;
@@ -294,6 +296,26 @@ void main() {
     expect(find.textContaining('no es un archivo de preajustes'), findsOneWidget);
     expect(t.platform.picks, 3);
     await t.shutdown(tester);
+  });
+
+  testWidgets('Los números en pantalla siguen el idioma: swing y La4 (M15)', (WidgetTester tester) async {
+    usePhone(tester);
+    for (final bool spanish in <bool>[true, false]) {
+      final TestServices t = TestServices(settings: AppSettings(deviceLocale: spanish ? null : const Locale('en')));
+      t.services.metronome.setConfig(const RhythmConfig(subdivision: 2, swing: 0.3));
+      await tester.pumpWidget(ClaveApp(services: t.services, initialIndex: 1));
+      await tester.pump();
+      final Finder swing = find.text(spanish ? 'Corcheas · swing 30\u00a0%' : 'Eighths · swing 30%');
+      await tester.scrollUntilVisible(swing, 200, scrollable: find.descendant(of: find.byType(MetronomeScreen), matching: find.byType(Scrollable)).first);
+      expect(swing, findsOneWidget);
+      await goTab(tester, spanish ? 'Afinador' : 'Tuner');
+      await tester.tap(find.text(spanish ? 'Ajustar' : 'Adjust'));
+      await tester.pumpAndSettle();
+      expect(find.text(spanish ? '440,0 Hz' : '440.0 Hz'), findsOneWidget);
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+      await t.shutdown(tester);
+    }
   });
 
   testWidgets('Guardar el ritmo actual como preajuste', (WidgetTester tester) async {
