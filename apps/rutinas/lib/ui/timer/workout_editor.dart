@@ -343,7 +343,7 @@ class _WorkoutEditorScreenState extends State<WorkoutEditorScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.isNew ? t(context, 'Nuevo entrenamiento', 'New workout') : t(context, 'Editar entrenamiento', 'Edit workout')),
+          title: Text(widget.isNew ? t(context, 'Nuevo entrenamiento', 'New workout') : t(context, 'Entrenamiento', 'Workout')),
           actions: <Widget>[
             TextButton(onPressed: _save, child: Text(t(context, 'Guardar', 'Save'))),
             if (!widget.isNew)

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
@@ -85,6 +87,53 @@ class EmptyState extends StatelessWidget {
           if (action != null) ...<Widget>[const SizedBox(height: 16), action!],
         ],
       ),
+    );
+  }
+}
+
+/// Rejilla de tarjetas del mismo ancho y, en cada fila, de la misma altura:
+/// tantas columnas como quepan con [minTileWidth] (todas en una fila si
+/// caben; si no, de a dos o de a tres).
+class TileGrid extends StatelessWidget {
+  const TileGrid({super.key, required this.children, this.minTileWidth = 150, this.spacing = 8});
+
+  final List<Widget> children;
+  final double minTileWidth;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints box) {
+        final int n = children.length;
+        if (n == 0) {
+          return const SizedBox.shrink();
+        }
+        final int fit = math.max(1, ((box.maxWidth + spacing) / (minTileWidth + spacing)).floor());
+        int cols;
+        if (fit >= n) {
+          cols = n;
+        } else if (fit >= 3 && n > 4) {
+          cols = 3;
+        } else {
+          cols = math.min(2, fit);
+        }
+        final List<Widget> rows = <Widget>[];
+        for (int i = 0; i < n; i += cols) {
+          final List<Widget> cells = <Widget>[];
+          for (int j = 0; j < cols; j++) {
+            if (j > 0) {
+              cells.add(SizedBox(width: spacing));
+            }
+            cells.add(Expanded(child: i + j < n ? children[i + j] : const SizedBox.shrink()));
+          }
+          if (rows.isNotEmpty) {
+            rows.add(SizedBox(height: spacing));
+          }
+          rows.add(IntrinsicHeight(child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: cells)));
+        }
+        return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
+      },
     );
   }
 }

@@ -189,7 +189,7 @@ class _Overview extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Wrap(spacing: 8, runSpacing: 8, children: tiles),
+            TileGrid(minTileWidth: 140, children: tiles),
           ],
         ),
       ),
@@ -208,31 +208,27 @@ class _Tile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 140, maxWidth: 320),
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(14)),
-        child: Semantics(
-          label: '$label: $value${detail == null ? '' : ', $detail'}',
-          excludeSemantics: true,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Icon(icon, size: 18, color: theme.colorScheme.primary),
-                  const SizedBox(width: 6),
-                  Flexible(child: Text(label, style: theme.textTheme.labelMedium)),
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(value, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-              if (detail != null) Text(detail!, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-            ],
-          ),
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(14)),
+      child: Semantics(
+        label: '$label: $value${detail == null ? '' : ', $detail'}',
+        excludeSemantics: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Icon(icon, size: 18, color: theme.colorScheme.primary),
+                const SizedBox(width: 6),
+                Flexible(child: Text(label, style: theme.textTheme.labelMedium)),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(value, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            if (detail != null) Text(detail!, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          ],
         ),
       ),
     );

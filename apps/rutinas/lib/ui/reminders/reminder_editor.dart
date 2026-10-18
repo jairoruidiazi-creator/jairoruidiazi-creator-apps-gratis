@@ -180,7 +180,7 @@ class _ReminderEditorScreenState extends State<ReminderEditorScreen> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: Text(_editing ? t(context, 'Editar recordatorio', 'Edit reminder') : t(context, 'Nuevo recordatorio', 'New reminder')),
+        title: Text(_editing ? t(context, 'Recordatorio', 'Reminder') : t(context, 'Nuevo recordatorio', 'New reminder')),
         actions: <Widget>[
           if (_editing) IconButton(tooltip: t(context, 'Borrar', 'Delete'), icon: const Icon(Icons.delete_outline), onPressed: _delete),
           TextButton(onPressed: _save, child: Text(t(context, 'Guardar', 'Save'))),

@@ -122,9 +122,7 @@ class _HabitDetailScreenState extends State<HabitDetailScreen> {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          child: TileGrid(
             children: <Widget>[
               _Stat(label: h.isNegative ? t(context, 'Sin recaer', 'Without a slip') : t(context, 'Racha actual', 'Current streak'), value: '${streak.current}', unit: HabitTexts.streakUnit(streak.unit, streak.current, es), icon: Icons.local_fire_department),
               _Stat(label: t(context, 'Mejor racha', 'Best streak'), value: '${streak.best}', unit: HabitTexts.streakUnit(streak.unit, streak.best, es), icon: Icons.emoji_events_outlined),
@@ -168,32 +166,28 @@ class _Stat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 150),
-      child: Card(
-        margin: EdgeInsets.zero,
-        child: Semantics(
-          label: '$label: $value $unit',
-          excludeSemantics: true,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Icon(icon, size: 18, color: theme.colorScheme.primary),
-                    const SizedBox(width: 6),
-                    Flexible(child: Text(label, style: theme.textTheme.labelLarge)),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(value, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
-                Text(unit, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
-              ],
-            ),
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Semantics(
+        label: '$label: $value $unit',
+        excludeSemantics: true,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Icon(icon, size: 18, color: theme.colorScheme.primary),
+                  const SizedBox(width: 6),
+                  Flexible(child: Text(label, style: theme.textTheme.labelLarge)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(value, style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+              Text(unit, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            ],
           ),
         ),
       ),

@@ -160,10 +160,10 @@ class _Running extends StatelessWidget {
       label: es ? 'Quedan $remaining de $name' : '$remaining left of $name',
       excludeSemantics: true,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Text(name, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis, style: tt.headlineMedium?.copyWith(color: fg, fontWeight: FontWeight.w800)),
-          Flexible(
+          // El tiempo crece hasta llenar el espacio libre (o se achica si no cabe).
+          Expanded(
             child: FittedBox(
               fit: BoxFit.contain,
               child: Text(remaining, style: TextStyle(fontSize: 120, fontWeight: FontWeight.w800, color: fg, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()], height: 1.05)),
@@ -286,9 +286,9 @@ class _Running extends StatelessWidget {
                 child: Column(
                   children: <Widget>[
                     top,
-                    Expanded(flex: 6, child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: clock)),
-                    const SizedBox(height: 12),
-                    Flexible(flex: 3, child: details),
+                    Expanded(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: clock)),
+                    const SizedBox(height: 16),
+                    ConstrainedBox(constraints: BoxConstraints(maxHeight: box.maxHeight * 0.3), child: details),
                     const SizedBox(height: 12),
                     controls,
                     lockedHint,
