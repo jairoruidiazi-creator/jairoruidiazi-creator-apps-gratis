@@ -264,7 +264,7 @@ class IconColorPicker extends StatelessWidget {
               Semantics(
                 button: true,
                 selected: color == AppIcons.palette[i],
-                label: 'Color ${i + 1}',
+                label: 'Color ${AppIcons.colorNames[i][AppScope.of(context).settings.spanish ? 0 : 1]}',
                 child: InkWell(
                   customBorder: const CircleBorder(),
                   onTap: () => onColor(AppIcons.palette[i]),
@@ -297,7 +297,7 @@ class IconColorPicker extends StatelessWidget {
                 Semantics(
                   button: true,
                   selected: icon == e.key,
-                  label: '${t(context, 'Ícono', 'Icon')} ${e.key}',
+                  label: '${t(context, 'Ícono', 'Icon')} ${AppIcons.nameOf(e.key, spanish: AppScope.of(context).settings.spanish)}',
                   child: InkWell(
                     borderRadius: BorderRadius.circular(8),
                     onTap: () => onIcon(e.key),

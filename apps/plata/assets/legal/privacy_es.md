@@ -35,7 +35,7 @@ Los enlaces de la guía (código fuente y reportar un problema) abren el navegad
 
 ## Compartir y exportar
 
-Tú decides cuándo exportar un CSV o un Excel, o hacer una copia de seguridad (Más › Copias de seguridad). La copia cifrada queda protegida con la contraseña que elijas; la copia en JSON (la app te lo advierte antes) y los archivos CSV y Excel no van cifrados. Las copias guardan tus datos, no las fotos de recibos. Todo se comparte con la hoja de compartir del sistema y queda sujeto a las condiciones de quien lo recibe; la app borra su propio ejemplar del archivo, y la copia que la hoja de compartir de Android deja en la caché de la app, la siguiente vez que la abres y al borrar todo.
+Tú decides cuándo exportar un CSV o un Excel, o hacer una copia de seguridad (Más › Copias de seguridad). La copia cifrada queda protegida con la contraseña que elijas; la copia en JSON (la app te lo advierte antes) y los archivos CSV y Excel no van cifrados. Las copias guardan tus datos, no las fotos de recibos. Todo se comparte con la hoja de compartir del sistema y queda sujeto a las condiciones de quien lo recibe; la app borra su propio ejemplar del archivo, y la copia que la hoja de compartir de Android deja en la caché de la app, la siguiente vez que la abres y al borrar todo. Al restaurar, la copia temporal del archivo que eliges se borra apenas se lee.
 
 ## Niños
 

@@ -172,7 +172,7 @@ class _AccountEditorState extends State<AccountEditor> {
   late int _cutDay = _base.cutDay ?? 15;
   late int _payDay = _base.payDay ?? 5;
 
-  /// Lo que pide el último extracto del banco (null = no se sabe). Es lo que
+  /// Pago mínimo del último extracto del banco (null = no se sabe). Es lo que
   /// vence; el resto de la deuda inicial es deuda de antes de Plata.
   late int? _statementDue = _base.statementDueMinor;
 
@@ -346,15 +346,15 @@ class _AccountEditorState extends State<AccountEditor> {
             AmountTile(
               minor: _isDebtType ? _initial.abs() : _initial,
               currency: _currency,
-              label: _type == AccountType.credit ? t(context, 'Deuda total hoy (todo lo que debes)', 'Total debt today (all you owe)') : (_type == AccountType.loan ? t(context, 'Lo que debes del préstamo', 'What you owe on the loan') : t(context, 'Saldo inicial', 'Opening balance')),
+              label: _initialLabel(context),
               onTap: () async {
-                final int? v = await pickAmount(context, initialMinor: _initial.abs(), currency: _currency, title: _isDebtType ? t(context, 'Lo que debes hoy', 'What you owe today') : t(context, 'Saldo inicial', 'Opening balance'));
+                final int? v = await pickAmount(context, initialMinor: _initial.abs(), currency: _currency, title: _initialLabel(context));
                 if (v != null) {
                   setState(() => _initial = _isDebtType ? -v.abs() : v);
                 }
               },
             ),
-          if (_isDebtType) Padding(padding: const EdgeInsets.only(top: 4), child: Text(t(context, 'Es deuda: resta del patrimonio y cuenta en Deudas. Los pagos (transferencias hacia la cuenta) la acercan a cero.', 'It is debt: it lowers your net worth and counts as Debt. Payments (transfers into the account) bring it to zero.'), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant))),
+          if (_isDebtType) Padding(padding: const EdgeInsets.only(top: 4), child: Text('${t(context, 'Es deuda: resta del patrimonio y cuenta en Deudas. Los pagos (transferencias hacia la cuenta) la acercan a cero.', 'It is debt: it lowers your net worth and counts as Debt. Payments (transfers into the account) bring it to zero.')}${widget.existing != null ? t(context, ' Es lo que debías al empezar a usar Plata, no lo de hoy: para corregir lo de hoy usa «Ajustar saldo real» en el menú ⋮.', ' It is what you owed when you started using Plata, not today: to correct today\'s amount use "Adjust real balance" in the ⋮ menu.') : ''}', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant))),
           if (_type == AccountType.credit && _initial != 0) ...<Widget>[
             const SizedBox(height: 12),
             _statementField(context, l),
@@ -407,6 +407,20 @@ class _AccountEditorState extends State<AccountEditor> {
     );
   }
 
+  /// Rótulo del saldo inicial. En una deuda que ya existe es lo que se debía
+  /// al empezar en Plata: lo de hoy sale de restarle los pagos, así que
+  /// escribir ahí la deuda de hoy la contaría mal (se corrige con «Ajustar
+  /// saldo real»).
+  String _initialLabel(BuildContext context) {
+    if (!_isDebtType) {
+      return t(context, 'Saldo inicial', 'Opening balance');
+    }
+    if (widget.existing != null) {
+      return t(context, 'Deuda al empezar en Plata', 'Debt when you started in Plata');
+    }
+    return _type == AccountType.credit ? t(context, 'Deuda total hoy (todo lo que debes)', 'Total debt today (all you owe)') : t(context, 'Lo que debes del préstamo hoy', 'What you owe on the loan today');
+  }
+
   /// Pago que pide el último extracto: lo que vence de la deuda inicial. Se
   /// dice de qué extracto se trata (corte y fecha límite), porque cambia con
   /// los días de corte y pago.
@@ -429,7 +443,10 @@ class _AccountEditorState extends State<AccountEditor> {
     final String late = passed ? t(context, ' Ya venció: si lo pagaste, escribe 0.', ' It is already past due: if you paid it, enter 0.') : '';
     final String rest = v == null
         ? t(context, 'Si no lo sabes, déjalo en blanco: toda la deuda queda como deuda de antes de Plata y no se suma a ningún pago.', 'If you do not know it, leave it blank: all the debt is kept as debt from before Plata and is not added to any payment.')
-        : t(context, 'El resto (${money(context, debt - v.clamp(0, debt), _currency)}) queda como deuda de antes de Plata: cuenta en la deuda y el cupo, pero no en el próximo pago.', 'The rest (${money(context, debt - v.clamp(0, debt), _currency)}) is kept as debt from before Plata: it counts toward the debt and the limit, but not the next payment.');
+        : t(context, 'El resto (${money(context, debt - v.clamp(0, debt), _currency)}) queda como deuda de antes de Plata: cuenta en la deuda y el cupo, pero no en el próximo pago. Si pagas al menos el mínimo, la tarjeta queda al día.', 'The rest (${money(context, debt - v.clamp(0, debt), _currency)}) is kept as debt from before Plata: it counts toward the debt and the limit, but not the next payment. If you pay at least the minimum, the card is up to date.');
+    // El extracto colombiano trae dos cifras: el pago mínimo (la cuota del mes)
+    // y el pago total (toda la deuda). Plata necesita el mínimo.
+    final String what = t(context, 'Es el «pago mínimo» que pide el extracto, no el «pago total», que es toda la deuda.', 'It is the "minimum payment" on the statement, not the "total payment", which is the whole debt.');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -439,19 +456,32 @@ class _AccountEditorState extends State<AccountEditor> {
               child: AmountTile(
                 minor: v ?? 0,
                 currency: _currency,
-                label: t(context, 'Pago del último extracto (opcional)', 'Last statement payment (optional)'),
+                label: t(context, 'Pago mínimo del último extracto (opcional)', 'Minimum payment on the last statement (optional)'),
                 onTap: () async {
-                  final int? n = await pickAmount(context, initialMinor: v ?? 0, currency: _currency, title: t(context, 'Pago total del último extracto', 'Last statement full payment'));
-                  if (n != null) {
-                    setState(() => _statementDue = n.clamp(0, debt));
+                  final int? n = await pickAmount(context, initialMinor: v ?? 0, currency: _currency, title: t(context, 'Pago mínimo del último extracto', 'Minimum payment on the last statement'));
+                  if (n == null || !context.mounted) {
+                    return;
                   }
+                  // Casi toda la deuda: lo más probable es que sea el pago total.
+                  if (debt > 0 && n * 10 >= debt * 9) {
+                    final bool minimum = await confirm(
+                      context,
+                      t(context, '¿Es el pago mínimo?', 'Is it the minimum payment?'),
+                      t(context, 'Escribiste casi toda la deuda. El pago mínimo es la cuota del mes que pide el extracto; el pago total es toda la deuda. Plata usa el mínimo para saber si estás al día.', 'You entered almost the whole debt. The minimum payment is the monthly amount the statement asks for; the total payment is the whole debt. Plata uses the minimum to tell whether you are up to date.'),
+                      yes: t(context, 'Sí, es el mínimo', 'Yes, it is the minimum'),
+                    );
+                    if (!minimum || !context.mounted) {
+                      return;
+                    }
+                  }
+                  setState(() => _statementDue = n.clamp(0, debt));
                 },
               ),
             ),
             if (v != null) IconButton(tooltip: t(context, 'No lo sé', 'I do not know'), icon: const Icon(Icons.clear), onPressed: () => setState(() => _statementDue = null)),
           ],
         ),
-        Padding(padding: const EdgeInsets.only(top: 4), child: Text('$which$late $rest', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant))),
+        Padding(padding: const EdgeInsets.only(top: 4), child: Text('$what $which$late $rest', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant))),
       ],
     );
   }

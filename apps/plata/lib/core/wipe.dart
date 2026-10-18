@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'app_scope.dart';
+import 'backup_picker.dart';
 import 'crypto_store.dart';
 import 'sharing.dart';
 
@@ -20,6 +21,7 @@ Future<void> wipeAllData(Services s) async {
   await s.store.wipe();
   // La copia sin cifrar de lo último que se compartió (Android).
   await clearShareCache();
+  await clearPickedCopies();
   await s.keys.deleteAll();
   // Llave nueva: lo que se escriba de aquí en adelante no depende de la vieja.
   s.ledger.store.box = await CryptoBox.fromKeyStore(s.keys);

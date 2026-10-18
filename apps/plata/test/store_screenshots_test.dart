@@ -171,6 +171,12 @@ void main() {
           // 7. Avisos bancarios (solo Android).
           if (!device.isIOS) {
             await _openMore(tester, tr('Avisos bancarios', 'Bank notices'));
+            // La bandeja arriba: es lo que promete el titular (los avisos que
+            // se vuelven movimientos), no el texto que explica cómo funciona.
+            final Finder tray = find.textContaining(tr('Por confirmar', 'To confirm')).first;
+            await tester.scrollUntilVisible(tray, 200, scrollable: find.byType(Scrollable).first);
+            await tester.ensureVisible(tray);
+            await _settle(tester);
             await takeStoreShot(tester, device, lang, '07-avisos');
             await _back(tester);
           }

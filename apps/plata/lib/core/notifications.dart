@@ -33,7 +33,9 @@ abstract class Notifier {
   Future<void> scheduleAt({required int id, required DateTime when, required String title, required String body, bool private = false});
 
   /// Aviso inmediato (por ejemplo, un pago de tarjeta que se venció).
-  Future<void> showNow({required int id, required String title, required String body, bool private = false});
+  /// Devuelve si de verdad se mostró: sin permiso, o si el sistema lo
+  /// rechaza, es falso y quien llama puede volver a intentarlo después.
+  Future<bool> showNow({required int id, required String title, required String body, bool private = false});
 
   /// Avisos programados que aún no se han mostrado.
   Future<List<int>> pendingIds();
@@ -108,10 +110,15 @@ class NoopNotifier implements Notifier {
   }
 
   @override
-  Future<void> showNow({required int id, required String title, required String body, bool private = false}) async {
+  Future<bool> showNow({required int id, required String title, required String body, bool private = false}) async {
+    if (granted != true) {
+      log.add('blocked:$title');
+      return false;
+    }
     shown.add(title);
     _private(id, private);
     log.add('now:$title:$body');
+    return true;
   }
 
   void _private(int id, bool private) {
@@ -280,15 +287,17 @@ class LocalNotifier implements Notifier {
   }
 
   @override
-  Future<void> showNow({required int id, required String title, required String body, bool private = false}) async {
+  Future<bool> showNow({required int id, required String title, required String body, bool private = false}) async {
     await init();
-    if (!_ready) {
-      return;
+    if (!_ready || await permissionStatus() != true) {
+      return false;
     }
     try {
       await _plugin.show(id: id, title: title, body: body, notificationDetails: _details(private: private));
+      return true;
     } catch (e) {
       debugPrint('No se pudo mostrar el aviso: $e');
+      return false;
     }
   }
 

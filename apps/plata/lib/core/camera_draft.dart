@@ -16,7 +16,7 @@ class CameraDraft {
 
   static const String file = 'drafts/camera.json';
 
-  static Future<void> save(Ledger l, Tx draft, {String? existingId}) => l.store.writeJson(file, <String, dynamic>{'tx': draft.toJson(), 'existingId': existingId});
+  static Future<void> save(Ledger l, Tx draft, {String? existingId, String? inboxId}) => l.store.writeJson(file, <String, dynamic>{'tx': draft.toJson(), 'existingId': existingId, 'inboxId': inboxId});
 
   static Future<Map<String, dynamic>?> read(Ledger l) async {
     try {
@@ -39,10 +39,14 @@ class CameraDraft {
 /// Lo que se recuperó al abrir la app: el movimiento a medio escribir (con la
 /// foto ya adjunta y cifrada) y, si se estaba editando uno guardado, ese.
 class RecoveredDraft {
-  const RecoveredDraft({required this.draft, this.existing});
+  const RecoveredDraft({required this.draft, this.existing, this.inbox});
 
   final Tx draft;
   final Tx? existing;
+
+  /// El aviso del banco que se estaba confirmando, si venía de uno: al
+  /// guardar queda anotado y no se puede confirmar dos veces.
+  final InboxItem? inbox;
 }
 
 /// Recupera la foto tomada si Android cerró la app con la cámara abierta
@@ -53,17 +57,24 @@ Future<RecoveredDraft?> recoverCameraDraft(Ledger l, {Future<LostDataResponse> F
   final Map<String, dynamic>? saved = await CameraDraft.read(l);
   await CameraDraft.clear(l);
   final XFile? photo = response.isEmpty ? null : response.file;
-  if (photo == null) {
+  final Map<String, dynamic>? txJson = saved?['tx'] is Map<String, dynamic> ? saved!['tx'] as Map<String, dynamic> : null;
+  // El borrador solo existe si la app se cerró con la cámara abierta (al
+  // volver de la cámara se borra): lo escrito se recupera aunque no haya
+  // llegado la foto.
+  if (photo == null && txJson == null) {
     return null;
   }
-  final Map<String, dynamic>? txJson = saved?['tx'] is Map<String, dynamic> ? saved!['tx'] as Map<String, dynamic> : null;
   final Tx draft = txJson != null ? Tx.fromJson(txJson) : Tx(id: newId(), kind: TxKind.expense, amountMinor: 0, accountId: '', date: clock.now());
-  final String rel = 'attachments/${newId()}.jpg.enc';
-  await l.store.writeBytes(rel, await photo.readAsBytes());
-  await deletePickerCopies(photo);
-  draft.attachments.add(rel);
+  if (photo != null) {
+    final String rel = 'attachments/${newId()}.jpg.enc';
+    await l.store.writeBytes(rel, await photo.readAsBytes());
+    await deletePickerCopies(photo);
+    draft.attachments.add(rel);
+  }
   final String? existingId = saved?['existingId'] as String?;
-  return RecoveredDraft(draft: draft, existing: existingId == null ? null : l.tx(existingId));
+  final String? inboxId = saved?['inboxId'] as String?;
+  final InboxItem? inbox = inboxId == null ? null : l.inbox.where((InboxItem i) => i.id == inboxId && i.status == 'pending').firstOrNull;
+  return RecoveredDraft(draft: draft, existing: existingId == null ? null : l.tx(existingId), inbox: inbox);
 }
 
 /// El selector deja la foto en la caché de la app y, cuando la reduce

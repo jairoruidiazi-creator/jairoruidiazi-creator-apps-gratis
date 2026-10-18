@@ -1,5 +1,6 @@
 import Flutter
 import UIKit
+import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -15,6 +16,10 @@ import UIKit
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     excludeDataFromBackup()
+    // Los recordatorios (y el aviso inmediato de un pago vencido, que sale
+    // justo al abrir o volver a la app) también se muestran con la app
+    // abierta: flutter_local_notifications lo pide en su configuración de iOS.
+    UNUserNotificationCenter.current().delegate = self as? UNUserNotificationCenterDelegate
     let center = NotificationCenter.default
     center.addObserver(self, selector: #selector(sceneWillDeactivate(_:)), name: UIScene.willDeactivateNotification, object: nil)
     center.addObserver(self, selector: #selector(sceneDidActivate(_:)), name: UIScene.didActivateNotification, object: nil)

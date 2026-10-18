@@ -128,8 +128,10 @@ class _TxEditorState extends State<TxEditor> {
     final Ledger l = _s!.ledger;
     _calc.spanish = _s!.settings.spanish;
     final InboxItem? ib = widget.inbox;
-    if (ib != null && widget.existing == null) {
-      _initFromNotice(l, ib);
+    // Un borrador recuperado ya trae lo que se había escrito sobre el aviso.
+    final bool fromNotice = ib != null && widget.existing == null && widget.draft == null;
+    if (fromNotice) {
+      _initFromNotice(l, ib!);
     }
     if (_accountId == null || l.account(_accountId) == null) {
       final String def = _s!.settings.defaultAccountId;
@@ -138,7 +140,7 @@ class _TxEditorState extends State<TxEditor> {
         _accountId = l.activeAccounts.where((Account a) => a.id != _toAccountId && !a.isCredit).map((Account a) => a.id).firstOrNull;
       }
     }
-    if (ib != null && widget.existing == null) {
+    if (fromNotice) {
       _applyNoticeAmount(l);
     }
     final int? toMinor = widget.initialToMinor;
@@ -268,7 +270,7 @@ class _TxEditorState extends State<TxEditor> {
     final bool keepDraft = source == ImageSource.camera && Platform.isAndroid;
     try {
       if (keepDraft) {
-        await CameraDraft.save(l, _compose(), existingId: widget.existing?.id);
+        await CameraDraft.save(l, _compose(), existingId: widget.existing?.id, inboxId: widget.inbox?.id);
       }
       final XFile? f = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 82);
       if (f == null) {

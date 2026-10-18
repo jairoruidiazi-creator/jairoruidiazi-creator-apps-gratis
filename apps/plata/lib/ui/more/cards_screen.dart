@@ -169,7 +169,7 @@ class _CardPanelState extends State<_CardPanel> {
                 IconButton(tooltip: t(context, 'Ciclo siguiente', 'Next cycle'), icon: const Icon(Icons.chevron_right), onPressed: _back == 0 ? null : () => setState(() => _back -= 1)),
               ],
             ),
-            if (st.previousMinor != 0) _row(context, st.previousMinor > 0 ? (st.fromBankStatement ? t(context, 'Último extracto del banco (anotado al crear la tarjeta)', 'Last bank statement (entered when the card was created)') : t(context, 'Saldo anterior sin pagar', 'Previous balance unpaid')) : t(context, 'Saldo a favor anterior', 'Previous credit'), st.previousMinor > 0 ? money(context, st.previousMinor, c.currency) : '−${money(context, -st.previousMinor, c.currency)}'),
+            if (st.previousMinor != 0) _row(context, st.previousMinor > 0 ? (st.fromBankStatement ? t(context, 'Pago mínimo del último extracto (anotado al crear la tarjeta)', 'Minimum payment on the last statement (entered with the card)') : t(context, 'Saldo anterior sin pagar', 'Previous balance unpaid')) : t(context, 'Saldo a favor anterior', 'Previous credit'), st.previousMinor > 0 ? money(context, st.previousMinor, c.currency) : '−${money(context, -st.previousMinor, c.currency)}'),
             _row(context, t(context, 'Compras del ciclo', 'Purchases this cycle'), money(context, st.purchasesMinor, c.currency)),
             if (st.advancesMinor != 0) _row(context, t(context, 'Avances y transferencias', 'Cash advances and transfers'), money(context, st.advancesMinor, c.currency)),
             _row(context, t(context, 'Cuotas que se facturan', 'Installments billed'), money(context, st.installmentsMinor, c.currency)),

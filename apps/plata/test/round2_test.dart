@@ -10,6 +10,7 @@ import 'dart:ui' show Locale;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:plata/core/backup_picker.dart';
 import 'package:plata/core/backups.dart';
 import 'package:plata/core/bank_rules.dart';
 import 'package:plata/core/camera_draft.dart';
@@ -24,7 +25,6 @@ import 'package:plata/core/reminders.dart';
 import 'package:plata/core/settings.dart';
 import 'package:plata/core/storage.dart';
 import 'package:plata/model/models.dart';
-import 'package:plata/ui/more/backup_screen.dart';
 import 'package:plata/ui/more/security_screen.dart';
 
 DateTime d(int y, int m, int day, [int h = 12]) => DateTime(y, m, day, h);
@@ -418,10 +418,15 @@ void main() {
     // La foto queda cifrada en la carpeta de la app y el borrador se borra.
     expect(await l.store.readBytes(r.draft.attachments.single), <int>[9, 8, 7]);
     expect(await CameraDraft.read(l), isNull);
-    // Sin foto perdida no se recupera nada, y el borrador viejo tampoco queda.
+    // Sin foto perdida, lo escrito se recupera igual (M8 de la tercera ronda)
+    // y el borrador no queda guardado.
     await CameraDraft.save(l, draft, existingId: 'x');
-    expect(await recoverCameraDraft(l, lost: () async => LostDataResponse.empty()), isNull);
+    final RecoveredDraft? noPhoto = await recoverCameraDraft(l, lost: () async => LostDataResponse.empty());
+    expect(noPhoto!.draft.description, 'Almuerzo');
+    expect(noPhoto.draft.attachments, isEmpty);
     expect(await CameraDraft.read(l), isNull);
+    // Sin borrador ni foto no hay nada que recuperar.
+    expect(await recoverCameraDraft(l, lost: () async => LostDataResponse.empty()), isNull);
   });
 
   group('M22: moneda base de un libro nuevo', () {

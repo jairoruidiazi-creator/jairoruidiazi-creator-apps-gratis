@@ -86,9 +86,9 @@ class Account {
   String notes;
   int order;
 
-  /// Tarjeta de crédito: lo que pedía pagar el último extracto del banco
-  /// cuando se anotó la deuda inicial (o al editarla), y el corte de ese
-  /// extracto. Es la parte de la deuda inicial que vence en ese pago; el resto
+  /// Tarjeta de crédito: el pago mínimo del último extracto del banco (no el
+  /// pago total, que es toda la deuda) cuando se anotó la deuda inicial, y el
+  /// corte de ese extracto. Pagarlo deja la tarjeta al día. Es la parte de la deuda inicial que vence en ese pago; el resto
   /// (cuotas viejas, por ejemplo) es deuda de antes de Plata que el banco irá
   /// facturando y que Plata muestra aparte (ver Ledger.statement).
   int? statementDueMinor;

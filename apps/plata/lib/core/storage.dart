@@ -21,6 +21,41 @@ class JsonStore {
   Directory? _root;
   static final Random _random = Random();
 
+  /// Mueve los datos de la carpeta vieja [old] a [dir] si la nueva todavía no
+  /// tiene libro. En iOS el AppDelegate crea [dir] al arrancar (para sacarla
+  /// de la copia de iCloud) antes de que llegue Dart, así que "la carpeta nueva
+  /// no existe" no sirve para decidir: lo que cuenta es si ya tiene
+  /// `ledger.json`. Se mueve entrada por entrada sin pisar nada de la nueva.
+  /// Devuelve si movió algo.
+  static Future<bool> migrateLegacy(Directory old, Directory dir) async {
+    if (!await old.exists()) {
+      return false;
+    }
+    final String sep = Platform.pathSeparator;
+    if (await File('${dir.path}${sep}ledger.json').exists()) {
+      return false;
+    }
+    await dir.create(recursive: true);
+    bool moved = false;
+    await for (final FileSystemEntity e in old.list()) {
+      final String name = e.uri.pathSegments.where((String s) => s.isNotEmpty).last;
+      final String target = '${dir.path}$sep$name';
+      if (await FileSystemEntity.type(target) != FileSystemEntityType.notFound) {
+        continue;
+      }
+      await e.rename(target);
+      moved = true;
+    }
+    try {
+      if (await old.list().isEmpty) {
+        await old.delete();
+      }
+    } catch (_) {
+      // Si queda algo en la vieja, se deja.
+    }
+    return moved;
+  }
+
   /// Sufijo de los temporales: `<archivo>.<azar>.tmp`.
   static const String tmpSuffix = '.tmp';
 
@@ -31,14 +66,10 @@ class JsonStore {
     final String sep = Platform.pathSeparator;
     final Directory base = _rootOverride ?? await getApplicationSupportDirectory();
     final Directory dir = Directory('${base.path}${sep}plata');
-    if (_rootOverride == null && !await dir.exists()) {
+    if (_rootOverride == null) {
       // Las versiones de prueba guardaban en Documentos: se mueve una sola vez.
       try {
-        final Directory old = Directory('${(await getApplicationDocumentsDirectory()).path}${sep}plata');
-        if (await old.exists()) {
-          await base.create(recursive: true);
-          await old.rename(dir.path);
-        }
+        await migrateLegacy(Directory('${(await getApplicationDocumentsDirectory()).path}${sep}plata'), dir);
       } catch (_) {
         // Si no se puede mover, se empieza en la carpeta nueva; la vieja queda intacta.
       }

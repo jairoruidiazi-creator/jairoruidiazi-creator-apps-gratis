@@ -78,6 +78,108 @@ class AppIcons {
     'transfer': Icons.swap_horiz,
   };
 
+  /// Nombre de cada ícono para TalkBack y VoiceOver, en español e inglés
+  /// (la clave interna es en inglés y no se lee).
+  static const Map<String, List<String>> names = <String, List<String>>{
+    'wallet': <String>['Billetera', 'Wallet'],
+    'cash': <String>['Efectivo', 'Cash'],
+    'bank': <String>['Banco', 'Bank'],
+    'card': <String>['Tarjeta', 'Card'],
+    'savings': <String>['Ahorro', 'Savings'],
+    'trending': <String>['Inversión', 'Investment'],
+    'label': <String>['Etiqueta', 'Label'],
+    'more': <String>['Otros', 'Other'],
+    'star': <String>['Estrella', 'Star'],
+    'restaurant': <String>['Restaurante', 'Restaurant'],
+    'cart': <String>['Mercado', 'Groceries'],
+    'delivery': <String>['Domicilio', 'Delivery'],
+    'coffee': <String>['Café', 'Coffee'],
+    'home': <String>['Casa', 'Home'],
+    'apartment': <String>['Edificio', 'Building'],
+    'bolt': <String>['Energía', 'Electricity'],
+    'water': <String>['Agua', 'Water'],
+    'fire': <String>['Gas', 'Gas'],
+    'wifi': <String>['Internet', 'Internet'],
+    'phone': <String>['Celular', 'Phone'],
+    'bus': <String>['Bus', 'Bus'],
+    'fuel': <String>['Gasolina', 'Fuel'],
+    'taxi': <String>['Taxi', 'Taxi'],
+    'parking': <String>['Parqueadero', 'Parking'],
+    'car': <String>['Carro', 'Car'],
+    'health': <String>['Salud', 'Health'],
+    'pill': <String>['Medicamentos', 'Medicine'],
+    'stethoscope': <String>['Médico', 'Doctor'],
+    'fitness': <String>['Gimnasio', 'Gym'],
+    'school': <String>['Educación', 'Education'],
+    'book': <String>['Libros', 'Books'],
+    'laptop': <String>['Computador', 'Computer'],
+    'couch': <String>['Muebles', 'Furniture'],
+    'soap': <String>['Aseo', 'Cleaning'],
+    'tools': <String>['Reparaciones', 'Repairs'],
+    'person': <String>['Persona', 'Person'],
+    'shirt': <String>['Ropa', 'Clothing'],
+    'spa': <String>['Cuidado personal', 'Personal care'],
+    'movie': <String>['Cine', 'Movies'],
+    'party': <String>['Fiesta', 'Party'],
+    'subscriptions': <String>['Suscripciones', 'Subscriptions'],
+    'flight': <String>['Viajes', 'Travel'],
+    'game': <String>['Videojuegos', 'Games'],
+    'family': <String>['Familia', 'Family'],
+    'child': <String>['Niños', 'Children'],
+    'pet': <String>['Mascotas', 'Pets'],
+    'gift': <String>['Regalos', 'Gifts'],
+    'receipt': <String>['Recibo', 'Receipt'],
+    'gavel': <String>['Trámites legales', 'Legal'],
+    'stamp': <String>['Notaría', 'Notary'],
+    'percent': <String>['Intereses', 'Interest'],
+    'fees': <String>['Comisiones', 'Fees'],
+    'work': <String>['Trabajo', 'Work'],
+    'store': <String>['Negocio', 'Business'],
+    'clock': <String>['Reloj', 'Clock'],
+    'undo': <String>['Reembolso', 'Refund'],
+    'bike': <String>['Bicicleta', 'Bike'],
+    'music': <String>['Música', 'Music'],
+    'camera': <String>['Fotografía', 'Photography'],
+    'beer': <String>['Bar', 'Bar'],
+    'baby': <String>['Bebé', 'Baby'],
+    'tooth': <String>['Odontología', 'Dentist'],
+    'church': <String>['Iglesia', 'Church'],
+    'plant': <String>['Jardín', 'Garden'],
+    'charity': <String>['Donaciones', 'Donations'],
+    'cloud': <String>['Nube', 'Cloud'],
+    'lottery': <String>['Lotería', 'Lottery'],
+    'ticket': <String>['Boletas', 'Tickets'],
+    'piggy': <String>['Alcancía', 'Piggy bank'],
+    'coins': <String>['Monedas', 'Coins'],
+    'transfer': <String>['Transferencia', 'Transfer'],
+  };
+
+  /// Nombre de un ícono en el idioma de la app.
+  static String nameOf(String key, {required bool spanish}) {
+    final List<String>? n = names[key];
+    return n == null ? key : n[spanish ? 0 : 1];
+  }
+
+  /// Nombre de cada color de [palette], en el mismo orden.
+  static const List<List<String>> colorNames = <List<String>>[
+    <String>['Verde', 'Green'],
+    <String>['Azul', 'Blue'],
+    <String>['Morado', 'Purple'],
+    <String>['Rojo', 'Red'],
+    <String>['Naranja', 'Orange'],
+    <String>['Turquesa', 'Teal'],
+    <String>['Café', 'Brown'],
+    <String>['Gris pizarra', 'Slate gray'],
+    <String>['Verde azulado', 'Sea green'],
+    <String>['Violeta', 'Violet'],
+    <String>['Rosado', 'Pink'],
+    <String>['Índigo', 'Indigo'],
+    <String>['Verde oliva', 'Olive'],
+    <String>['Amarillo', 'Yellow'],
+    <String>['Marrón claro', 'Light brown'],
+    <String>['Gris azulado', 'Blue gray'],
+  ];
+
   static IconData of(String name) => all[name] ?? Icons.label_outline;
 
   static const List<int> palette = <int>[

@@ -1,27 +1,16 @@
 import 'dart:typed_data';
 
 import 'package:clock/clock.dart';
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
+import '../../core/backup_picker.dart';
 import '../../core/backups.dart';
 import '../../core/ledger.dart';
 import '../../core/sharing.dart';
 import '../../model/models.dart';
 import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
-
-/// Grupo del selector para restaurar: sin filtro de extensión ni de tipo.
-/// En Android, file_selector convierte las extensiones en tipos MIME y
-/// `.plata` no tiene ninguno, así que el selector del sistema dejaba la copia
-/// cifrada deshabilitada; en iOS esto equivale a `public.data`. El archivo se
-/// reconoce después por su contenido ([BackupManager.detect]).
-const XTypeGroup backupPickerGroup = XTypeGroup(label: 'Plata');
-
-/// Tamaño máximo de un archivo para restaurar (un libro de 10 000
-/// movimientos son unos 3 MB).
-const int maxBackupBytes = 200 * 1024 * 1024;
 
 /// Copias de seguridad: automáticas locales, exportar (cifrada o abierta)
 /// e importar/restaurar.
@@ -119,9 +108,21 @@ class _BackupScreenState extends State<BackupScreen> {
 
   Future<void> _import() async {
     final Services s = AppScope.of(context);
-    XFile? file;
+    PickedBackup? file;
     try {
-      file = await openFile(acceptedTypeGroups: const <XTypeGroup>[backupPickerGroup]);
+      file = await pickBackupFile();
+    } on BackupTooBig catch (e) {
+      // Una copia de Plata pesa pocos megas: lo enorme ni se lee.
+      if (mounted) {
+        await showNotPlata(context, e.name);
+      }
+      return;
+    } on BackupUnreadable catch (e) {
+      debugPrint('Leer archivo: ${e.name}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'No se pudo leer el archivo. Intenta de nuevo.', 'The file could not be read. Try again.'))));
+      }
+      return;
     } catch (e) {
       debugPrint('Selector de archivos: $e');
       if (mounted) {
@@ -129,20 +130,13 @@ class _BackupScreenState extends State<BackupScreen> {
       }
       return;
     }
-    if (file == null || !mounted) {
+    if (file == null) {
       return;
     }
     Uint8List bytes;
     try {
-      // Una copia de Plata pesa pocos megas: un video o algo enorme no se
-      // carga en memoria para descubrir que no lo es.
-      if (await file.length() > maxBackupBytes) {
-        if (mounted) {
-          await showNotPlata(context, file.name);
-        }
-        return;
-      }
-      bytes = await file.readAsBytes();
+      // Se lee y la copia temporal se borra enseguida, aunque falle.
+      bytes = await file.readAndDiscard();
     } catch (e) {
       debugPrint('Leer archivo: $e');
       if (mounted) {

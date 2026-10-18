@@ -512,7 +512,7 @@ class _ScheduledRow extends StatelessWidget {
       dense: true,
       leading: IconBadge(icon: l.category(item.categoryId)?.icon ?? 'repeat', color: l.category(item.categoryId)?.color ?? 0xFF607D8B, size: 34),
       title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text('$when · ${a?.name ?? ''}${item.autoPost ? '' : ' · ${t(context, 'manual', 'manual')}'}', maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(l.noticeDuplicateFor(item) != null ? '$when · ${t(context, '¿Ya lo anotó un aviso?', 'Already logged from a notice?')}' : '$when · ${a?.name ?? ''}${item.autoPost ? '' : ' · ${t(context, 'manual', 'manual')}'}', maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Text('${item.kind == TxKind.expense ? '−' : (item.kind == TxKind.income ? '+' : '')}${money(context, item.amountMinor, a?.currency ?? l.baseCurrency)}', style: TextStyle(fontWeight: FontWeight.w700, color: kindColor(context, item.kind))),
       onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ScheduledEditor(existing: item))),
     );

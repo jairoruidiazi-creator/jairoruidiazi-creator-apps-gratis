@@ -380,7 +380,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     try {
       final RecoveredDraft? draft = await recoverCameraDraft(s.ledger);
       if (draft != null && mounted) {
-        await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TxEditor(existing: draft.existing, draft: draft.draft)));
+        await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TxEditor(existing: draft.existing, draft: draft.draft, inbox: draft.inbox)));
       }
     } catch (e) {
       debugPrint('Foto recuperada: $e');

@@ -128,7 +128,7 @@ class CardStatement {
   /// banco; cuenta en la deuda total y en el cupo.
   final int legacyMinor;
 
-  /// El saldo anterior de este estado es el pago del último extracto que se
+  /// El saldo anterior de este estado es el pago mínimo del último extracto que se
   /// anotó al crear la tarjeta (es el primer ciclo que lleva Plata).
   final bool fromBankStatement;
 
@@ -179,7 +179,7 @@ class _CardBook {
   /// tarjeta o, si no se anotó, el del movimiento más antiguo.
   final DateTime firstCut;
 
-  /// Saldo anterior del primer ciclo: el pago del último extracto (o un saldo
+  /// Saldo anterior del primer ciclo: el pago mínimo del último extracto (o un saldo
   /// a favor inicial), más lo facturado antes y menos lo abonado antes.
   int opening = 0;
 
@@ -882,6 +882,12 @@ class Ledger extends ChangeNotifier {
     }
     for (final Budget b in budgets) {
       b.amountMinor = (b.amountMinor / r).round();
+      // Los topes anteriores también: el arrastre y los periodos pasados los
+      // usan, y en la moneda vieja serían miles de veces más grandes.
+      final List<BudgetAmountChange> history = b.amountHistory.map((BudgetAmountChange c) => BudgetAmountChange(until: c.until, amountMinor: (c.amountMinor / r).round())).toList();
+      b.amountHistory
+        ..clear()
+        ..addAll(history);
     }
     baseCurrency = currency;
     save();
@@ -1628,6 +1634,12 @@ class Ledger extends ChangeNotifier {
           // Los manuales quedan vencidos hasta que el usuario los anote o salte.
           break;
         }
+        // Si un aviso del banco ya anotó este cargo (mismo monto y cuenta, dos
+        // días o menos), no se anota otra vez: queda vencido para que el
+        // usuario lo confirme o lo salte.
+        if (noticeDuplicateFor(s) != null) {
+          break;
+        }
         final Tx t = _txFromScheduled(s, _noon(s.nextDate));
         try {
           _normalize(t);
@@ -1650,6 +1662,25 @@ class Ledger extends ChangeNotifier {
       save();
     }
     return created;
+  }
+
+  /// Movimiento anotado desde un aviso del banco que parece ser esta
+  /// ocurrencia de un programado: mismo tipo, misma cuenta (o una débito
+  /// suya), mismo monto y dos días o menos de diferencia con [date] (por
+  /// defecto, la próxima fecha del programado).
+  Tx? noticeDuplicateFor(Scheduled s, {DateTime? date}) {
+    final DateTime d = date ?? s.nextDate;
+    final String acc = effectiveAccountId(s.accountId);
+    for (final Tx t in txs) {
+      if (t.source != 'notice' || t.kind != s.kind || t.amountMinor != s.amountMinor || t.isAdjustment) {
+        continue;
+      }
+      if (effectiveAccountId(t.accountId) != acc || daysBetween(t.date, d).abs() > 2) {
+        continue;
+      }
+      return t;
+    }
+    return null;
   }
 
   /// Lo que un programado mueve en un mes promedio, en la moneda de su cuenta.
@@ -1734,7 +1765,7 @@ class Ledger extends ChangeNotifier {
     return c.cut;
   }
 
-  /// Corte del extracto al que se refiere «el pago del último extracto» de
+  /// Corte del extracto al que se refiere «el pago mínimo del último extracto» de
   /// una tarjeta: el que quedó fijo al anotarlo o, si todavía no, el último
   /// que cerró antes del primer movimiento de la tarjeta (o antes de hoy, si
   /// no tiene ninguno). Así lo anotado en Plata nunca se cuenta dos veces.
@@ -1844,7 +1875,7 @@ class Ledger extends ChangeNotifier {
   ///   de pago anterior y la de este estado, que es como el banco los aplica.
   /// - Lo facturado antes y no pagado llega como saldo anterior; un abono de
   ///   más llega como saldo a favor.
-  /// - La deuda inicial se reparte así: el pago del último extracto (si se
+  /// - La deuda inicial se reparte así: el pago mínimo del último extracto (si se
   ///   anotó al crear la tarjeta) vence en ese extracto; el resto es deuda de
   ///   antes de Plata, que el banco factura a su manera (cuotas viejas): no se
   ///   suma a ningún estado y se muestra aparte. Lo que se abone de más sobre

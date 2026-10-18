@@ -151,9 +151,12 @@ class Reminders {
         if (told.contains(e.key)) {
           continue;
         }
-        await notifier.showNow(id: idFor(e.key), title: e.value.title, body: e.value.body, private: private);
-        told.add(e.key);
-        changed = true;
+        // Solo se da por avisado si de verdad se mostró (con permiso): si no,
+        // se vuelve a intentar en la próxima sincronización.
+        if (await notifier.showNow(id: idFor(e.key), title: e.value.title, body: e.value.body, private: private)) {
+          told.add(e.key);
+          changed = true;
+        }
       }
       if (changed) {
         // Solo se recuerdan los últimos avisos: una fecha límite no vuelve.

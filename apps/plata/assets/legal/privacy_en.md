@@ -35,7 +35,7 @@ The links in the guide (source code and report a problem) open the browser only 
 
 ## Sharing and exporting
 
-You decide when to export a CSV or Excel file, or make a backup (More › Backups). The encrypted backup is protected with the password you choose; the JSON backup (the app warns you first) and the CSV and Excel files are not encrypted. Backups hold your data, not receipt photos. Everything is shared with the system share sheet and is subject to the terms of whoever receives it; the app deletes its own copy of the file, and the copy that the Android share sheet leaves in the app cache, the next time you open it and when you erase everything.
+You decide when to export a CSV or Excel file, or make a backup (More › Backups). The encrypted backup is protected with the password you choose; the JSON backup (the app warns you first) and the CSV and Excel files are not encrypted. Backups hold your data, not receipt photos. Everything is shared with the system share sheet and is subject to the terms of whoever receives it; the app deletes its own copy of the file, and the copy that the Android share sheet leaves in the app cache, the next time you open it and when you erase everything. When you restore, the temporary copy of the file you choose is deleted as soon as it is read.
 
 ## Children
 

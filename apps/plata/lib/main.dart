@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'core/app_scope.dart';
+import 'core/backup_picker.dart';
 import 'core/backups.dart';
 import 'core/crypto_store.dart';
 import 'core/defaults.dart';
@@ -85,6 +86,7 @@ Future<Services> _bootstrap(JsonStore store) async {
   // cifrar que el selector de fotos haya dejado.
   await store.clear('exports');
   await clearShareCache();
+  await clearPickedCopies();
   await ledger.pruneAttachments();
   await _clearPickerLeftovers();
 
