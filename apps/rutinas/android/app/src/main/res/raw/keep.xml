@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Recursos que solo se nombran desde Dart: los sonidos de las notificaciones y
+     el ícono de la barra de estado. Sin esto, la reducción de recursos de la
+     compilación de release los quitaría y las notificaciones fallarían. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/rutinas_*,@drawable/ic_stat_rutinas" />
