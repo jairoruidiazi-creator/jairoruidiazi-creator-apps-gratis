@@ -161,26 +161,24 @@ void main() {
           if (!device.isIOS) {
             await _openMore(tester, tr('Avisos bancarios', 'Bank notices'));
             await takeStoreShot(tester, device, lang, '07-avisos');
-            debugPrint('[cierre] volver de avisos');
             await _back(tester);
           }
 
-          debugPrint('[cierre] avisos');
-          await s.notices.stop();
-          // El guardado diferido se dispara con el reloj falso y escribe con
-          // tiempo real; no se espera dentro de runAsync un futuro creado afuera.
-          debugPrint('[cierre] guardado pendiente: ${s.ledger.busy}');
+          // Cierre. Cancelar la suscripción de avisos devuelve un futuro de la
+          // zona raíz: esperarlo en la zona de tiempo falso reanuda la prueba
+          // fuera de su control y el siguiente pump no termina nunca. Por eso
+          // va dentro de runAsync. El guardado diferido se dispara con el reloj
+          // falso y escribe con tiempo real: se le dan turnos hasta que acaba.
+          await tester.runAsync(() => s.notices.stop());
           await tester.pump(const Duration(milliseconds: 500));
           for (int i = 0; i < 50 && s.ledger.busy; i++) {
             await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
             await tester.pump();
           }
-          debugPrint('[cierre] guardado: ${s.ledger.busy ? 'sigue pendiente' : 'listo'}');
+          expect(s.ledger.busy, isFalse, reason: 'el guardado diferido no terminó');
           await tester.pumpWidget(const SizedBox.shrink());
-          debugPrint('[cierre] árbol desmontado');
           s.ledger.dispose();
           await tester.runAsync(() => dir.delete(recursive: true));
-          debugPrint('[cierre] listo');
         });
         expect(errors, isEmpty, reason: errors.map((FlutterErrorDetails d) => d.toString()).join('\n----\n'));
       }, variant: TargetPlatformVariant.only(device.platform), timeout: const Timeout(Duration(minutes: 3)));

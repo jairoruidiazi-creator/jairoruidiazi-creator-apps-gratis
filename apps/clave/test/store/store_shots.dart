@@ -7,6 +7,7 @@
 // dispositivo. tools/store/compose_screenshots.py les pone después el titular
 // y el fondo de la ficha de tienda.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -121,17 +122,27 @@ Widget storeShotRoot(Widget app) => RepaintBoundary(key: storeShotBoundary, chil
 /// deja pasar las animaciones y vuelve a dibujar. Con [settle] en falso no
 /// espera a que todo quede quieto (pantallas con animación continua, como un
 /// metrónomo en marcha): solo avanza [extra].
+///
+/// La decodificación usa E/S real, pero sus futuros viven en la zona de tiempo
+/// falso de la prueba: esperarlos dentro de `runAsync` la bloquea para
+/// siempre, porque nadie vacía esa zona mientras tanto. Por eso se alternan
+/// turnos cortos de tiempo real con cuadros hasta que todas terminan.
 Future<void> settleForShot(WidgetTester tester, {Duration extra = const Duration(milliseconds: 400), bool settle = true}) async {
   for (int round = 0; round < 3; round++) {
-    final List<Future<void>> pending = <Future<void>>[];
+    int pending = 0;
     for (final Element e in find.byType(Image).evaluate()) {
       final Image image = e.widget as Image;
-      pending.add(precacheImage(image.image, e));
+      pending += 1;
+      unawaited(precacheImage(image.image, e).whenComplete(() => pending -= 1));
     }
-    await tester.runAsync(() async {
-      await Future.wait(pending);
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-    });
+    for (int i = 0; i < 150 && pending > 0; i++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await tester.pump();
+    }
+    if (pending > 0) {
+      throw StateError('$pending imágenes no terminaron de cargar');
+    }
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
     await tester.pump(extra);
   }
   if (settle) {
@@ -141,16 +152,39 @@ Future<void> settleForShot(WidgetTester tester, {Duration extra = const Duration
   }
 }
 
+void _repaintAll(WidgetTester tester) {
+  void mark(RenderObject o) {
+    o.markNeedsPaint();
+    o.visitChildren(mark);
+  }
+
+  for (final RenderView view in tester.binding.renderViews) {
+    mark(view);
+  }
+}
+
 /// Guarda la pantalla actual como `<dir>/<dispositivo>/<idioma>/<nombre>.png`.
 Future<void> takeStoreShot(WidgetTester tester, StoreDevice device, String lang, String name, {bool settle = true}) async {
   await settleForShot(tester, settle: settle);
-  final RenderRepaintBoundary boundary = storeShotBoundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
-  final Uint8List? png = await tester.runAsync<Uint8List?>(() async {
-    final ui.Image image = await boundary.toImage(pixelRatio: device.pixelRatio);
-    final ByteData? data = await image.toByteData(format: ui.ImageByteFormat.png);
-    image.dispose();
-    return data?.buffer.asUint8List();
-  });
+  // Las pruebas dibujan las sombras como un borde negro (debugDisableShadows);
+  // para la captura se repinta todo con sombras reales, como en el teléfono,
+  // y al terminar se deja el valor de prueba (el marco lo verifica al final).
+  debugDisableShadows = false;
+  Uint8List? png;
+  try {
+    _repaintAll(tester);
+    await tester.pump();
+    final RenderRepaintBoundary boundary = storeShotBoundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+    png = await tester.runAsync<Uint8List?>(() async {
+      final ui.Image image = await boundary.toImage(pixelRatio: device.pixelRatio);
+      final ByteData? data = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      return data?.buffer.asUint8List();
+    });
+  } finally {
+    debugDisableShadows = true;
+    _repaintAll(tester);
+  }
   if (png == null) {
     throw StateError('No se pudo dibujar la captura $name');
   }
