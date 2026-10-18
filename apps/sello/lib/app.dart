@@ -36,6 +36,8 @@ class SelloApp extends StatelessWidget {
           ThemeData theme(Brightness b) => ThemeData(
                 useMaterial3: true,
                 colorScheme: ColorScheme.fromSeed(seedColor: SelloColors.selva, brightness: b, secondary: SelloColors.naranja),
+                // Flechas y marcas que Roboto no trae (subconjunto de DejaVu Sans).
+                fontFamilyFallback: const <String>['Simbolos'],
                 cardTheme: CardThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
                 filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(minimumSize: const Size(56, 48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)))),
               );

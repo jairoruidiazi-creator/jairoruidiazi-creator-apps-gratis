@@ -11,6 +11,7 @@ void registerBundledLicenses() {
 Stream<LicenseEntry> _bundled() async* {
   yield LicenseEntryWithLineBreaks(<String>['Lexend'], await rootBundle.loadString('assets/legal/OFL-lexend.txt'));
   yield LicenseEntryWithLineBreaks(<String>['Andika'], await rootBundle.loadString('assets/legal/OFL-andika.txt'));
+  yield LicenseEntryWithLineBreaks(<String>['DejaVu Sans (Simbolos)'], await rootBundle.loadString('assets/legal/LICENSE-DejaVu.txt'));
   yield const LicenseEntryWithLineBreaks(
     <String>['Twemoji'],
     'Copyright 2020 Twitter, Inc and other contributors (github.com/jdecked/twemoji).\n\n'

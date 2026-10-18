@@ -20,6 +20,7 @@ Future<void> main() async {
   // La tipografía del sello viene con la app: su licencia aparece en Licencias.
   LicenseRegistry.addLicense(() async* {
     yield LicenseEntryWithLineBreaks(<String>['Roboto'], await rootBundle.loadString('assets/legal/OFL-Roboto.txt'));
+    yield LicenseEntryWithLineBreaks(<String>['DejaVu Sans (Simbolos)'], await rootBundle.loadString('assets/legal/LICENSE-DejaVu.txt'));
   });
   final AppSettings settings = AppSettings();
   await settings.load();

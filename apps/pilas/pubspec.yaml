@@ -53,6 +53,12 @@ flutter:
           weight: 400
         - asset: assets/fonts/Andika-Bold.ttf
           weight: 700
+    # Respaldo para flechas y marcas que Lexend no trae (tools/gen_symbols_font.py).
+    - family: Simbolos
+      fonts:
+        - asset: assets/fonts/Simbolos-Regular.ttf
+        - asset: assets/fonts/Simbolos-Bold.ttf
+          weight: 700
 
 flutter_launcher_icons:
   android: true

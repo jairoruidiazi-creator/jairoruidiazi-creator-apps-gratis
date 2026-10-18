@@ -34,13 +34,14 @@ flutter:
   assets:
     - assets/legal/
     - assets/icon/
-  # Respaldo para ♩ ♪ ♭ ♮ ♯: Roboto y San Francisco no los traen y cada
-  # teléfono los tomaba de una fuente distinta (subconjunto de DejaVu Sans).
+  # Respaldo para ♩ ♪ ♭ ♮ ♯, flechas y marcas: Roboto y San Francisco no los
+  # traen y cada teléfono los tomaba de una fuente distinta (subconjunto de
+  # DejaVu Sans generado con tools/gen_symbols_font.py).
   fonts:
-    - family: ClaveSymbols
+    - family: Simbolos
       fonts:
-        - asset: assets/fonts/ClaveSymbols-Regular.ttf
-        - asset: assets/fonts/ClaveSymbols-Bold.ttf
+        - asset: assets/fonts/Simbolos-Regular.ttf
+        - asset: assets/fonts/Simbolos-Bold.ttf
           weight: 700
 
 flutter_launcher_icons:

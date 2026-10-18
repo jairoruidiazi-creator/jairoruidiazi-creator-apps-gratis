@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+/// Respaldo para flechas y marcas que Lexend y Andika no traen o que conviene
+/// ver igual en todos los teléfonos (subconjunto de DejaVu Sans, ver
+/// tools/gen_symbols_font.py).
+const List<String> kFontFallback = <String>['Simbolos'];
+
 /// Colores y estilos de Pilas: fondos cálidos, botones grandes y texto legible.
 class PilasColors {
   PilasColors._();
@@ -45,6 +50,8 @@ class PilasTheme {
       colorScheme: scheme,
       scaffoldBackgroundColor: fondo,
       fontFamily: familia,
+      // Flechas y marcas que Lexend no trae (subconjunto de DejaVu Sans).
+      fontFamilyFallback: kFontFallback,
       textTheme: base.copyWith(
         displayLarge: base.displayLarge?.copyWith(fontWeight: FontWeight.w700),
         headlineMedium: base.headlineMedium?.copyWith(fontWeight: FontWeight.w700, fontSize: 30),
@@ -60,7 +67,7 @@ class PilasTheme {
         foregroundColor: tinta,
         elevation: 0,
         centerTitle: true,
-        titleTextStyle: TextStyle(fontFamily: familia, fontSize: 22, fontWeight: FontWeight.w700, color: tinta),
+        titleTextStyle: TextStyle(fontFamily: familia, fontFamilyFallback: kFontFallback, fontSize: 22, fontWeight: FontWeight.w700, color: tinta),
       ),
       cardTheme: CardThemeData(
         color: PilasColors.tarjeta,
@@ -76,7 +83,7 @@ class PilasTheme {
           minimumSize: const Size(64, 60),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          textStyle: TextStyle(fontFamily: familia, fontSize: 20, fontWeight: FontWeight.w700),
+          textStyle: TextStyle(fontFamily: familia, fontFamilyFallback: kFontFallback, fontSize: 20, fontWeight: FontWeight.w700),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -85,14 +92,14 @@ class PilasTheme {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           side: BorderSide(color: tinta, width: 2),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          textStyle: TextStyle(fontFamily: familia, fontSize: 18, fontWeight: FontWeight.w600),
+          textStyle: TextStyle(fontFamily: familia, fontFamilyFallback: kFontFallback, fontSize: 18, fontWeight: FontWeight.w600),
           foregroundColor: tinta,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           minimumSize: const Size(48, 48),
-          textStyle: TextStyle(fontFamily: familia, fontSize: 18, fontWeight: FontWeight.w600),
+          textStyle: TextStyle(fontFamily: familia, fontFamilyFallback: kFontFallback, fontSize: 18, fontWeight: FontWeight.w600),
           foregroundColor: tinta,
         ),
       ),

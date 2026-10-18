@@ -24,7 +24,8 @@ class ClaveTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      fontFamilyFallback: const <String>['ClaveSymbols'],
+      // Signos musicales, flechas y marcas (subconjunto de DejaVu Sans).
+      fontFamilyFallback: const <String>['Simbolos'],
       visualDensity: VisualDensity.standard,
       appBarTheme: const AppBarTheme(centerTitle: false),
       cardTheme: CardThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),

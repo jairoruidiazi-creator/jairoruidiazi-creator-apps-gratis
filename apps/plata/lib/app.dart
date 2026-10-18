@@ -44,6 +44,8 @@ class PlataApp extends StatelessWidget {
           ThemeData theme(Brightness b) => ThemeData(
                 useMaterial3: true,
                 colorScheme: ColorScheme.fromSeed(seedColor: PlataColors.verde, brightness: b, secondary: PlataColors.oro),
+                // Flechas y marcas que Roboto no trae (subconjunto de DejaVu Sans).
+                fontFamilyFallback: const <String>['Simbolos'],
                 cardTheme: CardThemeData(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), margin: const EdgeInsets.symmetric(vertical: 4)),
                 filledButtonTheme: FilledButtonThemeData(style: FilledButton.styleFrom(minimumSize: const Size(56, 48), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)))),
                 inputDecorationTheme: const InputDecorationTheme(isDense: true),

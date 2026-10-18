@@ -14,3 +14,10 @@ Font License 1.1 (archivos `OFL-*.txt`).
 Se usan en las pruebas de capturas y en `tools/store/compose_screenshots.py`.
 Sello además incluye Roboto Medium, Bold y ExtraBold (familia `SelloSans`) para
 dibujar el sello con la misma letra en Android y en iOS.
+
+Las cuatro apps incluyen la familia `Simbolos`, un subconjunto de DejaVu Sans
+(flechas, marcas de verificación, estrellas y signos musicales) que su tema usa
+como `fontFamilyFallback`: Roboto y Lexend no traen esos signos, cada teléfono
+los tomaba de una fuente distinta y en las capturas salía un cuadro vacío. Se
+regenera con `python3 tools/gen_symbols_font.py`; su licencia va en
+`assets/legal/LICENSE-DejaVu.txt` de cada app y aparece en Licencias.

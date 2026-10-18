@@ -1,5 +1,5 @@
 Fonts are (c) Bitstream (see below). DejaVu changes are in public domain.
-Clave incluye un subconjunto de DejaVu Sans (solo los signos musicales) con el nombre de familia ClaveSymbols.
+Clave incluye un subconjunto de DejaVu Sans (flechas, marcas de verificación y signos musicales) con el nombre de familia Simbolos.
 
 Copyright (c) 2003 by Bitstream, Inc. All Rights Reserved.
 Bitstream Vera is a trademark of Bitstream, Inc.

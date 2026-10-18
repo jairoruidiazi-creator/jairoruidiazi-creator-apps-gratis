@@ -38,6 +38,14 @@ flutter:
   assets:
     - assets/legal/
     - assets/icon/
+  # Respaldo para flechas y marcas que Roboto no trae (subconjunto de DejaVu
+  # Sans generado con tools/gen_symbols_font.py).
+  fonts:
+    - family: Simbolos
+      fonts:
+        - asset: assets/fonts/Simbolos-Regular.ttf
+        - asset: assets/fonts/Simbolos-Bold.ttf
+          weight: 700
 
 flutter_launcher_icons:
   android: true
