@@ -3,6 +3,7 @@
 
 import 'dart:io';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,7 +51,7 @@ Future<TestEnv> makeEnv({String language = 'es', bool onboarded = true, bool dem
   final JsonStore store = JsonStore(root: dir);
   final MemoryKeyStore keys = MemoryKeyStore();
   final CryptoBox box = await CryptoBox.fromKeyStore(keys);
-  final DateTime now = demo ? demoNow : DateTime(2026, 10, 16, 12);
+  final DateTime now = demo ? demoNow : kTestNow;
   final Ledger ledger = Ledger(EncryptedStore(store, box), spanish: language == 'es', clock: () => now);
   await ledger.load();
   if (demo) {
@@ -100,16 +101,30 @@ void usePhone(WidgetTester tester, {double textScale = 1}) {
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 }
 
-/// Recoge los errores de Flutter (desbordes incluidos) para revisarlos al final.
+/// Recoge los errores de Flutter (desbordes incluidos) para revisarlos al
+/// final; también los pasa al manejador de la prueba, que la hace fallar con
+/// el detalle.
 List<String> collectErrors() {
   final List<String> errors = <String>[];
   final FlutterExceptionHandler? previous = FlutterError.onError;
   FlutterError.onError = (FlutterErrorDetails d) {
     errors.add(d.toString());
+    previous?.call(d);
   };
   addTearDown(() => FlutterError.onError = previous);
   return errors;
 }
+
+/// "Hoy" de las pruebas de interfaz que no usan los datos de ejemplo: el libro
+/// y la interfaz ven la misma fecha.
+final DateTime kTestNow = DateTime(2026, 10, 16, 12);
+
+/// Corre [body] con el reloj de la app fijo en [kTestNow].
+Future<void> atTestTime(Future<void> Function() body) => withClock(Clock.fixed(kTestNow), body);
+
+/// Deja pasar el tiempo para que terminen los temporizadores pendientes (los
+/// controladores de texto se liberan un segundo después de cerrar su pantalla).
+Future<void> finish(WidgetTester tester) => tester.pump(const Duration(seconds: 2));
 
 Future<void> tapKey(WidgetTester tester, String key) async {
   await tester.tap(find.descendant(of: find.byType(AmountKeypad), matching: find.text(key)).last);

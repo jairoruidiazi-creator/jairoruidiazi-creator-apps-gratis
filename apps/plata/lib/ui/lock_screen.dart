@@ -223,7 +223,11 @@ class _LockScreenState extends State<LockScreen> {
           title: Text(t(context, 'Entiendo que se borran todos mis datos de este teléfono', 'I understand all my data on this phone will be erased')),
         ),
         const SizedBox(height: 8),
-        Row(
+        // Con texto grande los dos botones van uno debajo del otro.
+        OverflowBar(
+          alignment: MainAxisAlignment.spaceBetween,
+          overflowAlignment: OverflowBarAlignment.end,
+          overflowSpacing: 8,
           children: <Widget>[
             TextButton(
               onPressed: _wiping
@@ -234,7 +238,6 @@ class _LockScreenState extends State<LockScreen> {
                       }),
               child: Text(t(context, 'Cancelar', 'Cancel')),
             ),
-            const Spacer(),
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: cs.error, foregroundColor: cs.onError),
               onPressed: _understood && !_wiping ? _wipe : null,
