@@ -10,6 +10,9 @@ import 'stamp_data.dart';
 /// Dibuja el sello (texto, fondo, brújula y logo) como una capa transparente
 /// del tamaño de la foto. Se usa igual para la vista previa en pantalla y
 /// para la copia sellada: la misma función, distinta escala.
+/// Tipografía del sello, incluida en la app (ver pubspec.yaml).
+const String kStampFont = 'SelloSans';
+
 class StampPainter extends CustomPainter {
   StampPainter({required this.template, required this.data, this.logo, this.previewScale = 1.0});
 
@@ -46,7 +49,7 @@ class StampPainter extends CustomPainter {
     double textWidth = 0;
     for (final StampLine l in lines) {
       final ui.ParagraphBuilder pb = ui.ParagraphBuilder(ui.ParagraphStyle(fontSize: fontSize, fontWeight: l.strong ? FontWeight.w700 : FontWeight.w500, maxLines: 4, ellipsis: '…'))
-        ..pushStyle(ui.TextStyle(color: textColor, fontSize: fontSize * (l.strong ? 1.1 : 1), fontWeight: l.strong ? FontWeight.w700 : FontWeight.w500, shadows: <Shadow>[Shadow(color: Colors.black.withValues(alpha: 0.6), blurRadius: unit * 0.3)]))
+        ..pushStyle(ui.TextStyle(fontFamily: kStampFont, color: textColor, fontSize: fontSize * (l.strong ? 1.1 : 1), fontWeight: l.strong ? FontWeight.w700 : FontWeight.w500, shadows: <Shadow>[Shadow(color: Colors.black.withValues(alpha: 0.6), blurRadius: unit * 0.3)]))
         ..addText(l.text);
       final ui.Paragraph p = pb.build()..layout(ui.ParagraphConstraints(width: maxTextWidth));
       paragraphs.add(p);
@@ -147,7 +150,7 @@ class StampPainter extends CustomPainter {
       canvas.drawLine(p1, p2, ring);
       if (i == 0) {
         final ui.ParagraphBuilder pb = ui.ParagraphBuilder(ui.ParagraphStyle(fontSize: r * 0.42, fontWeight: FontWeight.w800, textAlign: TextAlign.center))
-          ..pushStyle(ui.TextStyle(color: color, fontWeight: FontWeight.w800))
+          ..pushStyle(ui.TextStyle(fontFamily: kStampFont, color: color, fontWeight: FontWeight.w800))
           ..addText('N');
         final ui.Paragraph p = pb.build()..layout(ui.ParagraphConstraints(width: r));
         final Offset pos = c + Offset(math.cos(a), math.sin(a)) * (r * 0.6);
@@ -162,7 +165,7 @@ class StampPainter extends CustomPainter {
       ..close();
     canvas.drawPath(arrow, Paint()..color = const Color(0xFFFF7043));
     final ui.ParagraphBuilder pb = ui.ParagraphBuilder(ui.ParagraphStyle(fontSize: r * 0.38, fontWeight: FontWeight.w700, textAlign: TextAlign.center))
-      ..pushStyle(ui.TextStyle(color: color, fontWeight: FontWeight.w700))
+      ..pushStyle(ui.TextStyle(fontFamily: kStampFont, color: color, fontWeight: FontWeight.w700))
       ..addText('${heading.toStringAsFixed(0)}°');
     final ui.Paragraph p = pb.build()..layout(ui.ParagraphConstraints(width: r * 2));
     canvas.drawParagraph(p, Offset(c.dx - r, c.dy - p.height / 2 + r * 0.15));

@@ -24,9 +24,23 @@ class RecorderScreen extends StatefulWidget {
 class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAliveClientMixin {
   Services? _services;
   AudioRecorder? _recorderInstance;
-  final AudioPlayer _player = AudioPlayer();
+  AudioPlayer? _playerInstance;
 
   AudioRecorder get _recorder => _recorderInstance ??= AudioRecorder();
+
+  /// El reproductor se crea la primera vez que se escucha una toma: abrir la
+  /// pestaña no reserva recursos de audio.
+  AudioPlayer get _player {
+    final AudioPlayer? existing = _playerInstance;
+    if (existing != null) {
+      return existing;
+    }
+    final AudioPlayer p = AudioPlayer();
+    _posSub = p.onPositionChanged.listen((Duration d) => setState(() => _pos = d));
+    _durSub = p.onDurationChanged.listen((Duration d) => setState(() => _dur = d));
+    _stateSub = p.onPlayerStateChanged.listen((PlayerState st) => setState(() => _isPlaying = st == PlayerState.playing));
+    return _playerInstance = p;
+  }
   bool _recording = false;
   DateTime? _recStart;
   Timer? _recTimer;
@@ -56,14 +70,6 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
   }
 
   @override
-  void initState() {
-    super.initState();
-    _posSub = _player.onPositionChanged.listen((Duration d) => setState(() => _pos = d));
-    _durSub = _player.onDurationChanged.listen((Duration d) => setState(() => _dur = d));
-    _stateSub = _player.onPlayerStateChanged.listen((PlayerState st) => setState(() => _isPlaying = st == PlayerState.playing));
-  }
-
-  @override
   void dispose() {
     _recTimer?.cancel();
     unawaited(_ampSub?.cancel());
@@ -74,7 +80,10 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
     if (rec != null) {
       unawaited(rec.dispose());
     }
-    unawaited(_player.dispose());
+    final AudioPlayer? player = _playerInstance;
+    if (player != null) {
+      unawaited(player.dispose());
+    }
     super.dispose();
   }
 
@@ -99,7 +108,7 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
     }
     // El afinador suelta el micrófono mientras se graba.
     await s.tuner.stop();
-    await _player.stop();
+    await _playerInstance?.stop();
     _recordingFormat = s.settings.recordingFormat;
     final AudioEncoder enc = _recordingFormat == 'wav' ? AudioEncoder.wav : (_recordingFormat == 'flac' ? AudioEncoder.flac : AudioEncoder.aacLc);
     final String ext = _recordingFormat == 'wav' ? 'wav' : (_recordingFormat == 'flac' ? 'flac' : 'm4a');

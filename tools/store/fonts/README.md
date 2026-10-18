@@ -11,5 +11,6 @@ Font License 1.1 (archivos `OFL-*.txt`).
   `CupertinoSystemDisplay` que usa Flutter en iOS.
 - **Lexend**: titulares de las capturas compuestas.
 
-Solo se usan en las pruebas de capturas y en `tools/store/compose_screenshots.py`;
-no se incluyen en las apps.
+Se usan en las pruebas de capturas y en `tools/store/compose_screenshots.py`.
+Sello además incluye Roboto Medium, Bold y ExtraBold (familia `SelloSans`) para
+dibujar el sello con la misma letra en Android y en iOS.

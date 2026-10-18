@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       task:
-        description: "Tarea (commons-photos)"
+        description: "Tarea (commons-photos u osm-tiles)"
         required: true
         default: commons-photos
 
@@ -27,3 +27,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: bash tools/ci/publish_logs.sh ci-assets-commons commons-photos commons.log
+
+  tiles:
+    if: github.event.inputs.task == 'osm-tiles'
+    name: Teselas de OpenStreetMap para las capturas de Sello
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Centro de los datos de ejemplo de test/store/sello_demo.dart.
+      - run: python3 tools/store/fetch_osm_tiles.py tiles --lat 4.8610 --lon -74.0590 --zoom 17 --rx 3 --ry 4 2>&1 | tee tiles.log
+      - name: Publicar
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash tools/ci/publish_logs.sh ci-assets-tiles tiles tiles.log

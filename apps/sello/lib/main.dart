@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' show FlutterView;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -16,6 +17,10 @@ import 'geo/location_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // La tipografía del sello viene con la app: su licencia aparece en Licencias.
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(<String>['Roboto'], await rootBundle.loadString('assets/legal/OFL-Roboto.txt'));
+  });
   final AppSettings settings = AppSettings();
   await settings.load();
   final JsonStore store = JsonStore();

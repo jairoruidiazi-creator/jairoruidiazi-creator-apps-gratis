@@ -1,0 +1,5 @@
+# Las capturas de tienda son lentas y escriben archivos: se corren aparte con
+# `flutter test --tags screenshots` (la CI lo hace en su propio trabajo).
+tags:
+  screenshots:
+    timeout: 4x

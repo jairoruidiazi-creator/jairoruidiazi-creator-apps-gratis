@@ -20,6 +20,11 @@ class MapScreen extends StatefulWidget {
   /// Falso en pruebas: no se descargan teselas.
   static bool tilesEnabled = true;
 
+  /// Proveedor de teselas para pruebas (por ejemplo, teselas guardadas en
+  /// disco para las capturas de tienda). En la app es nulo.
+  @visibleForTesting
+  static TileProvider? tileProviderOverride;
+
   static const String userAgent = '$kAppName/$kAppVersion (co.appsgratis.sello; +$kRepoUrl)';
 
   @override
@@ -97,7 +102,7 @@ class _MapScreenState extends State<MapScreen> {
                   TileLayer(
                     urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'co.appsgratis.sello',
-                    tileProvider: _tiles,
+                    tileProvider: MapScreen.tileProviderOverride ?? _tiles,
                     maxNativeZoom: 19,
                   ),
                 if (fix != null)

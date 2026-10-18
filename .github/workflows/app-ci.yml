@@ -176,6 +176,9 @@ jobs:
         run: flutter pub get
       - name: Dibujar las pantallas
         if: steps.has.outputs.yes == 'true'
+        # Los datos de ejemplo son de Colombia: la hora del sello y de los movimientos va en UTC-5.
+        env:
+          TZ: America/Bogota
         run: flutter test --tags screenshots 2>&1 | tee -a shots.log; exit ${PIPESTATUS[0]}
       - name: Componer las capturas de las tiendas
         if: steps.has.outputs.yes == 'true'
@@ -190,4 +193,8 @@ jobs:
         working-directory: .
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: bash tools/ci/publish_logs.sh ci-shots-${{ inputs.app }} apps/${{ inputs.app }}/build/store_listing apps/${{ inputs.app }}/shots.log
+        # Si algo falló, también se publican las capturas crudas para revisarlas.
+        run: |
+          EXTRA=""
+          if [ "${{ job.status }}" != "success" ]; then EXTRA="apps/${{ inputs.app }}/build/store_shots"; fi
+          bash tools/ci/publish_logs.sh ci-shots-${{ inputs.app }} apps/${{ inputs.app }}/build/store_listing apps/${{ inputs.app }}/shots.log $EXTRA
