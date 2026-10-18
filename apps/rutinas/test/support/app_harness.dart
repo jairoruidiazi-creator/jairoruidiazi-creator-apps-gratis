@@ -125,12 +125,34 @@ Future<void> goBack(WidgetTester tester) async {
   await settle(tester);
 }
 
-/// Lleva [finder] a la vista y comprueba que recibe toques.
-Future<void> expectReachable(WidgetTester tester, Finder finder, String reason) async {
-  expect(finder, findsWidgets, reason: '$reason: no está');
+/// Lleva [finder] a la vista: si no está en pantalla, vuelve al principio de
+/// la lista y baja hasta encontrarlo.
+Future<void> reveal(WidgetTester tester, Finder finder, {Finder? scrollable}) async {
+  if (finder.evaluate().isEmpty) {
+    await tester.drag(scrollable ?? verticalList(), const Offset(0, 6000));
+    await settle(tester);
+    if (finder.evaluate().isEmpty) {
+      await tester.scrollUntilVisible(finder, 150, scrollable: scrollable ?? verticalList());
+    }
+  }
   await tester.ensureVisible(finder.first);
   await tester.pump();
+}
+
+/// Lleva [finder] a la vista y comprueba que recibe toques.
+Future<void> expectReachable(WidgetTester tester, Finder finder, String reason) async {
+  await reveal(tester, finder);
   expectHittable(tester, finder, reason);
+}
+
+/// Toca una pestaña de una barra de pestañas (que se desplaza con texto grande).
+Future<void> tapTab(WidgetTester tester, String label) async {
+  final Finder tab = find.descendant(of: find.byType(TabBar), matching: find.text(label));
+  await tester.ensureVisible(tab);
+  await tester.pump();
+  expectHittable(tester, tab, 'pestaña $label');
+  await tester.tap(tab);
+  await settle(tester);
 }
 
 /// La lista vertical de la pantalla de arriba.
@@ -138,10 +160,8 @@ Finder verticalList() => find.byWidgetPredicate((Widget w) => w is Scrollable &&
 
 /// Desplaza la lista de la pantalla hasta [finder] y lo toca.
 Future<void> scrollAndTap(WidgetTester tester, Finder finder, {bool running = false, Finder? scrollable}) async {
-  await tester.scrollUntilVisible(finder, 200, scrollable: scrollable ?? verticalList());
-  await tester.ensureVisible(finder);
-  await tester.pump();
-  await tester.tap(finder);
+  await reveal(tester, finder, scrollable: scrollable);
+  await tester.tap(finder.first);
   if (running) {
     await pumpFor(tester, const Duration(milliseconds: 600));
   } else {

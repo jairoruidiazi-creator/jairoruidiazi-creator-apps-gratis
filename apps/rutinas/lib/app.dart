@@ -208,7 +208,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       _Dest(Icons.insights_outlined, Icons.insights, t(context, 'Resumen', 'Summary')),
       _Dest(Icons.settings_outlined, Icons.settings, t(context, 'Ajustes', 'Settings')),
     ];
-    final Widget stack = IndexedStack(index: _index, children: pages);
+    // Cada pestaña con su propio ScaffoldMessenger: los avisos de abajo
+    // (SnackBar) salen dentro de la pestaña y suben su botón flotante en vez
+    // de taparlo desde la pantalla principal.
+    final Widget stack = IndexedStack(index: _index, children: <Widget>[for (final Widget p in pages) ScaffoldMessenger(child: p)]);
     final bool wide = isWideLayout(context);
     void select(int i) => setState(() => _index = i);
     return Scaffold(

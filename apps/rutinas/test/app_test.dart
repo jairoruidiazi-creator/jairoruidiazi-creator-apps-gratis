@@ -230,8 +230,7 @@ void main() {
       expectNoErrors(tester, 'temporizador');
 
       // Cronómetro con dos vueltas: la más rápida y la más lenta resaltadas.
-      await tester.tap(find.text('Cronómetro'));
-      await settle(tester);
+      await tapTab(tester, 'Cronómetro');
       Finder inStopwatch(String text) => find.descendant(of: find.byType(StopwatchView), matching: find.text(text));
       await tester.tap(inStopwatch('Iniciar'));
       await pumpFor(tester, const Duration(milliseconds: 1500));
@@ -246,8 +245,7 @@ void main() {
       expect(find.textContaining('Peor'), findsOneWidget);
 
       // Cuenta atrás guardada.
-      await tester.tap(find.text('Cuenta atrás'));
-      await settle(tester);
+      await tapTab(tester, 'Cuenta atrás');
       Finder inCountdown(String text) => find.descendant(of: find.byType(CountdownView), matching: find.text(text));
       await tester.tap(inCountdown('5 min'));
       await tester.pump();
@@ -411,6 +409,7 @@ void main() {
 Future<void> screensTour(WidgetTester tester, Services s, String where) async {
   final bool es = s.settings.spanish;
   String tr(String a, String b) => es ? a : b;
+  await reveal(tester, find.text(tr('Beber agua', 'Drink water')));
   expect(find.text(tr('Beber agua', 'Drink water')), findsOneWidget);
   await expectReachable(tester, find.byTooltip(tr('Sumar 1 (vasos)', 'Add 1 (glasses)')), '$where: sumar');
   expectNoErrors(tester, '$where: hábitos');
@@ -434,7 +433,7 @@ Future<void> screensTour(WidgetTester tester, Services s, String where) async {
   expectNoErrors(tester, '$where: calendario');
   await goBack(tester);
   final Finder meditar = find.text(tr('Meditar', 'Meditate'));
-  await tester.scrollUntilVisible(meditar, 200, scrollable: verticalList());
+  await reveal(tester, meditar);
   await tester.longPress(meditar);
   await settle(tester);
   await expectReachable(tester, find.text(tr('Guardar', 'Save')), '$where: guardar el día');
@@ -444,7 +443,7 @@ Future<void> screensTour(WidgetTester tester, Services s, String where) async {
 
   // Recordatorios y su editor.
   await goTab(tester, tr('Avisos', 'Reminders'));
-  expect(find.text(tr('Tomar la vitamina', 'Take the vitamin')), findsOneWidget);
+  await reveal(tester, find.text(tr('Tomar la vitamina', 'Take the vitamin')));
   expectHittable(tester, find.text(tr('Recordatorio', 'Reminder')), '$where: recordatorio nuevo');
   expectNoErrors(tester, '$where: recordatorios');
   await scrollAndTap(tester, find.text(tr('Pagar el arriendo', 'Pay the rent')));
@@ -464,16 +463,13 @@ Future<void> screensTour(WidgetTester tester, Services s, String where) async {
   expectNoErrors(tester, '$where: editor de entrenamientos');
   await goBack(tester);
   for (final String tab in <String>[tr('Cronómetro', 'Stopwatch'), tr('Cuenta atrás', 'Countdown')]) {
-    await tester.tap(find.text(tab));
-    await settle(tester);
+    await tapTab(tester, tab);
     expectNoErrors(tester, '$where: $tab');
   }
-  await tester.tap(find.text(tr('Entrenamientos', 'Workouts')));
-  await settle(tester);
+  await tapTab(tester, tr('Intervalos', 'Intervals'));
 
   // En marcha, a pantalla completa.
-  await tester.ensureVisible(find.text(tr('Iniciar', 'Start')).first);
-  await tester.pump();
+  await reveal(tester, find.text(tr('Iniciar', 'Start')));
   await tester.tap(find.text(tr('Iniciar', 'Start')).first);
   await pumpFor(tester, const Duration(seconds: 2));
   expect(find.byType(RunnerScreen), findsOneWidget);

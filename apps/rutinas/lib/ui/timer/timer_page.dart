@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
@@ -45,39 +46,60 @@ class _TimerPageState extends State<TimerPage> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(t(context, 'Temporizador', 'Timer')),
-        bottom: TabBar(
-          controller: _tabs,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          tabs: <Widget>[
-            Tab(text: t(context, 'Entrenamientos', 'Workouts')),
-            Tab(text: t(context, 'Cronómetro', 'Stopwatch')),
-            Tab(text: t(context, 'Cuenta atrás', 'Countdown')),
-          ],
-        ),
-      ),
-      floatingActionButton: _tabs.index == 0
-          ? FloatingActionButton.extended(
-              heroTag: 'fab-workout',
-              onPressed: () => showTemplateSheet(context),
-              icon: const Icon(Icons.add),
-              label: Text(t(context, 'Entrenamiento', 'Workout')),
-            )
-          : null,
-      body: TabBarView(
-        controller: _tabs,
-        children: const <Widget>[
-          WorkoutsTab(),
-          StopwatchView(),
-          CountdownView(),
-        ],
-      ),
+    final List<String> labels = <String>[t(context, 'Intervalos', 'Intervals'), t(context, 'Cronómetro', 'Stopwatch'), t(context, 'Cuenta atrás', 'Countdown')];
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints box) {
+        final bool fixed = _tabsFit(context, labels, box.maxWidth);
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(t(context, 'Temporizador', 'Timer')),
+            bottom: TabBar(
+              controller: _tabs,
+              isScrollable: !fixed,
+              tabAlignment: fixed ? TabAlignment.fill : TabAlignment.start,
+              labelPadding: fixed ? const EdgeInsets.symmetric(horizontal: _kFixedTabPadding) : null,
+              tabs: <Widget>[for (final String l in labels) Tab(text: l)],
+            ),
+          ),
+          floatingActionButton: _tabs.index == 0
+              ? FloatingActionButton.extended(
+                  heroTag: 'fab-workout',
+                  onPressed: () => showTemplateSheet(context),
+                  icon: const Icon(Icons.add),
+                  label: Text(t(context, 'Entrenamiento', 'Workout')),
+                )
+              : null,
+          body: TabBarView(
+            controller: _tabs,
+            children: const <Widget>[
+              WorkoutsTab(),
+              StopwatchView(),
+              CountdownView(),
+            ],
+          ),
+        );
+      },
     );
   }
+
+  /// Las tres pestañas van a lo ancho si sus nombres caben enteros; con el
+  /// texto muy grande, la barra de pestañas se desplaza.
+  static bool _tabsFit(BuildContext context, List<String> labels, double width) {
+    final ThemeData theme = Theme.of(context);
+    final TextStyle style = theme.tabBarTheme.labelStyle ?? theme.textTheme.titleSmall ?? const TextStyle(fontSize: 14);
+    final TextScaler scaler = MediaQuery.textScalerOf(context);
+    double widest = 0;
+    for (final String l in labels) {
+      final TextPainter tp = TextPainter(text: TextSpan(text: l, style: style), textDirection: TextDirection.ltr, textScaler: scaler, maxLines: 1)..layout();
+      widest = math.max(widest, tp.width);
+      tp.dispose();
+    }
+    return (widest + 2 * _kFixedTabPadding) * labels.length <= width;
+  }
 }
+
+/// Margen a cada lado del nombre de una pestaña fija.
+const double _kFixedTabPadding = 8;
 
 /// Elegir una plantilla para un entrenamiento nuevo.
 Future<void> showTemplateSheet(BuildContext context) async {
