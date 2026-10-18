@@ -276,7 +276,8 @@ class _ShortcutTile extends StatelessWidget {
         children: <Widget>[
           EmojiImage(emoji, size: 32),
           const SizedBox(width: 8),
-          Flexible(child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
+          // Dos líneas: en teléfonos angostos "Mis pegatinas" no se corta.
+          Flexible(child: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, height: 1.1))),
           if (count != null) ...<Widget>[
             const SizedBox(width: 6),
             Text('$count', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: PilasColors.naranja)),

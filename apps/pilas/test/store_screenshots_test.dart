@@ -58,6 +58,19 @@ Future<void> _openGame(WidgetTester tester, AppState state, String id, Profile p
   final GameDef game = GameRegistry.all.firstWhere((GameDef g) => g.id == id);
   await tester.runAsync(() => state.selectProfile(p));
   await _open(tester, (BuildContext context) => game.build(context, GameLaunch(game: game, band: p.band, profile: p)));
+  _diagnose(tester, game.nombre);
+}
+
+/// Registra qué hay en pantalla (para revisar capturas vacías en la CI).
+void _diagnose(WidgetTester tester, String label) {
+  final Finder title = find.text(label);
+  final List<String> routes = <String>[];
+  for (final Element e in find.byType(Scaffold, skipOffstage: false).evaluate()) {
+    final ModalRoute<dynamic>? r = ModalRoute.of(e);
+    final RenderBox? box = e.renderObject as RenderBox?;
+    routes.add('${e.widget.runtimeType} route=${r?.runtimeType} anim=${r?.animation?.value.toStringAsFixed(2)} sec=${r?.secondaryAnimation?.value.toStringAsFixed(2)} current=${r?.isCurrent} offset=${box != null && box.hasSize ? box.localToGlobal(Offset.zero) : null} size=${box != null && box.hasSize ? box.size : null}');
+  }
+  debugPrint('[diagnóstico] "$label": ${title.evaluate().length} textos visibles; scaffolds: ${routes.join(' | ')}');
 }
 
 /// Pinta casi toda la lámina abierta con los colores de sus números (deja
@@ -143,7 +156,13 @@ void main() {
 
       // 4. Colorear por números, casi terminado.
       await _openGame(tester, state, 'colorear_numeros', demo.mateo);
-      await tester.tap(find.byWidgetPredicate((Widget w) => w is CustomPaint && w.painter is ColoringPainter).first);
+      final Finder thumbs = find.byWidgetPredicate((Widget w) => w is CustomPaint && w.painter is ColoringPainter);
+      for (int i = 0; i < 40 && thumbs.evaluate().isEmpty; i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 100)));
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      _diagnose(tester, 'Colorear por números');
+      await tester.tap(thumbs.first);
       await _realTime(tester);
       await _settle(tester);
       await _colorIn(tester);
