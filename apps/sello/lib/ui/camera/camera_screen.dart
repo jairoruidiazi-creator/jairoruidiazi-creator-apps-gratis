@@ -316,7 +316,11 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       final CaptureOutcome out = await _pipeline!.process(jpegPath: file.path, project: project, template: tpl, data: data, logo: _logo, fields: _fields, notes: _notes, tags: _tags);
       if (mounted) {
         setState(() => _last = out.record);
-        if (out.galleryError != null) {
+        if (out.galleryDenied) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(t(context, 'Guardada en la app. Para copiarla también a la fototeca, da el permiso en los ajustes del teléfono o apaga la copia en Ajustes.', 'Saved in the app. To also copy it to the photo library, allow it in the phone settings or turn the copy off in Settings.')),
+          ));
+        } else if (out.galleryError != null) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Guardada en la app; no se pudo copiar a la fototeca.', 'Saved in the app; could not copy to the photo library.'))));
         }
       }

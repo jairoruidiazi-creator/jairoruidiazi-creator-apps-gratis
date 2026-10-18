@@ -15,7 +15,7 @@ Sello es una app gratuita y de código abierto publicada por el equipo de apps-g
 - **Fotos.** Las fotos que tomas se guardan en el almacenamiento privado de la app: la copia con el sello y, si lo dejas activado, la original sin sello.
 - **Datos de cada foto:** fecha y hora, coordenadas, altitud, precisión, rumbo, dirección aproximada, proyecto, notas, etiquetas y los campos que tú definas. Se escriben en el sello de la imagen y en sus metadatos (EXIF).
 - **Proyectos, plantillas del sello, logos que elijas y ajustes** de la app.
-- **Copia en la galería.** Si dejas activada esta opción, Sello guarda además una copia de cada foto sellada en la galería del teléfono (álbum "Sello"), donde la pueden ver las apps a las que tú les des acceso a tus fotos.
+- **Copia en la galería.** Si dejas activada esta opción, Sello guarda además una copia de cada foto sellada en la galería del teléfono (en Android, en el álbum "Sello"; en iPhone, en la app Fotos), donde la pueden ver las apps a las que tú les des acceso a tus fotos.
 
 Nosotros no recibimos nada de esto, no lo vemos y no lo podemos recuperar.
 
@@ -24,7 +24,7 @@ Nosotros no recibimos nada de esto, no lo vemos y no lo podemos recuperar.
 - **Cámara:** para tomar las fotos.
 - **Ubicación mientras usas la app:** para las coordenadas, la altitud y la dirección. Sello no usa la ubicación en segundo plano.
 - **Sensores de movimiento:** para calcular el rumbo de la cámara y el nivel. Esos datos se usan en el teléfono.
-- **Fotos y almacenamiento:** para guardar la copia en la galería, si la activas. En iOS, crear el álbum "Sello" requiere el permiso de acceso a la fototeca; en Android 10 o anterior se usa el permiso de almacenamiento. Sello no lee, analiza ni sube tus otras fotos.
+- **Fotos y almacenamiento:** para guardar la copia en la galería, si la activas. En iPhone solo se pide permiso para agregar fotos, no para verlas; en Android 10 o anterior se usa el permiso de almacenamiento y desde Android 11 no hace falta ninguno. Sello no lee, analiza ni sube tus otras fotos.
 
 ## Qué sale del teléfono y a quién
 

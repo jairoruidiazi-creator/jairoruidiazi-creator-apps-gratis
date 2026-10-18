@@ -11,7 +11,7 @@ Cámara de campo gratuita, sin anuncios, sin cuenta y sin servidor: cada foto sa
 | Brújula | Rumbo de la cámara con norte verdadero: la declinación magnética se calcula con el modelo WMM2025 a partir del GPS (o se fija a mano) · punto cardinal · fachada fotografiada · inclinación · rosa de los vientos dibujada en el sello |
 | Sello | Plantillas con los datos que quieras, en el orden del sello, con rótulos o sin ellos · posición (esquinas o franja inferior) · tamaño, color y fondo · formato de fecha · segundo formato de coordenadas · logo con tamaño, opacidad y posición · vista previa en vivo en el editor |
 | Proyectos | Carpetas con nombre, emoji, descripción, plantilla propia, patrón de nombre de archivo y campos personalizados que se piden antes de cada foto (Lote, Inspector, Elemento…) · notas y etiquetas por foto |
-| Archivos | Original sin sello (opcional) y copia sellada en alta resolución · EXIF con GPS, rumbo, fecha, descripción en UTF-8 (tildes y ñ) y comentario para Windows · copia en la fototeca del teléfono (álbum "Sello") · en iOS la carpeta de la app se ve en Archivos |
+| Archivos | Original sin sello (opcional) y copia sellada en alta resolución · EXIF con GPS, rumbo, fecha, descripción en UTF-8 (tildes y ñ) y comentario para Windows · copia en la fototeca del teléfono (álbum "Sello" en Android, app Fotos en iPhone) · en iOS la carpeta de la app se ve en Archivos |
 | Galería | Cuadrícula por día, proyecto, lugar o distancia · búsqueda en notas, dirección, etiquetas y campos · filtros por proyecto y etiqueta · selección múltiple con edición en lote (proyecto, etiquetas), compartir y borrar · detalle con todos los datos copiables, sellada u original, re-sellado con la plantilla actual, compartir con o sin EXIF, abrir en mapas y cómo llegar |
 | Mapa | Fotos sobre OpenStreetMap con color por proyecto, posición actual con su precisión, encuadre automático, distancia hasta cada foto e indicaciones |
 | Exportar | CSV (con UTM, MGRS, Plus Code, CTM12, MAGNA, dirección, campos…) · KML · KMZ con las fotos incrustadas · ZIP con fotos selladas u originales + CSV + KML · **informe PDF** por proyecto con resumen, tabla y una ficha por foto |
@@ -21,7 +21,7 @@ Interfaz en español e inglés. Las fotos y los datos quedan en el teléfono; so
 ## Cuidados
 
 - El sello informa; no prueba. La hora y el GPS de un teléfono se pueden alterar, y la app no pretende valor probatorio.
-- La ubicación se pide solo mientras se usa la app. No se pide acceso amplio a la galería: la app guarda en su propia carpeta y copia a la fototeca con el permiso mínimo.
+- La ubicación se pide solo mientras se usa la app. No se pide acceso amplio a la galería: la app guarda en su propia carpeta y la copia a la fototeca usa el permiso mínimo de cada sistema (en iPhone, solo "agregar a Fotos"; en Android 11 o superior, ninguno; hasta Android 10, el de almacenamiento). El permiso se pide al activar la copia o, si ya venía activada, en la primera foto.
 - Mapa: © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL).
 
 ## Desarrollo

@@ -32,7 +32,7 @@ Registro de las decisiones tomadas durante el desarrollo, con su razón.
 ## Datos, galería y exportación
 
 - **Un proyecto activo que agrupa las fotos y define los campos** (se piden antes de cada foto y se recuerdan hasta cambiar de proyecto). Los campos van al sello, al EXIF (en la descripción), al CSV, al KML y al PDF.
-- **Galería propia** sobre la carpeta de la app, sin leer la fototeca del teléfono (Play lo restringe desde mayo de 2025 y no hace falta). Copia a la fototeca con `gal` en el álbum "Sello" si el usuario lo deja activado.
+- **Galería propia** sobre la carpeta de la app, sin leer la fototeca del teléfono (Play lo restringe desde mayo de 2025 y no hace falta). Copia a la fototeca con `gal` si el usuario lo deja activado: en Android en el álbum "Sello"; en iOS sin álbum, porque buscar o crear un álbum exige acceso completo a la fototeca y agregar una foto solo pide "agregar a Fotos" (decisión de la revisión: menos permiso vale más que el álbum). El permiso se pide al activar la opción o en la primera foto, nunca al abrir la app.
 - **Exportaciones generadas en el teléfono**: CSV con BOM (para Excel), KML, KMZ con las fotos, ZIP y PDF (`pdf`, Dart puro). El PDF usa las fuentes incorporadas (Latin-1): los emojis de los nombres de proyecto se omiten y los signos tipográficos se sustituyen.
 - **Edición de datos sin tocar la imagen**: notas, etiquetas, campos y proyecto se cambian en los datos y las exportaciones; "Volver a sellar" regenera la copia sellada desde el original con la plantilla actual del proyecto.
 - **JSON locales con escritura atómica** (igual que en Pilas y Clave) para proyectos, plantillas y el índice de fotos.
@@ -41,7 +41,7 @@ Registro de las decisiones tomadas durante el desarrollo, con su razón.
 
 - **Flutter con `camera`, `geolocator`, `geocoding`, `sensors_plus`, `image`, `flutter_map` + `latlong2`, `gal`, `archive`, `pdf`, `share_plus`, `url_launcher`, `file_selector`, `wakelock_plus`, `shared_preferences`, `path_provider`.** Se descartó `maplibre_gl` para la v1 (necesita JDK 21 y pesa) a favor de `flutter_map` con teselas ráster de OpenStreetMap y su atribución; los mapas vectoriales y sin conexión entran con PMTiles en la v2. `flutter_compass` se descartó por abandono; el rumbo es propio.
 - **Pruebas sin dispositivo**: geodesia contra valores de referencia, brújula con vectores de gravedad y campo construidos a mano, composición con un JPEG sintético (incluida orientación EXIF 6), exportaciones (CSV, KML, KMZ, ZIP, PDF) y una prueba de widgets que recorre toda la app con la cámara desactivada y el mapa sin teselas.
-- **Permisos mínimos**: cámara, ubicación mientras se usa, vibración e internet; `WRITE_EXTERNAL_STORAGE` solo hasta Android 10 por `gal`. En iOS, textos de uso de cámara, ubicación y fototeca, y la carpeta de la app visible en Archivos (`UIFileSharingEnabled`).
+- **Permisos mínimos**: cámara, ubicación mientras se usa, vibración e internet; `WRITE_EXTERNAL_STORAGE` y `READ_EXTERNAL_STORAGE` solo hasta Android 10 (`maxSdkVersion` 29, la lectura la agregaba la fusión de manifiestos sin límite) y `requestLegacyExternalStorage` para que el álbum funcione en Android 10. La CI verifica los topes. En iOS, textos de uso de cámara, ubicación y fototeca, y la carpeta de la app visible en Archivos (`UIFileSharingEnabled`).
 - **CI igual a la de Pilas y Clave**: análisis, pruebas, APK y compilación de iOS sin firma; plataformas generadas con `flutter create` y ajustadas con `tools/patch_platforms.py`.
 
 ## Pendiente de decidir con el proyecto

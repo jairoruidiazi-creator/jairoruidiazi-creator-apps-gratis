@@ -27,7 +27,7 @@ Las cuatro apps son gratuitas, de código abierto y funcionan sin cuenta. Como n
 
 - **Las coordenadas tienen mucho margen de error.** La precisión depende del GPS del teléfono y del cielo despejado. Espera a que baje el valor de precisión o usa el promedio de lecturas; en interiores puedes bloquear la posición tomada afuera.
 - **¿El sello sirve como prueba?** No. El sello informa, pero la hora y la ubicación de un teléfono se pueden alterar.
-- **¿Dónde están mis fotos?** En la galería de Sello y, si dejaste activada la opción, en el álbum «Sello» de la galería del teléfono. En iPhone también se ven en la app Archivos › En mi iPhone › Sello.
+- **¿Dónde están mis fotos?** En la galería de Sello y, si dejaste activada la opción, también en la galería del teléfono: en Android, en el álbum «Sello»; en iPhone, en la app Fotos. En iPhone también se ven en la app Archivos › En mi iPhone › Sello.
 
 ### Plata
 
@@ -58,7 +58,7 @@ The four apps are free, open source and work without an account. We have no serv
 
 - **The coordinates have a large error.** Accuracy depends on the phone's GPS and a clear sky. Wait for the accuracy value to drop or use averaged readings; indoors you can lock a position taken outside.
 - **Is the stamp proof?** No. The stamp informs, but a phone's time and location can be altered.
-- **Where are my photos?** In Sello's gallery and, if you left that option on, in the "Sello" album of the phone's photo library. On iPhone they are also in the Files app › On My iPhone › Sello.
+- **Where are my photos?** In Sello's gallery and, if you left that option on, also in the phone's photo library: in the "Sello" album on Android and in the Photos app on iPhone. On iPhone they are also in the Files app › On My iPhone › Sello.
 
 ### Plata
 

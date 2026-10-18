@@ -44,7 +44,14 @@
     ],
     "forbid": [
       "android.permission.RECORD_AUDIO"
-    ]
+    ],
+    "max_sdk": {
+      "android.permission.READ_EXTERNAL_STORAGE": 29,
+      "android.permission.WRITE_EXTERNAL_STORAGE": 29
+    },
+    "application": {
+      "requestLegacyExternalStorage": "true"
+    }
   },
   "plata": {
     "allow": [

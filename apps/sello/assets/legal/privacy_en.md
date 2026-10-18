@@ -15,7 +15,7 @@ Sello is a free, open-source app published by the apps-gratis team under the dev
 - **Photos.** The photos you take are saved in the app's private storage: the stamped copy and, if you leave it on, the original without the stamp.
 - **Data for each photo:** date and time, coordinates, altitude, accuracy, heading, approximate address, project, notes, tags and the fields you define. They are written into the stamp on the image and into its metadata (EXIF).
 - **Projects, stamp templates, logos you choose and app settings.**
-- **Copy in the photo library.** If you leave this option on, Sello also saves a copy of each stamped photo in the phone's photo library ("Sello" album), where apps you give photo access to can see it.
+- **Copy in the photo library.** If you leave this option on, Sello also saves a copy of each stamped photo in the phone's photo library (the "Sello" album on Android; the Photos app on iPhone), where apps you give photo access to can see it.
 
 We do not receive any of this, see it or have any way to recover it.
 
@@ -24,7 +24,7 @@ We do not receive any of this, see it or have any way to recover it.
 - **Camera:** to take the photos.
 - **Location while using the app:** for coordinates, altitude and address. Sello does not use location in the background.
 - **Motion sensors:** to work out the camera heading and the level. That data is used on the phone.
-- **Photos and storage:** to save the copy in the photo library, if you turn it on. On iOS, creating the "Sello" album requires photo library access; on Android 10 or earlier the storage permission is used. Sello does not read, analyze or upload your other photos.
+- **Photos and storage:** to save the copy in the photo library, if you turn it on. On iPhone, Sello only asks to add photos, not to view them; on Android 10 or earlier the storage permission is used, and from Android 11 no permission is needed. Sello does not read, analyze or upload your other photos.
 
 ## What leaves the phone and to whom
 

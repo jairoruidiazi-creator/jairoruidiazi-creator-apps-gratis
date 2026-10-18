@@ -115,7 +115,7 @@ def check_archive(path: str) -> tuple[list[str], list[str]]:
     return problems, report
 
 
-def check_badging(path: str, min_target: int | None, forbid: list[str], allow: list[str] | None) -> tuple[list[str], list[str]]:
+def check_badging(path: str, min_target: int | None, forbid: list[str], allow: list[str] | None, max_sdk: dict[str, int] | None = None) -> tuple[list[str], list[str]]:
     problems: list[str] = []
     report: list[str] = []
     text = open(path, encoding="utf-8", errors="replace").read()
@@ -141,6 +141,15 @@ def check_badging(path: str, min_target: int | None, forbid: list[str], allow: l
         extra = [p for p in perms if p not in allow and not p.endswith(".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")]
         if extra:
             problems.append("permisos no previstos: " + ", ".join(extra))
+    # Permisos que solo se piden en versiones viejas de Android: deben llevar
+    # maxSdkVersion y no pasar del tope (si no están, mejor).
+    for name, limit in sorted((max_sdk or {}).items()):
+        decl = re.findall(r"uses-permission: name='" + re.escape(name) + r"'(?: maxSdkVersion='(\d+)')?", text)
+        for found in decl:
+            if not found or int(found) > limit:
+                problems.append(f"{name} debe llevar maxSdkVersion <= {limit} (tiene {found or 'ninguno'})")
+            else:
+                report.append(f"{name} solo hasta API {found}")
     return problems, report
 
 
@@ -192,7 +201,7 @@ def main() -> int:
     ap.add_argument("--forbid-permission", action="append", default=[])
     ap.add_argument("--allow-permission", action="append", default=None, help="si se da, todo permiso fuera de la lista falla")
     ap.add_argument("--manifest-tree", help="salida de `aapt2 dump xmltree --file AndroidManifest.xml` del APK")
-    ap.add_argument("--config", help="JSON con min_target_sdk, forbid, allow y application por app (tools/store/android.json)")
+    ap.add_argument("--config", help="JSON con min_target_sdk, forbid, allow, max_sdk y application por app (tools/store/android.json)")
     ap.add_argument("--app", help="app dentro del JSON de --config")
     args = ap.parse_args()
     if args.config:
@@ -205,12 +214,14 @@ def main() -> int:
         if args.allow_permission is None and "allow" in app:
             args.allow_permission = app["allow"]
         application = app.get("application", {})
+        max_sdk = {k: int(v) for k, v in app.get("max_sdk", {}).items()}
     else:
         application = {}
+        max_sdk = {}
 
     problems, report = check_archive(args.package)
     if args.badging:
-        p2, r2 = check_badging(args.badging, args.min_target_sdk, args.forbid_permission, args.allow_permission)
+        p2, r2 = check_badging(args.badging, args.min_target_sdk, args.forbid_permission, args.allow_permission, max_sdk)
         problems += p2
         report = r2 + report
     if args.manifest_tree and application:

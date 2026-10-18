@@ -87,10 +87,19 @@ APPS = {
             "android.permission.INTERNET",
             # gal la necesita hasta Android 10; camerax declara maxSdkVersion 28, así que se fuerza el valor.
             ("android.permission.WRITE_EXTERNAL_STORAGE", {"android:maxSdkVersion": "29", "tools:replace": "android:maxSdkVersion"}),
+            # La fusión de manifiestos agrega la lectura implícita sin límite; Sello no lee
+            # el almacenamiento compartido (los archivos se eligen con el selector del
+            # sistema), así que queda con el mismo tope que la escritura.
+            ("android.permission.READ_EXTERNAL_STORAGE", {"android:maxSdkVersion": "29", "tools:node": "replace"}),
             # El plugin de cámara declara el micrófono para grabar video; Sello solo toma fotos.
             ("android.permission.RECORD_AUDIO", {"tools:node": "remove"}),
         ],
         "android_features": [("android.hardware.camera", False), ("android.hardware.sensor.compass", False), ("android.hardware.location.gps", False)],
+        # gal escribe el álbum "Sello" con la ruta clásica en Android 10 (API 29); sin
+        # esto el almacenamiento con alcance lo bloquea. Desde Android 11 se ignora.
+        "android_application_attrs": {
+            "android:requestLegacyExternalStorage": "true",
+        },
         "android_queries": [
             {"action": "android.intent.action.VIEW", "scheme": "geo"},
             {"action": "android.intent.action.VIEW", "scheme": "https"},

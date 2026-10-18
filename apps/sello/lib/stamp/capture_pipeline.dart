@@ -2,9 +2,9 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
-import 'package:gal/gal.dart';
 
 import '../core/app_state.dart';
+import '../core/photo_library.dart';
 import '../core/settings.dart';
 import '../core/storage.dart';
 import '../geo/heading.dart';
@@ -16,10 +16,15 @@ import 'stamp_painter.dart';
 
 /// Resultado de una captura procesada.
 class CaptureOutcome {
-  const CaptureOutcome({required this.record, this.galleryError});
+  const CaptureOutcome({required this.record, this.galleryError, this.galleryDenied = false});
 
   final PhotoRecord record;
+
+  /// Por qué no se pudo copiar a la fototeca (null si se copió o no se pidió).
   final String? galleryError;
+
+  /// La copia falló porque el usuario no dio permiso para la fototeca.
+  final bool galleryDenied;
 }
 
 /// Convierte la foto que entrega la cámara en: original guardado, copia
@@ -139,9 +144,13 @@ class CapturePipeline {
       await store.delete(originalRel);
     }
     String? galleryError;
+    bool galleryDenied = false;
     if (settings.saveToGallery) {
       try {
-        await Gal.putImage(stampedPath, album: 'Sello');
+        await PhotoLibrary.put(stampedPath);
+      } on PhotoLibraryDenied catch (e) {
+        galleryError = e.toString();
+        galleryDenied = true;
       } catch (e) {
         galleryError = e.toString();
       }
@@ -149,7 +158,7 @@ class CapturePipeline {
     try {
       await File(jpegPath).delete();
     } catch (_) {}
-    return CaptureOutcome(record: record, galleryError: galleryError);
+    return CaptureOutcome(record: record, galleryError: galleryError, galleryDenied: galleryDenied);
   }
 
   /// Lee la etiqueta de orientación EXIF (1 si no hay).

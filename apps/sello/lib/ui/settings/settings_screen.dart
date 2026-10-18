@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_info.dart';
 import '../../core/app_scope.dart';
+import '../../core/photo_library.dart';
 import '../../core/settings.dart';
 import '../legal/legal_document.dart';
 
@@ -97,9 +98,28 @@ class SettingsScreen extends StatelessWidget {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(t(context, 'Copiar a la fototeca del teléfono', 'Copy to the phone\'s photo library')),
-                subtitle: Text(t(context, 'Álbum "Sello". La copia de la app se conserva igual.', '"Sello" album. The app\'s own copy is kept anyway.')),
+                subtitle: Text(PhotoLibrary.album == null
+                    ? t(context, 'En la app Fotos, solo con permiso para agregar. La copia de la app se conserva igual.', 'In the Photos app, with add-only access. The app\'s own copy is kept anyway.')
+                    : t(context, 'Álbum "Sello". La copia de la app se conserva igual.', '"Sello" album. The app\'s own copy is kept anyway.')),
                 value: st.saveToGallery,
-                onChanged: (bool v) {
+                onChanged: (bool v) async {
+                  if (v) {
+                    // El permiso se pide aquí, en contexto, y no a mitad de una captura.
+                    bool ok;
+                    try {
+                      ok = await PhotoLibrary.ensureAccess();
+                    } catch (_) {
+                      ok = false;
+                    }
+                    if (!ok) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text(t(context, 'Sin permiso para la fototeca. Puedes darlo en los ajustes del teléfono.', 'No access to the photo library. You can allow it in the phone settings.')),
+                        ));
+                      }
+                      return;
+                    }
+                  }
                   st.saveToGallery = v;
                   save();
                 },

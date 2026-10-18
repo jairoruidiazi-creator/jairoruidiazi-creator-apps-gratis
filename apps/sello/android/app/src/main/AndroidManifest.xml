@@ -9,7 +9,9 @@
         <uses-feature android:name="android.hardware.sensor.compass" android:required="false"/>
         <uses-feature android:name="android.hardware.location.gps" android:required="false"/>
         <uses-permission android:name="android.permission.RECORD_AUDIO" tools:node="remove"/>
+        <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" tools:node="replace"/>
     <application
+        android:requestLegacyExternalStorage="true"
         android:label="Sello"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
