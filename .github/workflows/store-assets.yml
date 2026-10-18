@@ -1,0 +1,29 @@
+name: Recursos de tienda
+
+# Utilidades de una sola vez para preparar recursos de las fichas de tienda.
+# Se lanza a mano (workflow_dispatch) y deja el resultado en una rama.
+
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "Tarea (commons-photos)"
+        required: true
+        default: commons-photos
+
+permissions:
+  contents: write
+
+jobs:
+  commons:
+    if: github.event.inputs.task == 'commons-photos'
+    name: Fotos libres de Wikimedia Commons
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/store/fetch_commons.py commons-photos --max 48 2>&1 | tee commons.log
+      - name: Publicar
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash tools/ci/publish_logs.sh ci-assets-commons commons-photos commons.log
