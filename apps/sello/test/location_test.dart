@@ -275,4 +275,69 @@ void main() {
       loc.dispose();
     });
   });
+
+  group('Ubicación aproximada (G1 de la ronda 6)', () {
+    test('Se detecta al arrancar, marca las lecturas, no da dirección y se puede pedir la precisa', () async {
+      final FakeLocationBackend backend = FakeLocationBackend()
+        ..permission = LocationPermission.whileInUse
+        ..accuracy = LocationAccuracyStatus.reduced;
+      final LocationService loc = LocationService(backend: backend, systemAltitudeIsMsl: true, undulation: (double a, double b) => 20);
+      await loc.start();
+      expect(loc.approximate, isTrue);
+      backend.positionsCtrl.add(at(4.7113, -74.0727, accuracy: 2000));
+      await settle();
+      expect(loc.fix!.approximate, isTrue);
+      // Fijar o promediar lecturas aproximadas no las vuelve precisas.
+      loc.lock();
+      expect(loc.fix!.approximate, isTrue);
+      loc.unlock();
+      // Ninguna dirección postal para una posición que puede estar a kilómetros:
+      // ni se consulta.
+      expect(loc.addressFor(loc.fix), isNull);
+      expect(backend.placemarkCalls, 0);
+      // El usuario la pide y la concede.
+      backend.accuracyOnRequest = LocationAccuracyStatus.precise;
+      expect(await loc.requestPreciseLocation(), isTrue);
+      expect(backend.fullAccuracyRequests, 1);
+      expect(loc.approximate, isFalse);
+      backend.positionsCtrl.add(at(4.7113, -74.0727, accuracy: 4));
+      await settle();
+      expect(loc.fix!.approximate, isFalse);
+      await loc.stop();
+      loc.dispose();
+    });
+
+    test('Al volver a la app se vuelve a consultar (el usuario la cambió en los ajustes)', () async {
+      final FakeLocationBackend backend = FakeLocationBackend()..permission = LocationPermission.whileInUse;
+      final LocationService loc = LocationService(backend: backend, systemAltitudeIsMsl: true, undulation: (double a, double b) => 20);
+      await loc.start();
+      backend.positionsCtrl.add(at(4.7113, -74.0727));
+      await settle();
+      expect(loc.approximate, isFalse);
+      // Apagó «Ubicación precisa» en los ajustes y volvió.
+      backend.accuracy = LocationAccuracyStatus.reduced;
+      await loc.retry();
+      expect(loc.approximate, isTrue);
+      // Si al pedirla sigue aproximada, se dice que no (la hoja ofrece los ajustes).
+      expect(await loc.requestPreciseLocation(), isFalse);
+      expect(loc.approximate, isTrue);
+      // La activó en los ajustes.
+      backend.accuracy = LocationAccuracyStatus.precise;
+      await loc.retry();
+      expect(loc.approximate, isFalse);
+      await loc.stop();
+      loc.dispose();
+    });
+
+    test('Sin dato de precisión (Android 11 o anterior, iOS 13) se toma como precisa', () async {
+      final FakeLocationBackend backend = FakeLocationBackend()
+        ..permission = LocationPermission.whileInUse
+        ..accuracy = LocationAccuracyStatus.unknown;
+      final LocationService loc = LocationService(backend: backend, systemAltitudeIsMsl: true);
+      await loc.start();
+      expect(loc.approximate, isFalse);
+      await loc.stop();
+      loc.dispose();
+    });
+  });
 }

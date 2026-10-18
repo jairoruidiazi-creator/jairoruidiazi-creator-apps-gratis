@@ -119,6 +119,10 @@ class Exports {
       final bool col = loc && Coords.inColombia(p.latitude!, p.longitude!);
       final ProjectedPointPair? co = col ? ProjectedPointPair.of(p.latitude!, p.longitude!) : null;
       final Map<String, String> fields = fieldsByLabel(p, projects[p.projectId]);
+      // Ubicación aproximada: sin decimales que aparenten precisión (grados a
+      // 0,01°, proyecciones a 1 km; ver Coords.format) y marcada en origen.
+      final bool approx = p.approximateLocation;
+      String grid(double v) => approx ? n((v / Coords.coarseGridMeters).round() * Coords.coarseGridMeters, 0) : n(v, 2);
       final List<_Cell> row = <_Cell>[
         _Cell(p.id),
         _Cell(projects[p.projectId]?.name ?? ''),
@@ -127,8 +131,8 @@ class Exports {
         // en una duración (y "+05:30" en una hora, sin el signo).
         _Cell('UTC${exifUtcOffset(p.utcOffsetMinutes)}', numeric: true),
         _Cell('${formatDate(p.takenAt, 'yyyy-MM-ddTHH:mm:ss')}Z', numeric: true),
-        _Cell(loc ? n(p.latitude, 7) : '', numeric: true),
-        _Cell(loc ? n(p.longitude, 7) : '', numeric: true),
+        _Cell(loc ? n(p.latitude, approx ? 2 : 7) : '', numeric: true),
+        _Cell(loc ? n(p.longitude, approx ? 2 : 7) : '', numeric: true),
         _Cell(n(p.accuracy, 1), numeric: true),
         _Cell(n(p.altitude, 1), numeric: true),
         _Cell(p.altitude == null ? '' : (p.altitudeReference == 'ellipsoid' ? (spanish ? 'elipsoide' : 'ellipsoid') : (spanish ? 'nivel del mar' : 'sea level'))),
@@ -136,15 +140,15 @@ class Exports {
         _Cell(p.heading == null ? '' : (p.headingTrue ? (spanish ? 'verdadero' : 'true') : (spanish ? 'magnético' : 'magnetic'))),
         _Cell(n(p.pitch, 1), numeric: true),
         _Cell(n(p.speed, 2), numeric: true),
-        _Cell(loc ? positionSourceName(p.positionSource, spanish: spanish) : ''),
-        _Cell(loc ? Coords.utm(p.latitude!, p.longitude!) : ''),
-        _Cell(loc ? Coords.mgrs(p.latitude!, p.longitude!) : ''),
-        _Cell(loc ? Coords.plusCode(p.latitude!, p.longitude!, length: 11) : ''),
-        _Cell(co == null ? '' : n(co.ctm12Easting, 2), numeric: true),
-        _Cell(co == null ? '' : n(co.ctm12Northing, 2), numeric: true),
+        _Cell(loc ? positionText(p, spanish: spanish) : ''),
+        _Cell(loc ? Coords.format(CoordFormat.utm, p.latitude!, p.longitude!, coarse: approx) : ''),
+        _Cell(loc ? Coords.format(CoordFormat.mgrs, p.latitude!, p.longitude!, coarse: approx) : ''),
+        _Cell(loc ? (approx ? Coords.plusCode(p.latitude!, p.longitude!, length: 6) : Coords.plusCode(p.latitude!, p.longitude!, length: 11)) : ''),
+        _Cell(co == null ? '' : grid(co.ctm12Easting), numeric: true),
+        _Cell(co == null ? '' : grid(co.ctm12Northing), numeric: true),
         _Cell(co?.magnaZone ?? ''),
-        _Cell(co == null ? '' : n(co.magnaEasting, 2), numeric: true),
-        _Cell(co == null ? '' : n(co.magnaNorthing, 2), numeric: true),
+        _Cell(co == null ? '' : grid(co.magnaEasting), numeric: true),
+        _Cell(co == null ? '' : grid(co.magnaNorthing), numeric: true),
         _Cell(p.address),
         _Cell(p.notes),
         _Cell(p.tags.join(' ')),
@@ -161,6 +165,15 @@ class Exports {
   /// para compartirlo suelto o dentro del ZIP.
   static Uint8List csvBytes(List<PhotoRecord> photos, Map<String, Project> projects, {bool spanish = true, bool Function(String relativePath)? exists}) =>
       Uint8List.fromList(<int>[0xEF, 0xBB, 0xBF, ...utf8.encode(csv(photos, projects, spanish: spanish, exists: exists))]);
+
+  /// Origen de la posición de una foto, con la marca de ubicación aproximada.
+  static String positionText(PhotoRecord p, {required bool spanish}) {
+    final String source = positionSourceName(p.positionSource, spanish: spanish);
+    if (!p.approximateLocation) {
+      return source;
+    }
+    return spanish ? '$source (ubicación aproximada)' : '$source (approximate location)';
+  }
 
   /// Nombre del origen de la posición, para exportaciones e informes.
   static String positionSourceName(PositionSource s, {required bool spanish}) {
@@ -236,11 +249,12 @@ class Exports {
 
         data(k('proyecto', 'project'), pname);
         data(k('fecha_hora', 'datetime'), '${formatDate(p.wallTime, 'yyyy-MM-dd HH:mm:ss')} ${p.offsetLabel}');
-        data('utm', Coords.utm(p.latitude!, p.longitude!));
-        data('mgrs', Coords.mgrs(p.latitude!, p.longitude!));
+        final bool approx = p.approximateLocation;
+        data('utm', Coords.format(CoordFormat.utm, p.latitude!, p.longitude!, coarse: approx));
+        data('mgrs', Coords.format(CoordFormat.mgrs, p.latitude!, p.longitude!, coarse: approx));
         if (Coords.inColombia(p.latitude!, p.longitude!)) {
-          data(k('origen_nacional_ctm12', 'ctm12_national_origin'), Coords.ctm12Text(p.latitude!, p.longitude!));
-          data(k('magna_sirgas_zona', 'magna_sirgas_zone'), Coords.magnaText(p.latitude!, p.longitude!));
+          data(k('origen_nacional_ctm12', 'ctm12_national_origin'), Coords.format(CoordFormat.ctm12, p.latitude!, p.longitude!, coarse: approx));
+          data(k('magna_sirgas_zona', 'magna_sirgas_zone'), Coords.format(CoordFormat.magna, p.latitude!, p.longitude!, coarse: approx));
         }
         data(k('precision_m', 'accuracy_m'), p.accuracy?.toStringAsFixed(1) ?? '');
         data(k('altitud_m', 'altitude_m'), p.altitude?.toStringAsFixed(1) ?? '');
@@ -248,7 +262,7 @@ class Exports {
           data(k('altitud_ref', 'altitude_ref'), p.altitudeReference == 'ellipsoid' ? k('elipsoide', 'ellipsoid') : k('nivel del mar', 'sea level'));
         }
         data(k('rumbo', 'heading'), p.heading == null ? '' : '${p.heading!.toStringAsFixed(1)}${p.headingTrue ? '' : k(' (magnético)', ' (magnetic)')}');
-        data(k('origen_posicion', 'position_source'), positionSourceName(p.positionSource, spanish: spanish));
+        data(k('origen_posicion', 'position_source'), positionText(p, spanish: spanish));
         data(k('direccion', 'address'), p.address);
         data(k('notas', 'notes'), p.notes);
         data(k('etiquetas', 'tags'), p.tags.join(' '));
@@ -257,7 +271,8 @@ class Exports {
         }
         b.writeln('</ExtendedData>');
         final double alt = p.altitudeMsl ?? (p.altitudeReference == 'ellipsoid' ? 0 : (p.altitude ?? 0));
-        b.writeln('<Point><coordinates>${p.longitude!.toStringAsFixed(7)},${p.latitude!.toStringAsFixed(7)},${alt.toStringAsFixed(1)}</coordinates></Point>');
+        final int dec = approx ? 2 : 7;
+        b.writeln('<Point><coordinates>${p.longitude!.toStringAsFixed(dec)},${p.latitude!.toStringAsFixed(dec)},${alt.toStringAsFixed(1)}</coordinates></Point>');
         b.writeln('</Placemark>');
       }
       b.writeln('</Folder>');

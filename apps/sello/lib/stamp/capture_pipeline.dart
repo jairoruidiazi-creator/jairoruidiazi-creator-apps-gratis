@@ -77,14 +77,20 @@ class CapturePipeline {
         age = 0;
       }
     }
+    // Con ubicación aproximada (puede estar a kilómetros) las coordenadas se
+    // guardan redondeadas a 0,01° (unos 1,1 km): ni la ficha, ni el EXIF, ni
+    // las exportaciones aparentan una precisión que no hay.
+    final bool approximate = fix?.approximate ?? false;
+    double? round2(double? v) => v == null || !approximate ? v : (v * 100).roundToDouble() / 100;
     return PhotoRecord(
       id: id,
       projectId: project.id,
       originalFile: originalFile,
       stampedFile: stampedFile,
       takenAt: time,
-      latitude: fix?.latitude,
-      longitude: fix?.longitude,
+      latitude: round2(fix?.latitude),
+      longitude: round2(fix?.longitude),
+      approximateLocation: approximate,
       accuracy: fix?.accuracy,
       altitude: fix?.altitudeFor(settings.altitudeReference),
       altitudeReference: settings.altitudeReference,
@@ -126,7 +132,7 @@ class CapturePipeline {
     final DateTime time = now ?? clock.now();
     final Uint8List bytes = await File(jpegPath).readAsBytes();
     final int n = await state.takeNumber(project.id);
-    final String base = buildFileName(project.fileNamePattern, project: project.name, time: time, lat: fix?.latitude, lon: fix?.longitude, n: n);
+    final String base = buildFileName(project.fileNamePattern, project: project.name, time: time, lat: fix?.latitude, lon: fix?.longitude, n: n, approximate: fix?.approximate ?? false);
     final String id = newId();
     final String originalRel = 'photos/${project.id}/${base}_$id-orig.jpg';
     final String stampedRel = 'photos/${project.id}/${base}_$id.jpg';

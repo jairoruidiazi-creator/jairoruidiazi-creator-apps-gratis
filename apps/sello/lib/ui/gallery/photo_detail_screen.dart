@@ -41,7 +41,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
   Widget build(BuildContext context) {
     final Services s = AppScope.of(context);
     return ListenableBuilder(
-      listenable: Listenable.merge(<Listenable>[s.state, s.queue]),
+      listenable: Listenable.merge(<Listenable>[s.state, s.queue, s.settings]),
       builder: (BuildContext context, Widget? _) {
         final AppState st = s.state;
         final PhotoRecord? p = st.photoById(widget.photoId);
@@ -124,7 +124,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
               _Row(t(context, 'Fecha y hora', 'Date and time'), '${formatDate(p.wallTime, 'dd/MM/yyyy HH:mm:ss', spanish: spanish)} ${p.offsetLabel}'),
               _Row('UTC', '${formatDate(p.takenAt, 'yyyy-MM-dd HH:mm:ss')}Z'),
               if (p.hasLocation) ...<Widget>[
-                for (final CoordFormat cf in Coords.formatsFor(p.latitude!, p.longitude!)) _Row(Coords.formatName(cf, spanish: spanish), Coords.format(cf, p.latitude!, p.longitude!), copyable: true),
+                for (final CoordFormat cf in Coords.formatsFor(p.latitude!, p.longitude!)) _Row(Coords.formatName(cf, spanish: spanish), Coords.format(cf, p.latitude!, p.longitude!, coarse: p.approximateLocation), copyable: true),
                 _Row(t(context, 'Posición', 'Position'), _sourceText(context, p)),
                 if (p.accuracy != null) _Row(t(context, 'Precisión', 'Accuracy'), '± ${p.accuracy!.toStringAsFixed(1)} m'),
                 if (p.altitude != null) _Row(t(context, 'Altitud', 'Altitude'), '${p.altitude!.toStringAsFixed(1)} m ${p.altitudeReference == 'ellipsoid' ? t(context, 'sobre el elipsoide', 'above the ellipsoid') : t(context, 'sobre el nivel del mar', 'above sea level')}'),
@@ -148,6 +148,11 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
   }
 
   String _sourceText(BuildContext context, PhotoRecord p) {
+    final String source = _sourceKind(context, p);
+    return p.approximateLocation ? '$source · ${t(context, 'ubicación aproximada: el teléfono solo dio permiso de ubicación aproximada y puede estar a kilómetros', 'approximate location: the phone only allowed approximate location and it may be kilometres off')}' : source;
+  }
+
+  String _sourceKind(BuildContext context, PhotoRecord p) {
     switch (p.positionSource) {
       case PositionSource.gps:
         return p.fixAgeSeconds > 30 ? '${t(context, 'GPS (lectura de hace', 'GPS (reading from')} ${p.fixAgeSeconds} s${t(context, ')', ' ago)')}' : 'GPS';
@@ -214,8 +219,12 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
     final Project project = st.projectById(p.projectId);
     final List<String> lines = <String>[
       '${formatDate(p.wallTime, 'dd/MM/yyyy HH:mm:ss')} ${p.offsetLabel}',
-      if (p.hasLocation) ...<String>[Coords.dd(p.latitude!, p.longitude!), Coords.utm(p.latitude!, p.longitude!), Coords.mgrs(p.latitude!, p.longitude!), Coords.plusCode(p.latitude!, p.longitude!, length: 11)],
-      if (p.hasLocation && Coords.inColombia(p.latitude!, p.longitude!)) ...<String>['CTM12 ${Coords.ctm12Text(p.latitude!, p.longitude!)}', 'MAGNA ${Coords.magnaText(p.latitude!, p.longitude!)}'],
+      if (p.hasLocation) ...<String>[
+        for (final CoordFormat cf in <CoordFormat>[CoordFormat.dd, CoordFormat.utm, CoordFormat.mgrs]) Coords.format(cf, p.latitude!, p.longitude!, coarse: p.approximateLocation),
+        if (p.approximateLocation) Coords.plusCode(p.latitude!, p.longitude!, length: 6) else Coords.plusCode(p.latitude!, p.longitude!, length: 11),
+        if (p.approximateLocation) t(context, '(ubicación aproximada)', '(approximate location)'),
+      ],
+      if (p.hasLocation && Coords.inColombia(p.latitude!, p.longitude!)) ...<String>['CTM12 ${Coords.format(CoordFormat.ctm12, p.latitude!, p.longitude!, coarse: p.approximateLocation)}', 'MAGNA ${Coords.format(CoordFormat.magna, p.latitude!, p.longitude!, coarse: p.approximateLocation)}'],
       if (p.accuracy != null) '± ${p.accuracy!.toStringAsFixed(1)} m',
       if (p.altitude != null) 'Alt. ${p.altitude!.toStringAsFixed(1)} m ${p.altitudeReference == 'ellipsoid' ? t(context, 'elip.', 'ellips.') : t(context, 's. n. m.', 'MSL')}',
       if (p.heading != null) '${p.heading!.toStringAsFixed(0)}°${p.headingTrue ? '' : t(context, ' (magnético)', ' (magnetic)')}',
@@ -506,14 +515,28 @@ class _Row extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        Clipboard.setData(ClipboardData(text: value));
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'Copiado', 'Copied')}: $value'), duration: const Duration(seconds: 1)));
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-        child: Row(
+    void copy() {
+      Clipboard.setData(ClipboardData(text: value));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'Copiado', 'Copied')}: $value'), duration: const Duration(seconds: 1)));
+    }
+
+    // Toda la fila copia: mide al menos 48 dp (guías de Android y Apple) y el
+    // lector de pantalla anuncia la acción («copiar»), no solo «botón».
+    return Semantics(
+      button: true,
+      label: '$label: $value',
+      onTapHint: t(context, 'copiar', 'copy'),
+      onTap: copy,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: copy,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             // Separación fija: una etiqueta larga ("Degrees and decimal minutes")
@@ -523,6 +546,9 @@ class _Row extends StatelessWidget {
             Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w500))),
             if (copyable) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.copy_rounded, size: 16)),
           ],
+        ),
+            ),
+          ),
         ),
       ),
     );

@@ -416,12 +416,31 @@ void main() {
     await tester.pumpWidget(SelloApp(services: s, cameraEnabled: false));
     await tester.pump();
     expect(find.widgetWithText(NavigationDestination, 'Gallery'), findsOneWidget);
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Gallery'));
+    await tester.pumpAndSettle();
+    expect(find.text('Search notes, address, tags…'), findsOneWidget);
+    expect(find.text('Export'), findsOneWidget);
     // El usuario pone el teléfono en español sin cerrar la app (Android no la reinicia).
     tester.platformDispatcher.localeTestValue = const Locale('es', 'CO');
     tester.platformDispatcher.localesTestValue = const <Locale>[Locale('es', 'CO')];
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.widgetWithText(NavigationDestination, 'Galería'), findsOneWidget);
     expect(location.localeIdentifier, 'es_CO');
+    // Todas las pestañas en el idioma nuevo, también la galería que ya estaba
+    // abierta (M1 de la ronda 6).
+    expect(find.text('Buscar en notas, dirección, etiquetas…'), findsOneWidget);
+    expect(find.text('Exportar'), findsOneWidget);
+    expect(find.text('Search notes, address, tags…'), findsNothing);
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Mapa'));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: find.byType(AppBar), matching: find.text('Mapa')), findsOneWidget);
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Proyectos'));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: find.byType(AppBar), matching: find.text('Proyectos y sellos')), findsOneWidget);
+    expect(find.textContaining('El proyecto activo se escribe en el sello'), findsOneWidget);
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Cámara'));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Ajustes'), findsWidgets);
     // Elige inglés en Ajustes: queda fijo aunque el teléfono siga en español.
     await tester.tap(find.widgetWithText(NavigationDestination, 'Galería'));
     await tester.pumpAndSettle();

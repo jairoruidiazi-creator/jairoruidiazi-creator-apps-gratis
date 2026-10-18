@@ -169,7 +169,7 @@ class PdfReport {
             <String>[
               '${i + 1}',
               formatDate(list[i].wallTime, 'dd/MM/yyyy HH:mm'),
-              list[i].hasLocation ? Coords.dd(list[i].latitude!, list[i].longitude!, decimals: 5) : s('Sin GPS', 'No GPS'),
+              list[i].hasLocation ? '${Coords.dd(list[i].latitude!, list[i].longitude!, decimals: list[i].approximateLocation ? 2 : 5)}${list[i].approximateLocation ? s(' (aprox.)', ' (approx.)') : ''}' : s('Sin GPS', 'No GPS'),
               _clean(projects[list[i].projectId]?.name ?? ''),
               _clean(_truncate(list[i].notes.isNotEmpty ? list[i].notes : list[i].description, 70)),
             ],
@@ -186,16 +186,17 @@ class PdfReport {
       final List<List<String>> rows = <List<String>>[
         <String>[s('Fecha y hora', 'Date and time'), '${formatDate(p.wallTime, 'dd/MM/yyyy HH:mm:ss')} ${p.offsetLabel}'],
         if (p.hasLocation) ...<List<String>>[
-          <String>[s('Grados decimales', 'Decimal degrees'), Coords.dd(p.latitude!, p.longitude!)],
-          <String>[s('GMS', 'DMS'), Coords.dms(p.latitude!, p.longitude!)],
-          <String>['UTM', Coords.utm(p.latitude!, p.longitude!)],
-          <String>['MGRS', Coords.mgrs(p.latitude!, p.longitude!)],
-          <String>['Plus Code', Coords.plusCode(p.latitude!, p.longitude!, length: 11)],
+          <String>[s('Grados decimales', 'Decimal degrees'), Coords.format(CoordFormat.dd, p.latitude!, p.longitude!, coarse: p.approximateLocation)],
+          <String>[s('GMS', 'DMS'), Coords.format(CoordFormat.dms, p.latitude!, p.longitude!, coarse: p.approximateLocation)],
+          <String>['UTM', Coords.format(CoordFormat.utm, p.latitude!, p.longitude!, coarse: p.approximateLocation)],
+          <String>['MGRS', Coords.format(CoordFormat.mgrs, p.latitude!, p.longitude!, coarse: p.approximateLocation)],
+          <String>['Plus Code', p.approximateLocation ? Coords.plusCode(p.latitude!, p.longitude!, length: 6) : Coords.plusCode(p.latitude!, p.longitude!, length: 11)],
           if (Coords.inColombia(p.latitude!, p.longitude!)) ...<List<String>>[
-            <String>[s('Origen Nacional (CTM12)', 'National origin (CTM12)'), Coords.ctm12Text(p.latitude!, p.longitude!)],
-            <String>['MAGNA-SIRGAS', Coords.magnaText(p.latitude!, p.longitude!)],
+            <String>[s('Origen Nacional (CTM12)', 'National origin (CTM12)'), Coords.format(CoordFormat.ctm12, p.latitude!, p.longitude!, coarse: p.approximateLocation)],
+            <String>['MAGNA-SIRGAS', Coords.format(CoordFormat.magna, p.latitude!, p.longitude!, coarse: p.approximateLocation)],
           ],
           if (p.positionSource == PositionSource.manual) <String>[s('Posición', 'Position'), s('escrita a mano', 'entered by hand')],
+          if (p.approximateLocation) <String>[s('Posición', 'Position'), s('ubicación aproximada (el teléfono no dio la precisa; puede estar a kilómetros)', 'approximate location (the phone did not give the precise one; it may be kilometres off)')],
           if (p.accuracy != null) <String>[s('Precisión', 'Accuracy'), '± ${p.accuracy!.toStringAsFixed(1)} m${p.averagedSamples > 1 ? ' (${s('promedio de', 'average of')} ${p.averagedSamples})' : ''}'],
           if (p.altitude != null) <String>[s('Altitud', 'Altitude'), '${p.altitude!.toStringAsFixed(1)} m ${p.altitudeReference == 'ellipsoid' ? s('(elipsoide)', '(ellipsoid)') : s('s. n. m.', 'MSL')}'],
         ] else

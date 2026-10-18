@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:sello/app.dart';
 import 'package:sello/core/app_scope.dart';
 import 'package:sello/core/app_state.dart';
@@ -433,6 +434,37 @@ void main() {
     lifecycle(tester, <AppLifecycleState>[AppLifecycleState.resumed]);
     await pumpMany(tester);
     expect(camera.created, 3);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpMany(tester);
+  });
+
+  testWidgets('Ubicación aproximada: el chip y la hoja lo dicen, se puede pedir la precisa y la foto queda marcada (G1 de la ronda 6)', (WidgetTester tester) async {
+    phone(tester);
+    backend
+      ..permission = LocationPermission.whileInUse
+      ..accuracy = LocationAccuracyStatus.reduced
+      ..accuracyOnRequest = LocationAccuracyStatus.precise;
+    await tester.pumpWidget(cameraApp());
+    await pumpMany(tester);
+    backend.positionsCtrl.add(RawPosition(latitude: 4.71137, longitude: -74.07263, time: DateTime.now().toUtc(), accuracy: 2000));
+    await pumpMany(tester);
+    expect(find.text('Ubicación aproximada'), findsOneWidget);
+    // La foto queda marcada y con la posición redondeada.
+    await shoot(tester, 1);
+    final PhotoRecord photo = services.state.photos.first;
+    expect(photo.approximateLocation, isTrue);
+    expect(photo.latitude, 4.71);
+    // La hoja del GPS explica qué pasa y ofrece la salida (no «sal a cielo abierto»).
+    await tester.tap(find.text('Ubicación aproximada'));
+    await pumpMany(tester, 20);
+    expect(find.textContaining('Diste permiso de ubicación aproximada'), findsOneWidget);
+    expect(find.textContaining('Sal a cielo abierto'), findsNothing);
+    expect(find.text('Abrir ajustes'), findsOneWidget);
+    await tester.tap(find.text('Pedir ubicación precisa'));
+    await pumpMany(tester);
+    expect(backend.fullAccuracyRequests, 1);
+    expect(services.location.approximate, isFalse);
+    expect(find.textContaining('Diste permiso de ubicación aproximada'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await pumpMany(tester);
   });

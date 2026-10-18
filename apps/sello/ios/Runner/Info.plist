@@ -68,6 +68,11 @@
 	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>Sello usa la cámara para tomar las fotos de campo que luego sella con la hora, la ubicación y el rumbo.</string>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>FieldPhotoCoordinates</key>
+		<string>Sello necesita tu ubicación precisa para que las coordenadas de la foto sirvan en campo: la aproximada puede estar a kilómetros.</string>
+	</dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Sello usa tu ubicación para escribir en cada foto las coordenadas, la altitud y la dirección aproximada. Tus fotos y coordenadas se guardan solo en el teléfono.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

@@ -49,10 +49,41 @@ class _GpsSheet extends StatelessWidget {
                   Expanded(child: Text(_statusText(context, loc), style: tt.titleMedium)),
                 ],
               ),
+              // Permiso de ubicación aproximada: ni el cielo abierto ni promediar
+              // lo arreglan; hay que pedir la precisa o activarla en los ajustes.
+              if (loc.approximate) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(
+                  t(context, 'Diste permiso de ubicación aproximada: las coordenadas pueden estar a kilómetros. Las fotos quedan marcadas como «ubicación aproximada». Para coordenadas útiles, pide la ubicación precisa o activa «Ubicación precisa» para Sello en los ajustes del teléfono.', 'You allowed approximate location: the coordinates may be kilometres off. Photos are marked "approximate location". For useful coordinates, ask for precise location or turn on "Precise location" for Sello in the phone settings.'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: <Widget>[
+                    FilledButton.icon(
+                      onPressed: () async {
+                        final bool ok = await loc.requestPreciseLocation();
+                        if (!ok && context.mounted) {
+                          ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(t(context, 'Sigue aproximada. Actívala en Ajustes › Sello › Ubicación › Ubicación precisa.', 'Still approximate. Turn it on in Settings › Sello › Location › Precise location.'))));
+                        }
+                      },
+                      icon: const Icon(Icons.my_location_rounded),
+                      label: Text(t(context, 'Pedir ubicación precisa', 'Ask for precise location')),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => loc.backend.openAppSettings(),
+                      icon: const Icon(Icons.settings_outlined),
+                      label: Text(t(context, 'Abrir ajustes', 'Open settings')),
+                    ),
+                  ],
+                ),
+              ],
               if (f != null) ...<Widget>[
                 const SizedBox(height: 8),
                 for (final CoordFormat cf in Coords.formatsFor(f.latitude, f.longitude))
-                  _CoordRow(label: Coords.formatName(cf, spanish: spanish), value: Coords.format(cf, f.latitude, f.longitude)),
+                  _CoordRow(label: Coords.formatName(cf, spanish: spanish), value: Coords.format(cf, f.latitude, f.longitude, coarse: f.approximate)),
                 const Divider(),
                 if (f.manual)
                   _Line(t(context, 'Posición', 'Position'), t(context, 'Escrita a mano: sin precisión ni altitud medidas.', 'Entered by hand: no measured accuracy or altitude.'))
@@ -71,7 +102,7 @@ class _GpsSheet extends StatelessWidget {
                     ),
                   ),
                 if (loc.address != null) _Line(t(context, 'Dirección aproximada', 'Approximate address'), loc.address!.full),
-                if (!f.manual && (f.accuracy ?? 0) > 30 && s.settings.showAccuracyWarning)
+                if (!f.manual && !f.approximate && (f.accuracy ?? 0) > 30 && s.settings.showAccuracyWarning)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
@@ -120,7 +151,7 @@ class _GpsSheet extends StatelessWidget {
                       icon: const Icon(Icons.refresh_rounded),
                       label: Text(t(context, 'Reintentar GPS', 'Retry GPS')),
                     ),
-                  if (loc.needsSettings)
+                  if (loc.needsSettings && !loc.approximate)
                     OutlinedButton.icon(
                       onPressed: () => loc.status == 'disabled' ? loc.backend.openLocationSettings() : loc.backend.openAppSettings(),
                       icon: const Icon(Icons.settings_outlined),
@@ -210,6 +241,9 @@ class _GpsSheet extends StatelessWidget {
       case 'searching':
         return t(context, 'Buscando satélites…', 'Searching for satellites…');
       case 'ok':
+        if (loc.approximate) {
+          return t(context, 'Ubicación aproximada', 'Approximate location');
+        }
         if (loc.averaging) {
           return '${t(context, 'Promediando lecturas…', 'Averaging readings…')} (${loc.averagingSamples})';
         }

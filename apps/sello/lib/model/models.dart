@@ -253,6 +253,7 @@ class PhotoRecord {
     this.pitch,
     this.speed,
     this.positionSource = PositionSource.gps,
+    this.approximateLocation = false,
     this.averagedSamples = 0,
     this.fixAgeSeconds = 0,
     this.address = '',
@@ -307,6 +308,12 @@ class PhotoRecord {
   final double? pitch;
   final double? speed;
   final PositionSource positionSource;
+
+  /// El teléfono solo dio ubicación aproximada (permiso «aproximada» de
+  /// Android 12+ o sin «Ubicación precisa» en iOS): las coordenadas pueden
+  /// estar a kilómetros. Se guardan redondeadas a 0,01° y se muestran sin
+  /// decimales que aparenten precisión (ver Coords.format, `coarse`).
+  final bool approximateLocation;
   final int averagedSamples;
 
   /// Antigüedad de la lectura del GPS al tomar la foto (segundos).
@@ -387,6 +394,7 @@ class PhotoRecord {
         'pitch': pitch,
         'speed': speed,
         'positionSource': positionSource.name,
+        if (approximateLocation) 'approximate': true,
         'averagedSamples': averagedSamples,
         'fixAgeSeconds': fixAgeSeconds,
         'address': address,
@@ -437,6 +445,7 @@ class PhotoRecord {
       pitch: _dbl(j['pitch']),
       speed: _dbl(j['speed']),
       positionSource: PositionSource.values.firstWhere((PositionSource s) => s.name == j['positionSource'], orElse: () => PositionSource.gps),
+      approximateLocation: _bool(j['approximate']) ?? false,
       averagedSamples: _int(j['averagedSamples']) ?? 0,
       fixAgeSeconds: _int(j['fixAgeSeconds']) ?? 0,
       address: _str(j['address']) ?? '',

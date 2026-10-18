@@ -24,6 +24,7 @@ class Fix {
     this.speed = 0,
     this.averagedSamples = 0,
     this.source = PositionSource.gps,
+    this.approximate = false,
   });
 
   final double latitude;
@@ -48,6 +49,9 @@ class Fix {
   final int averagedSamples;
   final PositionSource source;
 
+  /// Lectura con permiso de ubicación aproximada: puede estar a kilómetros.
+  final bool approximate;
+
   /// Posición que no es la lectura en vivo (fijada, promediada o manual).
   bool get locked => source != PositionSource.gps;
 
@@ -70,6 +74,7 @@ class Fix {
         speed: speed,
         averagedSamples: averagedSamples ?? this.averagedSamples,
         source: source ?? this.source,
+        approximate: approximate,
       );
 }
 
@@ -135,7 +140,21 @@ abstract class LocationBackend {
   Future<List<Placemark>> placemarks(double latitude, double longitude, String localeIdentifier);
   Future<bool> openAppSettings();
   Future<bool> openLocationSettings();
+
+  /// Precisión que concedió el usuario: «precisa» o «aproximada» (Android
+  /// 12+ e iOS 14+ dejan elegir; antes, siempre precisa).
+  Future<LocationAccuracyStatus> accuracyStatus();
+
+  /// Pide la ubicación precisa: en iOS la temporaria de esta sesión
+  /// (`requestTemporaryFullAccuracy`, con el texto de
+  /// NSLocationTemporaryUsageDescriptionDictionary); en Android vuelve a pedir
+  /// el permiso, y el sistema ofrece pasar de aproximada a precisa.
+  Future<LocationAccuracyStatus> requestFullAccuracy();
 }
+
+/// Clave del propósito en NSLocationTemporaryUsageDescriptionDictionary
+/// (ios/Runner/Info.plist e InfoPlist.strings).
+const String kPreciseLocationPurposeKey = 'FieldPhotoCoordinates';
 
 /// Ubicación del sistema con geolocator y geocoding, y en Android la altura
 /// elipsoidal por el canal propio co.appsgratis.sello/altitude (ver
@@ -186,6 +205,30 @@ class SystemLocationBackend implements LocationBackend {
 
   @override
   Future<bool> openLocationSettings() => Geolocator.openLocationSettings();
+
+  @override
+  Future<LocationAccuracyStatus> accuracyStatus() async {
+    try {
+      return await Geolocator.getLocationAccuracy();
+    } catch (e) {
+      debugPrint('Precisión de la ubicación: $e');
+      return LocationAccuracyStatus.unknown;
+    }
+  }
+
+  @override
+  Future<LocationAccuracyStatus> requestFullAccuracy() async {
+    try {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+        return await Geolocator.requestTemporaryFullAccuracy(purposeKey: kPreciseLocationPurposeKey);
+      }
+      await Geolocator.requestPermission();
+      return await Geolocator.getLocationAccuracy();
+    } catch (e) {
+      debugPrint('Pedir ubicación precisa: $e');
+      return LocationAccuracyStatus.unknown;
+    }
+  }
 }
 
 /// Ubicación con promedio de lecturas (para afinar en interiores), bloqueo
@@ -230,6 +273,11 @@ class LocationService extends ChangeNotifier {
 
   /// off | denied | deniedForever | disabled | searching | ok
   String status = 'off';
+
+  /// El usuario dio permiso de ubicación aproximada: las lecturas pueden
+  /// estar a kilómetros. Se consulta al arrancar, al volver a la app
+  /// ([retry]) y después de pedir la precisa.
+  bool approximate = false;
   Address? _address;
   bool _geocoding = false;
   bool _geocodingEnabled = true;
@@ -294,7 +342,9 @@ class LocationService extends ChangeNotifier {
   /// tomada en otro lugar.
   Address? addressFor(Fix? f) {
     final Address? a = _address;
-    if (f == null || a == null || !_geocodingEnabled) {
+    // Con ubicación aproximada una dirección postal aparentaría una precisión
+    // que no hay.
+    if (f == null || a == null || !_geocodingEnabled || f.approximate) {
       return null;
     }
     return Coords.distanceMeters(f.latitude, f.longitude, a.latitude, a.longitude) <= addressRadiusMeters ? a : null;
@@ -386,6 +436,10 @@ class LocationService extends ChangeNotifier {
         notifyListeners();
         return;
       }
+      await _readAccuracy();
+      if (generation != _generation) {
+        return;
+      }
       _listen();
       if (!enabled) {
         status = 'disabled';
@@ -413,12 +467,40 @@ class LocationService extends ChangeNotifier {
       // haberse abierto sin el permiso de ubicación precisa (que el usuario
       // acaba de dar en los ajustes): se vuelve a abrir.
       _resubscribeAltitude();
+      // Y pudo pasar de aproximada a precisa (o al revés).
+      await _readAccuracy();
       return;
     }
     _generation++;
     _starting = false;
     await _cancelStreams();
     await start();
+  }
+
+  /// Consulta la precisión concedida y avisa si cambió.
+  Future<void> _readAccuracy() async {
+    final LocationAccuracyStatus a = await backend.accuracyStatus();
+    final bool next = a == LocationAccuracyStatus.reduced;
+    if (next != approximate) {
+      approximate = next;
+      if (!next && _live != null && _live!.approximate) {
+        // La última lectura era aproximada: no se usa como si fuera precisa.
+        _live = null;
+      }
+      notifyListeners();
+    }
+  }
+
+  /// «Pedir ubicación precisa». Verdadero si quedó concedida; si no, el
+  /// usuario tiene que activarla en los ajustes del teléfono.
+  Future<bool> requestPreciseLocation() async {
+    await backend.requestFullAccuracy();
+    await _readAccuracy();
+    if (!approximate && status == 'ok') {
+      // El canal de altitud de Android necesita el permiso preciso.
+      _resubscribeAltitude();
+    }
+    return !approximate;
   }
 
   void _resubscribeAltitude() {
@@ -503,6 +585,7 @@ class LocationService extends ChangeNotifier {
       time: p.time,
       accuracy: p.accuracy != null && p.accuracy! > 0 ? p.accuracy : null,
       speed: speed == null || speed < 0 ? 0 : speed,
+      approximate: approximate,
     );
     return _withAltitudes(f, p);
   }
@@ -537,6 +620,7 @@ class LocationService extends ChangeNotifier {
       speed: f.speed,
       averagedSamples: f.averagedSamples,
       source: f.source,
+      approximate: f.approximate,
     );
   }
 
@@ -595,6 +679,8 @@ class LocationService extends ChangeNotifier {
       altitudeAccuracy: last.altitudeAccuracy,
       averagedSamples: samples.length,
       source: PositionSource.averaged,
+      // Promediar lecturas aproximadas no las vuelve precisas.
+      approximate: samples.any((Fix f) => f.approximate),
     );
   }
 
@@ -659,7 +745,8 @@ class LocationService extends ChangeNotifier {
 
   Future<void> _maybeGeocode() async {
     final Fix? f = fix;
-    if (f == null || !_geocodingEnabled || _geocoding) {
+    // Con ubicación aproximada no se busca dirección: aparentaría precisión.
+    if (f == null || !_geocodingEnabled || _geocoding || f.approximate) {
       return;
     }
     // Ya hay dirección cerca: no se vuelve a consultar.

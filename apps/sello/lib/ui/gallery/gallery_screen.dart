@@ -171,7 +171,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   Widget build(BuildContext context) {
     final Services s = AppScope.of(context);
     return ListenableBuilder(
-      listenable: Listenable.merge(<Listenable>[s.state, s.queue]),
+      listenable: Listenable.merge(<Listenable>[s.state, s.queue, s.settings]),
       builder: (BuildContext context, Widget? _) {
         final AppState st = s.state;
         final List<PhotoRecord> photos = _filtered(st);

@@ -1051,6 +1051,11 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     if (fix.manual) {
       return _GpsChipInfo(t(context, 'posición manual', 'manual position'), Colors.lightBlueAccent);
     }
+    // Permiso aproximado: lo primero es decirlo (la hoja del GPS explica cómo
+    // pedir la precisa).
+    if (fix.approximate || loc.approximate) {
+      return _GpsChipInfo(t(context, 'Ubicación aproximada', 'Approximate location'), Colors.orangeAccent);
+    }
     final double acc = fix.accuracy ?? 999;
     final StringBuffer b = StringBuffer(fix.accuracy == null ? '±?' : '± ${acc.toStringAsFixed(0)} m');
     if (fix.locked) {

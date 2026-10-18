@@ -24,6 +24,7 @@ class StampData {
     this.spanish = true,
     this.locked = false,
     this.manual = false,
+    this.approximate = false,
     this.averaged = 0,
     this.fixAgeSeconds = 0,
     this.altitudeIsMsl = true,
@@ -58,6 +59,7 @@ class StampData {
       spanish: spanish,
       locked: p.positionSource == PositionSource.locked || p.positionSource == PositionSource.averaged,
       manual: p.positionSource == PositionSource.manual,
+      approximate: p.approximateLocation,
       averaged: p.averagedSamples,
       fixAgeSeconds: p.fixAgeSeconds,
     );
@@ -91,6 +93,10 @@ class StampData {
 
   /// Coordenadas escritas a mano.
   final bool manual;
+
+  /// Ubicación aproximada (permiso del sistema): se marca y las coordenadas
+  /// van sin detalle que aparente precisión.
+  final bool approximate;
   final int averaged;
 
   /// Antigüedad de la lectura del GPS al tomar la foto (segundos).
@@ -128,7 +134,7 @@ class StampData {
         case StampItem.coords:
           if (hasLocation) {
             final String l = _coordLabel(t.coordFormat, colombia);
-            out.add(StampLine(item, '${label(l, l)}${Coords.format(t.coordFormat, latitude!, longitude!)}${_positionNote()}'));
+            out.add(StampLine(item, '${label(l, l)}${Coords.format(t.coordFormat, latitude!, longitude!, coarse: approximate)}${_positionNote()}'));
           } else {
             out.add(StampLine(item, spanish ? 'Sin señal GPS' : 'No GPS fix'));
           }
@@ -136,7 +142,7 @@ class StampData {
         case StampItem.coords2:
           if (hasLocation && t.coordFormat2 != t.coordFormat) {
             final String l = _coordLabel(t.coordFormat2, colombia);
-            out.add(StampLine(item, '${label(l, l)}${Coords.format(t.coordFormat2, latitude!, longitude!)}'));
+            out.add(StampLine(item, '${label(l, l)}${Coords.format(t.coordFormat2, latitude!, longitude!, coarse: approximate)}'));
           }
           break;
         case StampItem.altitude:
@@ -201,6 +207,9 @@ class StampData {
   String _positionNote() {
     if (manual) {
       return spanish ? ' (posición manual)' : ' (manual position)';
+    }
+    if (approximate) {
+      return spanish ? ' (ubicación aproximada)' : ' (approximate location)';
     }
     if (locked) {
       return spanish ? ' (fija)' : ' (locked)';
@@ -306,7 +315,7 @@ String truncateUtf8(String s, int maxBytes) {
 }
 
 /// Nombre de archivo según la plantilla del proyecto.
-String buildFileName(String pattern, {required String project, required DateTime time, double? lat, double? lon, required int n}) {
+String buildFileName(String pattern, {required String project, required DateTime time, double? lat, double? lon, required int n, bool approximate = false}) {
   String clean(String s) => s.replaceAll(RegExp(r'[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ_\-]+'), '_').replaceAll(RegExp(r'_+'), '_').replaceAll(RegExp(r'^_|_$'), '');
   String two(int v) => v.toString().padLeft(2, '0');
   final String out = pattern
@@ -316,8 +325,8 @@ String buildFileName(String pattern, {required String project, required DateTime
       .replaceAll('{date}', '${time.year}${two(time.month)}${two(time.day)}')
       .replaceAll('{hora}', '${two(time.hour)}${two(time.minute)}${two(time.second)}')
       .replaceAll('{time}', '${two(time.hour)}${two(time.minute)}${two(time.second)}')
-      .replaceAll('{lat}', lat == null ? 'x' : lat.toStringAsFixed(5))
-      .replaceAll('{lon}', lon == null ? 'x' : lon.toStringAsFixed(5))
+      .replaceAll('{lat}', lat == null ? 'x' : lat.toStringAsFixed(approximate ? 2 : 5))
+      .replaceAll('{lon}', lon == null ? 'x' : lon.toStringAsFixed(approximate ? 2 : 5))
       .replaceAll('{n}', n.toString().padLeft(4, '0'));
   final String c = truncateUtf8(clean(out.replaceAll('.', 'p')), kMaxFileBaseBytes);
   return c.isEmpty ? 'foto_$n' : c;

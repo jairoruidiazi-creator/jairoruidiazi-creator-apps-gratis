@@ -96,6 +96,23 @@ class FakeLocationBackend implements LocationBackend {
   /// Veces que se abrió el canal de altitud del GPS (M6).
   int altitudeOpens = 0;
 
+  /// Precisión concedida («aproximada» si el usuario la eligió).
+  LocationAccuracyStatus accuracy = LocationAccuracyStatus.precise;
+
+  /// Lo que concede el usuario al pedirle la precisa (null: no cambia).
+  LocationAccuracyStatus? accuracyOnRequest;
+  int fullAccuracyRequests = 0;
+
+  @override
+  Future<LocationAccuracyStatus> accuracyStatus() async => accuracy;
+
+  @override
+  Future<LocationAccuracyStatus> requestFullAccuracy() async {
+    fullAccuracyRequests++;
+    accuracy = accuracyOnRequest ?? accuracy;
+    return accuracy;
+  }
+
   @override
   Stream<GpsAltitude> gpsAltitudes() {
     altitudeOpens++;

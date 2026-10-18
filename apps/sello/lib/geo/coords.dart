@@ -57,7 +57,7 @@ class Coords {
         m = 0;
         d += 1;
       }
-      return '$d°${m.toStringAsFixed(minuteDecimals).padLeft(minuteDecimals + 3, '0')}\'${v >= 0 ? pos : neg}';
+      return '$d°${m.toStringAsFixed(minuteDecimals).padLeft(minuteDecimals == 0 ? 2 : minuteDecimals + 3, '0')}\'${v >= 0 ? pos : neg}';
     }
 
     return '${one(lat, 'N', 'S')} ${one(lon, 'E', 'W')}';
@@ -215,8 +215,46 @@ class Coords {
 
   static int _truncate6(double v) => double.parse(v.toStringAsFixed(6)).floor();
 
-  /// Texto según el formato elegido.
-  static String format(CoordFormat f, double lat, double lon) {
+  /// Lado, en metros, de la cuadrícula a la que se redondean las
+  /// proyecciones de una ubicación aproximada.
+  static const double coarseGridMeters = 1000;
+
+  static String _grid(double v) => ((v / coarseGridMeters).round() * coarseGridMeters).toStringAsFixed(0);
+
+  /// Texto según el formato elegido. Con [coarse] (ubicación aproximada, que
+  /// puede estar a kilómetros) ningún formato muestra más detalle que
+  /// alrededor de un kilómetro: 0,01° (1,1 km), minutos enteros (1,8 km),
+  /// proyecciones redondeadas a 1 km, MGRS de 1 km y Plus Code de 6
+  /// caracteres (celda de 0,05°, unos 5,5 km; el de 8 ya diría 275 m).
+  static String format(CoordFormat f, double lat, double lon, {bool coarse = false}) {
+    if (coarse) {
+      switch (f) {
+        case CoordFormat.dd:
+          return dd(lat, lon, decimals: 2);
+        case CoordFormat.dms:
+        case CoordFormat.ddm:
+          return ddm(lat, lon, minuteDecimals: 0);
+        case CoordFormat.utm:
+          final UtmPoint p = toUtm(lat, lon);
+          return '${p.zone}${p.band} ${_grid(p.easting)} E ${_grid(p.northing)} N';
+        case CoordFormat.mgrs:
+          return mgrs(lat, lon, precision: 2);
+        case CoordFormat.plusCode:
+          return plusCode(lat, lon, length: 6);
+        case CoordFormat.ctm12:
+          if (!inColombia(lat, lon)) {
+            return dd(lat, lon, decimals: 2);
+          }
+          final ProjectedPoint p = ctm12(lat, lon);
+          return 'E ${_grid(p.easting)} N ${_grid(p.northing)}';
+        case CoordFormat.magna:
+          if (!inColombia(lat, lon)) {
+            return dd(lat, lon, decimals: 2);
+          }
+          final MagnaPoint p = magna(lat, lon);
+          return '${p.zoneName} E ${_grid(p.easting)} N ${_grid(p.northing)}';
+      }
+    }
     switch (f) {
       case CoordFormat.dd:
         return dd(lat, lon);

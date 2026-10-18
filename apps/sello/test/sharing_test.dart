@@ -3,7 +3,9 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:sello/core/app_scope.dart';
 import 'package:sello/core/app_state.dart';
 import 'package:sello/core/backup.dart';
@@ -116,6 +118,43 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('Las filas del detalle copian, miden 48 dp y dicen «copiar», también con letra al doble (M2 de la ronda 6)', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.625;
+    addTearDown(tester.view.reset);
+    final SemanticsHandle handle = tester.ensureSemantics();
+    await tester.pumpWidget(app(const PhotoDetailScreen(photoId: 'a')));
+    await tester.pump();
+    await waitReal(tester, () => find.byType(InteractiveViewer).evaluate().isNotEmpty);
+    final Finder plus = find.bySemanticsLabel(RegExp(r'^Plus Code: '));
+    await tester.scrollUntilVisible(plus, 200, scrollable: find.byType(Scrollable).first);
+    await tester.pump();
+    expect(tester.getSemantics(plus), containsSemantics(isButton: true, hasTapAction: true, onTapHint: 'copiar'));
+    expect(tester.getSize(find.ancestor(of: find.text('Plus Code'), matching: find.byType(InkWell)).first).height, greaterThanOrEqualTo(48));
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await tester.pump();
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    // Tocar la fila copia el valor.
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (MethodCall call) async {
+      if (call.method == 'Clipboard.setData') {
+        copied = (call.arguments as Map<Object?, Object?>)['text'] as String?;
+      }
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    await tester.tap(find.text('Plus Code'));
+    await tester.pump();
+    expect(copied, isNotNull);
+    expect(copied, matches(RegExp(r'^[2-9CFGHJMPQRVWX]{8}\+')));
+    await tester.pumpWidget(const SizedBox.shrink());
+    handle.dispose();
+  });
+
   testWidgets('Galería: compartir lo seleccionado y exportar', (WidgetTester tester) async {
     await tester.pumpWidget(app(const GalleryScreen()));
     await tester.pump();
@@ -214,19 +253,19 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  group('Copia completa en Android, sin pasar entera por la memoria (G2)', () {
-    Future<void> openSettings(WidgetTester tester, String buttonText) async {
-      tester.view.physicalSize = const Size(1080, 2400);
-      tester.view.devicePixelRatio = 2.625;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(app(const SettingsScreen()));
-      await tester.pump();
-      final Finder button = find.text(buttonText);
-      await tester.scrollUntilVisible(button, 300, scrollable: find.byType(Scrollable).first);
-      await tester.pump();
-      await tester.tap(button);
-    }
+  Future<void> openSettings(WidgetTester tester, String buttonText) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.625;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(const SettingsScreen()));
+    await tester.pump();
+    final Finder button = find.text(buttonText);
+    await tester.scrollUntilVisible(button, 300, scrollable: find.byType(Scrollable).first);
+    await tester.pump();
+    await tester.tap(button);
+  }
 
+  group('Copia completa en Android, sin pasar entera por la memoria (G2)', () {
     testWidgets('Dice cuánto ocupa, la guarda donde se elija y borra la de la app', (WidgetTester tester) async {
       files
         ..picker = true
@@ -297,6 +336,63 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
+    Future<String> backupWithoutPhotos(WidgetTester tester) async {
+      final String zip = '${tmp.path}/copia.zip';
+      await tester.runAsync(() async {
+        await writeZipFile(zip, await Backup.entries(services.state));
+        await services.state.deletePhotos(services.state.photos.toList());
+      });
+      return zip;
+    }
+
+    testWidgets('Restaurar sin espacio para traer la copia y agregar sus fotos: no copia nada (M5 de la ronda 3)', (WidgetTester tester) async {
+      final String zip = await backupWithoutPhotos(tester);
+      final int size = File(zip).lengthSync();
+      files
+        ..picker = true
+        // Alcanza para la copia, no para la copia y sus fotos.
+        ..free = size + kBackupSpareBytes
+        ..toOpen = zip;
+      await openSettings(tester, 'Restaurar una copia');
+      await waitReal(tester, () => find.text('Cancelar').evaluate().isNotEmpty);
+      expect(find.textContaining('No hay espacio suficiente'), findsOneWidget);
+      expect(find.text('Restaurar'), findsNothing);
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(files.copies, 0);
+      expect(services.state.photos, isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    for (final bool noSpace in <bool>[false, true]) {
+      testWidgets(noSpace ? 'Si el teléfono se llena al traer la copia se dice claro y no queda nada a medias' : 'Cancelar mientras se trae la copia no deja nada a medias', (WidgetTester tester) async {
+        final String zip = await backupWithoutPhotos(tester);
+        files
+          ..picker = true
+          ..free = 8 * 1024 * 1024 * 1024
+          ..toOpen = zip;
+        if (noSpace) {
+          files.noSpaceWhileCopying = true;
+        } else {
+          files.cancelAt = 1024;
+        }
+        await openSettings(tester, 'Restaurar una copia');
+        await waitReal(tester, () => find.text('Restaurar').evaluate().isNotEmpty);
+        await tester.tap(find.text('Restaurar'));
+        final String expected = noSpace ? 'se quedó sin espacio al traer la copia' : 'Se canceló la restauración';
+        await waitReal(tester, () => find.textContaining(expected).evaluate().isNotEmpty, maxTenths: 150);
+        expect(find.textContaining(expected), findsOneWidget);
+        expect(find.textContaining('ENOSPC'), findsNothing);
+        expect(services.state.photos, isEmpty);
+        final String brought = (await tester.runAsync(() => services.store.absolutePath('exports/restaurar_copia.zip')))!;
+        expect(File(brought).existsSync(), isFalse);
+        expect(File('$brought.tmp-open').existsSync(), isFalse);
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+    }
+  });
+
+  group('iPhone: la copia del selector de archivos y las carpetas temporales', () {
     testWidgets('iPhone: la copia que deja el selector en tmp/…-Inbox se borra al terminar, al fallar o al cancelar (M1 de la ronda 5)', (WidgetTester tester) async {
       final String zip = '${tmp.path}/copia.zip';
       await tester.runAsync(() async {
@@ -378,60 +474,23 @@ void main() {
       expect(isPickerCopy('/x.zip', const <String>['/']), isFalse);
     });
 
-    Future<String> backupWithoutPhotos(WidgetTester tester) async {
-      final String zip = '${tmp.path}/copia.zip';
-      await tester.runAsync(() async {
-        await writeZipFile(zip, await Backup.entries(services.state));
-        await services.state.deletePhotos(services.state.photos.toList());
-      });
-      return zip;
-    }
-
-    testWidgets('Restaurar sin espacio para traer la copia y agregar sus fotos: no copia nada (M5 de la ronda 3)', (WidgetTester tester) async {
-      final String zip = await backupWithoutPhotos(tester);
-      final int size = File(zip).lengthSync();
-      files
-        ..picker = true
-        // Alcanza para la copia, no para la copia y sus fotos.
-        ..free = size + kBackupSpareBytes
-        ..toOpen = zip;
-      await openSettings(tester, 'Restaurar una copia');
-      await waitReal(tester, () => find.text('Cancelar').evaluate().isNotEmpty);
-      expect(find.textContaining('No hay espacio suficiente'), findsOneWidget);
-      expect(find.text('Restaurar'), findsNothing);
-      await tester.tap(find.text('Cancelar'));
-      await tester.pumpAndSettle();
-      expect(files.copies, 0);
-      expect(services.state.photos, isEmpty);
-      await tester.pumpWidget(const SizedBox.shrink());
+    test('temporaryDirs() de verdad: TMPDIR del contenedor y la carpeta de getTemporaryDirectory() (M3 de la ronda 6)', () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      // path_provider simulado por su canal (si en esta máquina lo atiende la
+      // implementación de escritorio, se compara con lo que ella da).
+      const MethodChannel channel = MethodChannel('plugins.flutter.io/path_provider');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, (MethodCall call) async => call.method == 'getTemporaryDirectory' ? '/var/mobile/Containers/Data/Application/X/Library/Caches' : null);
+      addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(channel, null));
+      final String caches = (await getTemporaryDirectory()).path;
+      final List<String> dirs = await const DeviceFiles().temporaryDirs();
+      // La copia del selector de iOS queda en TMPDIR (tmp/<bundle>-Inbox), que
+      // es Directory.systemTemp; getTemporaryDirectory() es Library/Caches.
+      // Sin la primera, la copia no se borraba (M1 de la ronda 5).
+      expect(dirs, contains(Directory.systemTemp.path));
+      expect(dirs, contains(caches));
+      expect(isPickerCopy('${Directory.systemTemp.path}/co.appsgratis.sello-Inbox/copia.zip', dirs), isTrue);
+      expect(isPickerCopy('$caches/copia.zip', dirs), isTrue);
     });
-
-    for (final bool noSpace in <bool>[false, true]) {
-      testWidgets(noSpace ? 'Si el teléfono se llena al traer la copia se dice claro y no queda nada a medias' : 'Cancelar mientras se trae la copia no deja nada a medias', (WidgetTester tester) async {
-        final String zip = await backupWithoutPhotos(tester);
-        files
-          ..picker = true
-          ..free = 8 * 1024 * 1024 * 1024
-          ..toOpen = zip;
-        if (noSpace) {
-          files.noSpaceWhileCopying = true;
-        } else {
-          files.cancelAt = 1024;
-        }
-        await openSettings(tester, 'Restaurar una copia');
-        await waitReal(tester, () => find.text('Restaurar').evaluate().isNotEmpty);
-        await tester.tap(find.text('Restaurar'));
-        final String expected = noSpace ? 'se quedó sin espacio al traer la copia' : 'Se canceló la restauración';
-        await waitReal(tester, () => find.textContaining(expected).evaluate().isNotEmpty, maxTenths: 150);
-        expect(find.textContaining(expected), findsOneWidget);
-        expect(find.textContaining('ENOSPC'), findsNothing);
-        expect(services.state.photos, isEmpty);
-        final String brought = (await tester.runAsync(() => services.store.absolutePath('exports/restaurar_copia.zip')))!;
-        expect(File(brought).existsSync(), isFalse);
-        expect(File('$brought.tmp-open').existsSync(), isFalse);
-        await tester.pumpWidget(const SizedBox.shrink());
-      });
-    }
   });
 
   testWidgets('El origen nunca es un rectángulo vacío', (WidgetTester tester) async {
