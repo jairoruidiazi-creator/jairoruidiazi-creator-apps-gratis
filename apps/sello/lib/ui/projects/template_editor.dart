@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:clock/clock.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
@@ -40,7 +41,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
     if (_tpl == null) {
       final StampTemplate tpl = AppScope.of(context).state.templateById(widget.templateId);
       _tpl = tpl;
-      _name = TextEditingController(text: tpl.name);
+      _name = TextEditingController(text: tpl.displayName(spanish: AppScope.of(context).settings.spanish));
       _dateFormat = TextEditingController(text: tpl.dateFormat);
       _name.addListener(() {
         tpl.name = _name.text.trim().isEmpty ? tpl.name : _name.text.trim();
@@ -94,7 +95,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
   }
 
   Future<void> _pickLogo(AppState st) async {
-    const XTypeGroup images = XTypeGroup(label: 'Imágenes', extensions: <String>['png', 'jpg', 'jpeg', 'webp'], mimeTypes: <String>['image/*'], uniformTypeIdentifiers: <String>['public.image']);
+    final XTypeGroup images = XTypeGroup(label: t(context, 'Imágenes', 'Images'), extensions: <String>['png', 'jpg', 'jpeg', 'webp'], mimeTypes: <String>['image/*'], uniformTypeIdentifiers: <String>['public.image']);
     XFile? file;
     try {
       file = await openFile(acceptedTypeGroups: <XTypeGroup>[images]);
@@ -123,7 +124,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
     final StampTemplate tpl = _tpl!;
     final bool spanish = s.settings.spanish;
     final StampData sample = StampData(
-      time: DateTime.now(),
+      time: clock.now(),
       latitude: 4.711000,
       longitude: -74.072100,
       accuracy: 4.2,
@@ -222,7 +223,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
               children: <Widget>[
                 for (final String f in _dateFormats)
                   ChoiceChip(
-                    label: Text(formatDate(DateTime.now(), f, spanish: spanish)),
+                    label: Text(formatDate(clock.now(), f, spanish: spanish)),
                     selected: tpl.dateFormat == f,
                     onSelected: (_) {
                       _dateFormat.text = f;
@@ -353,26 +354,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
     }
   }
 
-  static String _formatName(BuildContext context, CoordFormat f) {
-    switch (f) {
-      case CoordFormat.dd:
-        return t(context, 'Grados decimales', 'Decimal degrees');
-      case CoordFormat.dms:
-        return t(context, 'Grados, minutos, segundos', 'Degrees, minutes, seconds');
-      case CoordFormat.ddm:
-        return t(context, 'Grados y minutos decimales', 'Degrees, decimal minutes');
-      case CoordFormat.utm:
-        return 'UTM';
-      case CoordFormat.mgrs:
-        return 'MGRS';
-      case CoordFormat.plusCode:
-        return 'Plus Code';
-      case CoordFormat.ctm12:
-        return t(context, 'Origen Nacional (CTM12, Colombia)', 'Colombia national origin (CTM12)');
-      case CoordFormat.magna:
-        return t(context, 'MAGNA-SIRGAS por zona (Colombia)', 'MAGNA-SIRGAS zone (Colombia)');
-    }
-  }
+  static String _formatName(BuildContext context, CoordFormat f) => Coords.formatName(f, spanish: AppScope.of(context).settings.spanish, withCountry: true);
 
   static String _positionName(BuildContext context, StampPosition p) {
     switch (p) {

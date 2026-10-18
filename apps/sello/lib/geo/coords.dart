@@ -233,14 +233,16 @@ class Coords {
     }
   }
 
-  static String formatName(CoordFormat f) {
+  /// Nombre del formato en el idioma de la app. Con [withCountry] se aclara
+  /// que los dos formatos oficiales son de Colombia (en los selectores).
+  static String formatName(CoordFormat f, {required bool spanish, bool withCountry = false}) {
     switch (f) {
       case CoordFormat.dd:
-        return 'Grados decimales';
+        return spanish ? 'Grados decimales' : 'Decimal degrees';
       case CoordFormat.dms:
-        return 'Grados, minutos y segundos';
+        return spanish ? 'Grados, minutos y segundos' : 'Degrees, minutes and seconds';
       case CoordFormat.ddm:
-        return 'Grados y minutos decimales';
+        return spanish ? 'Grados y minutos decimales' : 'Degrees and decimal minutes';
       case CoordFormat.utm:
         return 'UTM';
       case CoordFormat.mgrs:
@@ -248,9 +250,15 @@ class Coords {
       case CoordFormat.plusCode:
         return 'Plus Code';
       case CoordFormat.ctm12:
-        return 'Origen Nacional (CTM12)';
+        if (withCountry) {
+          return spanish ? 'Origen Nacional (CTM12, Colombia)' : 'Colombia national origin (CTM12)';
+        }
+        return spanish ? 'Origen Nacional (CTM12)' : 'National origin (CTM12)';
       case CoordFormat.magna:
-        return 'MAGNA-SIRGAS por zona';
+        if (withCountry) {
+          return spanish ? 'MAGNA-SIRGAS por zona (Colombia)' : 'MAGNA-SIRGAS zone (Colombia)';
+        }
+        return spanish ? 'MAGNA-SIRGAS por zona' : 'MAGNA-SIRGAS zone';
     }
   }
 

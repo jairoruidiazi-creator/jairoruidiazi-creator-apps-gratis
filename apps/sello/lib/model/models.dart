@@ -95,6 +95,15 @@ class StampTemplate {
       );
 
   static StampTemplate defaultTemplate() => StampTemplate(id: 'default', name: 'Estándar');
+
+  /// Nombre visible. La plantilla de fábrica sigue el idioma de la app
+  /// mientras el usuario no la renombre.
+  String displayName({required bool spanish}) {
+    if (id == 'default' && (name == 'Estándar' || name == 'Standard')) {
+      return spanish ? 'Estándar' : 'Standard';
+    }
+    return name;
+  }
 }
 
 /// Campo personalizado de un proyecto (por ejemplo "Lote", "Inspector").

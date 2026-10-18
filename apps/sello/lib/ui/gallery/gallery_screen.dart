@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
@@ -358,22 +359,31 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   Future<void> _exportMenu(AppState st, List<PhotoRecord> visible) async {
     final List<PhotoRecord> list = _targets(visible);
+    // Siete formatos con descripción no caben en la altura por defecto de la
+    // hoja (9/16 de la pantalla): se deja crecer y se desplaza si hace falta,
+    // para que el informe PDF quede siempre al alcance.
     final String? choice = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
+      isScrollControlled: true,
       builder: (BuildContext context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            ListTile(title: Text('${t(context, 'Exportar', 'Export')} ${list.length} ${t(context, 'fotos', 'photos')}', style: Theme.of(context).textTheme.titleMedium)),
-            ListTile(leading: const Icon(Icons.photo_library_outlined), title: Text(t(context, 'Fotos selladas', 'Stamped photos')), subtitle: Text(t(context, 'Compartir las imágenes JPG', 'Share the JPG images')), onTap: () => Navigator.pop(context, 'photos')),
-            ListTile(leading: const Icon(Icons.table_chart_outlined), title: const Text('CSV'), subtitle: Text(t(context, 'Tabla con coordenadas, UTM, MGRS, Plus Code, dirección y campos', 'Table with coordinates, UTM, MGRS, Plus Code, address and fields')), onTap: () => Navigator.pop(context, 'csv')),
-            ListTile(leading: const Icon(Icons.public), title: const Text('KML'), subtitle: Text(t(context, 'Puntos para Google Earth / QGIS (sin imágenes)', 'Points for Google Earth / QGIS (no images)')), onTap: () => Navigator.pop(context, 'kml')),
-            ListTile(leading: const Icon(Icons.travel_explore), title: const Text('KMZ'), subtitle: Text(t(context, 'Puntos con las fotos incrustadas', 'Points with the photos embedded')), onTap: () => Navigator.pop(context, 'kmz')),
-            ListTile(leading: const Icon(Icons.folder_zip_outlined), title: const Text('ZIP'), subtitle: Text(t(context, 'Fotos selladas + CSV + KML en un archivo', 'Stamped photos + CSV + KML in one file')), onTap: () => Navigator.pop(context, 'zip')),
-            ListTile(leading: const Icon(Icons.folder_zip), title: Text('ZIP ${t(context, 'con originales', 'with originals')}'), subtitle: Text(t(context, 'Fotos sin sello + CSV + KML', 'Unstamped photos + CSV + KML')), onTap: () => Navigator.pop(context, 'zip-orig')),
-            ListTile(leading: const Icon(Icons.picture_as_pdf_outlined), title: Text(t(context, 'Informe PDF', 'PDF report')), subtitle: Text(t(context, 'Resumen, tabla y una ficha por foto con imagen y datos', 'Summary, table and one sheet per photo with image and data')), onTap: () => Navigator.pop(context, 'pdf')),
-          ],
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.85),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                ListTile(title: Text('${t(context, 'Exportar', 'Export')} ${list.length} ${t(context, 'fotos', 'photos')}', style: Theme.of(context).textTheme.titleMedium)),
+                ListTile(leading: const Icon(Icons.photo_library_outlined), title: Text(t(context, 'Fotos selladas', 'Stamped photos')), subtitle: Text(t(context, 'Compartir las imágenes JPG', 'Share the JPG images')), onTap: () => Navigator.pop(context, 'photos')),
+                ListTile(leading: const Icon(Icons.table_chart_outlined), title: const Text('CSV'), subtitle: Text(t(context, 'Tabla con coordenadas, UTM, MGRS, Plus Code, dirección y campos', 'Table with coordinates, UTM, MGRS, Plus Code, address and fields')), onTap: () => Navigator.pop(context, 'csv')),
+                ListTile(leading: const Icon(Icons.public), title: const Text('KML'), subtitle: Text(t(context, 'Puntos para Google Earth / QGIS (sin imágenes)', 'Points for Google Earth / QGIS (no images)')), onTap: () => Navigator.pop(context, 'kml')),
+                ListTile(leading: const Icon(Icons.travel_explore), title: const Text('KMZ'), subtitle: Text(t(context, 'Puntos con las fotos incrustadas', 'Points with the photos embedded')), onTap: () => Navigator.pop(context, 'kmz')),
+                ListTile(leading: const Icon(Icons.folder_zip_outlined), title: const Text('ZIP'), subtitle: Text(t(context, 'Fotos selladas + CSV + KML en un archivo', 'Stamped photos + CSV + KML in one file')), onTap: () => Navigator.pop(context, 'zip')),
+                ListTile(leading: const Icon(Icons.folder_zip), title: Text('ZIP ${t(context, 'con originales', 'with originals')}'), subtitle: Text(t(context, 'Fotos sin sello + CSV + KML', 'Unstamped photos + CSV + KML')), onTap: () => Navigator.pop(context, 'zip-orig')),
+                ListTile(leading: const Icon(Icons.picture_as_pdf_outlined), title: Text(t(context, 'Informe PDF', 'PDF report')), subtitle: Text(t(context, 'Resumen, tabla y una ficha por foto con imagen y datos', 'Summary, table and one sheet per photo with image and data')), onTap: () => Navigator.pop(context, 'pdf')),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -385,7 +395,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
       final Services sv = AppScope.of(context);
       final Map<String, Project> projects = st.projectMap;
       final bool spanish = sv.settings.spanish;
-      final String stamp = _stamp(DateTime.now());
+      final String stamp = _stamp(clock.now());
       final String title = _projectId == null ? 'Sello' : (projects[_projectId]?.name ?? 'Sello');
       Future<File?> stamped(PhotoRecord p) async => st.fileOf(p.stampedFile.isNotEmpty ? p.stampedFile : p.originalFile);
       Future<File?> original(PhotoRecord p) async {

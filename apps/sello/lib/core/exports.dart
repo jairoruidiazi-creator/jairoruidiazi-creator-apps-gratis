@@ -44,7 +44,7 @@ class Exports {
         loc ? p.longitude!.toStringAsFixed(7) : '',
         p.accuracy?.toStringAsFixed(1) ?? '',
         p.altitude?.toStringAsFixed(1) ?? '',
-        p.altitude == null ? '' : (p.altitudeReference == 'ellipsoid' ? 'elipsoide' : 'nivel del mar'),
+        p.altitude == null ? '' : (p.altitudeReference == 'ellipsoid' ? (spanish ? 'elipsoide' : 'ellipsoid') : (spanish ? 'nivel del mar' : 'sea level')),
         p.heading?.toStringAsFixed(1) ?? '',
         p.pitch?.toStringAsFixed(1) ?? '',
         p.speed?.toStringAsFixed(2) ?? '',

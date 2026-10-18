@@ -10,6 +10,7 @@ library;
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -68,82 +69,89 @@ void main() {
       testWidgets('Capturas de Sello en ${device.id} ($lang)', (WidgetTester tester) async {
         final bool es = lang == 'es';
         String tr(String a, String b) => es ? a : b;
-        final List<FlutterErrorDetails> errors = <FlutterErrorDetails>[];
+        // Los errores se guardan como texto al momento: describirlos después,
+        // con el árbol ya desmontado, falla en el inspector de widgets.
+        final List<String> errors = <String>[];
         final FlutterExceptionHandler? previous = FlutterError.onError;
         FlutterError.onError = (FlutterErrorDetails d) {
-          errors.add(d);
+          errors.add(d.toString());
           previous?.call(d);
         };
         addTearDown(() => FlutterError.onError = previous);
+        // Hora fija de la demostración (después de la última foto del día), para
+        // que la vista previa de la plantilla no muestre la hora de la CI.
+        final DateTime today = DateTime.now();
+        final DateTime demoNow = DateTime(today.year, today.month, today.day, 10, 5, 12);
+        await withClock(Clock.fixed(demoNow), () async {
+          device.apply(tester);
+          await loadStoreFonts(tester);
+          SharedPreferences.setMockInitialValues(<String, Object>{});
+          final Directory dir = (await tester.runAsync(() => Directory.systemTemp.createTemp('sello_shots')))!;
+          final Directory scratch = (await tester.runAsync(() => Directory.systemTemp.createTemp('sello_scratch')))!;
+          final AppSettings settings = AppSettings();
+          final JsonStore store = JsonStore(root: dir);
+          final AppState state = AppState(store);
+          await tester.runAsync(() async {
+            await state.load();
+            await seedSelloDemo(state: state, store: store, settings: settings, spanish: es, now: demoNow, photosDir: 'test/store/photos', scratchDir: scratch.path);
+          });
+          MapScreen.tileProviderOverride = _FixtureTiles('test/store/tiles');
+          addTearDown(() => MapScreen.tileProviderOverride = null);
+          final Services s = Services(settings: settings, state: state, store: store, location: LocationService(), heading: HeadingService());
 
-        device.apply(tester);
-        await loadStoreFonts(tester);
-        SharedPreferences.setMockInitialValues(<String, Object>{});
-        final Directory dir = (await tester.runAsync(() => Directory.systemTemp.createTemp('sello_shots')))!;
-        final Directory scratch = (await tester.runAsync(() => Directory.systemTemp.createTemp('sello_scratch')))!;
-        final AppSettings settings = AppSettings();
-        final JsonStore store = JsonStore(root: dir);
-        final AppState state = AppState(store);
-        await tester.runAsync(() async {
-          await state.load();
-          await seedSelloDemo(state: state, store: store, settings: settings, spanish: es, now: DateTime.now(), photosDir: 'test/store/photos', scratchDir: scratch.path);
+          await tester.pumpWidget(storeShotRoot(SelloApp(services: s, cameraEnabled: false)));
+          await _settle(tester);
+
+          // 4. Galería con los dos proyectos.
+          await _goTab(tester, tr('Galería', 'Gallery'));
+          await _realTime(tester);
+          await takeStoreShot(tester, device, lang, '04-galeria');
+
+          // 6. Exportar: CSV, KML, KMZ, ZIP e informe PDF.
+          await tester.tap(find.text(tr('Exportar', 'Export')));
+          await _settle(tester);
+          await takeStoreShot(tester, device, lang, '06-exportar');
+          await tester.tapAt(const Offset(20, 120));
+          await _settle(tester);
+
+          // 1 y 2. Detalle de la foto principal: la imagen sellada y sus datos.
+          final Finder tile = find.descendant(of: find.byType(SliverGrid), matching: find.byType(GestureDetector)).first;
+          await tester.tap(tile);
+          await _settle(tester);
+          await _realTime(tester);
+          await takeStoreShot(tester, device, lang, '01-foto');
+          final Finder data = find.text(tr('Rumbo', 'Heading'));
+          await tester.scrollUntilVisible(data, 300, scrollable: find.byType(Scrollable).first);
+          await tester.drag(find.byType(Scrollable).first, const Offset(0, -220));
+          await _settle(tester);
+          await takeStoreShot(tester, device, lang, '02-datos');
+          await tester.tap(find.byType(BackButton));
+          await _settle(tester);
+
+          // 5. Mapa con las fotos de los dos proyectos.
+          await _goTab(tester, tr('Mapa', 'Map'));
+          await _realTime(tester, rounds: 12);
+          await takeStoreShot(tester, device, lang, '05-mapa');
+
+          // 3. Plantilla del sello con vista previa.
+          await _goTab(tester, tr('Proyectos', 'Projects'));
+          final Finder tpl = find.widgetWithText(ListTile, tr('Interventoría', 'Site supervision'));
+          await tester.scrollUntilVisible(tpl, 200, scrollable: find.byType(Scrollable).first);
+          await tester.tap(tpl);
+          await _settle(tester);
+          await _realTime(tester);
+          await takeStoreShot(tester, device, lang, '03-plantilla');
+          await tester.tap(find.byType(BackButton));
+          await _settle(tester);
+
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump(const Duration(seconds: 2));
+          await tester.runAsync(() async {
+            await dir.delete(recursive: true);
+            await scratch.delete(recursive: true);
+          });
         });
-        MapScreen.tileProviderOverride = _FixtureTiles('test/store/tiles');
-        addTearDown(() => MapScreen.tileProviderOverride = null);
-        final Services s = Services(settings: settings, state: state, store: store, location: LocationService(), heading: HeadingService());
-
-        await tester.pumpWidget(storeShotRoot(SelloApp(services: s, cameraEnabled: false)));
-        await _settle(tester);
-
-        // 4. Galería con los dos proyectos.
-        await _goTab(tester, tr('Galería', 'Gallery'));
-        await _realTime(tester);
-        await takeStoreShot(tester, device, lang, '04-galeria');
-
-        // 6. Exportar: CSV, KML, KMZ, ZIP e informe PDF.
-        await tester.tap(find.text(tr('Exportar', 'Export')));
-        await _settle(tester);
-        await takeStoreShot(tester, device, lang, '06-exportar');
-        await tester.tapAt(const Offset(20, 120));
-        await _settle(tester);
-
-        // 1 y 2. Detalle de la foto principal: la imagen sellada y sus datos.
-        final Finder tile = find.descendant(of: find.byType(SliverGrid), matching: find.byType(GestureDetector)).first;
-        await tester.tap(tile);
-        await _settle(tester);
-        await _realTime(tester);
-        await takeStoreShot(tester, device, lang, '01-foto');
-        final Finder data = find.text(tr('Rumbo', 'Heading'));
-        await tester.scrollUntilVisible(data, 300, scrollable: find.byType(Scrollable).first);
-        await tester.drag(find.byType(Scrollable).first, const Offset(0, -220));
-        await _settle(tester);
-        await takeStoreShot(tester, device, lang, '02-datos');
-        await tester.tap(find.byType(BackButton));
-        await _settle(tester);
-
-        // 5. Mapa con las fotos de los dos proyectos.
-        await _goTab(tester, tr('Mapa', 'Map'));
-        await _realTime(tester, rounds: 12);
-        await takeStoreShot(tester, device, lang, '05-mapa');
-
-        // 3. Plantilla del sello con vista previa.
-        await _goTab(tester, tr('Proyectos', 'Projects'));
-        final Finder tpl = find.widgetWithText(ListTile, tr('Interventoría', 'Site supervision'));
-        await tester.scrollUntilVisible(tpl, 200, scrollable: find.byType(Scrollable).first);
-        await tester.tap(tpl);
-        await _settle(tester);
-        await _realTime(tester);
-        await takeStoreShot(tester, device, lang, '03-plantilla');
-        await tester.tap(find.byType(BackButton));
-        await _settle(tester);
-
-        await tester.pumpWidget(const SizedBox.shrink());
-        await tester.pump(const Duration(seconds: 2));
-        await tester.runAsync(() async {
-          await dir.delete(recursive: true);
-          await scratch.delete(recursive: true);
-        });
-        expect(errors, isEmpty, reason: errors.map((FlutterErrorDetails d) => d.toString()).join('\n----\n'));
+        expect(errors, isEmpty, reason: errors.join('\n----\n'));
       }, variant: TargetPlatformVariant.only(device.platform), timeout: const Timeout(Duration(minutes: 6)));
     }
   }

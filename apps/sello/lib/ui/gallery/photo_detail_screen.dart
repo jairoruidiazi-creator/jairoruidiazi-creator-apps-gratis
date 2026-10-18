@@ -110,7 +110,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
               if (p.description.isNotEmpty) _Row(t(context, 'Sello', 'Stamp'), p.description),
               if (p.notes.isNotEmpty) _Row(t(context, 'Notas', 'Notes'), p.notes),
               if (p.hasLocation) ...<Widget>[
-                for (final CoordFormat cf in Coords.formatsFor(p.latitude!, p.longitude!)) _Row(Coords.formatName(cf), Coords.format(cf, p.latitude!, p.longitude!), copyable: true),
+                for (final CoordFormat cf in Coords.formatsFor(p.latitude!, p.longitude!)) _Row(Coords.formatName(cf, spanish: spanish), Coords.format(cf, p.latitude!, p.longitude!), copyable: true),
                 if (p.accuracy != null) _Row(t(context, 'Precisión', 'Accuracy'), '± ${p.accuracy!.toStringAsFixed(1)} m'),
                 if (p.altitude != null) _Row(t(context, 'Altitud', 'Altitude'), '${p.altitude!.toStringAsFixed(1)} m ${p.altitudeReference == 'ellipsoid' ? t(context, 'sobre el elipsoide', 'above the ellipsoid') : t(context, 'sobre el nivel del mar', 'above sea level')}'),
               ] else

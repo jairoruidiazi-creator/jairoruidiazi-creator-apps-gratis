@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
@@ -65,7 +66,7 @@ class _ProjectEditorState extends State<ProjectEditor> {
     final Services s = AppScope.of(context);
     final AppState st = s.state;
     final Project p = _project!;
-    final String sample = buildFileName(_pattern.text.trim().isEmpty ? '{proyecto}_{fecha}_{hora}' : _pattern.text, project: _name.text, time: DateTime.now(), lat: 4.711, lon: -74.0721, n: 7);
+    final String sample = buildFileName(_pattern.text.trim().isEmpty ? '{proyecto}_{fecha}_{hora}' : _pattern.text, project: _name.text, time: clock.now(), lat: 4.711, lon: -74.0721, n: 7);
     return Scaffold(
       appBar: AppBar(
         title: Text(t(context, 'Proyecto', 'Project')),
@@ -118,7 +119,7 @@ class _ProjectEditorState extends State<ProjectEditor> {
           DropdownButtonFormField<String>(
             initialValue: st.templates.any((StampTemplate x) => x.id == p.templateId) ? p.templateId : 'default',
             decoration: InputDecoration(labelText: t(context, 'Plantilla de sello', 'Stamp template'), border: const OutlineInputBorder()),
-            items: <DropdownMenuItem<String>>[for (final StampTemplate tpl in st.templates) DropdownMenuItem<String>(value: tpl.id, child: Text(tpl.name))],
+            items: <DropdownMenuItem<String>>[for (final StampTemplate tpl in st.templates) DropdownMenuItem<String>(value: tpl.id, child: Text(tpl.displayName(spanish: AppScope.of(context).settings.spanish)))],
             onChanged: (String? v) {
               if (v != null) {
                 setState(() {

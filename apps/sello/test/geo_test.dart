@@ -99,7 +99,8 @@ void main() {
       expect(Coords.ddm(10.9999999, 0), '11°00.000\'N 0°00.000\'E');
       for (final CoordFormat f in CoordFormat.values) {
         expect(Coords.format(f, 4.711, -74.0721), isNotEmpty);
-        expect(Coords.formatName(f), isNotEmpty);
+        expect(Coords.formatName(f, spanish: true), isNotEmpty);
+        expect(Coords.formatName(f, spanish: false), isNotEmpty);
       }
     });
 

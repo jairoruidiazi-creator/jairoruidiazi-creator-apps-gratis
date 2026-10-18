@@ -50,7 +50,7 @@ class _GpsSheet extends StatelessWidget {
               if (f != null) ...<Widget>[
                 const SizedBox(height: 8),
                 for (final CoordFormat cf in Coords.formatsFor(f.latitude, f.longitude))
-                  _CoordRow(label: Coords.formatName(cf), value: Coords.format(cf, f.latitude, f.longitude)),
+                  _CoordRow(label: Coords.formatName(cf, spanish: spanish), value: Coords.format(cf, f.latitude, f.longitude)),
                 const Divider(),
                 _Line(t(context, 'Precisión horizontal', 'Horizontal accuracy'), '± ${f.accuracy.toStringAsFixed(1)} m${f.averagedSamples > 1 ? ' · ${t(context, 'promedio de', 'average of')} ${f.averagedSamples}' : ''}'),
                 _Line(

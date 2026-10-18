@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/app_state.dart';
@@ -40,7 +41,7 @@ class CapturePipeline {
   /// Construye los datos del sello con el estado actual de los sensores.
   StampData buildData({required Project project, Fix? fix, Orientation3? orientation, Address? address, Map<String, String> fields = const <String, String>{}, String notes = '', DateTime? now}) {
     return StampData(
-      time: now ?? DateTime.now(),
+      time: now ?? clock.now(),
       latitude: fix?.latitude,
       longitude: fix?.longitude,
       accuracy: fix?.accuracy,

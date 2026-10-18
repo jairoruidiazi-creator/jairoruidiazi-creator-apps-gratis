@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
@@ -254,7 +255,7 @@ class LocationService extends ChangeNotifier {
 
   /// Fija una posición escrita a mano.
   void lockManual(double lat, double lon) {
-    _locked = _withAltitudes(Fix(latitude: lat, longitude: lon, accuracy: 0, altitude: _fix?.altitude ?? 0, altitudeAccuracy: 0, speed: 0, time: DateTime.now(), locked: true));
+    _locked = _withAltitudes(Fix(latitude: lat, longitude: lon, accuracy: 0, altitude: _fix?.altitude ?? 0, altitudeAccuracy: 0, speed: 0, time: clock.now(), locked: true));
     notifyListeners();
     unawaited(_maybeGeocode());
   }

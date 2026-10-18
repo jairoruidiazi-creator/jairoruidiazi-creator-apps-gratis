@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'package:clock/clock.dart';
+
 /// Modelo Magnético Mundial (WMM-2025, NOAA/NCEI y BGS, publicado 11/13/2024):
 /// calcula la declinación magnética (diferencia entre el norte magnético que
 /// marca la brújula y el norte geográfico) en cualquier punto del planeta,
@@ -146,7 +148,7 @@ class Wmm {
   static double declination(double lat, double lon, {double altitudeMeters = 0, DateTime? at}) => compute(lat, lon, altitudeMeters: altitudeMeters, at: at).declination;
 
   static MagneticField compute(double lat, double lon, {double altitudeMeters = 0, DateTime? at}) {
-    final double t = decimalYear(at ?? DateTime.now());
+    final double t = decimalYear(at ?? clock.now());
     final double dt = t - epoch;
     const double a = 6378.137;
     const double f = 1 / 298.257223563;

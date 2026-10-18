@@ -76,7 +76,7 @@ class ProjectsScreen extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(vertical: 3),
                 child: ListTile(
                   leading: const Icon(Icons.approval_outlined),
-                  title: Text(tpl.name),
+                  title: Text(tpl.displayName(spanish: AppScope.of(context).settings.spanish)),
                   subtitle: Text(
                     '${tpl.items.length} ${t(context, 'datos', 'items')} · ${_positionName(context, tpl.position)}${tpl.logoPath != null ? ' · logo' : ''} · ${st.projects.where((Project p) => p.templateId == tpl.id).length} ${t(context, 'proyectos', 'projects')}',
                     maxLines: 2,
@@ -85,7 +85,7 @@ class ProjectsScreen extends StatelessWidget {
                   trailing: PopupMenuButton<String>(
                     onSelected: (String v) async {
                       if (v == 'dup') {
-                        final StampTemplate copy = await st.addTemplate('${tpl.name} (2)', copyOf: tpl);
+                        final StampTemplate copy = await st.addTemplate('${tpl.displayName(spanish: AppScope.of(context).settings.spanish)} (2)', copyOf: tpl);
                         if (context.mounted) {
                           Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => TemplateEditor(templateId: copy.id)));
                         }

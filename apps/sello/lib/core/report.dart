@@ -1,6 +1,7 @@
 import 'dart:isolate';
 import 'dart:typed_data';
 
+import 'package:clock/clock.dart';
 import 'package:image/image.dart' as img;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -38,7 +39,7 @@ class PdfReport {
     String author = '',
     DateTime? now,
   }) async {
-    final DateTime when = now ?? DateTime.now();
+    final DateTime when = now ?? clock.now();
     final List<pw.Widget> blocks = <pw.Widget>[];
     final List<Uint8List?> images = <Uint8List?>[];
     for (final PhotoRecord p in photos) {
