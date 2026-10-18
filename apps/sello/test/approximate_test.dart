@@ -75,7 +75,7 @@ void main() {
     expect(precise.latitude, 4.71137);
     expect(StampData.fromRecord(precise, project: project, spanish: true).lines(t).map((StampLine l) => l.text).join('\n'), isNot(contains('aproximada')));
     // El nombre de archivo con {lat}/{lon} tampoco aparenta precisión.
-    expect(buildFileName('{lat}_{lon}', project: 'x', time: DateTime(2026), lat: 4.71, lon: -74.07, n: 1, approximate: true), '4_71_-74_07');
+    expect(buildFileName('{lat}_{lon}', project: 'x', time: DateTime(2026), lat: 4.71, lon: -74.07, n: 1, approximate: true), '4p71_-74p07');
   });
 
   test('CSV y KML: marcada en el origen de la posición y sin decimales de más', () {
