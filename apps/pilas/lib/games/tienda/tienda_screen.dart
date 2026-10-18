@@ -194,27 +194,22 @@ class _TiendaScreenState extends State<TiendaScreen> {
         child: LayoutBuilder(builder: (BuildContext context, BoxConstraints c) {
           final bool wide = c.maxWidth > c.maxHeight * 1.15;
           if (wide) {
-            // Apaisado: productos y bandeja a la izquierda; monedero y botón a la derecha.
-            final double right = (c.maxWidth - 12) * 4 / 9;
+            // Apaisado: productos, bandeja y monedero en tres columnas a todo lo
+            // alto. Un teléfono acostado deja ~200 dp para el juego: apilados,
+            // los productos le quitaban a la bandeja el alto que necesita.
+            final double unit = (c.maxWidth - 24) / 12;
             return Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
+                Expanded(flex: 3, child: _productosColumna(pago)),
+                const SizedBox(width: 12),
+                Expanded(flex: 4, child: _bandejaView()),
+                const SizedBox(width: 12),
                 Expanded(
                   flex: 5,
                   child: Column(
                     children: <Widget>[
-                      _productos(pago, emoji: 48),
-                      const SizedBox(height: 8),
-                      Expanded(child: _bandejaView()),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 4,
-                  child: Column(
-                    children: <Widget>[
-                      Expanded(child: SingleChildScrollView(child: _monedero(pago, _coinWidth(pago, right)))),
+                      Expanded(child: SingleChildScrollView(child: _monedero(pago, _coinWidth(pago, unit * 5)))),
                       const SizedBox(height: 8),
                       _botonPagar(),
                     ],
@@ -291,7 +286,64 @@ class _TiendaScreenState extends State<TiendaScreen> {
     );
   }
 
+  /// Los productos uno debajo de otro (dibujo y precio en la misma línea),
+  /// achicados si la columna no alcanza.
+  Widget _productosColumna(PagoRound pago) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(Dim.radio), border: Border.all(color: PilasColors.borde, width: 2)),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              for (final Producto p in pago.productos)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      EmojiImage(p.item.emoji, size: 48, semanticsLabel: p.item.nombre),
+                      const SizedBox(width: 8),
+                      Text(formatPesos(p.precio), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ),
+              if (pago.productos.length > 1)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text('= ${formatPesos(pago.total)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: PilasColors.azul)),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _bandejaView() {
+    final Widget total = FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text('Llevas ${formatPesos(_suma)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
+    );
+    final Widget monedas = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.center,
+      children: <Widget>[
+        for (int i = 0; i < _bandeja.length; i++)
+          GestureDetector(
+            onTap: () => _quitar(i),
+            child: Semantics(
+              button: true,
+              label: 'Quitar ${_bandeja[i].nombre}',
+              child: MoneyWidget(denominacion: _bandeja[i], width: 84),
+            ),
+          ),
+      ],
+    );
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -300,31 +352,23 @@ class _TiendaScreenState extends State<TiendaScreen> {
         borderRadius: BorderRadius.circular(Dim.radio),
         border: Border.all(color: PilasColors.verde, width: 2),
       ),
-      child: Column(
-        children: <Widget>[
-          Text('Llevas ${formatPesos(_suma)}', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-          const SizedBox(height: 8),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: <Widget>[
-                  for (int i = 0; i < _bandeja.length; i++)
-                    GestureDetector(
-                      onTap: () => _quitar(i),
-                      child: Semantics(
-                        button: true,
-                        label: 'Quitar ${_bandeja[i].nombre}',
-                        child: MoneyWidget(denominacion: _bandeja[i], width: 84),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints b) {
+          if (b.maxHeight < 80) {
+            // Muy bajita (texto grande en un teléfono acostado): el total y las
+            // monedas se desplazan juntos en vez de desbordar.
+            return SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: <Widget>[total, const SizedBox(height: 8), monedas]),
+            );
+          }
+          return Column(
+            children: <Widget>[
+              total,
+              const SizedBox(height: 8),
+              Expanded(child: SingleChildScrollView(child: monedas)),
+            ],
+          );
+        },
       ),
     );
   }
