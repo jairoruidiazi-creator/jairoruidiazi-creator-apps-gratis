@@ -130,7 +130,7 @@ class _AccountRow extends StatelessWidget {
       trailing: a.isDebit
           ? const Icon(Icons.link)
           : Text(balanceText(context, a, balance), style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: balanceColor(context, a, balance), fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
-      onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ReadableScaffold(appBar: AppBar(title: Text(a.name), actions: <Widget>[IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => AccountEditor(existing: a))))]), body: TxListScreen(initialFilter: TxFilter(accountIds: <String>{a.id}))))),
+      onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ReadableScaffold(appBar: AppBar(title: Text(a.name), actions: <Widget>[IconButton(tooltip: t(context, 'Editar cuenta', 'Edit account'), icon: const Icon(Icons.edit_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => AccountEditor(existing: a))))]), body: TxListScreen(initialFilter: TxFilter(accountIds: <String>{a.id}))))),
       onLongPress: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => AccountEditor(existing: a))),
     );
   }

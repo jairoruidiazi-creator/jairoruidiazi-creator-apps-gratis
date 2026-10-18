@@ -126,6 +126,8 @@ void main() {
   test('M3: el aviso de pago vencido solo se da por enviado si se mostró', () async {
     await l.addAccount(Account(id: 'tc', name: 'Visa', type: AccountType.credit, cutDay: 15, payDay: 5));
     await l.addTx(Tx(id: 'c', kind: TxKind.expense, amountMinor: 100000000, accountId: 'tc', date: d(2026, 9, 10)));
+    // El aviso de mora necesita un mínimo conocido (regla de la ronda 4).
+    l.setStatementMinimum(l.account('tc')!, DateTime(2026, 9, 15), 8000000);
     final AppSettings settings = AppSettings()..billReminders = true;
     final NoopNotifier n = NoopNotifier(granted: false);
     await Reminders.sync(ledger: l, settings: settings, notifier: n, now: DateTime(2026, 10, 6, 8));

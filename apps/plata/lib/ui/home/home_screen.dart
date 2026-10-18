@@ -11,6 +11,7 @@ import '../../core/periods.dart';
 import '../../core/reminders.dart';
 import '../../model/models.dart';
 import '../more/accounts_screen.dart';
+import '../more/cards_screen.dart';
 import '../more/currencies_screen.dart';
 import '../more/notices_screen.dart';
 import '../more/scheduled_screen.dart';
@@ -50,7 +51,7 @@ class HomeScreen extends StatelessWidget {
           for (final Account a in l.activeAccounts)
             if (a.isCredit && a.payDay != null)
               _CardDue(a, l.cardDue(a, now: now)),
-        ].where((_CardDue c) => c.due.overdue || (c.statement.dueMinor > 0 && daysBetween(now, c.statement.cycle.payDate) <= 10)).toList();
+        ].where((_CardDue c) => c.due.overdue || c.due.unconfirmed || (c.statement.dueMinor > 0 && daysBetween(now, c.statement.cycle.payDate) <= 10)).toList();
         final List<BudgetProgress> budgets = l.budgets.map((Budget b) => l.progress(b, now: now)).toList()..sort((BudgetProgress a, BudgetProgress b) => b.fraction.compareTo(a.fraction));
         return ReadableScaffold(
           appBar: AppBar(
@@ -117,9 +118,17 @@ class HomeScreen extends StatelessWidget {
                       dense: true,
                       leading: IconBadge(icon: c.account.icon, color: c.account.color, size: 34),
                       title: Text('${t(context, 'Pago', 'Payment')} ${c.account.name}'),
-                      subtitle: Text('${overdueLabel(context, c.due.overdueSince!)} · ${t(context, 'capital estimado', 'estimated principal')}', style: TextStyle(color: kindColor(context, TxKind.expense), fontWeight: FontWeight.w600)),
+                      subtitle: Text('${overdueLabel(context, c.due.overdueSince!)} · ${t(context, 'falta del pago mínimo', 'left of the minimum payment')}', style: TextStyle(color: kindColor(context, TxKind.expense), fontWeight: FontWeight.w600)),
                       trailing: Text(money(context, c.due.overdueMinor, c.account.currency), style: TextStyle(fontWeight: FontWeight.w700, color: kindColor(context, TxKind.expense))),
                       onTap: () => openCardPayment(context, c.account, c.due.overdueMinor),
+                    )
+                  else if (c.due.unconfirmed)
+                    ListTile(
+                      dense: true,
+                      leading: IconBadge(icon: c.account.icon, color: c.account.color, size: 34),
+                      title: Text('${t(context, 'Pago', 'Payment')} ${c.account.name}'),
+                      subtitle: Text(unconfirmedText(context, c.due, c.account.currency)),
+                      onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const CardsScreen())),
                     )
                   else
                     ListTile(
@@ -512,7 +521,7 @@ class _ScheduledRow extends StatelessWidget {
       dense: true,
       leading: IconBadge(icon: l.category(item.categoryId)?.icon ?? 'repeat', color: l.category(item.categoryId)?.color ?? 0xFF607D8B, size: 34),
       title: Text(item.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(l.noticeDuplicateFor(item) != null ? '$when · ${t(context, '¿Ya lo anotó un aviso?', 'Already logged from a notice?')}' : '$when · ${a?.name ?? ''}${item.autoPost ? '' : ' · ${t(context, 'manual', 'manual')}'}', maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(l.noticeDuplicateFor(item) != null || l.pendingNoticeFor(item) != null ? '$when · ${t(context, '¿Ya lo anotó un aviso?', 'Already logged from a notice?')}' : '$when · ${a?.name ?? ''}${item.autoPost ? '' : ' · ${t(context, 'manual', 'manual')}'}', maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Text('${item.kind == TxKind.expense ? '−' : (item.kind == TxKind.income ? '+' : '')}${money(context, item.amountMinor, a?.currency ?? l.baseCurrency)}', style: TextStyle(fontWeight: FontWeight.w700, color: kindColor(context, item.kind))),
       onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => ScheduledEditor(existing: item))),
     );
@@ -522,7 +531,12 @@ class _ScheduledRow extends StatelessWidget {
 /// Prefijo de un aviso que pide más cuidado: posible duplicado de algo ya
 /// anotado, o devolución (entra como ingreso, no como gasto).
 String noticeHint(BuildContext context, InboxItem item) {
-  if (item.duplicateOf != null) {
+  // Se vuelve a mirar al mostrarlo: el movimiento o el programado igual pudo
+  // anotarse después de que llegó el aviso.
+  final Ledger l = AppScope.of(context).ledger;
+  final String? acc = item.accountId ?? l.matchNotice(item).account?.id;
+  final bool live = item.kind != TxKind.transfer && ((acc != null && l.likelyDuplicate(item, acc) != null) || l.scheduledDuplicateFor(item) != null);
+  if (item.duplicateOf != null || live) {
     return '${t(context, 'Posible duplicado', 'Possible duplicate')} · ';
   }
   if (item.flow == NoticeFlow.refund) {

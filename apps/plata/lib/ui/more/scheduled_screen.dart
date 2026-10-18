@@ -209,6 +209,15 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
             PopupMenuButton<String>(
               onSelected: (String v) async {
                 if (v == 'post') {
+                  // Si un aviso del banco ya trajo este cargo (anotado o en la
+                  // bandeja), se pregunta antes de contarlo dos veces.
+                  final bool dup = l.noticeDuplicateFor(e) != null || l.pendingNoticeFor(e) != null;
+                  if (dup && !await confirm(context, t(context, 'Posible duplicado', 'Possible duplicate'), t(context, 'Un aviso del banco trae un cargo igual (misma cuenta y monto, con dos días o menos de diferencia). ¿Anotarlo de todas formas?', 'A bank notice has the same charge (same account and amount, two days apart or less). Log it anyway?'), yes: t(context, 'Anotar igual', 'Log anyway'))) {
+                    return;
+                  }
+                  if (!context.mounted) {
+                    return;
+                  }
                   try {
                     await l.postScheduled(e);
                   } on TxRejected catch (err) {
@@ -362,7 +371,7 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
             leading: const Icon(Icons.event_busy_outlined),
             title: Text(t(context, 'Termina', 'Ends')),
             subtitle: Text(_end == null ? t(context, 'Nunca', 'Never') : formatDate(_end!, 'EEE dd MMM yyyy', spanish: s.settings.spanish)),
-            trailing: _end == null ? const Icon(Icons.chevron_right) : IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() => _end = null)),
+            trailing: _end == null ? const Icon(Icons.chevron_right) : IconButton(tooltip: t(context, 'Quitar fecha de fin', 'Remove end date'), icon: const Icon(Icons.clear), onPressed: () => setState(() => _end = null)),
             onTap: () async {
               final DateTime? d = await showDatePicker(context: context, initialDate: _end ?? _next, firstDate: DateTime(2000), lastDate: DateTime(2100));
               if (d != null) {

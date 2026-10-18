@@ -163,10 +163,10 @@ void main() {
       await svc.handle(RawNotice(package: bancolombia, title: 'Bancolombia', text: r'Pagaste $500.000 a tu tarjeta de crédito *4821 desde tu cuenta *7310.', time: d(2026, 10, 16, 10)));
       await svc.handle(RawNotice(package: bancolombia, title: 'Bancolombia', text: r'Compraste US$10,00 en STEAM con tu T.Cred *4821.', time: d(2026, 10, 16, 11)));
       await svc.handle(RawNotice(package: bancolombia, title: 'Bancolombia', text: r'Compraste $62.400 en EL FOGON con tu T.Cred *4821.', time: d(2026, 10, 16, 12)));
-      // Solo la compra en pesos con la tarjeta identificada se anotó sola.
-      expect(l.txs.single.amountMinor, 6240000);
-      expect(l.txs.single.accountId, 'tc');
-      expect(l.pendingInbox.length, 3);
+      // Nada se anotó solo: las transferencias pasan por el editor y las
+      // compras con tarjeta de crédito se revisan (el aviso no trae las cuotas).
+      expect(l.txs, isEmpty);
+      expect(l.pendingInbox.length, 4);
       expect(l.pendingInbox.where((InboxItem i) => i.kind == TxKind.transfer).length, 2);
     });
   });

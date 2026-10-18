@@ -41,6 +41,9 @@ class _BackupScreenState extends State<BackupScreen> {
   List<String> _auto = <String>[];
   bool _busy = false;
 
+  /// Restaurar desde archivo en curso (eligiendo, copiando o preguntando).
+  bool _picking = false;
+
   /// Mínimo de la contraseña de la copia cifrada.
   static const int _minPassword = 8;
 
@@ -106,7 +109,25 @@ class _BackupScreenState extends State<BackupScreen> {
     }, failed: t(context, 'No se pudo exportar. Intenta de nuevo.', 'Could not export. Try again.'));
   }
 
+  /// Restaurar desde un archivo. La pantalla queda ocupada desde que se
+  /// toca hasta que el archivo se leyó: un segundo toque no abre otro
+  /// selector mientras el primero todavía copia (un archivo de Drive puede
+  /// tardar en bajar).
   Future<void> _import() async {
+    if (_busy || _picking) {
+      return;
+    }
+    setState(() => _picking = true);
+    try {
+      await _importNow();
+    } finally {
+      if (mounted) {
+        setState(() => _picking = false);
+      }
+    }
+  }
+
+  Future<void> _importNow() async {
     final Services s = AppScope.of(context);
     PickedBackup? file;
     try {
@@ -190,7 +211,7 @@ class _BackupScreenState extends State<BackupScreen> {
       return;
     }
     await _run(() async {
-      await s.backups.autoBackup(force: true);
+      await s.backups.autoBackup(beforeRestore: true);
       await s.backups.restore(data);
       s.ledger.applyLanguage(s.settings.spanish);
       await _load();
@@ -272,7 +293,7 @@ class _BackupScreenState extends State<BackupScreen> {
                   leading: const Icon(Icons.file_open_outlined),
                   title: Text(t(context, 'Restaurar desde archivo', 'Restore from file')),
                   subtitle: Text(t(context, 'Abre una copia .plata o .json y reemplaza los datos actuales.', 'Open a .plata or .json backup and replace the current data.')),
-                  onTap: _busy ? null : _import,
+                  onTap: _busy || _picking ? null : _import,
                 ),
                 const Divider(),
                 if (!recovery) ...<Widget>[

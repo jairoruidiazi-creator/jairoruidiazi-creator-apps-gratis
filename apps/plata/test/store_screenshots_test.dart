@@ -175,7 +175,8 @@ void main() {
             // se vuelven movimientos), no el texto que explica cómo funciona.
             final Finder tray = find.textContaining(tr('Por confirmar', 'To confirm')).first;
             await tester.scrollUntilVisible(tray, 200, scrollable: find.byType(Scrollable).first);
-            await tester.ensureVisible(tray);
+            // Empieza en «Anotar sin preguntar», sin renglones cortados arriba.
+            await tester.ensureVisible(find.text(tr('Anotar sin preguntar', 'Log without asking')).first);
             await _settle(tester);
             await takeStoreShot(tester, device, lang, '07-avisos');
             await _back(tester);

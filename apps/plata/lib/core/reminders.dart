@@ -7,6 +7,7 @@ import '../model/models.dart';
 import '../model/money.dart';
 import 'ledger.dart';
 import 'notifications.dart';
+import 'periods.dart';
 import 'settings.dart';
 
 /// Un aviso que la sincronización quiere dejar programado.
@@ -25,6 +26,17 @@ class Reminders {
   Reminders._();
 
   static const int dailyId = 1;
+
+  /// Ocurrencias que se agendan por adelantado de cada programado y de cada
+  /// tarjeta, dentro de [horizonDays].
+  static const int occurrencesAhead = 3;
+  static const int horizonDays = 120;
+
+  /// Días seguidos en que se recuerda un programado manual vencido.
+  static const int overdueReminderDays = 3;
+
+  /// Tope de avisos agendados: iOS guarda solo los 64 más próximos de cada app.
+  static const int maxPlanned = 60;
 
   /// Id estable de un aviso a partir de su clave (`s:<programado>:<fecha>`,
   /// `c:<tarjeta>:<fecha de pago>`): el mismo aviso conserva su id entre una
@@ -69,22 +81,39 @@ class Reminders {
     final List<MapEntry<String, _Planned>> overdue = <MapEntry<String, _Planned>>[];
     String amountOf(int minor, String currency) => Money.format(minor, currency, showCents: settings.showCents, spanish: spanish);
     if (settings.billReminders) {
-      for (final Scheduled s in ledger.upcoming(days: 45, now: today)) {
-        if (s.remindDaysBefore < 0) {
+      // Varias ocurrencias por adelantado: si la app no se abre durante un
+      // ciclo, el aviso del siguiente igual llega (ver [maxPlanned]).
+      for (final Scheduled s in ledger.scheduled) {
+        if (!s.enabled || s.remindDaysBefore < 0) {
           continue; // sin recordatorio
         }
         final int days = s.remindDaysBefore;
-        final DateTime when = DateTime(s.nextDate.year, s.nextDate.month, s.nextDate.day - days, 9);
-        if (!when.isAfter(moment)) {
-          continue;
-        }
         final String amount = amountOf(s.amountMinor, ledger.account(s.accountId)?.currency ?? ledger.baseCurrency);
-        final String title = spanish ? (days == 0 ? 'Hoy: ${s.name}' : 'Pronto: ${s.name}') : (days == 0 ? 'Today: ${s.name}' : 'Coming up: ${s.name}');
-        final String date = spanish ? formatDate(s.nextDate, 'dd MMM') : formatDate(s.nextDate, 'MMM dd', spanish: false);
-        final String body = private ? (spanish ? 'Vence el $date' : 'Due $date') : (spanish ? '$amount el $date' : '$amount on $date');
-        planned[idFor('s:${s.id}:${dayKey(s.nextDate)}')] = _Planned(when: when, title: title, body: body);
-        if (planned.length > 80) {
-          break;
+        if (!s.autoPost && dateOnly(s.nextDate).isBefore(today)) {
+          // Un programado manual vencido vuelve a recordarse unos días.
+          final String date = spanish ? formatDate(s.nextDate, 'dd MMM') : formatDate(s.nextDate, 'MMM dd', spanish: false);
+          for (int k = 1; k <= overdueReminderDays; k++) {
+            final DateTime day = addDays(today, k);
+            planned[idFor('p:${s.id}:${dayKey(s.nextDate)}:${dayKey(day)}')] = _Planned(
+              when: DateTime(day.year, day.month, day.day, 9),
+              title: spanish ? 'Pendiente: ${s.name}' : 'Pending: ${s.name}',
+              body: private ? (spanish ? 'Tocaba el $date: anótalo o sáltalo en Plata.' : 'It was due on $date: log or skip it in Plata.') : (spanish ? '$amount, tocaba el $date: anótalo o sáltalo en Plata.' : '$amount, due on $date: log or skip it in Plata.'),
+            );
+          }
+        }
+        DateTime d = dateOnly(s.nextDate);
+        for (int k = 0; k < occurrencesAhead; k++) {
+          if (d.isAfter(addDays(today, horizonDays)) || (s.endDate != null && d.isAfter(dateOnly(s.endDate!)))) {
+            break;
+          }
+          final DateTime when = DateTime(d.year, d.month, d.day - days, 9);
+          if (when.isAfter(moment)) {
+            final String title = spanish ? (days == 0 ? 'Hoy: ${s.name}' : 'Pronto: ${s.name}') : (days == 0 ? 'Today: ${s.name}' : 'Coming up: ${s.name}');
+            final String date = spanish ? formatDate(d, 'dd MMM') : formatDate(d, 'MMM dd', spanish: false);
+            final String body = private ? (spanish ? 'Vence el $date' : 'Due $date') : (spanish ? '$amount el $date' : '$amount on $date');
+            planned[idFor('s:${s.id}:${dayKey(d)}')] = _Planned(when: when, title: title, body: body);
+          }
+          d = dateOnly(s.frequency.next(d, anchor: s.anchorDate));
         }
       }
       for (final Account a in ledger.activeAccounts) {
@@ -93,7 +122,9 @@ class Reminders {
         }
         final CardDue due = ledger.cardDue(a, now: today);
         if (due.overdue) {
-          // Vencido: se avisa de inmediato, una sola vez por fecha límite.
+          // Vencido contra un pago mínimo que la persona anotó: se avisa de
+          // inmediato, una sola vez por fecha límite. Sin mínimo conocido no
+          // hay aviso de mora (ver Ledger.cardDue).
           final String since = spanish ? formatDate(due.overdueSince!, 'dd MMM') : formatDate(due.overdueSince!, 'MMM dd', spanish: false);
           final String amount = amountOf(due.overdueMinor, a.currency);
           overdue.add(MapEntry<String, _Planned>(
@@ -103,25 +134,40 @@ class Reminders {
               title: spanish ? 'Pago vencido: ${a.name}' : 'Overdue payment: ${a.name}',
               body: private
                   ? (spanish ? 'La fecha límite fue el $since. Págalo cuanto antes.' : 'It was due on $since. Pay it as soon as you can.')
-                  : (spanish ? 'Quedan unos $amount de capital sin pagar desde el $since. Págalo cuanto antes (revisa tu extracto).' : 'About $amount in principal unpaid since $since. Pay it as soon as you can (check your statement).'),
+                  : (spanish ? 'Faltan $amount del pago mínimo que vencía el $since. Págalo cuanto antes.' : '$amount of the minimum payment due on $since is still unpaid. Pay it as soon as you can.'),
             ),
           ));
         }
         final CardStatement st = due.next;
-        final DateTime pay = st.cycle.payDate;
-        final DateTime when = DateTime(pay.year, pay.month, pay.day - settings.billReminderDaysBefore, 9);
-        if (st.dueMinor <= 0 || !when.isAfter(moment)) {
-          continue;
+        CardCycle cycle = st.cycle;
+        for (int k = 0; k < occurrencesAhead; k++) {
+          final DateTime pay = cycle.payDate;
+          final DateTime when = DateTime(pay.year, pay.month, pay.day - settings.billReminderDaysBefore, 9);
+          // El primero lleva el capital estimado si hay algo que pagar; los
+          // siguientes, solo la fecha, y solo si la tarjeta tiene deuda.
+          final bool first = k == 0;
+          final bool worth = first ? st.dueMinor > 0 : ledger.balanceMinor(a.id) < 0;
+          if (worth && when.isAfter(moment)) {
+            final String date = spanish ? formatDate(pay, 'dd MMM') : formatDate(pay, 'MMM dd', spanish: false);
+            final String due0 = amountOf(st.dueMinor, a.currency);
+            planned[idFor('c:${a.id}:${dayKey(pay)}')] = _Planned(
+              when: when,
+              title: spanish ? 'Pago de ${a.name}' : '${a.name} payment',
+              // Es el capital estimado: el extracto del banco suma intereses y cuota de manejo.
+              body: private || !first ? (spanish ? 'Vence el $date (revisa tu extracto)' : 'Due $date (check your statement)') : (spanish ? 'Vence el $date: unos $due0 de capital (revisa tu extracto)' : 'Due $date: about $due0 in principal (check your statement)'),
+            );
+          }
+          cycle = CardCycle.current(a, addDays(cycle.cut, 1));
         }
-        final String date = spanish ? formatDate(pay, 'dd MMM') : formatDate(pay, 'MMM dd', spanish: false);
-        final String due0 = amountOf(st.dueMinor, a.currency);
-        planned[idFor('c:${a.id}:${dayKey(pay)}')] = _Planned(
-          when: when,
-          title: spanish ? 'Pago de ${a.name}' : '${a.name} payment',
-          // Es el capital estimado: el extracto del banco suma intereses y cuota de manejo.
-          body: private ? (spanish ? 'Vence el $date (revisa tu extracto)' : 'Due $date (check your statement)') : (spanish ? 'Vence el $date: unos $due0 de capital (revisa tu extracto)' : 'Due $date: about $due0 in principal (check your statement)'),
-        );
       }
+    }
+    if (planned.length > maxPlanned) {
+      // iOS solo guarda los 64 avisos más próximos de una app: se dejan los
+      // más cercanos, con espacio para el diario.
+      final List<MapEntry<int, _Planned>> sorted = planned.entries.toList()..sort((MapEntry<int, _Planned> x, MapEntry<int, _Planned> y) => x.value.when.compareTo(y.value.when));
+      planned
+        ..clear()
+        ..addEntries(sorted.take(maxPlanned));
     }
     // Solo se cancelan los programados que ya no tocan; el diario se deja si
     // sigue encendido (cancelarlo quitaría también el de hoy de la bandeja).

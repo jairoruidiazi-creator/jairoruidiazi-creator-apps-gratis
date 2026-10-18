@@ -420,7 +420,7 @@ class _BudgetEditorState extends State<BudgetEditor> {
             leading: const Icon(Icons.account_balance_wallet_outlined),
             title: Text(t(context, 'Solo una cuenta (opcional)', 'Only one account (optional)')),
             subtitle: Text(_accountId == null ? t(context, 'Todas las cuentas', 'All accounts') : (l.account(_accountId)?.name ?? '')),
-            trailing: _accountId == null ? const Icon(Icons.chevron_right) : IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() => _accountId = null)),
+            trailing: _accountId == null ? const Icon(Icons.chevron_right) : IconButton(tooltip: t(context, 'Quitar cuenta', 'Remove account'), icon: const Icon(Icons.clear), onPressed: () => setState(() => _accountId = null)),
             onTap: () async {
               final Account? a = await pickAccount(context, title: t(context, 'Cuenta o tarjeta del presupuesto', 'Budget account or card'));
               if (a != null) {

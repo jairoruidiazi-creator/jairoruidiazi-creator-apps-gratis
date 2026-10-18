@@ -55,7 +55,8 @@ class Account {
     this.order = 0,
     this.statementDueMinor,
     this.statementCut,
-  });
+    Map<String, int>? statementMinimums,
+  }) : statementMinimums = statementMinimums ?? <String, int>{};
 
   final String id;
   String name;
@@ -94,6 +95,10 @@ class Account {
   int? statementDueMinor;
   DateTime? statementCut;
 
+  /// Pagos mínimos que la persona anotó de sus extractos, por fecha de corte
+  /// (`dayKey`). Solo contra un mínimo conocido se declara un pago vencido.
+  final Map<String, int> statementMinimums;
+
   bool get isCredit => type == AccountType.credit;
   bool get isPocket => type == AccountType.pocket;
   bool get isDebit => type == AccountType.debit;
@@ -119,6 +124,7 @@ class Account {
         'order': order,
         'statementDueMinor': statementDueMinor,
         'statementCut': statementCut?.toIso8601String(),
+        'statementMinimums': statementMinimums,
       };
 
   static Account fromJson(Map<String, dynamic> j) => Account(
@@ -142,6 +148,10 @@ class Account {
         order: (j['order'] as num?)?.toInt() ?? 0,
         statementDueMinor: (j['statementDueMinor'] as num?)?.toInt(),
         statementCut: j['statementCut'] == null ? null : DateTime.tryParse(j['statementCut'].toString()),
+        statementMinimums: <String, int>{
+          for (final MapEntry<String, dynamic> e in ((j['statementMinimums'] as Map<String, dynamic>?) ?? <String, dynamic>{}).entries)
+            if (e.value is num) e.key: (e.value as num).toInt(),
+        },
       );
 }
 
@@ -729,7 +739,8 @@ class InboxItem {
   String status;
 
   /// Movimiento ya anotado que parece ser el mismo (misma cuenta y monto,
-  /// fechas cercanas): el aviso queda para revisar en lugar de anotarse solo.
+  /// fechas cercanas), o `programado:<id>` si es la próxima ocurrencia de un
+  /// programado: el aviso queda para revisar en lugar de anotarse solo.
   String? duplicateOf;
 
   Map<String, dynamic> toJson() => <String, dynamic>{

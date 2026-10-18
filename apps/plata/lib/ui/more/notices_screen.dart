@@ -168,7 +168,7 @@ class _NoticesScreenState extends State<NoticesScreen> with WidgetsBindingObserv
                     s.settings.save();
                   },
                   title: Text(t(context, 'Anotar sin preguntar', 'Log without asking')),
-                  subtitle: Text(t(context, 'Solo gastos e ingresos cuya cuenta se reconoce sin dudas: por sus últimos 4 dígitos o porque es tu única cuenta de ese banco (sin dígitos registrados), y en la misma moneda. Lo demás queda aquí para revisar.', 'Only expenses and income whose account is recognised without doubt: by its last 4 digits, or because it is your only account at that bank (with no digits set), and in the same currency. Everything else waits here for review.')),
+                  subtitle: Text(t(context, 'Solo gastos e ingresos cuya cuenta se reconoce sin dudas: por sus últimos 4 dígitos o porque es tu única cuenta de ese banco (sin dígitos registrados), y en la misma moneda. Las compras con tarjeta de crédito siempre quedan para revisar, porque el aviso no dice a cuántas cuotas fueron. Lo demás también queda aquí.', 'Only expenses and income whose account is recognised without doubt: by its last 4 digits, or because it is your only account at that bank (with no digits set), and in the same currency. Credit card purchases always wait for review, because the notice does not say how many installments they were. Everything else waits here too.')),
                 ),
                 ListTile(
                   leading: const Icon(Icons.account_balance_outlined),

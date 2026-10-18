@@ -249,7 +249,9 @@ class NoticeService {
     // anotado (un programado, algo anotado a mano), siempre se revisa.
     if (settings.noticesAutoPost && stored.kind != TxKind.transfer && stored.flow != NoticeFlow.refund && stored.duplicateOf == null) {
       final NoticeMatch m = ledger.matchNotice(stored);
-      if (m.certain && m.account != null && m.account!.currency == stored.currency) {
+      // Las compras con tarjeta de crédito siempre se revisan: el aviso no dice
+      // a cuántas cuotas fueron, y a 1 cuota inflarían el próximo pago.
+      if (m.certain && m.account != null && !m.account!.isCredit && m.account!.currency == stored.currency) {
         await ledger.acceptInbox(stored, accountId: m.account!.id);
       }
     }

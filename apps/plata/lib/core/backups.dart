@@ -34,29 +34,53 @@ class BackupManager {
 
   static const List<int> magic = <int>[0x50, 0x4C, 0x41, 0x54, 0x41, 0x2D, 0x42, 0x4B, 0x31]; // PLATA-BK1
   static const int keep = 7;
+  static const int keepBeforeRestore = 5;
 
   /// Copia local si hoy no se ha hecho. Devuelve la ruta relativa creada.
   ///
   /// Mientras el libro no se pueda abrir (modo de recuperación) no hace nada:
   /// copiaría un libro vacío y, al rotar, borraría las copias buenas. Las
   /// copias viejas se borran solo después de escribir la nueva.
-  Future<String?> autoBackup({DateTime? now, bool force = false}) async {
+  ///
+  /// Con [beforeRestore] es la copia de lo que había antes de restaurar: lleva
+  /// fecha y hora en el nombre (`plata-<fecha>-antes-<hhmmss>`) y nunca pisa
+  /// la copia del día ni otra anterior a restaurar, así que restaurar dos
+  /// veces el mismo día no pierde los datos de antes de la primera. De esas
+  /// se guardan las últimas [keepBeforeRestore].
+  Future<String?> autoBackup({DateTime? now, bool force = false, bool beforeRestore = false}) async {
     if (ledger.readOnly || !ledger.loaded) {
       return null;
     }
-    final DateTime today = dateOnly(now ?? clock.now());
+    final DateTime moment = now ?? clock.now();
+    final DateTime today = dateOnly(moment);
     final DateTime? last = settings.lastBackupAt;
-    if (!force && last != null && !dateOnly(last).isBefore(today)) {
+    if (!force && !beforeRestore && last != null && !dateOnly(last).isBefore(today)) {
       return null;
     }
-    final String rel = 'backups/plata-${dayKey(today)}.json.enc';
+    String two(int v) => v.toString().padLeft(2, '0');
+    String rel = beforeRestore ? 'backups/plata-${dayKey(today)}-antes-${two(moment.hour)}${two(moment.minute)}${two(moment.second)}.json.enc' : 'backups/plata-${dayKey(today)}.json.enc';
+    if (beforeRestore) {
+      // Dos restauraciones en el mismo segundo: no se pisa la anterior.
+      final String base = rel.substring(0, rel.length - '.json.enc'.length);
+      int n = 2;
+      while (await store.exists(rel)) {
+        rel = '$base-${n++}.json.enc';
+      }
+    }
     await ledger.store.writeJson(rel, ledger.toJson());
-    settings.lastBackupAt = now ?? clock.now();
-    await settings.save();
+    if (!beforeRestore) {
+      settings.lastBackupAt = moment;
+      await settings.save();
+    }
     final List<String> all = await store.list('backups', extension: '.json.enc');
-    if (all.length > keep) {
-      for (final String old in all.take(all.length - keep)) {
-        await store.delete(old);
+    final List<String> before = all.where((String f) => f.contains('-antes-')).toList();
+    final List<String> daily = all.where((String f) => !f.contains('-antes-')).toList();
+    for (final List<String> group in <List<String>>[daily, before]) {
+      final int max = identical(group, before) ? keepBeforeRestore : keep;
+      if (group.length > max) {
+        for (final String old in group.take(group.length - max)) {
+          await store.delete(old);
+        }
       }
     }
     return rel;

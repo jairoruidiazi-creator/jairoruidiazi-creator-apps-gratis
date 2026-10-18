@@ -123,19 +123,24 @@ class MainActivity : FlutterFragmentActivity() {
 
     private fun onBackupPicked(uri: Uri?) {
         val result = pendingPick ?: return
-        pendingPick = null
         if (uri == null) {
+            pendingPick = null
             result.success(null)
             return
         }
         val max = pickMax
+        // El selector sigue "ocupado" hasta terminar la copia: otro pedido
+        // mientras tanto recibe "busy" en vez de abrir un segundo selector.
         Thread {
             val answer = copyPicked(uri, max)
-            mainHandler.post { result.success(answer) }
+            mainHandler.post {
+                pendingPick = null
+                result.success(answer)
+            }
         }.start()
     }
 
-    /// Copia el archivo elegido a <caché>/restore/ por partes, sin cargarlo
+    /// Copia el archivo elegido a <caché>/restore/ (con un nombre propio) por partes, sin cargarlo
     /// entero en memoria: si el proveedor dice que pasa del tope no se lee, y
     /// si no lo dice, la copia se corta al pasarlo. Dart lee la copia y la
     /// borra enseguida; lo que quede se borra al abrir la app y al borrar todo.
@@ -163,9 +168,9 @@ class MainActivity : FlutterFragmentActivity() {
             return mapOf("name" to name, "error" to "tooBig")
         }
         val dir = File(cacheDir, "restore")
-        dir.deleteRecursively()
         dir.mkdirs()
-        val target = File(dir, "elegido.bin")
+        // Un nombre por elección: dos copias nunca escriben el mismo archivo.
+        val target = File.createTempFile("elegido-", ".bin", dir)
         var tooBig = false
         try {
             val input = contentResolver.openInputStream(uri) ?: return mapOf("name" to name, "error" to "unreadable")

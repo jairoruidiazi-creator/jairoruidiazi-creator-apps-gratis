@@ -87,13 +87,22 @@ void main() {
       await l.addAccount(Account(id: 'bank', name: 'Ahorros', type: AccountType.bank, initialMinor: 2000000000));
     });
 
-    test('G3: un día después de la fecha límite está vencido, y sigue así hasta pagarlo', () async {
+    test('G3: un día después de la fecha límite lo que falta se informa y, con el mínimo anotado, está vencido hasta pagarlo', () async {
       final Account tc = await l.addAccount(Account(id: 'tc', name: 'Visa', type: AccountType.credit, cutDay: 15, payDay: 5));
       await l.addTx(Tx(id: 'c', kind: TxKind.expense, amountMinor: 100000000, accountId: 'tc', date: d(2026, 9, 10)));
       final CardDue onDay = l.cardDue(tc, now: DateTime(2026, 10, 5));
       expect(onDay.overdue, isFalse);
+      expect(onDay.unconfirmed, isFalse);
       expect(onDay.next.cycle.payDate, DateTime(2026, 10, 5));
       expect(onDay.next.dueMinor, 100000000);
+      // Solo con el estimado de Plata no se habla de mora (regla de la ronda 4).
+      final CardDue estimate = l.cardDue(tc, now: DateTime(2026, 10, 6));
+      expect(estimate.overdue, isFalse);
+      expect(estimate.unconfirmed, isTrue);
+      expect(estimate.unconfirmedMinor, 100000000);
+      expect(estimate.statementCut, DateTime(2026, 9, 15));
+      // Con el mínimo que pidió el banco (aquí, todo) sí está vencido.
+      l.setStatementMinimum(tc, DateTime(2026, 9, 15), 100000000);
       final CardDue after = l.cardDue(tc, now: DateTime(2026, 10, 6));
       expect(after.overdue, isTrue);
       expect(after.overdueMinor, 100000000);
@@ -116,9 +125,13 @@ void main() {
       await l.addTx(Tx(id: 'c', kind: TxKind.expense, amountMinor: 100000000, accountId: 'tc', date: d(2026, 9, 10)));
       final AppSettings settings = AppSettings()..billReminders = true;
       final NoopNotifier n = NoopNotifier();
+      // Sin un mínimo conocido no hay aviso de mora.
+      await Reminders.sync(ledger: l, settings: settings, notifier: n, now: DateTime(2026, 10, 6, 7));
+      expect(n.shown, isEmpty);
+      l.setStatementMinimum(l.account('tc')!, DateTime(2026, 9, 15), 8000000);
       await Reminders.sync(ledger: l, settings: settings, notifier: n, now: DateTime(2026, 10, 6, 8));
       expect(n.shown, <String>['Pago vencido: Visa']);
-      expect(n.log.last, contains('desde el 05 oct'));
+      expect(n.log.last, contains('vencía el 05 oct'));
       await Reminders.sync(ledger: l, settings: settings, notifier: n, now: DateTime(2026, 10, 6, 9));
       expect(n.shown, hasLength(1));
     });
@@ -166,7 +179,9 @@ void main() {
       expect(l.debtMinor(), 405000000);
       // El extracto de referencia es el anterior al primer movimiento.
       expect(l.referenceStatementCut(tc), DateTime(2026, 9, 15));
-      expect(l.cardDue(tc, now: DateTime(2026, 11, 6)).overdueMinor, 5000000);
+      final CardDue nov6 = l.cardDue(tc, now: DateTime(2026, 11, 6));
+      expect(nov6.overdue, isFalse);
+      expect(nov6.unconfirmedMinor, 5000000);
     });
 
     test('M1: las cuotas en pesos son pesos enteros y suman el total', () async {
@@ -218,7 +233,7 @@ void main() {
     });
 
     test('M5: un aviso igual a un movimiento ya anotado queda como posible duplicado y no se anota solo', () async {
-      await l.addAccount(Account(id: 'tc', name: 'Visa', type: AccountType.credit, cutDay: 15, payDay: 5, bank: 'bancolombia', last4: '4821'));
+      await l.addAccount(Account(id: 'tc', name: 'Débito Visa', type: AccountType.bank, bank: 'bancolombia', last4: '4821'));
       final Tx manual = await l.addTx(Tx(id: 'manual', kind: TxKind.expense, amountMinor: 6240000, accountId: 'tc', date: d(2026, 10, 15, 20)));
       final AppSettings settings = AppSettings()
         ..noticesEnabled = true
@@ -249,15 +264,18 @@ void main() {
       await l.addScheduled(Scheduled(id: 's', name: 'Arriendo', kind: TxKind.expense, amountMinor: 150000000, accountId: 'a_cash', nextDate: DateTime(2026, 10, 20)));
       final NoopNotifier n = NoopNotifier();
       await Reminders.sync(ledger: l, settings: settings, notifier: n, now: d(2026, 10, 16, 8));
-      final int id = n.pending.keys.single;
+      // Se agendan varias ocurrencias (M2 de la ronda 4): la primera es la del 20 oct.
+      final int id = Reminders.idFor('s:s:2026-10-20');
       expect(n.pending[id], contains(r'$ 1.500.000'));
+      final int first = n.pending.length;
+      expect(first, Reminders.occurrencesAhead);
       // Otro programado nuevo: el primero no se cancela ni cambia de id.
       await l.addScheduled(Scheduled(id: 's2', name: 'Internet', kind: TxKind.expense, amountMinor: 9000000, accountId: 'a_cash', nextDate: DateTime(2026, 10, 22)));
       n.log.clear();
       await Reminders.sync(ledger: l, settings: settings, notifier: n, now: d(2026, 10, 16, 9));
       expect(n.log.where((String x) => x.startsWith('cancel')), isEmpty);
       expect(n.pending.keys, contains(id));
-      expect(n.pending, hasLength(2));
+      expect(n.pending, hasLength(2 * Reminders.occurrencesAhead));
       // Privado (clave o saldos ocultos): sin montos y oculto en la pantalla de bloqueo.
       await Reminders.sync(ledger: l, settings: settings, notifier: n, now: d(2026, 10, 16, 9), private: true);
       expect(n.pending.values.any((String x) => x.contains(r'$')), isFalse);
@@ -266,8 +284,9 @@ void main() {
       l.scheduled.removeWhere((Scheduled s) => s.id == 's2');
       n.log.clear();
       await Reminders.sync(ledger: l, settings: settings, notifier: n, now: d(2026, 10, 16, 10));
-      expect(n.log.where((String x) => x.startsWith('cancel')), hasLength(1));
-      expect(n.pending.keys, <int>[id]);
+      expect(n.log.where((String x) => x.startsWith('cancel')), hasLength(Reminders.occurrencesAhead));
+      expect(n.pending.keys, contains(id));
+      expect(n.pending, hasLength(first));
     });
 
     test('G2: hay recordatorios que pedir cuando hay programados con aviso o tarjetas con día de pago', () async {

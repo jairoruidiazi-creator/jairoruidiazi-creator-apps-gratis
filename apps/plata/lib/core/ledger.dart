@@ -145,21 +145,38 @@ class CardStatement {
   int get creditMinor => balanceMinor < 0 ? -balanceMinor : 0;
 }
 
-/// Situación de pago de una tarjeta hoy: el próximo pago y, si la fecha
-/// límite del último estado pasó sin pagarlo completo, lo vencido.
+/// Situación de pago de una tarjeta hoy: el próximo pago y, del último
+/// extracto cuya fecha límite ya pasó, si quedó algo sin pagar.
+///
+/// «Vencido» ([overdue]) solo se declara contra un pago mínimo que se conoce
+/// de verdad, porque lo anotó la persona: el del último extracto al crear la
+/// tarjeta o el que anote para un extracto. El estado de cuenta de Plata es
+/// un estimado (no conoce los plazos del banco, la cuota de manejo ni las
+/// compras diferidas que llegaron a 1 cuota), así que si solo hay ese
+/// cálculo, lo que falta se informa sin hablar de mora ([unconfirmedMinor]).
 class CardDue {
-  const CardDue({required this.next, this.overdueMinor = 0, this.overdueSince});
+  const CardDue({required this.next, this.overdueMinor = 0, this.overdueSince, this.unconfirmedMinor = 0, this.statementCut, this.statementPayDate});
 
   /// Estado cuyo pago es el próximo (ver [Ledger.nextPayment]).
   final CardStatement next;
 
-  /// Capital del último estado que sigue sin pagar después de su fecha límite.
+  /// Lo que falta del pago mínimo conocido después de su fecha límite.
   final int overdueMinor;
 
   /// Fecha límite que pasó (null si no hay nada vencido).
   final DateTime? overdueSince;
 
+  /// Sin mínimo conocido: lo que, según lo anotado, queda del último extracto
+  /// cuya fecha límite pasó. Es informativo: no es mora.
+  final int unconfirmedMinor;
+
+  /// Corte y fecha límite del último extracto cuya fecha límite pasó.
+  final DateTime? statementCut;
+  final DateTime? statementPayDate;
+
   bool get overdue => overdueMinor > 0;
+
+  bool get unconfirmed => !overdue && unconfirmedMinor > 0;
 }
 
 /// Lo que suma una tarjeta en un ciclo (ver [Ledger.statement]).
@@ -168,6 +185,10 @@ class _CycleSums {
   int advances = 0;
   int installments = 0;
   int payments = 0;
+
+  /// Ajustes de saldo del ciclo: van a la deuda aparte, no al estado (+ sube
+  /// la deuda, − la baja).
+  int adjustments = 0;
 }
 
 /// Movimientos de una tarjeta repartidos por ciclo, desde el primer ciclo que
@@ -183,8 +204,12 @@ class _CardBook {
   /// a favor inicial), más lo facturado antes y menos lo abonado antes.
   int opening = 0;
 
-  /// Deuda inicial que no estaba en el último extracto.
+  /// Deuda inicial que no estaba en el último extracto, más los ajustes de
+  /// saldo anteriores al primer ciclo.
   int legacy = 0;
+
+  /// Si algún ajuste de saldo cambió la deuda aparte.
+  bool adjusted = false;
   final Map<DateTime, _CycleSums> sums = <DateTime, _CycleSums>{};
 
   _CycleSums at(DateTime cut) => sums.putIfAbsent(cut, _CycleSums.new);
@@ -1215,7 +1240,9 @@ class Ledger extends ChangeNotifier {
         t.toAmountAuto = true;
       }
     }
-    if (t.installments < 1 || !(a.isCredit && t.kind == TxKind.expense)) {
+    // Cuotas: compras y avances (transferencias que salen) de una tarjeta de
+    // crédito. Un ajuste de saldo nunca va a cuotas.
+    if (t.installments < 1 || !(a.isCredit && (t.kind == TxKind.expense || t.kind == TxKind.transfer)) || t.isAdjustment) {
       t.installments = 1;
     }
   }
@@ -1637,7 +1664,12 @@ class Ledger extends ChangeNotifier {
         // Si un aviso del banco ya anotó este cargo (mismo monto y cuenta, dos
         // días o menos), no se anota otra vez: queda vencido para que el
         // usuario lo confirme o lo salte.
-        if (noticeDuplicateFor(s) != null) {
+        final InboxItem? pendingNotice = pendingNoticeFor(s);
+        if (noticeDuplicateFor(s) != null || pendingNotice != null) {
+          // Un aviso que espera en la bandeja queda marcado como posible
+          // duplicado: al confirmarlo, el programado ya no se anota solo.
+          pendingNotice?.duplicateOf ??= 'programado:${s.id}';
+          changed = changed || pendingNotice != null;
           break;
         }
         final Tx t = _txFromScheduled(s, _noon(s.nextDate));
@@ -1662,6 +1694,67 @@ class Ledger extends ChangeNotifier {
       save();
     }
     return created;
+  }
+
+  /// Aviso pendiente en la bandeja que parece ser esta ocurrencia de un
+  /// programado: mismo tipo, misma cuenta, mismo monto (en la moneda de la
+  /// cuenta) y dos días o menos de diferencia con su próxima fecha.
+  InboxItem? pendingNoticeFor(Scheduled s) {
+    final Account? a = account(s.accountId);
+    if (a == null) {
+      return null;
+    }
+    for (final InboxItem i in inbox) {
+      if (i.status != 'pending' || i.kind != s.kind || daysBetween(i.receivedAt, s.nextDate).abs() > 2) {
+        continue;
+      }
+      if (_noticeMayBeAccount(i, a) && convert(i.amountMinor, i.currency, a.currency) == s.amountMinor) {
+        return i;
+      }
+    }
+    return null;
+  }
+
+  /// Si un aviso puede ser de la cuenta [a]: la suya si se sabe; si no se
+  /// sabe cuál (varias cuentas de ese banco), basta que [a] sea de ese banco.
+  bool _noticeMayBeAccount(InboxItem i, Account a) {
+    final String? known = i.accountId ?? matchNotice(i).account?.id;
+    if (known != null) {
+      return effectiveAccountId(known) == effectiveAccountId(a.id);
+    }
+    final Account? own = account(effectiveAccountId(a.id));
+    return own != null && own.bank.isNotEmpty && BankRules.keyFor(own.bank) == i.bank;
+  }
+
+  /// Programado activo cuya próxima ocurrencia parece ser el cargo de un
+  /// aviso (el aviso llegó antes de que el programado se anotara).
+  Scheduled? scheduledDuplicateFor(InboxItem item) {
+    for (final Scheduled s in scheduled) {
+      final Account? a = account(s.accountId);
+      if (a == null || !s.enabled || s.kind != item.kind || daysBetween(s.nextDate, item.receivedAt).abs() > 2) {
+        continue;
+      }
+      if (_noticeMayBeAccount(item, a) && convert(item.amountMinor, item.currency, a.currency) == s.amountMinor) {
+        return s;
+      }
+    }
+    return null;
+  }
+
+  /// Movimiento ya anotado que se parece a [t] (otro, del mismo tipo, misma
+  /// cuenta, mismo monto y dos días o menos): al confirmar un aviso se
+  /// pregunta antes de contarlo dos veces.
+  Tx? similarTx(Tx t) {
+    for (final Tx o in txs) {
+      if (o.id == t.id || o.kind != t.kind || o.isAdjustment || o.amountMinor != t.amountMinor) {
+        continue;
+      }
+      if (effectiveAccountId(o.accountId) != effectiveAccountId(t.accountId) || daysBetween(o.date, t.date).abs() > 2) {
+        continue;
+      }
+      return o;
+    }
+    return null;
   }
 
   /// Movimiento anotado desde un aviso del banco que parece ser esta
@@ -1834,7 +1927,36 @@ class Ledger extends ChangeNotifier {
     for (final Tx t in txs) {
       final DateTime d = dateOnly(t.date);
       final bool from = effectiveAccountId(t.accountId) == card.id;
-      if (from && t.kind == TxKind.expense) {
+      if (from && t.isAdjustment) {
+        // «Ajustar saldo real» corrige la deuda, pero no es algo que el banco
+        // cobre en el próximo pago: va a la deuda aparte.
+        final int delta = t.kind == TxKind.expense ? t.amountMinor : -t.amountMinor;
+        final DateTime cut = _cutOf(card, d);
+        book.adjusted = true;
+        if (cut.isBefore(book.firstCut)) {
+          book.legacy += delta;
+        } else {
+          book.at(cut).adjustments += delta;
+        }
+        continue;
+      }
+      if (from && (t.kind == TxKind.expense || t.kind == TxKind.transfer) && t.installments > 1) {
+        // Compra o avance diferido: la cuota k se factura en el k-ésimo corte
+        // desde la operación; la primera, en el primer corte después.
+        final bool advance = t.kind == TxKind.transfer;
+        final DateTime firstCut = _cutOf(card, d);
+        for (int k = 1; k <= t.installments; k++) {
+          final DateTime cut = CardCycle.cutAfter(card, firstCut, k - 1);
+          final int amount = installmentAmount(t.amountMinor, t.installments, k, unit: unit);
+          if (cut.isBefore(book.firstCut)) {
+            book.opening += amount;
+          } else if (advance) {
+            book.at(cut).advances += amount;
+          } else {
+            book.at(cut).installments += amount;
+          }
+        }
+      } else if (from && t.kind == TxKind.expense) {
         if (t.installments <= 1) {
           charge(_cutOf(card, d), t.amountMinor, false);
         } else {
@@ -1859,6 +1981,12 @@ class Ledger extends ChangeNotifier {
       if (t.kind == TxKind.transfer && t.toAccountId != null && effectiveAccountId(t.toAccountId!) == card.id) {
         credit(d, receivedMinor(t));
       }
+    }
+    if (book.legacy < 0) {
+      // Un ajuste hacia abajo antes del primer ciclo que pasa de la deuda
+      // aparte baja el saldo anterior.
+      book.opening += book.legacy;
+      book.legacy = 0;
     }
     _cardCache[key] = book;
     return book;
@@ -1894,7 +2022,16 @@ class Ledger extends ChangeNotifier {
     for (int i = 0; i < 1200; i++) {
       final DateTime cut = CardCycle.cutAfter(card, book.firstCut, i);
       final _CycleSums s = book.sums[cut] ?? empty;
-      int balance = carry + s.purchases + s.advances + s.installments - s.payments;
+      legacy += s.adjustments;
+      // Un ajuste hacia abajo mayor que la deuda aparte se descuenta del
+      // estado, como un abono (y se muestra junto con los abonos).
+      int adjustCredit = 0;
+      if (legacy < 0) {
+        adjustCredit = -legacy;
+        legacy = 0;
+      }
+      final int payments = s.payments + adjustCredit;
+      int balance = carry + s.purchases + s.advances + s.installments - payments;
       int toLegacy = 0;
       if (balance < 0 && legacy > 0) {
         toLegacy = legacy < -balance ? legacy : -balance;
@@ -1902,7 +2039,7 @@ class Ledger extends ChangeNotifier {
         balance += toLegacy;
       }
       if (cut == cycle.cut || cut.isAfter(cycle.cut)) {
-        return CardStatement(cycle: cycle, previousMinor: carry, purchasesMinor: s.purchases, advancesMinor: s.advances, installmentsMinor: s.installments, paymentsMinor: s.payments, toLegacyMinor: toLegacy, legacyMinor: legacy, fromBankStatement: i == 0 && card.statementCut != null && (card.statementDueMinor ?? 0) > 0);
+        return CardStatement(cycle: cycle, previousMinor: carry, purchasesMinor: s.purchases, advancesMinor: s.advances, installmentsMinor: s.installments, paymentsMinor: payments, toLegacyMinor: toLegacy, legacyMinor: legacy, fromBankStatement: i == 0 && card.statementCut != null && (card.statementDueMinor ?? 0) > 0);
       }
       carry = balance;
     }
@@ -1919,6 +2056,9 @@ class Ledger extends ChangeNotifier {
       if (!d.isAfter(a) || d.isAfter(u)) {
         continue;
       }
+      if (t.isAdjustment) {
+        continue;
+      }
       if (effectiveAccountId(t.accountId) == card.id && t.kind == TxKind.income) {
         sum += t.amountMinor;
       } else if (t.kind == TxKind.transfer && t.toAccountId != null && effectiveAccountId(t.toAccountId!) == card.id) {
@@ -1932,10 +2072,11 @@ class Ledger extends ChangeNotifier {
   ///
   /// - Próximo pago: el último estado cerrado mientras no pase su fecha
   ///   límite (si debe algo); si no, el del ciclo en curso.
-  /// - Vencido: lo que quedó sin pagar del último estado cuya fecha límite ya
-  ///   pasó, menos lo abonado después de esa fecha. Sigue vencido (con
-  ///   intereses de mora en el banco) hasta que se pague, aunque entre tanto
-  ///   cierre otro estado que lo traiga como saldo anterior.
+  /// - Del último extracto cuya fecha límite ya pasó: si hay un pago mínimo
+  ///   conocido ([statementMinimum]) y lo abonado después de su corte es
+  ///   menor, la diferencia está **vencida** desde esa fecha, hasta que se
+  ///   pague. Sin mínimo conocido, lo que el estimado de Plata diga que falta
+  ///   se informa como [CardDue.unconfirmedMinor], sin declarar mora.
   CardDue cardDue(Account card, {DateTime? now}) {
     final DateTime today = dateOnly(now ?? _clock());
     final CardCycle current = CardCycle.current(card, today);
@@ -1951,13 +2092,53 @@ class Ledger extends ChangeNotifier {
     for (int i = 0; i < 3 && !passed.payDate.isBefore(today); i++) {
       passed = passed.previous(card);
     }
-    if (!passed.payDate.isBefore(today)) {
+    if (!passed.payDate.isBefore(today) || passed.cut.isBefore(_cardBook(card).firstCut)) {
       return CardDue(next: next);
     }
-    final CardStatement last = statement(card, date: passed.cut);
-    final int late = last.dueMinor - _creditsBetween(card, passed.payDate, today);
-    return CardDue(next: next, overdueMinor: late > 0 ? late : 0, overdueSince: late > 0 ? passed.payDate : null);
+    final int? minimum = statementMinimum(card, passed.cut);
+    if (minimum != null) {
+      final int late = minimum - _creditsBetween(card, passed.cut, today);
+      return CardDue(next: next, overdueMinor: late > 0 ? late : 0, overdueSince: late > 0 ? passed.payDate : null, statementCut: passed.cut, statementPayDate: passed.payDate);
+    }
+    final int left = statement(card, date: passed.cut).dueMinor - _creditsBetween(card, passed.payDate, today);
+    return CardDue(next: next, unconfirmedMinor: left > 0 ? left : 0, statementCut: passed.cut, statementPayDate: passed.payDate);
   }
+
+  /// Pago mínimo conocido del extracto que cortó en [cut]: el que se anotó
+  /// al crear la tarjeta (para su extracto de referencia) o el que se anotó
+  /// después para ese extracto. Null si no se conoce.
+  int? statementMinimum(Account card, DateTime cut) {
+    final String key = dayKey(cut);
+    final int? noted = card.statementMinimums[key];
+    if (noted != null) {
+      return noted;
+    }
+    final DateTime? ref = card.statementCut;
+    if (ref != null && card.statementDueMinor != null && dayKey(CardCycle.current(card, ref).cut) == key) {
+      return card.statementDueMinor;
+    }
+    return null;
+  }
+
+  /// Anota (o borra, con null) el pago mínimo que pidió el banco en el
+  /// extracto que cortó en [cut].
+  void setStatementMinimum(Account card, DateTime cut, int? minor) {
+    final String key = dayKey(cut);
+    if (minor == null) {
+      card.statementMinimums.remove(key);
+    } else {
+      card.statementMinimums[key] = minor < 0 ? 0 : minor;
+    }
+    // Solo se guardan los últimos: los viejos ya no deciden nada.
+    while (card.statementMinimums.length > 24) {
+      final List<String> keys = card.statementMinimums.keys.toList()..sort();
+      card.statementMinimums.remove(keys.first);
+    }
+    save();
+  }
+
+  /// Si algún ajuste de saldo cambió la deuda aparte de una tarjeta.
+  bool cardHasAdjustments(Account card) => _cardBook(card).adjusted;
 
   /// Estado de cuenta cuyo pago es el próximo (ver [cardDue]).
   CardStatement nextPayment(Account card, {DateTime? now}) => cardDue(card, now: now).next;
@@ -2186,8 +2367,10 @@ class Ledger extends ChangeNotifier {
       }
     }
     item.accountId ??= matchNotice(item).account?.id;
-    if (item.accountId != null && item.kind != TxKind.transfer) {
-      item.duplicateOf = likelyDuplicate(item, item.accountId!)?.id;
+    if (item.kind != TxKind.transfer) {
+      final Scheduled? s = scheduledDuplicateFor(item);
+      final String? tx = item.accountId == null ? null : likelyDuplicate(item, item.accountId!)?.id;
+      item.duplicateOf = tx ?? (s == null ? null : 'programado:${s.id}');
     }
     inbox.insert(0, item);
     if (inbox.length > 200) {

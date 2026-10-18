@@ -69,6 +69,13 @@ class _TxEditorState extends State<TxEditor> {
   final List<String> _attachments = <String>[];
   final Set<String> _savedAttachments = <String>{};
   int _installments = 1;
+
+  /// El usuario eligió las cuotas (si no, un avance nuevo propone 24).
+  bool _installmentsTouched = false;
+
+  /// Cuotas que se proponen para un avance: en cajero y en la app, Bancolombia
+  /// los difiere siempre a 24 meses, y es lo más común en Colombia.
+  static const int _defaultAdvanceInstallments = 24;
   bool _reconciled = false;
   bool _keypad = false;
   bool _more = false;
@@ -296,6 +303,13 @@ class _TxEditorState extends State<TxEditor> {
     }
   }
 
+  /// Avance: transferencia que sale de una tarjeta de crédito (cajero, o
+  /// pasar plata de la tarjeta a una cuenta).
+  bool get _isAdvance => _kind == TxKind.transfer && (_account?.isCredit ?? false);
+
+  /// Cuotas que se muestran y se guardan.
+  int get _shownInstallments => _isAdvance && !_installmentsTouched && widget.existing == null && widget.draft == null ? _defaultAdvanceInstallments : _installments;
+
   int get _splitTotal => _splits.fold<int>(0, (int s, TxSplit p) => s + p.amountMinor);
 
   /// Divide el total en partes. El total escrito se conserva y cada parte
@@ -378,7 +392,7 @@ class _TxEditorState extends State<TxEditor> {
     tx.attachments
       ..clear()
       ..addAll(_attachments);
-    tx.installments = (_account?.isCredit ?? false) && _kind == TxKind.expense ? _installments : 1;
+    tx.installments = (_account?.isCredit ?? false) && (_kind == TxKind.expense || _kind == TxKind.transfer) ? _shownInstallments : 1;
     tx.reconciled = _reconciled;
     if (widget.inbox != null) {
       tx.source = 'notice';
@@ -413,6 +427,19 @@ class _TxEditorState extends State<TxEditor> {
     final Tx? e = widget.existing;
     // Se arma un borrador: si el libro lo rechaza, el original queda intacto.
     final Tx tx = _compose();
+    // Al confirmar un aviso se vuelve a buscar el mismo cargo ya anotado (un
+    // programado, algo anotado a mano): pudo llegar después del aviso.
+    if (widget.inbox != null && e == null && _kind != TxKind.transfer) {
+      final Tx? dup = l.similarTx(tx);
+      if (dup != null) {
+        final bool es = _s!.settings.spanish;
+        final String what = '${Money.format(dup.amountMinor, dup.currency, spanish: es)} · ${formatDate(dup.date, 'dd MMM', spanish: es)}${dup.description.isEmpty ? '' : ' · ${dup.description}'}';
+        final bool go = await confirm(context, t(context, 'Posible duplicado', 'Possible duplicate'), t(context, 'Ya hay un movimiento igual en esta cuenta ($what). ¿Anotar el aviso de todas formas?', 'There is already a matching transaction in this account ($what). Log the notice anyway?'), yes: t(context, 'Anotar igual', 'Log anyway'));
+        if (!go || !mounted) {
+          return;
+        }
+      }
+    }
     setState(() => _saving = true);
     try {
       if (e == null) {
@@ -729,19 +756,24 @@ class _TxEditorState extends State<TxEditor> {
                     ),
                   ),
                 const SizedBox(height: 8),
-                if ((acc?.isCredit ?? false) && _kind == TxKind.expense)
+                if ((acc?.isCredit ?? false) && (_kind == TxKind.expense || _kind == TxKind.transfer)) ...<Widget>[
                   Row(
                     children: <Widget>[
-                      Expanded(child: Text(t(context, 'Cuotas', 'Installments'))),
+                      Expanded(child: Text(_isAdvance ? t(context, 'Cuotas del avance', 'Cash advance installments') : t(context, 'Cuotas', 'Installments'))),
                       DropdownButton<int>(
-                        value: _installments,
+                        value: _shownInstallments,
                         items: <DropdownMenuItem<int>>[
-                          for (final int n in (<int>{1, 2, 3, 6, 9, 12, 18, 24, 36, 48, _installments}.toList()..sort())) DropdownMenuItem<int>(value: n, child: Text(n == 1 ? t(context, '1 (pago único)', '1 (single)') : '$n')),
+                          for (final int n in (<int>{1, 2, 3, 6, 9, 12, 18, 24, 36, 48, _shownInstallments}.toList()..sort())) DropdownMenuItem<int>(value: n, child: Text(n == 1 ? t(context, '1 (pago único)', '1 (single)') : '$n')),
                         ],
-                        onChanged: (int? v) => setState(() => _installments = v ?? 1),
+                        onChanged: (int? v) => setState(() {
+                          _installments = v ?? 1;
+                          _installmentsTouched = true;
+                        }),
                       ),
                     ],
                   ),
+                  if (_isAdvance) Text(t(context, 'Los bancos suelen diferir los avances a 24 meses (Bancolombia, siempre en cajero y en la app). Revisa en tu extracto a cuántas cuotas quedó.', 'Banks usually spread cash advances over 24 months (Bancolombia always does at ATMs and in the app). Check your statement for the number of installments.'), style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                ],
                 TextButton.icon(onPressed: () => setState(() => _more = !_more), icon: Icon(_more ? Icons.expand_less : Icons.expand_more), label: Text(t(context, 'Más campos (beneficiario, etiquetas, notas, recibo)', 'More fields (payee, tags, notes, receipt)'))),
                 if (_more) ...<Widget>[
                   TextField(controller: _payee, decoration: InputDecoration(labelText: t(context, 'Beneficiario / comercio', 'Payee / merchant'), border: const OutlineInputBorder(), isDense: true), textCapitalization: TextCapitalization.words),

@@ -168,7 +168,7 @@ void main() {
     });
   });
 
-  testWidgets('G3: un día después de la fecha límite, Inicio y Tarjetas dicen «Vencido desde el …»', (WidgetTester tester) async {
+  testWidgets('G3: un día después de la fecha límite, Inicio y Tarjetas informan lo que falta; con el mínimo anotado, «Vencido desde el …»', (WidgetTester tester) async {
     await atTestTime(() async {
       usePhone(tester);
       final TestEnv env = await start(tester);
@@ -179,14 +179,29 @@ void main() {
         await env.services.ledger.addTx(Tx(id: 'c', kind: TxKind.expense, amountMinor: 100000000, accountId: 'tc', categoryId: 'c_food', date: DateTime(2026, 9, 20, 12)));
       });
       await settle(tester);
-      expect(find.text('Vencido desde el 15 oct · capital estimado'), findsOneWidget);
-      expect(find.text('Vencido desde el 15 oct'), findsOneWidget); // la tarjeta de la cuenta
+      // Solo el estimado de Plata: se informa, sin hablar de mora.
+      const String info = r'Según lo anotado, quedan $ 1.000.000 del extracto del 30 sep; si pagaste el mínimo del banco, anótalo.';
+      expect(find.text(info), findsOneWidget);
+      expect(find.textContaining('Vencido'), findsNothing);
       await goTab(tester, 'Más');
       await openMore(tester, 'Tarjetas de crédito');
+      expect(find.byType(UnconfirmedBanner), findsOneWidget);
+      expect(find.byType(OverdueBanner), findsNothing);
+      // Se anota el mínimo que pidió el banco y no está pagado: ahora sí vence.
+      await tester.tap(find.text('Anotar el mínimo'));
+      await settle(tester);
+      for (final String k in <String>['8', '0', '0', '0', '0']) {
+        await tapKey(tester, k);
+      }
+      await tester.tap(find.text('Listo'));
+      await settle(tester);
       expect(find.byType(OverdueBanner), findsOneWidget);
-      expect(find.text(r'Vencido desde el 15 oct: $ 1.000.000'), findsOneWidget);
-      // El próximo pago (el del ciclo en curso) trae lo vencido como saldo anterior.
-      expect(find.text('Incluye lo vencido'), findsOneWidget);
+      expect(find.text(r'Vencido desde el 15 oct: faltan $ 80.000 del pago mínimo'), findsOneWidget);
+      // El próximo pago (el del ciclo en curso) trae lo que quedó como saldo anterior.
+      expect(find.text('Incluye lo que quedó del extracto anterior'), findsOneWidget);
+      await back(tester);
+      await goTab(tester, 'Inicio');
+      expect(find.text('Vencido desde el 15 oct · falta del pago mínimo'), findsOneWidget);
       await syncLedger(tester, env);
       await finish(tester);
     });
