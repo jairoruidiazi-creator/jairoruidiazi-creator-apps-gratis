@@ -22,12 +22,12 @@ CATEGORIES = {
     "NSPrivacyAccessedAPICategoryFileTimestamp": [
         r"\bcreationDate\b", r"\bmodificationDate\b", r"\bfileModificationDate\b",
         r"contentModificationDateKey", r"creationDateKey", r"NSFileCreationDate",
-        r"NSFileModificationDate", r"\bgetattrlist\b", r"\bfstat\b", r"\blstat\b", r"\bstat\(",
+        r"NSFileModificationDate", r"\b(?:f)?getattrlist(?:bulk|at)?\b", r"\b(?:f|l)?stat(?:at)?\(",
     ],
     "NSPrivacyAccessedAPICategorySystemBootTime": [r"\bsystemUptime\b", r"\bmach_absolute_time\b"],
     "NSPrivacyAccessedAPICategoryDiskSpace": [
         r"volumeAvailableCapacity", r"volumeTotalCapacity", r"NSFileSystemFreeSize",
-        r"NSFileSystemSize", r"systemFreeSize", r"systemSize", r"\bstatfs\b", r"\bstatvfs\b",
+        r"NSFileSystemSize", r"systemFreeSize", r"systemSize", r"\bf?statv?fs\b",
     ],
     "NSPrivacyAccessedAPICategoryActiveKeyboards": [r"\bactiveInputModes\b"],
     "NSPrivacyAccessedAPICategoryUserDefaults": [r"\bUserDefaults\b", r"\bNSUserDefaults\b"],
