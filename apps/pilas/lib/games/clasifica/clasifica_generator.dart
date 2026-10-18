@@ -16,7 +16,10 @@ class Habitat {
 
   /// Con artículo: "la granja", "el mar".
   final String nombre;
-  final String emoji;
+
+  /// Pictograma del lugar, o null si Twemoji no tiene uno fiel (la sabana):
+  /// ese lugar solo sale en preguntas escritas, para los que leen.
+  final String? emoji;
 
   /// "vive en la granja".
   String get vive => 'vive en $nombre';
@@ -56,7 +59,7 @@ class ClasificaGenerator implements ChoiceGenerator {
     'granja': Habitat('granja', 'la granja', '1f69c'),
     'casa': Habitat('casa', 'la casa', '1f3e1'),
     'selva': Habitat('selva', 'la selva', '1f334'),
-    'sabana': Habitat('sabana', 'la sabana', '1f33e'),
+    'sabana': Habitat('sabana', 'la sabana', null),
     'bosque': Habitat('bosque', 'el bosque', '1f332'),
     'desierto': Habitat('desierto', 'el desierto', '1f3dc'),
     'mar': Habitat('mar', 'el mar', '1f30a'),
@@ -65,6 +68,10 @@ class ClasificaGenerator implements ChoiceGenerator {
     'montana': Habitat('montana', 'la montaña', '26f0'),
     'jardin': Habitat('jardin', 'el jardín', '1f33c'),
   };
+
+  /// Hábitats con pictograma (todos menos la sabana): los de las preguntas
+  /// para los que todavía no leen.
+  static List<String> get habitatsConDibujo => habitats.keys.where((String k) => habitats[k]!.emoji != null).toList();
 
   /// Hábitats que los más pequeños reconocen sin dudar.
   static const List<String> habitatsFaciles = <String>['granja', 'mar', 'selva', 'casa', 'bosque', 'jardin', 'rio'];
@@ -116,7 +123,7 @@ class ClasificaGenerator implements ChoiceGenerator {
           return dondeVive(rng, 3, habitatsFaciles);
         }
         if (level == 2) {
-          return dondeVive(rng, 3, habitats.keys.toList());
+          return dondeVive(rng, 3, habitatsConDibujo);
         }
         if (level == 3) {
           return dondeVive(rng, 4, habitatsFaciles);
@@ -124,7 +131,7 @@ class ClasificaGenerator implements ChoiceGenerator {
         return cualVive(rng, 3, habitatsFaciles);
       case AgeBand.b5a6:
         if (level == 1) {
-          return dondeVive(rng, 4, habitats.keys.toList());
+          return dondeVive(rng, 4, habitatsConDibujo);
         }
         if (level == 2) {
           return queEs(rng, 3);
@@ -159,7 +166,10 @@ class ClasificaGenerator implements ChoiceGenerator {
     }
   }
 
-  ChoiceOption _habitatOpt(Habitat h) => Opt.textWithEmoji(h.id, Es.cap(h.nombre), h.emoji);
+  /// Opción de lugar: con pictograma, o solo escrita si alguno de los lugares
+  /// de la ronda no tiene un pictograma fiel ([soloTexto]).
+  ChoiceOption _habitatOpt(Habitat h, {bool soloTexto = false}) =>
+      soloTexto || h.emoji == null ? Opt.text(h.id, Es.cap(h.nombre), fontSize: 24) : Opt.textWithEmoji(h.id, Es.cap(h.nombre), h.emoji!);
 
   /// "¿Dónde vive el delfín?" con lugares como opciones. Solo se pregunta por
   /// animales que viven en un único lugar, para que no haya dos respuestas.
@@ -169,7 +179,8 @@ class ClasificaGenerator implements ChoiceGenerator {
     final Habitat correcto = habitats[animal.habitats.first]!;
     final List<String> otros = lugares.where((String h) => h != correcto.id && !animal.tambienVive.contains(h)).toList();
     final List<Habitat> elegidos = <Habitat>[correcto, for (final String h in rng.sample(otros, count - 1)) habitats[h]!];
-    final List<ChoiceOption> options = <ChoiceOption>[for (final Habitat h in elegidos) _habitatOpt(h)];
+    final bool soloTexto = elegidos.any((Habitat h) => h.emoji == null);
+    final List<ChoiceOption> options = <ChoiceOption>[for (final Habitat h in elegidos) _habitatOpt(h, soloTexto: soloTexto)];
     rng.shuffle(options);
     final String frase = '${Es.cap(animal.conArticulo)} ${animal.verbo('vive', 'viven')} en ${correcto.nombre}.';
     return ChoiceRound(
@@ -199,7 +210,7 @@ class ClasificaGenerator implements ChoiceGenerator {
     final String frase = '${Es.cap(correcto.conArticulo)} ${correcto.verbo('vive', 'viven')} en ${h.nombre}.';
     return ChoiceRound(
       instruction: '¿Cuál ${h.vive}?',
-      prompt: (BuildContext context) => BigPrompt(child: EmojiImage(h.emoji, size: 84, semanticsLabel: h.nombre), caption: Es.cap(h.nombre)),
+      prompt: h.emoji == null ? null : (BuildContext context) => BigPrompt(child: EmojiImage(h.emoji!, size: 84, semanticsLabel: h.nombre), caption: Es.cap(h.nombre)),
       options: options,
       correctId: correcto.id,
       hint: 'Imagina ${h.nombre}. ¿Cuál de estos animales encontrarías ahí?',

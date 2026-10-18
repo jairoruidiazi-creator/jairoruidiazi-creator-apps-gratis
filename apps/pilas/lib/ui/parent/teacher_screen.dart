@@ -29,8 +29,9 @@ String groupCsv(List<ChildReport> reports) {
     'Tramo',
     'Minutos últimos 7 días',
     'Minutos en total',
-    'Rondas',
-    'Aciertos al primer intento',
+    'Rondas jugadas',
+    // Es un conteo, no el porcentaje que muestran el informe y el PDF.
+    'Rondas acertadas al primer intento',
     ...Area.values.map((Area a) => a.nombre),
     'Habilidades logradas del tramo',
   ].map(campo).join(';'));

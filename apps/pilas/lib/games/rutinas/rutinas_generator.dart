@@ -115,13 +115,13 @@ class RutinaBank {
       Paso('comer', 'Comer', '1f35b', antes: <String>['lavar_manos', 'mesa']),
       Paso('lavar_plato', 'Lavar el plato', '1f9fd', antes: <String>['comer']),
     ], porQue: 'Nos lavamos las manos antes de tocar la comida y lavamos el plato al terminar. Lavarse las manos y poner la mesa pueden ir en cualquier orden.'),
-    Rutina('semilla', 'Sembrar una planta', <Paso>[
-      Paso('sembrar', 'Enterrar la semilla', '1f330'),
-      Paso('regar', 'Regarla', '1f4a7', antes: <String>['sembrar']),
-      Paso('sol', 'Dejarla al sol', '2600', antes: <String>['sembrar']),
+    Rutina('semilla', 'Sembrar fríjoles', <Paso>[
+      Paso('sembrar', 'Enterrar los fríjoles', '1fad8'),
+      Paso('regar', 'Regar la tierra', '1f4a7', antes: <String>['sembrar']),
+      Paso('sol', 'Poner la matera al sol', '2600', antes: <String>['sembrar']),
       Paso('brote', 'Sale un brote', '1f331', antes: <String>['regar', 'sol']),
-      Paso('flor', 'Crece la flor', '1f33b', antes: <String>['brote']),
-    ], porQue: 'La semilla necesita tierra, agua y sol para crecer: primero sale un brote y después la flor.'),
+      Paso('flor', 'Crece la planta', '1fab4', antes: <String>['brote']),
+    ], porQue: 'Los fríjoles son semillas: necesitan tierra, agua y sol para crecer. Primero sale un brote y después crece la planta.'),
     Rutina('arepa', 'Hacer arepas', <Paso>[
       Paso('mezclar', 'Mezclar la harina con agua', '1f963'),
       Paso('amasar', 'Amasar', '1f450', antes: <String>['mezclar']),

@@ -11,39 +11,48 @@ import 'settings.dart';
 import 'strings.dart';
 import 'theme.dart';
 
-/// Pregunta de la puerta parental: una multiplicación de dos cifras por dos
-/// cifras, escrita en palabras y sin leerla en voz alta. Uno de los factores
-/// es "amable" (15 o 25) y el otro va de 13 a 39 sin ser múltiplo de 10, así
-/// que un adulto la resuelve de cabeza en dos pasos, sin papel:
-/// - por 15: diez veces el número más su mitad (15 × 24 = 240 + 120 = 360);
-/// - por 25: el número por cien, dividido entre cuatro (25 × 36 = 3600 ÷ 4 =
-///   900).
-/// Ningún juego de Pilas pide multiplicar dos números de dos cifras (la
-/// carrera de 9 a 11 años multiplica uno de dos cifras por uno de una y llega
-/// a la tabla del 12), y la pregunta en palabras pide leer con soltura
-/// números grandes.
+/// Pregunta de la puerta parental: una multiplicación de dos números de dos
+/// cifras, escrita en palabras y sin leerla en voz alta. Es una tarea pensada
+/// para adultos ("adult-level task", como la llama Apple): la puerta dice que
+/// se puede usar la calculadora del teléfono.
+/// - Los dos factores van de 13 a 39 y ninguno es múltiplo de 5 (ni de 10):
+///   no hay atajos como "por 25 es por cien entre cuatro", y el resultado
+///   nunca termina en 0.
+/// - Se descartan los pares que la app entrena ([entrenado]): la tienda
+///   multiplica precios redondos (múltiplos de 500) por 2 a 12, y la carrera
+///   multiplica por una cifra o por 12; ningún par de la puerta sale ahí
+///   (test/ui_flows_test.dart lo comprueba con un barrido de esos juegos).
 class GateChallenge {
   GateChallenge._(this.a, this.b);
 
   factory GateChallenge.random([Random? random]) {
     final Random r = random ?? Random();
-    final int amable = amables[r.nextInt(amables.length)];
-    int otro;
-    do {
-      otro = 13 + r.nextInt(27); // 13..39
-    } while (otro % 10 == 0 || amables.contains(otro));
-    return r.nextBool() ? GateChallenge._(amable, otro) : GateChallenge._(otro, amable);
+    while (true) {
+      final int a = factores[r.nextInt(factores.length)];
+      final int b = factores[r.nextInt(factores.length)];
+      if (valido(a, b)) {
+        return GateChallenge._(a, b);
+      }
+    }
   }
 
-  /// Factores que se multiplican de cabeza con un truco de dos pasos.
-  static const List<int> amables = <int>[15, 25];
+  /// Factores posibles: de 13 a 39, sin múltiplos de 5.
+  static final List<int> factores = <int>[for (int v = 13; v <= 39; v++) if (v % 5 != 0) v];
+
+  /// Si la app entrena esa multiplicación: un factor de una cifra, 10, 11 o
+  /// 12 (tablas de la carrera y cantidades de la tienda) o múltiplo de 5
+  /// (precios redondos de la tienda, contados en centenas).
+  static bool entrenado(int a, int b) => a <= 12 || b <= 12 || a % 5 == 0 || b % 5 == 0;
+
+  /// Si [a] × [b] puede salir en la puerta.
+  static bool valido(int a, int b) => factores.contains(a) && factores.contains(b) && (a * b) % 10 != 0 && !entrenado(a, b);
 
   final int a;
   final int b;
 
   int get answer => a * b;
 
-  /// La pregunta en palabras ("¿Cuánto es quince por veintitrés?").
+  /// La pregunta en palabras ("¿Cuánto es veintitrés por diecisiete?").
   String get question => '¿Cuánto es ${Es.numero(a)} por ${Es.numero(b)}?';
 
   bool check(String text) {
@@ -150,27 +159,55 @@ class _GateDialogState extends State<_GateDialog> {
     }
   }
 
-  /// Otra operación, sin contar error (por si la que salió no le gusta al
-  /// adulto). Todas son del mismo tipo.
-  void _otra() {
-    setState(() {
-      _challenge = GateChallenge.random();
-      _error = false;
-      _ctrl.clear();
-    });
+  /// Mientras se guarda un intento, los toques de más no hacen nada (un
+  /// segundo «Entrar» haría dos `pop` y cerraría también la pantalla de
+  /// abajo).
+  bool _enviando = false;
+
+  /// Una operación nueva y distinta de la actual.
+  GateChallenge _nueva() {
+    GateChallenge c;
+    do {
+      c = GateChallenge.random();
+    } while (c.a == _challenge.a && c.b == _challenge.b);
+    return c;
+  }
+
+  /// Otra operación: cuenta como un intento fallido (con las mismas esperas),
+  /// para que no se puedan pedir operaciones hasta que salga una fácil.
+  Future<void> _otra() async {
+    if (_remaining > Duration.zero || _enviando) {
+      return;
+    }
+    _enviando = true;
+    try {
+      await _fallo(error: false);
+    } finally {
+      _enviando = false;
+    }
   }
 
   Future<void> _submit() async {
-    if (_remaining > Duration.zero) {
+    if (_remaining > Duration.zero || _enviando) {
       return;
     }
-    if (_challenge.check(_ctrl.text)) {
-      await widget.settings.setGateState(fails: 0);
-      if (mounted) {
-        Navigator.of(context).pop(true);
+    _enviando = true;
+    try {
+      if (_challenge.check(_ctrl.text)) {
+        await widget.settings.setGateState(fails: 0);
+        if (mounted) {
+          Navigator.of(context).pop(true);
+        }
+        return;
       }
-      return;
+      await _fallo(error: true);
+    } finally {
+      _enviando = false;
     }
+  }
+
+  /// Suma un intento fallido, aplica la espera que toque y cambia la operación.
+  Future<void> _fallo({required bool error}) async {
     final DateTime now = clock.now();
     final int fails = GateLock.vigentes(widget.settings.gateFails, widget.settings.gateLastFail, now) + 1;
     final Duration wait = GateLock.waitAfter(fails);
@@ -179,8 +216,8 @@ class _GateDialogState extends State<_GateDialog> {
       return;
     }
     setState(() {
-      _error = true;
-      _challenge = GateChallenge.random();
+      _error = error;
+      _challenge = _nueva();
       _ctrl.clear();
     });
     _scheduleUnlock();
@@ -204,7 +241,9 @@ class _GateDialogState extends State<_GateDialog> {
             ],
             const Text(S.resuelveParaEntrar, style: TextStyle(fontSize: 16)),
             const SizedBox(height: 12),
-            Text(_challenge.question, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+            Text(_challenge.question, key: const ValueKey<String>('puerta-pregunta'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            Text(S.puertaCalculadora, style: TextStyle(fontSize: 15, color: pal.tintaSuave)),
             const SizedBox(height: 12),
             TextField(
               key: const ValueKey<String>('puerta-respuesta'),
@@ -236,7 +275,7 @@ class _GateDialogState extends State<_GateDialog> {
                   key: const ValueKey<String>('puerta-otra'),
                   onPressed: _otra,
                   icon: const Icon(Icons.refresh_rounded),
-                  label: const Text(S.otraOperacion),
+                  label: const Text(S.otraOperacionCuenta),
                 ),
               ),
           ],

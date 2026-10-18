@@ -201,16 +201,16 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _saveProfiles() async {
+  Future<void> _saveProfiles({bool sinRastro = false}) async {
     await store.writeJson(_profilesFile, <String, dynamic>{
       'profiles': profiles.map((Profile p) => p.toJson()).toList(),
-    });
+    }, sinRastro: sinRastro);
   }
 
-  Future<void> _saveGroups() async {
+  Future<void> _saveGroups({bool sinRastro = false}) async {
     await store.writeJson(_groupsFile, <String, dynamic>{
       'groups': groups.map((ClassGroup g) => g.toJson()).toList(),
-    });
+    }, sinRastro: sinRastro);
   }
 
   String _newId() {
@@ -280,8 +280,10 @@ class AppState extends ChangeNotifier {
     } catch (e) {
       debugPrint('No se pudieron borrar los dibujos de $id: $e');
     }
-    await _saveProfiles();
-    await _saveGroups();
+    // El respaldo (.bak) también se reescribe: el perfil borrado no puede
+    // volver si un día hay que recuperar el archivo.
+    await _saveProfiles(sinRastro: true);
+    await _saveGroups(sinRastro: true);
     notifyListeners();
   }
 
@@ -383,7 +385,9 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Guarda una marca personal si supera la anterior. Devuelve true si es nueva.
+  /// Guarda una marca personal si supera la anterior. Devuelve true si es
+  /// una marca nueva que celebrar: nunca con cero aciertos (la primera
+  /// carrera sin aciertos se guarda, pero no se celebra).
   Future<bool> saveRecord(String key, int value) async {
     final Profile? p = current;
     if (p == null || !_progress.containsKey(p.id)) {
@@ -397,7 +401,7 @@ class AppState extends ChangeNotifier {
     prog.records[key] = value;
     await _saveProgressSafe(p.id);
     notifyListeners();
-    return true;
+    return value > 0;
   }
 
   int? recordOf(String key) {

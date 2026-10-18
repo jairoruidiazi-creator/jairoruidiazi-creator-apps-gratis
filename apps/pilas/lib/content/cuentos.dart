@@ -140,7 +140,7 @@ class CuentoBank {
       ],
       preguntas: <PreguntaCuento>[
         PreguntaCuento('¿Qué pasó en el bosque?', <OpcionCuento>[OpcionCuento('Un incendio', '1f525'), OpcionCuento('Una fiesta', '1f389'), OpcionCuento('Una inundación', '1f30a')], 0, 'El bosque empezó a arder.'),
-        PreguntaCuento('¿Qué llevaba el colibrí en el pico?', <OpcionCuento>[OpcionCuento('Una semilla', '1f330'), OpcionCuento('Una gota de agua', '1f4a7'), OpcionCuento('Una flor', '1f33a')], 1, 'Quino llevaba una gotita de agua cada vez.'),
+        PreguntaCuento('¿Qué llevaba el colibrí en el pico?', <OpcionCuento>[OpcionCuento('Una hoja', '1f343'), OpcionCuento('Una gota de agua', '1f4a7'), OpcionCuento('Una flor', '1f33a')], 1, 'Quino llevaba una gotita de agua cada vez.'),
         PreguntaCuento('¿Qué nos enseña Quino?', <OpcionCuento>[OpcionCuento('Que hay que correr rápido', '1f3c3'), OpcionCuento('Que los pequeños no pueden ayudar', '1f645'), OpcionCuento('Que cada uno puede hacer su parte', '1f91d')], 2, 'Aunque era pequeño, Quino hizo su parte y los demás lo siguieron.'),
       ],
     ),

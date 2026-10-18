@@ -201,11 +201,17 @@ class JsonStore {
   /// Lee un JSON (null si no existe o si estaba dañado y no se pudo recuperar).
   Future<Map<String, dynamic>?> readJson(String relativePath) async => (await readJsonSafe(relativePath)).data;
 
-  Future<void> writeJson(String relativePath, Map<String, dynamic> data) {
+  /// Guarda un JSON de forma atómica. Con [sinRastro] (al borrar datos), la
+  /// copia `.bak` también queda con el contenido nuevo: lo borrado no se
+  /// queda en el respaldo ni puede volver al recuperarlo.
+  Future<void> writeJson(String relativePath, Map<String, dynamic> data, {bool sinRastro = false}) {
     final List<int> bytes = utf8.encode(jsonEncode(data));
     return _enqueue<void>(relativePath, () async {
       final File file = await _file(relativePath);
-      await _writeNow(file, bytes, backup: true);
+      await _writeNow(file, bytes, backup: !sinRastro);
+      if (sinRastro) {
+        await _writeNow(File('${file.path}.bak'), bytes, backup: false);
+      }
     });
   }
 

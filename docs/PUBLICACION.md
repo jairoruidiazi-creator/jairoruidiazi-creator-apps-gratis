@@ -98,10 +98,26 @@ cada formulario de las tiendas están en `apps/<app>/store/COMPLIANCE.md`.
    App Store Connect (queda en TestFlight) y sube textos y capturas.
 4. **En App Store Connect:** privacidad de la app, clasificación por edad, precio
    gratis y disponibilidad según `COMPLIANCE.md` (Plata: sin Francia en la primera
-   versión; Pilas: categoría Niños, 6 a 8 años), contacto para la revisión (nombre,
+   versión; Pilas: categoría Niños, 6 a 8 años, y solo los 18 países de la sección de
+   Pilas de esta guía), contacto para la revisión (nombre,
    teléfono, correo) y enviar a revisión.
 5. **Cada versión nueva:** el número de build de iOS es el mismo de `pubspec.yaml` (el que
    va después de `+`) y no se puede repetir.
+
+## Pilas: países donde se publica
+
+Pilas se publica solo en los países de habla hispana de América Latina y en España:
+Argentina, Bolivia, Chile, Colombia, Costa Rica, Ecuador, El Salvador, España, Guatemala,
+Honduras, México, Nicaragua, Panamá, Paraguay, Perú, República Dominicana, Uruguay y
+Venezuela. **No se publica en Estados Unidos ni en Puerto Rico**: las leyes de Texas
+(SB 2420), Utah (SB 142) y Luisiana (HB 570) obligan al desarrollador a verificar la edad y
+el consentimiento parental con datos de la tienda, y Pilas no usa esas API. El porqué y
+las fuentes están en `apps/pilas/store/COMPLIANCE.md`, sección «Países donde se publica».
+
+- **Google Play Console:** Prueba y publicación › Producción › Países o regiones › agregar
+  solo esos 18 países; repetirlo en cada pista de prueba (interna, cerrada).
+- **App Store Connect:** la app › Precios y disponibilidad › Disponibilidad de la app ›
+  desmarcar «Todos los países o regiones» y marcar solo esos 18 países.
 
 ## Antes de cada publicación
 

@@ -84,12 +84,20 @@ class S {
   static const String masTiempoRazon = 'Dar 10 minutos más de juego';
   static String quedan(int min, int seg) => 'Faltan ${min.toString()}:${seg.toString().padLeft(2, '0')}';
 
-  /// Lo que anuncia el lector de pantalla en el descanso: solo los minutos
-  /// (redondeados hacia arriba), para no repetir la cuenta cada segundo.
-  static String quedanMinutos(int min) => min <= 1 ? 'Falta menos de un minuto de descanso.' : 'Faltan ${Es.numero(min)} minutos de descanso.';
+  /// Lo que anuncia el lector de pantalla en el descanso a partir de los
+  /// [segundos] que faltan: solo los minutos (redondeados hacia arriba), para
+  /// no repetir la cuenta cada segundo.
+  static String quedanMinutos(int segundos) {
+    if (segundos < 60) {
+      return 'Falta menos de un minuto de descanso.';
+    }
+    final int min = (segundos + 59) ~/ 60;
+    return min == 1 ? 'Falta un minuto de descanso.' : 'Faltan ${Es.numero(min)} minutos de descanso.';
+  }
 
   // Puerta parental
-  static const String otraOperacion = 'Otra operación';
+  static const String otraOperacionCuenta = 'Otra operación (cuenta como intento)';
+  static const String puertaCalculadora = 'Es una tarea para adultos: puedes usar la calculadora de tu teléfono.';
   static const String paraAdultos = 'Para adultos';
   static const String esParaUnAdulto = 'Esto es para un adulto.';
   static const String resuelveParaEntrar = 'Escribe en cifras el resultado de la operación.';

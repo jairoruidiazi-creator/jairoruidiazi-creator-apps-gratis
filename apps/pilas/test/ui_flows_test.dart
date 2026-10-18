@@ -4,11 +4,16 @@ import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:pilas/core/es.dart';
 import 'package:pilas/core/parental_gate.dart';
+import 'package:pilas/core/rng.dart';
 import 'package:pilas/core/share.dart';
 import 'package:pilas/core/strings.dart';
 import 'package:pilas/engine/game_def.dart';
 import 'package:pilas/engine/game_registry.dart';
+import 'package:pilas/games/carrera/carrera_generator.dart';
+import 'package:pilas/games/choice/choice_round.dart';
+import 'package:pilas/games/tienda/tienda_generator.dart';
 import 'package:pilas/model/age_band.dart';
 import 'package:pilas/model/profile.dart';
 import 'package:pilas/ui/kid_home_screen.dart';
@@ -42,24 +47,79 @@ void main() {
   });
 
   group('G14: puerta para adultos', () {
-    test('Pide una multiplicación de dos cifras por dos cifras, en palabras, con un factor amable', () {
-      final Set<int> amables = <int>{};
-      for (int seed = 0; seed < 2000; seed++) {
+    test('Pide una multiplicación de dos números de 13 a 39 sin múltiplos de 5, en palabras', () {
+      expect(GateChallenge.factores, <int>[13, 14, 16, 17, 18, 19, 21, 22, 23, 24, 26, 27, 28, 29, 31, 32, 33, 34, 36, 37, 38, 39]);
+      final Map<int, int> veces = <int, int>{};
+      const int n = 20000;
+      for (int seed = 0; seed < n; seed++) {
         final GateChallenge g = GateChallenge.random(Random(seed));
-        expect(g.a, inInclusiveRange(13, 39));
-        expect(g.b, inInclusiveRange(13, 39));
-        expect(g.a % 10, isNot(0));
-        expect(g.b % 10, isNot(0));
-        // Exactamente un factor es 15 o 25: se resuelve de cabeza en dos pasos.
-        expect(GateChallenge.amables.contains(g.a) != GateChallenge.amables.contains(g.b), isTrue, reason: '${g.a} × ${g.b}');
-        amables.add(GateChallenge.amables.contains(g.a) ? g.a : g.b);
-        expect(g.answer, inInclusiveRange(100, 999));
+        for (final int f in <int>[g.a, g.b]) {
+          expect(f, inInclusiveRange(13, 39));
+          expect(f % 5, isNot(0), reason: '${g.a} × ${g.b}');
+          veces[f] = (veces[f] ?? 0) + 1;
+        }
+        expect(GateChallenge.valido(g.a, g.b), isTrue);
+        // Nada trivial: el resultado tiene tres cifras y no termina en 0.
+        expect(g.answer, inInclusiveRange(169, 1521));
+        expect(g.answer % 10, isNot(0), reason: '${g.a} × ${g.b}');
         expect(g.question, isNot(matches(RegExp(r'\d'))), reason: 'la pregunta va en palabras');
         expect(g.check('${g.answer}'), isTrue);
         expect(g.check('${g.answer + 1}'), isFalse);
       }
+      // Los 22 factores salen parejo (cada uno, cerca de 2 × n / 22 veces).
+      expect(veces.keys.toSet(), GateChallenge.factores.toSet());
+      final double esperado = 2 * n / GateChallenge.factores.length;
+      for (final int f in GateChallenge.factores) {
+        expect(veces[f]!, inInclusiveRange((esperado * 0.85).round(), (esperado * 1.15).round()), reason: 'factor $f');
+      }
       expect(GateChallenge.random(Random(1)).check('abc'), isFalse);
-      expect(amables, GateChallenge.amables.toSet());
+    });
+
+    test('Ninguna multiplicación que entrenan la tienda o la carrera puede salir en la puerta', () {
+      // Barrido: miles de rondas de los dos juegos que multiplican; se leen
+      // los factores de sus textos («7 × 8», «12 por $ 1.500») y, en la
+      // tienda, también contados en centenas (1.500 = 15).
+      final Set<String> pares = <String>{};
+      void anotar(int a, int b) {
+        pares.add('$a×$b');
+        if (b % 100 == 0) {
+          pares.add('$a×${b ~/ 100}');
+        }
+      }
+
+      void leer(String texto) {
+        for (final RegExpMatch m in RegExp(r'(\d+) × (\d+)').allMatches(texto)) {
+          anotar(int.parse(m.group(1)!), int.parse(m.group(2)!));
+        }
+        for (final RegExpMatch m in RegExp(r'(\d+) (?:por|×) \$ ([\d.]+)').allMatches(texto)) {
+          anotar(int.parse(m.group(1)!), int.parse(m.group(2)!.replaceAll('.', '')));
+        }
+      }
+
+      final CarreraGenerator carrera = CarreraGenerator();
+      final TiendaGenerator tienda = TiendaGenerator();
+      for (final AgeBand band in AgeBand.values) {
+        for (int level = 1; level <= 4; level++) {
+          for (int seed = 0; seed < 300; seed++) {
+            if (GameRegistry.byId('carrera')!.supports(band) && level <= GameRegistry.byId('carrera')!.levelsFor(band)) {
+              final ChoiceRound r = carrera.next(Rng(seed * 17 + level), band, level);
+              leer('${r.instruction} ${r.explain} ${r.hint}');
+            }
+            if (level <= GameRegistry.byId('tienda')!.levelsFor(band)) {
+              final ChoiceRound? r = tienda.next(Rng(seed * 19 + level), band, level).choice;
+              if (r != null) {
+                leer('${r.instruction} ${r.explain} ${r.hint}');
+              }
+            }
+          }
+        }
+      }
+      expect(pares.length, greaterThan(50));
+      for (final String par in pares) {
+        final List<int> ab = par.split('×').map(int.parse).toList();
+        expect(GateChallenge.valido(ab[0], ab[1]) || GateChallenge.valido(ab[1], ab[0]), isFalse, reason: 'la app entrena $par');
+        expect(GateChallenge.entrenado(ab[0], ab[1]), isTrue, reason: par);
+      }
     });
 
     test('M9: el contador de errores vuelve a cero tras 15 minutos sin errores', () {
@@ -93,24 +153,62 @@ void main() {
       final TextField campo = tester.widget<TextField>(find.byKey(const ValueKey<String>('puerta-respuesta')));
       expect(campo.contextMenuBuilder, isNull);
       expect(campo.enableInteractiveSelection, isFalse);
-      // Pedir otra operación no cuenta como error.
-      final String antes = tester.widgetList<Text>(find.byType(Text)).map((Text t) => t.data ?? '').firstWhere((String t) => t.startsWith('¿Cuánto es'));
+      // La puerta dice que se puede usar la calculadora.
+      expect(find.text(S.puertaCalculadora), findsOneWidget);
+      // Pedir otra operación cuenta como intento fallido y cambia la pregunta.
+      String pregunta() => tester.widget<Text>(find.byKey(const ValueKey<String>('puerta-pregunta'))).data!;
+      final String antes = pregunta();
       await tester.tap(find.byKey(const ValueKey<String>('puerta-otra')));
       await tester.pump();
-      expect(h.services.settings.gateFails, 0);
-      expect(find.textContaining('¿Cuánto es'), findsOneWidget);
-      expect(antes, startsWith('¿Cuánto es'));
-      for (int i = 0; i < 3; i++) {
-        await tester.enterText(find.byKey(const ValueKey<String>('puerta-respuesta')), '1');
-        await tester.tap(find.text(S.entrar));
-        await tester.pump();
-      }
+      expect(h.services.settings.gateFails, 1);
+      expect(pregunta(), isNot(antes));
+      await tester.tap(find.byKey(const ValueKey<String>('puerta-otra')));
+      await tester.pump();
+      expect(h.services.settings.gateFails, 2);
+      // El tercer intento fallido ya espera, sea una respuesta o «Otra operación».
+      await tester.enterText(find.byKey(const ValueKey<String>('puerta-respuesta')), '1');
+      await tester.tap(find.text(S.entrar));
+      await tester.pump();
       expect(find.textContaining('Demasiados intentos'), findsOneWidget);
       expect(h.services.settings.gateFails, 3);
       expect(h.services.settings.gateLastFail, isNotNull);
+      expect(find.byKey(const ValueKey<String>('puerta-otra')), findsNothing);
       // Se cierra el diálogo para no dejar el temporizador corriendo.
       await tester.tap(find.text(S.cancelar));
       await tester.pumpAndSettle();
+    });
+
+    testWidgets('M3: dos toques seguidos en «Entrar» cierran solo la puerta', (WidgetTester tester) async {
+      final GlobalKey<NavigatorState> nav = GlobalKey<NavigatorState>();
+      bool? resultado;
+      await tester.pumpWidget(h.app(const Scaffold(body: Text('inicio')), navigatorKey: nav));
+      nav.currentState!.push(MaterialPageRoute<void>(
+        builder: (BuildContext context) => Scaffold(
+          body: Center(child: TextButton(onPressed: () async => resultado = await showParentalGate(context), child: const Text('abrir'))),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      final String q = tester.widget<Text>(find.byKey(const ValueKey<String>('puerta-pregunta'))).data!;
+      int? respuesta;
+      for (final int a in GateChallenge.factores) {
+        for (final int b in GateChallenge.factores) {
+          if (q == '¿Cuánto es ${Es.numero(a)} por ${Es.numero(b)}?') {
+            respuesta = a * b;
+          }
+        }
+      }
+      expect(respuesta, isNotNull, reason: q);
+      await tester.enterText(find.byKey(const ValueKey<String>('puerta-respuesta')), '$respuesta');
+      final Finder entrar = find.text(S.entrar);
+      await tester.tap(entrar);
+      await tester.tap(entrar, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(resultado, isTrue);
+      // La pantalla que abrió la puerta sigue ahí (no hubo un segundo pop).
+      expect(find.text('abrir'), findsOneWidget);
+      expect(find.text('inicio'), findsNothing);
     });
   });
 
@@ -214,10 +312,13 @@ void main() {
       await tester.pumpWidget(h.app(const RestScreen()));
       await tester.pump();
       final SemanticsNode n = tester.getSemantics(find.byKey(const ValueKey<String>('descanso-cuenta')));
-      expect(n.label, S.quedanMinutos(10));
+      expect(n.label, S.quedanMinutos(570));
+      expect(n.label, 'Faltan diez minutos de descanso.');
       expect(n.label, isNot(contains(':')));
-      expect(S.quedanMinutos(10), 'Faltan diez minutos de descanso.');
-      expect(S.quedanMinutos(1), 'Falta menos de un minuto de descanso.');
+      expect(S.quedanMinutos(600), 'Faltan diez minutos de descanso.');
+      expect(S.quedanMinutos(61), 'Faltan dos minutos de descanso.');
+      expect(S.quedanMinutos(60), 'Falta un minuto de descanso.');
+      expect(S.quedanMinutos(59), 'Falta menos de un minuto de descanso.');
       await tester.pumpWidget(const SizedBox.shrink());
       sem.dispose();
     });

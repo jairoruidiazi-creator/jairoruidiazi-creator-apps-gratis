@@ -107,6 +107,29 @@ void main() {
     });
   });
 
+  test('M6: importar la sesión que sigue abierta no la duplica y se queda con la más larga', () {
+    final DateTime inicio = DateTime(2026, 10, 18, 9);
+    final ProfileProgress aqui = ProfileProgress(live: SessionLog(start: inicio, seconds: 600, rounds: 12, correct: 9));
+    // El archivo se exportó a los 4 minutos de esa misma sesión.
+    final ProfileProgress archivo = ProfileProgress(sessions: <SessionLog>[SessionLog(start: inicio, seconds: 240, rounds: 5, correct: 4)]);
+    aqui.mergeFrom(archivo);
+    expect(aqui.allSessions.length, 1);
+    expect(aqui.live!.seconds, 600);
+    expect(aqui.live!.rounds, 12);
+    // Y al revés: si lo importado es más largo, la sesión abierta lo toma.
+    final ProfileProgress corta = ProfileProgress(live: SessionLog(start: inicio, seconds: 100, rounds: 2, correct: 1));
+    corta.mergeFrom(ProfileProgress(sessions: <SessionLog>[SessionLog(start: inicio, seconds: 900, rounds: 20, correct: 15, gameRounds: <String, int>{'patrones': 20})]));
+    expect(corta.allSessions.length, 1);
+    expect(corta.live!.seconds, 900);
+    expect(corta.live!.correct, 15);
+    expect(corta.live!.gameRounds['patrones'], 20);
+    // Una sesión cerrada repetida se queda con la versión más larga.
+    final ProfileProgress cerradas = ProfileProgress(sessions: <SessionLog>[SessionLog(start: inicio, seconds: 240)]);
+    cerradas.addSession(SessionLog(start: inicio, seconds: 600));
+    cerradas.addSession(SessionLog(start: inicio, seconds: 300));
+    expect(cerradas.sessions.single.seconds, 600);
+  });
+
   group('G1: tiempo por sesión, solo en primer plano, con descanso que persiste', () {
     test('Solo cuenta el tiempo en primer plano y la sesión termina tras 10 minutos sin jugar', () async {
       final RelojFalso r = RelojFalso(DateTime(2026, 3, 2, 9));

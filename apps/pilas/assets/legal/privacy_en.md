@@ -35,7 +35,7 @@ The voice that reads instructions and stories is the device's system speech engi
 
 ## Sharing, exporting and importing
 
-Only an adult, after passing the parental gate (a question a child cannot answer), can share a drawing, a child's PDF report, a group's table or a copy of the app's data. This uses the system share sheet, and the adult chooses which app or person receives it. From then on, what was shared is subject to the terms of whoever receives it. The app deletes its own copy of exported files the next time it is opened.
+Only an adult, after passing the parental gate (a task meant for adults), can share a drawing, a child's PDF report, a group's table or a copy of the app's data. This uses the system share sheet, and the adult chooses which app or person receives it. From then on, what was shared is subject to the terms of whoever receives it. The app deletes its own copy of exported files the next time it is opened.
 
 Also behind the gate, an adult can import a copy of the data made on another device: they choose the file with the system file picker and the app reads it only on the device.
 

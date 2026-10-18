@@ -178,7 +178,7 @@ class PatronesGenerator implements ChoiceGenerator {
         final int inicio = rng.range(1, 4);
         serie = List<int>.generate(largo, (int i) => m * (inicio + i));
         siguiente = m * (inicio + largo);
-        regla = 'es la tabla del $m';
+        regla = 'son los números de la tabla del $m';
       }
     } else {
       // 9 a 11: dos reglas, cuadrados, alternancia.
@@ -198,7 +198,7 @@ class PatronesGenerator implements ChoiceGenerator {
         final int inicio = rng.range(1, 5);
         serie = List<int>.generate(largo, (int i) => (inicio + i) * (inicio + i));
         siguiente = (inicio + largo) * (inicio + largo);
-        regla = 'cada número es un cuadrado: 1×1, 2×2, 3×3...';
+        regla = 'cada número es otro multiplicado por sí mismo (1 × 1, 2 × 2, 3 × 3…)';
       } else if (tipo == 2) {
         // Suma más de lo que resta: la serie nunca baja de cero.
         final int a = rng.range(3, 6);
@@ -211,7 +211,7 @@ class PatronesGenerator implements ChoiceGenerator {
           serie.add(v);
         }
         siguiente = largo.isOdd ? v + a : v - b;
-        regla = 'alterna: suma $a y luego resta $b';
+        regla = 'suma $a y luego resta $b, una y otra vez';
       } else {
         final int f = rng.pick(<int>[3, 4, 5]);
         final int inicio = rng.range(1, 3);
@@ -242,8 +242,8 @@ class PatronesGenerator implements ChoiceGenerator {
       options: options,
       correctId: 'n$siguiente',
       hint: 'Mira cuánto cambia de un número al siguiente: $serieTexto.',
-      explain: 'La regla $regla. Después de ${serie.last} viene $siguiente.',
-      praise: 'La regla $regla.',
+      explain: 'La regla es: $regla. Después de ${serie.last} viene $siguiente.',
+      praise: 'La regla es: $regla.',
     );
   }
 

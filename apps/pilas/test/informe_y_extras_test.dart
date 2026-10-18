@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pilas/app.dart';
+import 'package:pilas/core/storage.dart';
 import 'package:pilas/core/strings.dart';
 import 'package:pilas/engine/game_def.dart';
 import 'package:pilas/engine/game_registry.dart';
@@ -81,6 +82,8 @@ void main() {
     final String csv = groupCsv(<ChildReport>[ChildReport(profile: p, progress: h.state.progressOf(p.id))]);
     expect(csv.startsWith('﻿'), isTrue, reason: 'sin BOM, Excel muestra mal las tildes');
     expect(csv.split('\r\n').first, contains('Niño;Edad;Tramo'));
+    // M11 (tercera ronda): la columna dice que es un conteo, no un porcentaje.
+    expect(csv.split('\r\n').first, contains('Rondas acertadas al primer intento'));
     expect(csv, contains('"Ana; María";'));
   });
 
@@ -93,6 +96,21 @@ void main() {
     expect(h.state.profiles, isEmpty);
   });
 
+  test('M7 (tercera ronda): el perfil borrado no queda en el respaldo ni vuelve al recuperarlo', () async {
+    await h.state.addProfile(nombre: 'Beto', avatar: '1f436', birthYear: 2019, birthMonth: 1);
+    final Profile p = await h.state.addProfile(nombre: 'Valentina', avatar: '1f431', birthYear: 2018, birthMonth: 1);
+    await h.state.deleteProfile(p.id);
+    final String ruta = await h.services.store.absolutePath('profiles.json');
+    final File bak = File('$ruta.bak');
+    expect(bak.existsSync(), isTrue);
+    expect(bak.readAsStringSync(), isNot(contains('Valentina')));
+    // Si el archivo principal se daña, la recuperación no resucita el perfil.
+    File(ruta).writeAsStringSync('{dañado');
+    final JsonRead leido = await h.services.store.readJsonSafe('profiles.json');
+    expect(leido.data.toString(), isNot(contains('Valentina')));
+    expect(leido.data.toString(), contains('Beto'));
+  });
+
   test('G18: la carrera guarda la marca propia y solo la cambia si se supera', () async {
     final Profile p = await h.state.addProfile(nombre: 'Ana', avatar: '1f431', birthYear: 2018, birthMonth: 1);
     await h.state.selectProfile(p);
@@ -101,6 +119,11 @@ void main() {
     expect(h.state.recordOf('carrera|7-8'), 7);
     expect(await h.state.saveRecord('carrera|7-8', 9), isTrue);
     expect(h.state.recordOf('carrera|7-8'), 9);
+    // M2 (tercera ronda): una primera carrera sin aciertos se guarda, pero
+    // no se celebra como «¡Nueva marca!».
+    expect(await h.state.saveRecord('carrera|9-11', 0), isFalse);
+    expect(h.state.recordOf('carrera|9-11'), 0);
+    expect(await h.state.saveRecord('carrera|9-11', 1), isTrue);
     await h.state.pauseClock();
   });
 

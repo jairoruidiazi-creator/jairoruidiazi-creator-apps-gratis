@@ -239,6 +239,7 @@ class Vocab {
 
     // Ropa y calzado
     VocabItem('camiseta', 'camiseta', 'f', <String>['ca', 'mi', 'se', 'ta'], '1f455', <String>['ropa', 'uso:calor']),
+    VocabItem('uniforme', 'uniforme', 'm', <String>['u', 'ni', 'for', 'me'], '1f94b', <String>['ropa']),
     VocabItem('pantalon', 'pantalón', 'm', <String>['pan', 'ta', 'lón'], '1f456', <String>['ropa']),
     VocabItem('vestido', 'vestido', 'm', <String>['ves', 'ti', 'do'], '1f457', <String>['ropa']),
     VocabItem('zapato', 'zapato', 'm', <String>['za', 'pa', 'to'], '1f45e', <String>['ropa']),
@@ -255,6 +256,8 @@ class Vocab {
     // Cuerpo
     VocabItem('oreja', 'oreja', 'f', <String>['o', 're', 'ja'], '1f442', <String>['cuerpo']),
     VocabItem('nariz', 'nariz', 'f', <String>['na', 'riz'], '1f443', <String>['cuerpo']),
+    // El dibujo muestra varias uñas pintadas: la palabra va en plural.
+    VocabItem('unas', 'uñas', 'f', <String>['u', 'ñas'], '1f485', <String>['cuerpo'], plural: true),
     VocabItem('ojo', 'ojo', 'm', <String>['o', 'jo'], '1f441', <String>['cuerpo']),
     VocabItem('boca', 'boca', 'f', <String>['bo', 'ca'], '1f444', <String>['cuerpo']),
     VocabItem('lengua', 'lengua', 'f', <String>['len', 'gua'], '1f445', <String>['cuerpo']),
@@ -346,7 +349,6 @@ class Vocab {
     VocabItem('volcan', 'volcán', 'm', <String>['vol', 'cán'], '1f30b', <String>['naturaleza', 'lugar']),
     VocabItem('isla', 'isla', 'f', <String>['is', 'la'], '1f3dd', <String>['naturaleza', 'lugar']),
     VocabItem('tierra', 'planeta Tierra', 'm', <String>['pla', 'ne', 'ta', 'tie', 'rra'], '1f30d', <String>['naturaleza']),
-    VocabItem('semilla', 'semilla', 'f', <String>['se', 'mi', 'lla'], '1f330', <String>['naturaleza']),
   ];
 
   /// Pictogramas que muestran exactamente un objeto entero, revisados uno

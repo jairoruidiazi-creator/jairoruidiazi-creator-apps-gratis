@@ -30,6 +30,19 @@ class SonidosGenerator implements ChoiceGenerator {
     'b': 'barco', 'k': 'casa', 'd': 'dado', 'g': 'gato', 'x': 'jirafa', 'r': 'raton', 'f': 'fresa', 'ch': 'chocolate', 'y': 'llave',
   };
 
+  /// Más palabras modelo para los sonidos que tienen pocas palabras en el
+  /// vocabulario: con la u, el modelo cambia entre uvas, uñas, unicornio y
+  /// uniforme, y la respuesta correcta no es siempre la misma.
+  static const Map<String, List<String>> otrosModelos = <String, List<String>>{
+    'u': <String>['unas', 'unicornio', 'uniforme'],
+  };
+
+  /// La palabra modelo de una ronda.
+  static VocabItem modeloDe(Rng rng, String f) {
+    final List<String> ids = <String>[modelo[f]!, ...?otrosModelos[f]];
+    return Vocab.item(ids.length == 1 ? ids.first : rng.pick(ids));
+  }
+
   /// Letras de las rondas de escritura: al principio de palabra suenan siempre
   /// igual (la a de "avión", la eme de "mango"...).
   static const List<String> letrasClaras = <String>['a', 'e', 'i', 'o', 'u', 'm', 'p', 't', 'n', 'l', 'f', 'd'];
@@ -107,7 +120,7 @@ class SonidosGenerator implements ChoiceGenerator {
 
   /// "¿Cuál empieza con el mismo sonido que oso?"
   ChoiceRound sonido(Rng rng, String f, int count, {required Distractores distractores}) {
-    final VocabItem modeloItem = Vocab.item(modelo[f]!);
+    final VocabItem modeloItem = modeloDe(rng, f);
     final List<VocabItem> correctas = palabras.where((VocabItem v) => v.id != modeloItem.id && sonidoDe(v) == f).toList();
     final List<VocabItem> otras = palabras.where((VocabItem v) {
       final String g = sonidoDe(v);
@@ -153,7 +166,7 @@ class SonidosGenerator implements ChoiceGenerator {
 
   /// "¿Cuál palabra empieza con esta letra?" con la letra escrita.
   ChoiceRound letra(Rng rng, String l, int count) {
-    final VocabItem modeloItem = Vocab.item(modelo[l]!);
+    final VocabItem modeloItem = modeloDe(rng, l);
     final List<VocabItem> correctas = palabras.where((VocabItem v) => v.id != modeloItem.id && primeraLetra(v) == l && sonidoDe(v) == l).toList();
     final List<VocabItem> otras = palabras.where((VocabItem v) {
       final String g = sonidoDe(v);

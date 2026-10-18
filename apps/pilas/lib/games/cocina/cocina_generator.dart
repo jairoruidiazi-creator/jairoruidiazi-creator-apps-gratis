@@ -38,10 +38,10 @@ class CocinaGenerator implements ChoiceGenerator {
   };
 
   static const List<Ingrediente> ingredientes = <Ingrediente>[
-    Ingrediente('taza de harina', 'tazas de harina', 'f', '1f33e'),
+    Ingrediente('banano', 'bananos', 'm', '1f34c'),
     Ingrediente('huevo', 'huevos', 'm', '1f95a'),
     Ingrediente('cucharada de azúcar', 'cucharadas de azúcar', 'f', '1f944'),
-    Ingrediente('taza de leche', 'tazas de leche', 'f', '1f95b'),
+    Ingrediente('vaso de leche', 'vasos de leche', 'm', '1f95b'),
   ];
 
   @override

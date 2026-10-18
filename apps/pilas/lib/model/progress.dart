@@ -182,9 +182,15 @@ class ProfileProgress {
     return total;
   }
 
-  /// Agrega una sesión cerrada (si no estaba ya) y recorta las más viejas.
+  /// Agrega una sesión cerrada y recorta las más viejas. Si ya estaba (la
+  /// misma hora de inicio), se queda la versión con más segundos: una sesión
+  /// importada a medias no reemplaza a la completa, y al revés.
   void addSession(SessionLog s) {
-    if (sessions.any((SessionLog x) => x.start == s.start)) {
+    final int i = sessions.indexWhere((SessionLog x) => x.start == s.start);
+    if (i >= 0) {
+      if (s.seconds > sessions[i].seconds) {
+        sessions[i] = s;
+      }
       return;
     }
     sessions.add(s);
@@ -192,6 +198,26 @@ class ProfileProgress {
     while (sessions.length > maxSessions) {
       sessions.removeAt(0);
     }
+  }
+
+  /// Junta en la sesión abierta [a] lo de otra copia [b] de la misma sesión,
+  /// quedándose con lo mayor de cada dato.
+  static void _absorber(SessionLog a, SessionLog b) {
+    if (b.rounds > a.rounds) {
+      a.rounds = b.rounds;
+      a.correct = b.correct;
+    }
+    if (b.seconds > a.seconds) {
+      a.seconds = b.seconds;
+    }
+    if (b.extraSeconds > a.extraSeconds) {
+      a.extraSeconds = b.extraSeconds;
+    }
+    b.gameRounds.forEach((String k, int v) {
+      if (v > (a.gameRounds[k] ?? 0)) {
+        a.gameRounds[k] = v;
+      }
+    });
   }
 
   /// Une el progreso importado de otra tableta con este sin inflarlo. El
@@ -236,6 +262,13 @@ class ProfileProgress {
       }
     }
     for (final SessionLog s in other.allSessions) {
+      final SessionLog? abierta = live;
+      if (abierta != null && abierta.start == s.start) {
+        // La sesión que sigue abierta aquí se exportó a medias: no se duplica;
+        // se queda con lo más largo de las dos.
+        _absorber(abierta, s);
+        continue;
+      }
       addSession(s.copy());
     }
     other.records.forEach((String k, int v) {

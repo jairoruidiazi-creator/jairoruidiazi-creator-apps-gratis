@@ -133,6 +133,14 @@ List<String> problemas(String texto, {bool frase = true}) {
       out.add('plural después de 1: «${m.group(0)!.trim()}»');
     }
   }
+  // El signo × va con espacios ("1 × 1"): así se ve claro y la voz dice "por".
+  no(RegExp(r'\d[×x]\d|\d×|×\d'), 'el signo × va con un espacio a cada lado', tal: true);
+  // Plantillas rotas: "La regla cada número…" (falta "es:" o un verbo).
+  for (final Match m in RegExp(r'\bla regla ([a-záéíóúñ]+)').allMatches(t)) {
+    if (!<String>{'es', 'de', 'del', 'que', 'era', 'fue', 'para', 'dice', 'se'}.contains(m.group(1))) {
+      out.add('plantilla rota: «${m.group(0)}»');
+    }
+  }
   // Tildes de los números.
   no(RegExp(r'\b(veintidos|veintitres|veintiseis|dieciseis)\b'), 'número sin tilde');
   // Género de las figuras.
@@ -270,6 +278,11 @@ void main() {
     expect(problemas('La gato duerme.'), isNotEmpty);
     expect(problemas('Lleva al águila hasta su nido.'), isEmpty);
     expect(problemas('Subimos a la alta montaña.'), isEmpty);
+    // Tercera ronda: el × sin espacios y las plantillas rotas.
+    expect(problemas('La regla cada número es un cuadrado: 1×1, 2×2, 3×3...'), isNotEmpty);
+    expect(problemas('Es 3x4.'), isNotEmpty);
+    expect(problemas('La regla es: cada número es otro multiplicado por sí mismo (1 × 1, 2 × 2, 3 × 3…).'), isEmpty);
+    expect(problemas('La regla es: suma 3 cada vez.'), isEmpty);
     // Concordancia con sujetos compuestos.
     expect(problemas('El camarón, el delfín y la tortuga viven en el mar.'), isEmpty);
     expect(problemas('La tortuga viven en el mar.'), isNotEmpty);
@@ -387,8 +400,9 @@ void main() {
       S.acertasteDe(7, 10),
       S.acertasteDe(10, 10),
       S.letraLectoresDetalle,
-      S.quedanMinutos(1),
-      S.quedanMinutos(7),
+      S.quedanMinutos(30),
+      S.quedanMinutos(60),
+      S.quedanMinutos(400),
     ]) {
       revisar(s, 'texto fijo');
     }

@@ -117,7 +117,7 @@ class _RestScreenState extends State<RestScreen> {
                       Semantics(
                         key: const ValueKey<String>('descanso-cuenta'),
                         liveRegion: true,
-                        label: S.quedanMinutos((secs + 59) ~/ 60),
+                        label: S.quedanMinutos(secs),
                         excludeSemantics: true,
                         child: Text(S.quedan(secs ~/ 60, secs % 60), style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: pal.tinta)),
                       ),

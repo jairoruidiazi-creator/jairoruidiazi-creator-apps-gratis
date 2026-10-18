@@ -35,7 +35,7 @@ La voz que lee las instrucciones y los cuentos es el motor de voz del sistema de
 
 ## Compartir, exportar e importar
 
-Solo un adulto, después de pasar la puerta para adultos (una pregunta que un niño no puede responder), puede compartir un dibujo, el informe en PDF de un niño, la tabla de un grupo o una copia de los datos de la app. Para hacerlo se usa la hoja de compartir del sistema, y el adulto elige a qué app o persona enviarlo. Desde ese momento, lo compartido queda sujeto a las condiciones de quien lo recibe. La app borra su propio ejemplar de los archivos exportados la siguiente vez que se abre.
+Solo un adulto, después de pasar la puerta para adultos (una tarea pensada para adultos), puede compartir un dibujo, el informe en PDF de un niño, la tabla de un grupo o una copia de los datos de la app. Para hacerlo se usa la hoja de compartir del sistema, y el adulto elige a qué app o persona enviarlo. Desde ese momento, lo compartido queda sujeto a las condiciones de quien lo recibe. La app borra su propio ejemplar de los archivos exportados la siguiente vez que se abre.
 
 También detrás de la puerta, un adulto puede importar una copia de los datos hecha en otro dispositivo: elige el archivo con el selector del sistema y la app lo lee solo en el dispositivo.
 
