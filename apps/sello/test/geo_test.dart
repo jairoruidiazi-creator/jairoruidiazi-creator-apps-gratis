@@ -1,5 +1,7 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sello/geo/coords.dart';
+import 'package:sello/geo/device_orientation.dart';
 import 'package:sello/geo/geoid.dart';
 import 'package:sello/geo/heading.dart';
 import 'package:sello/geo/location_service.dart';
@@ -46,6 +48,15 @@ void main() {
       expect(Coords.plusCode(51.5074, -0.1278), '9C3XGV4C+XV');
       expect(Coords.plusCode(-33.8688, 151.2093, length: 11), '4RRH46J5+FPM');
       expect(Coords.plusCode(12.4583, -71.6667, length: 11), '774CF85M+88F');
+    });
+
+    test('Plus Codes en los bordes de celda: se trunca como la referencia (M7)', () {
+      // Puntos donde redondear al entero (lo que hacía la app) daba otro
+      // código que la implementación de referencia de Open Location Code.
+      expect(Coords.plusCode(4.180243, -70.6772813, length: 11), '67PF58JF+33W');
+      expect(Coords.plusCode(-4.0765277, -76.6201563, length: 11), '6775W9FH+9WP');
+      expect(Coords.plusCode(6.7552592, -77.7527813, length: 11), '67R4Q64W+4V4');
+      expect(Coords.plusCode(7.8392377, -79.6445313, length: 11), '67V2R9Q4+M5W');
     });
 
     test('Origen Nacional (CTM12) y zonas MAGNA-SIRGAS coinciden con PROJ al milímetro', () {
@@ -138,19 +149,20 @@ void main() {
       expect(Geoid.toEllipsoid(2600.18, 4.711, -74.0721), closeTo(2622.0, 0.02));
     });
 
-    test('La ubicación completa las dos alturas según la plataforma', () {
-      final LocationService android = LocationService(systemAltitudeIsMsl: false);
-      android.lockManual(4.711, -74.0721);
-      expect(android.fix!.altitudeEllipsoid, 0);
-      expect(android.fix!.altitudeMsl, closeTo(-21.82, 0.02));
-      expect(android.fix!.altitudeFor('msl'), closeTo(-21.82, 0.02));
-      expect(android.fix!.altitudeFor('ellipsoid'), 0);
-      final LocationService ios = LocationService(systemAltitudeIsMsl: true);
-      ios.lockManual(4.711, -74.0721);
-      expect(ios.fix!.altitudeMsl, 0);
-      expect(ios.fix!.altitudeEllipsoid, closeTo(21.82, 0.02));
-      android.dispose();
-      ios.dispose();
+    test('La posición manual no inventa altitud ni precisión (G2)', () {
+      for (final bool msl in <bool>[false, true]) {
+        final LocationService loc = LocationService(systemAltitudeIsMsl: msl);
+        loc.lockManual(4.711, -74.0721);
+        final Fix f = loc.fix!;
+        expect(f.manual, isTrue);
+        expect(f.accuracy, isNull);
+        expect(f.altitudeMsl, isNull);
+        expect(f.altitudeEllipsoid, isNull);
+        expect(f.hasAltitude, isFalse);
+        expect(f.altitudeFor('msl'), isNull);
+        expect(f.altitudeFor('ellipsoid'), isNull);
+        loc.dispose();
+      }
     });
   });
 
@@ -228,6 +240,117 @@ void main() {
       expect(HeadingService.compute(<double>[0, 0, 0], <double>[0, -30, -20]), isNull);
       expect(HeadingService.compute(<double>[0, 9.81, 0], <double>[0, 0, 0]), isNull);
     });
+
+    test('Sin declinación conocida el rumbo queda marcado como magnético (M1)', () {
+      final Orientation3 o = HeadingService.compute(<double>[0, 9.81, 0], <double>[0, -30, -20], trueNorth: false)!;
+      expect(o.trueNorth, isFalse);
+      final HeadingService h = HeadingService(useSystemHeading: false);
+      expect(h.declinationKnown, isFalse);
+      h.setDeclination(-8.6, known: true);
+      expect(h.declinationKnown, isTrue);
+      expect(h.declination, -8.6);
+      h.dispose();
+    });
+
+    test('Cámara frontal: rumbo opuesto e inclinación invertida (M3)', () {
+      final Orientation3 back = HeadingService.compute(<double>[0, 9.81, 0], <double>[-20, -30, 0])!;
+      final Orientation3 front = back.forFrontCamera();
+      expect(back.cameraHeading, closeTo(90, 0.01));
+      expect(front.cameraHeading, closeTo(270, 0.01));
+      expect(front.pitch, closeTo(-back.pitch, 1e-9));
+      // Plano sobre la mesa manda el borde superior: no cambia.
+      final Orientation3 flat = HeadingService.compute(<double>[0, 0, 9.81], <double>[0, 20, -30])!;
+      expect(flat.forFrontCamera().cameraHeading, flat.cameraHeading);
+    });
+  });
+
+  group('Rumbo del sistema en iPhone (G5)', () {
+    test('Lee el evento del canal propio', () {
+      final SystemHeading h = SystemHeading.fromMap(<String, Object>{'camera': 91.5, 'top': 12.0, 'declination': -8.4, 'accuracy': 7.0, 'calibration': 2})!;
+      expect(h.cameraMagnetic, 91.5);
+      expect(h.topMagnetic, 12.0);
+      expect(h.declination, -8.4);
+      expect(h.accuracy, 7.0);
+      expect(h.calibration, 2);
+      // Sin norte verdadero ni precisión (el sistema aún no los tiene).
+      final SystemHeading bare = SystemHeading.fromMap(<String, Object>{'camera': 10, 'top': 20, 'accuracy': -1})!;
+      expect(bare.declination, isNull);
+      expect(bare.accuracy, isNull);
+      expect(SystemHeading.fromMap(<String, Object>{'top': 20}), isNull);
+      expect(SystemHeading.fromMap('x'), isNull);
+    });
+
+    test('Vertical usa el eje de la cámara; plano, el borde superior', () {
+      const SystemHeading h = SystemHeading(cameraMagnetic: 100, topMagnetic: 40, declination: -8, accuracy: 5);
+      final Orientation3 upright = HeadingService.fromSystemHeading(<double>[0, 9.81, 0], h)!;
+      expect(upright.flat, isFalse);
+      expect(upright.cameraHeading, closeTo(92, 1e-9));
+      expect(upright.deviceHeading, closeTo(32, 1e-9));
+      expect(upright.trueNorth, isTrue);
+      expect(upright.accuracy, 5);
+      final Orientation3 flat = HeadingService.fromSystemHeading(<double>[0, 0, 9.81], h)!;
+      expect(flat.flat, isTrue);
+      expect(flat.cameraHeading, closeTo(32, 1e-9));
+    });
+
+    test('Declinación: la del sistema, la conocida o ninguna (magnético)', () {
+      const SystemHeading noTrue = SystemHeading(cameraMagnetic: 5, topMagnetic: 5);
+      final Orientation3 magnetic = HeadingService.fromSystemHeading(<double>[0, 9.81, 0], noTrue)!;
+      expect(magnetic.trueNorth, isFalse);
+      expect(magnetic.cameraHeading, closeTo(5, 1e-9));
+      final Orientation3 wmm = HeadingService.fromSystemHeading(<double>[0, 9.81, 0], noTrue, declination: -8.6, declinationKnown: true)!;
+      expect(wmm.trueNorth, isTrue);
+      expect(wmm.cameraHeading, closeTo(356.4, 1e-9));
+      // En modo manual se usa la declinación elegida aunque el sistema tenga la suya.
+      const SystemHeading withTrue = SystemHeading(cameraMagnetic: 5, topMagnetic: 5, declination: -8);
+      final Orientation3 manual = HeadingService.fromSystemHeading(<double>[0, 9.81, 0], withTrue, declination: -2, declinationKnown: true, useSystemTrueNorth: false)!;
+      expect(manual.cameraHeading, closeTo(3, 1e-9));
+    });
+
+    test('El servicio usa el canal del sistema y no el magnetómetro', () async {
+      final List<List<double>> acc = <List<double>>[<double>[0, 9.81, 0]];
+      final HeadingService h = HeadingService(
+        useSystemHeading: true,
+        accelerometer: () => Stream<List<double>>.fromIterable(acc),
+        magnetometer: () => throw StateError('no debe usarse'),
+        systemHeading: () => Stream<SystemHeading>.value(const SystemHeading(cameraMagnetic: 200, topMagnetic: 10, declination: -9)),
+      );
+      h.start();
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+      expect(h.orientation, isNotNull);
+      expect(h.orientation!.cameraHeading, closeTo(191, 1e-9));
+      expect(h.usingSystemDeclination, isTrue);
+      await h.stop();
+      h.dispose();
+    });
+  });
+
+  group('Orientación física del teléfono (B2)', () {
+    test('Sale de la gravedad, con histéresis y sin cambiar cuando está plano', () {
+      const DeviceOrientation up = DeviceOrientation.portraitUp;
+      expect(orientationFromGravity(0, 9.81, 0, up), DeviceOrientation.portraitUp);
+      // Borde superior a la izquierda: la gravedad (medida hacia arriba) va por +x.
+      expect(orientationFromGravity(9.81, 0, 0, up), DeviceOrientation.landscapeLeft);
+      expect(orientationFromGravity(-9.81, 0, 0, up), DeviceOrientation.landscapeRight);
+      expect(orientationFromGravity(0, -9.81, 0, up), DeviceOrientation.portraitDown);
+      // 50° de giro: todavía no cambia (45° + 10° de histéresis).
+      expect(orientationFromGravity(9.81 * 0.766, 9.81 * 0.643, 0, up), DeviceOrientation.portraitUp);
+      expect(orientationFromGravity(9.81 * 0.866, 9.81 * 0.5, 0, up), DeviceOrientation.landscapeLeft);
+      // Volviendo desde horizontal, a 50° sigue horizontal.
+      expect(orientationFromGravity(9.81 * 0.643, 9.81 * 0.766, 0, DeviceOrientation.landscapeLeft), DeviceOrientation.landscapeLeft);
+      // Plano: se conserva la anterior.
+      expect(orientationFromGravity(0.5, 0.2, 9.8, DeviceOrientation.landscapeRight), DeviceOrientation.landscapeRight);
+    });
+
+    test('Giro del sello respecto a la interfaz', () {
+      expect(quarterTurnsBetween(DeviceOrientation.portraitUp, DeviceOrientation.portraitUp), 0);
+      expect(quarterTurnsBetween(DeviceOrientation.portraitUp, DeviceOrientation.landscapeLeft), 1);
+      expect(quarterTurnsBetween(DeviceOrientation.portraitUp, DeviceOrientation.landscapeRight), 3);
+      expect(quarterTurnsBetween(DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeLeft), 0);
+      expect(isLandscapeOrientation(DeviceOrientation.landscapeRight), isTrue);
+      expect(isLandscapeOrientation(DeviceOrientation.portraitDown), isFalse);
+    });
   });
 
   group('Datos del sello', () {
@@ -273,6 +396,40 @@ void main() {
       expect(data.summary(tpl), contains(' | '));
     });
 
+    test('Posición manual, fijada, vieja y rumbo magnético se dicen en el sello (G2, M1, M13)', () {
+      final StampTemplate t = StampTemplate.defaultTemplate()..items.addAll(<StampItem>{StampItem.facade, StampItem.speed});
+      final StampData manual = StampData(time: DateTime(2026, 3, 9), latitude: 4.711, longitude: -74.0721, altitude: 2600, accuracy: 3, manual: true, heading: 10, headingTrue: false, speed: 3);
+      final List<String> m = manual.lines(t).map((StampLine l) => l.text).toList();
+      expect(m, contains('GPS: 4.711000, -74.072100 (posición manual)'));
+      expect(m.any((String l) => l.startsWith('Alt.')), isFalse);
+      expect(m.any((String l) => l.startsWith('Precisión')), isFalse);
+      expect(m.any((String l) => l.startsWith('Velocidad')), isFalse);
+      expect(m, contains('Rumbo: 10° N (magnético)'));
+      expect(m, contains('Fachada: sur (magnética)'));
+      final StampData stale = StampData(time: DateTime(2026, 3, 9), latitude: 4.711, longitude: -74.0721, fixAgeSeconds: 125);
+      expect(stale.lines(t).map((StampLine l) => l.text), contains('GPS: 4.711000, -74.072100 (lectura de hace 2 min)'));
+      final StampData locked = StampData(time: DateTime(2026, 3, 9), latitude: 4.711, longitude: -74.0721, locked: true, fixAgeSeconds: 600);
+      expect(locked.lines(t).map((StampLine l) => l.text), contains('GPS: 4.711000, -74.072100 (fija)'));
+    });
+
+    test('CTM12 y MAGNA fuera de Colombia salen como grados con rótulo GPS (M14)', () {
+      final StampTemplate t = StampTemplate(id: 'x', name: 'x', coordFormat: CoordFormat.ctm12, coordFormat2: CoordFormat.magna, items: <StampItem>{StampItem.coords, StampItem.coords2});
+      final StampData lima = StampData(time: DateTime(2026, 3, 9), latitude: -12.0464, longitude: -77.0428);
+      final List<String> lines = lima.lines(t).map((StampLine l) => l.text).toList();
+      expect(lines.first, 'GPS: -12.046400, -77.042800');
+      expect(lines.any((String l) => l.contains('CTM12') || l.contains('MAGNA')), isFalse);
+      final StampData bogota = StampData(time: DateTime(2026, 3, 9), latitude: 4.711, longitude: -74.0721);
+      expect(bogota.lines(t).first, startsWith('CTM12: '));
+    });
+
+    test('Los campos sin rótulo conocido no se escriben con la clave interna (G8)', () {
+      final StampTemplate t = StampTemplate.defaultTemplate()..items.add(StampItem.fields);
+      final StampData d = StampData(time: DateTime(2026, 3, 9), fields: <String, String>{'mgx3k0001a': '12', 'k2': 'J. Díaz'}, fieldLabels: <String, String>{'k2': 'Inspector'});
+      final List<String> lines = d.lines(t).map((StampLine l) => l.text).toList();
+      expect(lines, contains('Inspector: J. Díaz'));
+      expect(lines.any((String l) => l.contains('mgx3k0001a')), isFalse);
+    });
+
     test('Sin GPS se avisa y en inglés cambian los rótulos', () {
       final StampData sinGps = StampData(time: DateTime(2026, 3, 9), spanish: false, projectName: 'Site');
       final List<String> lines = sinGps.lines(StampTemplate.defaultTemplate()).map((StampLine l) => l.text).toList();
@@ -308,13 +465,56 @@ void main() {
       expect(pb.fields.single.defaultValue, '1');
       expect(pb.templateId, 't1');
       expect(pb.emoji, '🏗️');
-      final PhotoRecord r = PhotoRecord(id: 'r', projectId: 'p1', originalFile: 'a-orig.jpg', stampedFile: 'a.jpg', takenAt: DateTime(2026, 1, 2, 3, 4, 5), latitude: 4.7, longitude: -74.1, tags: <String>['muro'], fields: <String, String>{'lote': '12'});
+      final PhotoRecord r = PhotoRecord(
+        id: 'r',
+        projectId: 'p1',
+        originalFile: 'a-orig.jpg',
+        stampedFile: 'a.jpg',
+        takenAt: DateTime.utc(2026, 1, 2, 8, 4, 5),
+        utcOffsetMinutes: -300,
+        latitude: 4.7,
+        longitude: -74.1,
+        tags: <String>['muro'],
+        fields: <String, String>{'lote': '12'},
+        fieldLabels: <String, String>{'lote': 'Lote'},
+        altitudeMsl: 2600,
+        headingTrue: false,
+        positionSource: PositionSource.averaged,
+        averagedSamples: 18,
+        status: PhotoStatus.pending,
+        templateId: 't1',
+        frontCamera: true,
+      );
       final PhotoRecord rb = PhotoRecord.fromJson(r.toJson());
-      expect(rb.takenAt, DateTime(2026, 1, 2, 3, 4, 5));
+      expect(rb.takenAt, DateTime.utc(2026, 1, 2, 8, 4, 5));
+      expect(rb.takenAt.isUtc, isTrue);
+      expect(rb.utcOffsetMinutes, -300);
+      expect(formatDate(rb.wallTime, 'dd/MM/yyyy HH:mm'), '02/01/2026 03:04');
+      expect(rb.offsetLabel, 'UTC−05:00');
       expect(rb.latitude, 4.7);
       expect(rb.tags, <String>['muro']);
       expect(rb.fields['lote'], '12');
+      expect(rb.labelFor('lote'), 'Lote');
+      expect(rb.altitudeMsl, 2600);
+      expect(rb.headingTrue, isFalse);
+      expect(rb.positionSource, PositionSource.averaged);
+      expect(rb.averagedSamples, 18);
+      expect(rb.status, PhotoStatus.pending);
+      expect(rb.templateId, 't1');
+      expect(rb.frontCamera, isTrue);
       expect(rb.hasLocation, isTrue);
+    });
+
+    test('La hora de la foto no cambia si el teléfono cambia de zona horaria (M9)', () {
+      // Tomada en Bogotá (UTC−5) a las 14:05; se lee igual desde cualquier zona.
+      final PhotoRecord r = PhotoRecord(id: 'z', projectId: 'p', originalFile: 'o', stampedFile: 's', takenAt: DateTime.utc(2026, 3, 9, 19, 5), utcOffsetMinutes: -300);
+      final PhotoRecord back = PhotoRecord.fromJson(r.toJson());
+      expect(formatDate(back.wallTime, 'HH:mm'), '14:05');
+      expect(exifUtcOffset(back.utcOffsetMinutes), '-05:00');
+      expect(formatUtcOffset(330), 'UTC+05:30');
+      // Fichas viejas (sin desfase guardado) se leen con el desfase local.
+      final Map<String, dynamic> legacy = r.toJson()..remove('utcOffset');
+      expect(PhotoRecord.fromJson(legacy).takenAt, r.takenAt);
     });
 
     test('Formato de fecha y desfase horario', () {

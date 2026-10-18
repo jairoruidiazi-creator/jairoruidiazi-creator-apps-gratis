@@ -5,11 +5,13 @@ import '../model/models.dart';
 class StampData {
   const StampData({
     required this.time,
+    this.utcOffsetMinutes,
     this.latitude,
     this.longitude,
     this.accuracy,
     this.altitude,
     this.heading,
+    this.headingTrue = true,
     this.pitch,
     this.speed,
     this.address = '',
@@ -19,16 +21,60 @@ class StampData {
     this.notes = '',
     this.spanish = true,
     this.locked = false,
+    this.manual = false,
     this.averaged = 0,
+    this.fixAgeSeconds = 0,
     this.altitudeIsMsl = true,
   });
 
+  /// Datos del sello de una foto guardada (para sellarla o volver a sellarla).
+  factory StampData.fromRecord(PhotoRecord p, {Project? project, required bool spanish}) {
+    final Map<String, String> labels = <String, String>{};
+    for (final String key in p.fields.keys) {
+      final String? label = p.labelFor(key, project);
+      if (label != null) {
+        labels[key] = label;
+      }
+    }
+    return StampData(
+      time: p.takenAt,
+      utcOffsetMinutes: p.utcOffsetMinutes,
+      latitude: p.latitude,
+      longitude: p.longitude,
+      accuracy: p.accuracy,
+      altitude: p.altitude,
+      altitudeIsMsl: p.altitudeReference != 'ellipsoid',
+      heading: p.heading,
+      headingTrue: p.headingTrue,
+      pitch: p.pitch,
+      speed: p.speed,
+      address: p.address,
+      projectName: project?.name ?? '',
+      fields: Map<String, String>.from(p.fields),
+      fieldLabels: labels,
+      notes: p.notes,
+      spanish: spanish,
+      locked: p.positionSource == PositionSource.locked || p.positionSource == PositionSource.averaged,
+      manual: p.positionSource == PositionSource.manual,
+      averaged: p.averagedSamples,
+      fixAgeSeconds: p.fixAgeSeconds,
+    );
+  }
+
+  /// Instante de la foto. Con [utcOffsetMinutes] se muestra en esa zona
+  /// horaria; sin él, en la de [time].
   final DateTime time;
+  final int? utcOffsetMinutes;
   final double? latitude;
   final double? longitude;
+
+  /// Radio de error horizontal (m); null si no se midió (posición manual).
   final double? accuracy;
   final double? altitude;
   final double? heading;
+
+  /// Falso si el rumbo es magnético (sin declinación conocida).
+  final bool headingTrue;
   final double? pitch;
   final double? speed;
   final String address;
@@ -37,64 +83,85 @@ class StampData {
   final Map<String, String> fieldLabels;
   final String notes;
   final bool spanish;
+
+  /// Posición fijada (bloqueada o promediada).
   final bool locked;
+
+  /// Coordenadas escritas a mano.
+  final bool manual;
   final int averaged;
+
+  /// Antigüedad de la lectura del GPS al tomar la foto (segundos).
+  final int fixAgeSeconds;
 
   /// Verdadero si [altitude] es sobre el nivel del mar; falso si es elipsoidal.
   final bool altitudeIsMsl;
 
   bool get hasLocation => latitude != null && longitude != null;
 
+  /// Hora local de la foto (para formatear).
+  DateTime get wall => utcOffsetMinutes == null ? time : wallClock(time, utcOffsetMinutes!);
+
+  String get offsetLabel => utcOffsetMinutes == null ? utcOffsetLabel(time) : formatUtcOffset(utcOffsetMinutes!);
+
+  /// La lectura del GPS era vieja (más de 30 s) y no estaba fijada a propósito.
+  bool get staleFix => !locked && !manual && fixAgeSeconds > 30;
+
   /// Líneas de texto del sello según la plantilla, en orden.
   List<StampLine> lines(StampTemplate t) {
     final List<StampLine> out = <StampLine>[];
     String label(String es, String en) => t.showLabels ? '${spanish ? es : en}: ' : '';
+    final bool colombia = hasLocation && Coords.inColombia(latitude!, longitude!);
     for (final StampItem item in StampItem.values) {
       if (!t.items.contains(item)) {
         continue;
       }
       switch (item) {
         case StampItem.dateTime:
-          out.add(StampLine(item, '${formatDate(time, t.dateFormat, spanish: spanish)} ${utcOffsetLabel(time)}', strong: true));
+          out.add(StampLine(item, '${formatDate(wall, t.dateFormat, spanish: spanish)} $offsetLabel', strong: true));
           break;
         case StampItem.utc:
           out.add(StampLine(item, '${label('UTC', 'UTC')}${formatDate(time.toUtc(), 'yyyy-MM-dd HH:mm:ss')}Z'));
           break;
         case StampItem.coords:
           if (hasLocation) {
-            out.add(StampLine(item, '${label(_coordLabel(t.coordFormat), _coordLabel(t.coordFormat))}${Coords.format(t.coordFormat, latitude!, longitude!)}${locked ? (spanish ? ' (fija)' : ' (locked)') : ''}'));
+            final String l = _coordLabel(t.coordFormat, colombia);
+            out.add(StampLine(item, '${label(l, l)}${Coords.format(t.coordFormat, latitude!, longitude!)}${_positionNote()}'));
           } else {
             out.add(StampLine(item, spanish ? 'Sin señal GPS' : 'No GPS fix'));
           }
           break;
         case StampItem.coords2:
           if (hasLocation && t.coordFormat2 != t.coordFormat) {
-            out.add(StampLine(item, '${label(_coordLabel(t.coordFormat2), _coordLabel(t.coordFormat2))}${Coords.format(t.coordFormat2, latitude!, longitude!)}'));
+            final String l = _coordLabel(t.coordFormat2, colombia);
+            out.add(StampLine(item, '${label(l, l)}${Coords.format(t.coordFormat2, latitude!, longitude!)}'));
           }
           break;
         case StampItem.altitude:
-          if (altitude != null && hasLocation) {
+          if (altitude != null && hasLocation && !manual) {
             out.add(StampLine(item, '${label('Alt.', 'Alt.')}${altitude!.toStringAsFixed(0)} m ${altitudeIsMsl ? (spanish ? 's. n. m.' : 'MSL') : (spanish ? 'elip.' : 'ellips.')}'));
           }
           break;
         case StampItem.accuracy:
-          if (accuracy != null && hasLocation) {
+          if (accuracy != null && hasLocation && !manual) {
             final String avg = averaged > 1 ? (spanish ? ' · promedio de $averaged' : ' · avg of $averaged') : '';
             out.add(StampLine(item, '${label('Precisión', 'Accuracy')}± ${accuracy!.toStringAsFixed(accuracy! < 10 ? 1 : 0)} m$avg'));
           }
           break;
         case StampItem.heading:
           if (heading != null) {
-            out.add(StampLine(item, '${label('Rumbo', 'Heading')}${heading!.toStringAsFixed(0)}° ${Coords.cardinal(heading!, spanish: spanish)}${pitch != null ? ' · ${label('incl.', 'tilt')}${pitch!.toStringAsFixed(0)}°' : ''}'));
+            final String magnetic = headingTrue ? '' : (spanish ? ' (magnético)' : ' (magnetic)');
+            out.add(StampLine(item, '${label('Rumbo', 'Heading')}${heading!.toStringAsFixed(0)}° ${Coords.cardinal(heading!, spanish: spanish)}$magnetic${pitch != null ? ' · ${label('incl.', 'tilt')}${pitch!.toStringAsFixed(0)}°' : ''}'));
           }
           break;
         case StampItem.facade:
           if (heading != null) {
-            out.add(StampLine(item, '${label('Fachada', 'Facade')}${Coords.facade(heading!, spanish: spanish)}'));
+            final String magnetic = headingTrue ? '' : (spanish ? ' (magnética)' : ' (magnetic)');
+            out.add(StampLine(item, '${label('Fachada', 'Facade')}${Coords.facade(heading!, spanish: spanish)}$magnetic'));
           }
           break;
         case StampItem.speed:
-          if (speed != null && speed! > 0.5) {
+          if (speed != null && speed! > 0.5 && !locked && !manual) {
             out.add(StampLine(item, '${label('Velocidad', 'Speed')}${(speed! * 3.6).toStringAsFixed(0)} km/h'));
           }
           break;
@@ -110,8 +177,10 @@ class StampData {
           break;
         case StampItem.fields:
           for (final MapEntry<String, String> e in fields.entries) {
-            if (e.value.trim().isNotEmpty) {
-              out.add(StampLine(item, '${fieldLabels[e.key] ?? e.key}: ${e.value}'));
+            final String? fieldLabel = fieldLabels[e.key];
+            // Sin rótulo conocido no se escribe: la clave interna no dice nada.
+            if (e.value.trim().isNotEmpty && fieldLabel != null && fieldLabel.trim().isNotEmpty) {
+              out.add(StampLine(item, '$fieldLabel: ${e.value.trim()}'));
             }
           }
           break;
@@ -127,12 +196,37 @@ class StampData {
     return out;
   }
 
-  String _coordLabel(CoordFormat f) {
+  String _positionNote() {
+    if (manual) {
+      return spanish ? ' (posición manual)' : ' (manual position)';
+    }
+    if (locked) {
+      return spanish ? ' (fija)' : ' (locked)';
+    }
+    if (staleFix) {
+      return spanish ? ' (lectura de ${_age(fixAgeSeconds, true)})' : ' (reading from ${_age(fixAgeSeconds, false)})';
+    }
+    return '';
+  }
+
+  static String _age(int seconds, bool spanish) {
+    if (seconds < 90) {
+      return spanish ? 'hace $seconds s' : '$seconds s ago';
+    }
+    final int minutes = (seconds / 60).round();
+    if (minutes < 90) {
+      return spanish ? 'hace $minutes min' : '$minutes min ago';
+    }
+    final int hours = (minutes / 60).round();
+    return spanish ? 'hace $hours h' : '$hours h ago';
+  }
+
+  /// Rótulo del formato. Los formatos colombianos solo se rotulan como
+  /// tales dentro de Colombia: afuera se escriben en grados y dicen "GPS".
+  static String _coordLabel(CoordFormat f, bool inColombia) {
     switch (f) {
       case CoordFormat.dd:
-        return 'GPS';
       case CoordFormat.dms:
-        return 'GPS';
       case CoordFormat.ddm:
         return 'GPS';
       case CoordFormat.utm:
@@ -142,9 +236,9 @@ class StampData {
       case CoordFormat.plusCode:
         return 'Plus Code';
       case CoordFormat.ctm12:
-        return 'CTM12';
+        return inColombia ? 'CTM12' : 'GPS';
       case CoordFormat.magna:
-        return 'MAGNA';
+        return inColombia ? 'MAGNA' : 'GPS';
     }
   }
 

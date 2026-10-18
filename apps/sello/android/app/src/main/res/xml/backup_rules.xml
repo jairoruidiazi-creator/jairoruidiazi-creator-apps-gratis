@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copia de Google hasta Android 11 (en Android 12 o superior manda
+  data_extraction_rules.xml). La copia admite hasta 25 MB por app: las fotos y
+  su índice quedan fuera y viajan los proyectos, las plantillas, los logos y los
+  ajustes. Las fotos se pasan con la copia completa de la app (Ajustes › Copia
+  de seguridad).
+-->
+<full-backup-content>
+    <exclude domain="root" path="app_flutter/sello/photos" />
+    <exclude domain="root" path="app_flutter/sello/photos.json" />
+    <exclude domain="root" path="app_flutter/sello/photos.json.bak" />
+    <exclude domain="root" path="app_flutter/sello/exports" />
+</full-backup-content>

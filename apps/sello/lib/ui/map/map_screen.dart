@@ -13,7 +13,8 @@ import '../../model/models.dart';
 import '../gallery/gallery_screen.dart';
 import '../gallery/photo_detail_screen.dart';
 
-/// Mapa con las fotos (OpenStreetMap) y la posición actual.
+/// Mapa con las fotos (OpenStreetMap) y la posición actual. Se crea solo
+/// cuando se abre su pestaña (ver HomeShell): antes no pide teselas.
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
 
@@ -35,8 +36,9 @@ class _MapScreenState extends State<MapScreen> {
   final MapController _map = MapController();
 
   /// La política de teselas de OpenStreetMap pide un User-Agent propio que
-  /// nombre la app y una forma de contacto. TileLayer lo libera al cerrarse.
-  late final NetworkTileProvider _tiles = NetworkTileProvider(headers: <String, String>{'User-Agent': MapScreen.userAgent});
+  /// nombre la app y una forma de contacto. TileLayer lo libera al quitarse
+  /// (al apagar el mapa en línea): si se vuelve a encender, se crea otro.
+  NetworkTileProvider? _tiles;
   String? _projectId;
   bool _fitted = false;
   bool _ready = false;
@@ -76,6 +78,11 @@ class _MapScreenState extends State<MapScreen> {
         final AppState st = s.state;
         final List<PhotoRecord> photos = _visible(st);
         final Fix? fix = s.location.fix;
+        final bool tiles = MapScreen.tilesEnabled && s.settings.mapTiles;
+        if (!tiles) {
+          _tiles = null;
+        }
+        final bool spanish = s.settings.spanish;
         // Al tener datos por primera vez se encuadra todo.
         if (!_fitted && _ready && (photos.isNotEmpty || fix != null)) {
           _fitted = true;
@@ -98,17 +105,17 @@ class _MapScreenState extends State<MapScreen> {
                 },
               ),
               children: <Widget>[
-                if (MapScreen.tilesEnabled && s.settings.mapTiles)
+                if (tiles)
                   TileLayer(
                     urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'co.appsgratis.sello',
-                    tileProvider: MapScreen.tileProviderOverride ?? _tiles,
+                    tileProvider: MapScreen.tileProviderOverride ?? (_tiles ??= NetworkTileProvider(headers: <String, String>{'User-Agent': MapScreen.userAgent})),
                     maxNativeZoom: 19,
                   ),
-                if (fix != null)
+                if (fix != null && fix.accuracy != null)
                   CircleLayer(
                     circles: <CircleMarker>[
-                      CircleMarker(point: LatLng(fix.latitude, fix.longitude), radius: fix.accuracy.clamp(1.0, 500.0), useRadiusInMeter: true, color: Colors.blue.withValues(alpha: 0.12), borderColor: Colors.blue.withValues(alpha: 0.4), borderStrokeWidth: 1),
+                      CircleMarker(point: LatLng(fix.latitude, fix.longitude), radius: fix.accuracy!.clamp(1.0, 500.0), useRadiusInMeter: true, color: Colors.blue.withValues(alpha: 0.12), borderColor: Colors.blue.withValues(alpha: 0.4), borderStrokeWidth: 1),
                     ],
                   ),
                 MarkerLayer(
@@ -116,12 +123,18 @@ class _MapScreenState extends State<MapScreen> {
                     for (final PhotoRecord p in photos)
                       Marker(
                         point: LatLng(p.latitude!, p.longitude!),
-                        width: 44,
-                        height: 44,
+                        width: 48,
+                        height: 48,
                         alignment: Alignment.topCenter,
-                        child: GestureDetector(
+                        child: Semantics(
+                          button: true,
+                          label: '${spanish ? 'Foto del' : 'Photo of'} ${formatDate(p.wallTime, 'dd/MM/yyyy HH:mm')}${p.notes.isEmpty ? '' : ', ${p.notes}'}',
+                          excludeSemantics: true,
                           onTap: () => _showPhoto(context, st, p),
-                          child: _Pin(color: _colorFor(st, p.projectId)),
+                          child: GestureDetector(
+                            onTap: () => _showPhoto(context, st, p),
+                            child: _Pin(color: _colorFor(st, p.projectId)),
+                          ),
                         ),
                       ),
                     if (fix != null)
@@ -129,13 +142,11 @@ class _MapScreenState extends State<MapScreen> {
                         point: LatLng(fix.latitude, fix.longitude),
                         width: 22,
                         height: 22,
-                        child: Container(decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.blue, border: Border.all(color: Colors.white, width: 3), boxShadow: const <BoxShadow>[BoxShadow(blurRadius: 4, color: Colors.black38)])),
+                        child: Semantics(
+                          label: spanish ? 'Tu posición' : 'Your position',
+                          child: Container(decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.blue, border: Border.all(color: Colors.white, width: 3), boxShadow: const <BoxShadow>[BoxShadow(blurRadius: 4, color: Colors.black38)])),
+                        ),
                       ),
-                  ],
-                ),
-                RichAttributionWidget(
-                  attributions: <SourceAttribution>[
-                    TextSourceAttribution('OpenStreetMap contributors', onTap: () => launchUrl(Uri.parse('https://www.openstreetmap.org/copyright'), mode: LaunchMode.externalApplication)),
                   ],
                 ),
               ],
@@ -144,51 +155,74 @@ class _MapScreenState extends State<MapScreen> {
               left: 8,
               right: 8,
               top: 8,
-              child: SizedBox(
-                height: 40,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
                   children: <Widget>[
-                    _chip(context, t(context, 'Todos', 'All'), _projectId == null, () => setState(() { _projectId = null; _fitted = false; })),
-                    for (final Project p in st.projects) _chip(context, p.name, _projectId == p.id, () => setState(() { _projectId = p.id; _fitted = false; }), color: _colorFor(st, p.id)),
+                    _chip(context, t(context, 'Todos', 'All'), _projectId == null, () => setState(() {
+                          _projectId = null;
+                          _fitted = false;
+                        })),
+                    for (final Project p in st.projects)
+                      _chip(context, p.name, _projectId == p.id, () => setState(() {
+                            _projectId = p.id;
+                            _fitted = false;
+                          }), color: _colorFor(st, p.id)),
                   ],
                 ),
               ),
             ),
+            // Abajo: el aviso (si no hay fotos) y los botones, y debajo de
+            // todo la atribución, que nada tapa aunque el texto sea grande.
             Positioned(
-              right: 12,
-              bottom: 24,
+              left: 0,
+              right: 0,
+              bottom: 0,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: <Widget>[
-                  FloatingActionButton.small(
-                    heroTag: null,
-                    tooltip: t(context, 'Ver todas las fotos', 'Show all photos'),
-                    onPressed: () => _fitAll(photos, fix),
-                    child: const Icon(Icons.zoom_out_map),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 12, 12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: <Widget>[
+                        Expanded(
+                          child: photos.isEmpty
+                              ? Card(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Text(st.photos.isEmpty ? t(context, 'Las fotos con GPS aparecerán aquí. El mapa necesita internet para cargar; las fotos y sus datos no.', 'Photos with GPS will appear here. The map needs internet to load; photos and their data do not.') : t(context, 'Ninguna foto de este proyecto tiene ubicación.', 'No photo in this project has a location.'), style: Theme.of(context).textTheme.bodySmall),
+                                  ),
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                        const SizedBox(width: 8),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            FloatingActionButton.small(
+                              heroTag: null,
+                              tooltip: t(context, 'Ver todas las fotos', 'Show all photos'),
+                              onPressed: () => _fitAll(photos, fix),
+                              child: const Icon(Icons.zoom_out_map),
+                            ),
+                            const SizedBox(height: 8),
+                            FloatingActionButton.small(
+                              heroTag: null,
+                              tooltip: t(context, 'Mi posición', 'My position'),
+                              onPressed: fix == null ? () => s.location.start() : () => _map.move(LatLng(fix.latitude, fix.longitude), 17),
+                              child: Icon(fix == null ? Icons.location_searching : Icons.my_location),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  FloatingActionButton.small(
-                    heroTag: null,
-                    tooltip: t(context, 'Mi posición', 'My position'),
-                    onPressed: fix == null ? () => s.location.start() : () => _map.move(LatLng(fix.latitude, fix.longitude), 17),
-                    child: Icon(fix == null ? Icons.location_searching : Icons.my_location),
-                  ),
+                  if (tiles) const Align(alignment: Alignment.centerLeft, child: _OsmAttribution()),
                 ],
               ),
             ),
-            if (photos.isEmpty)
-              Positioned(
-                left: 16,
-                right: 16,
-                bottom: 24,
-                child: Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(st.photos.isEmpty ? t(context, 'Las fotos con GPS aparecerán aquí. El mapa necesita internet para cargar; las fotos y sus datos no.', 'Photos with GPS will appear here. The map needs internet to load; photos and their data do not.') : t(context, 'Ninguna foto de este proyecto tiene ubicación.', 'No photo in this project has a location.'), style: Theme.of(context).textTheme.bodySmall),
-                  ),
-                ),
-              ),
           ],
         );
       },
@@ -232,8 +266,8 @@ class _MapScreenState extends State<MapScreen> {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             ListTile(
-              leading: SizedBox(width: 64, height: 64, child: ClipRRect(borderRadius: BorderRadius.circular(8), child: PhotoThumb(record: p, cacheWidth: 160))),
-              title: Text(p.notes.isNotEmpty ? p.notes : formatDate(p.takenAt, 'dd/MM/yyyy HH:mm')),
+              leading: SizedBox(width: 64, height: 64, child: ClipRRect(borderRadius: BorderRadius.circular(8), child: PhotoThumb(record: p, cacheWidth: kMapThumbWidth))),
+              title: Text(p.notes.isNotEmpty ? p.notes : formatDate(p.wallTime, 'dd/MM/yyyy HH:mm')),
               subtitle: Text('${st.projectById(p.projectId).name}${p.address.isNotEmpty ? '\n${p.address}' : ''}', maxLines: 2, overflow: TextOverflow.ellipsis),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
@@ -260,6 +294,52 @@ class _MapScreenState extends State<MapScreen> {
   }
 }
 
+/// Atribución de OpenStreetMap siempre visible (la política de teselas no
+/// admite esconderla tras un botón). Al tocarla abre la página de derechos.
+class _OsmAttribution extends StatelessWidget {
+  const _OsmAttribution();
+
+  @override
+  Widget build(BuildContext context) {
+    final String text = t(context, '© colaboradores de OpenStreetMap', '© OpenStreetMap contributors');
+    void open() => launchUrl(Uri.parse('https://www.openstreetmap.org/copyright'), mode: LaunchMode.externalApplication);
+    // El recuadro se ve pequeño, pero se puede tocar en 48 dp de alto.
+    return Semantics(
+      link: true,
+      label: '$text, ${t(context, 'licencia ODbL', 'ODbL license')}',
+      excludeSemantics: true,
+      onTap: open,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: open,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Align(
+            alignment: Alignment.bottomLeft,
+            widthFactor: 1,
+            child: DecoratedBox(
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.85), borderRadius: const BorderRadius.only(topRight: Radius.circular(6))),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: _AttributionText(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AttributionText extends StatelessWidget {
+  const _AttributionText();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(t(context, '© colaboradores de OpenStreetMap', '© OpenStreetMap contributors'), style: const TextStyle(fontSize: 12, color: Colors.black87, decoration: TextDecoration.underline));
+  }
+}
+
 class _Pin extends StatelessWidget {
   const _Pin({required this.color});
 
@@ -278,7 +358,7 @@ class _PinPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final double r = size.width * 0.32;
+    final double r = size.width * 0.3;
     final Offset c = Offset(size.width / 2, r + 2);
     final Path path = Path()
       ..addOval(Rect.fromCircle(center: c, radius: r))

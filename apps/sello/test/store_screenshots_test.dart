@@ -8,7 +8,6 @@ library;
 // Se ejecutan con `flutter test --tags screenshots`.
 
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';

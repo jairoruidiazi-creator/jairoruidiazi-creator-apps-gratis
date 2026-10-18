@@ -39,8 +39,13 @@ Future<void> main() async {
     ..localeIdentifier = settings.spanish ? 'es_CO' : 'en_US';
   final HeadingService heading = HeadingService();
   final DeclinationLink declinationLink = DeclinationLink(settings: settings, location: location, heading: heading);
-  runApp(SelloApp(services: Services(settings: settings, state: state, store: store, location: location, heading: heading, declinationLink: declinationLink)));
-  WidgetsBinding.instance.addPostFrameCallback((_) => lockPhonePortrait());
+  final Services services = Services(settings: settings, state: state, store: store, location: location, heading: heading, declinationLink: declinationLink);
+  runApp(SelloApp(services: services));
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    lockPhonePortrait();
+    // Fotos que quedaron sin sellar porque la app se cerró a mitad de camino.
+    services.queue.resumePending();
+  });
 }
 
 /// Los teléfonos van en vertical; las tabletas (lado corto de 600 dp o más)

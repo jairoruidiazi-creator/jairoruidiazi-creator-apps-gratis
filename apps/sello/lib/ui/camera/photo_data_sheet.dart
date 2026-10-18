@@ -2,31 +2,26 @@ import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
 import '../../core/app_state.dart';
-import '../../core/settings.dart';
+import '../../core/capture_session.dart';
 import '../../model/models.dart';
 
-/// Hoja para elegir el proyecto y escribir los datos de la próxima foto:
-/// campos del proyecto, notas y etiquetas. Modifica [fields] y [tags] en
-/// sitio y avisa las notas con [onChanged].
-Future<void> showPhotoDataSheet(BuildContext context, {required Map<String, String> fields, required String notes, required List<String> tags, required ValueChanged<String> onChanged}) {
+/// Hoja para elegir el proyecto y escribir los datos de las próximas fotos:
+/// campos del proyecto, notas y etiquetas. Los valores se conservan para las
+/// fotos siguientes hasta que se cambien o se cambie de proyecto.
+Future<void> showPhotoDataSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
     builder: (BuildContext context) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: _PhotoDataSheet(fields: fields, notes: notes, tags: tags, onChanged: onChanged),
+      child: const _PhotoDataSheet(),
     ),
   );
 }
 
 class _PhotoDataSheet extends StatefulWidget {
-  const _PhotoDataSheet({required this.fields, required this.notes, required this.tags, required this.onChanged});
-
-  final Map<String, String> fields;
-  final String notes;
-  final List<String> tags;
-  final ValueChanged<String> onChanged;
+  const _PhotoDataSheet();
 
   @override
   State<_PhotoDataSheet> createState() => _PhotoDataSheetState();
@@ -34,44 +29,66 @@ class _PhotoDataSheet extends StatefulWidget {
 
 class _PhotoDataSheetState extends State<_PhotoDataSheet> {
   final Map<String, TextEditingController> _ctrls = <String, TextEditingController>{};
-  late final TextEditingController _notes = TextEditingController(text: widget.notes);
+  TextEditingController? _notes;
   final TextEditingController _tag = TextEditingController();
+  CaptureSession? _session;
+  String? _projectId;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_session == null) {
+      final CaptureSession session = AppScope.of(context).session;
+      _session = session;
+      _notes = TextEditingController(text: session.notes);
+      session.addListener(_onSession);
+    }
+  }
 
   @override
   void dispose() {
-    disposeLater(<ChangeNotifier>[..._ctrls.values, _notes, _tag]);
+    _session?.removeListener(_onSession);
+    disposeLater(<ChangeNotifier>[..._ctrls.values, if (_notes != null) _notes!, _tag]);
     super.dispose();
   }
 
+  /// Si el proyecto cambió (aquí o en otra pantalla), los cuadros de texto
+  /// muestran los valores iniciales del nuevo.
+  void _onSession() {
+    final CaptureSession s = _session!;
+    if (s.project.id != _projectId) {
+      _projectId = s.project.id;
+      disposeLater(List<ChangeNotifier>.of(_ctrls.values));
+      _ctrls.clear();
+    } else {
+      for (final MapEntry<String, TextEditingController> e in _ctrls.entries) {
+        final String v = s.fields[e.key] ?? '';
+        if (e.value.text != v) {
+          e.value.text = v;
+        }
+      }
+    }
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
   TextEditingController _ctrl(FieldDef f) {
+    final CaptureSession s = _session!;
     return _ctrls.putIfAbsent(f.key, () {
-      final TextEditingController c = TextEditingController(text: widget.fields[f.key] ?? f.defaultValue);
-      widget.fields[f.key] = c.text;
-      c.addListener(() {
-        widget.fields[f.key] = c.text;
-        widget.onChanged(_notes.text);
-      });
+      final TextEditingController c = TextEditingController(text: s.fields[f.key] ?? f.defaultValue);
+      c.addListener(() => s.setField(f.key, c.text));
       return c;
     });
   }
 
-  void _switchProject(AppSettings st, Project p) {
-    st.currentProjectId = p.id;
-    st.save();
-    // Al cambiar de proyecto se olvidan los campos del anterior.
-    widget.fields.clear();
-    disposeLater(List<ChangeNotifier>.of(_ctrls.values));
-    _ctrls.clear();
-    setState(() {});
-    widget.onChanged(_notes.text);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final Services s = AppScope.of(context);
-    final AppState state = s.state;
-    final AppSettings st = s.settings;
-    final Project project = state.projectById(st.currentProjectId);
+    final Services sv = AppScope.of(context);
+    final AppState state = sv.state;
+    final CaptureSession session = _session!;
+    final Project project = session.project;
+    _projectId ??= project.id;
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.65,
@@ -90,7 +107,7 @@ class _PhotoDataSheetState extends State<_PhotoDataSheet> {
                 ChoiceChip(
                   label: Text('${p.emoji.isNotEmpty ? '${p.emoji} ' : ''}${p.name}'),
                   selected: p.id == project.id,
-                  onSelected: (_) => _switchProject(st, p),
+                  onSelected: (_) => session.selectProject(p.id),
                 ),
             ],
           ),
@@ -98,6 +115,7 @@ class _PhotoDataSheetState extends State<_PhotoDataSheet> {
           const SizedBox(height: 14),
           if (project.fields.isNotEmpty) ...<Widget>[
             Text(t(context, 'Campos del proyecto', 'Project fields'), style: Theme.of(context).textTheme.titleMedium),
+            Text(t(context, 'Se escriben en las próximas fotos y se conservan hasta que los cambies o cambies de proyecto.', 'They go on the next photos and are kept until you change them or switch projects.'), style: Theme.of(context).textTheme.bodySmall),
             for (final FieldDef f in project.fields)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -117,7 +135,7 @@ class _PhotoDataSheetState extends State<_PhotoDataSheet> {
             minLines: 1,
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(hintText: t(context, 'Ej.: Fisura en muro norte, nivel 2', 'E.g.: Crack on north wall, level 2'), border: const OutlineInputBorder(), isDense: true),
-            onChanged: widget.onChanged,
+            onChanged: (String v) => session.notes = v,
           ),
           const SizedBox(height: 14),
           Text(t(context, 'Etiquetas', 'Tags'), style: Theme.of(context).textTheme.titleMedium),
@@ -126,16 +144,16 @@ class _PhotoDataSheetState extends State<_PhotoDataSheet> {
             spacing: 6,
             runSpacing: 4,
             children: <Widget>[
-              for (final String tag in widget.tags)
+              for (final String tag in session.tags)
                 InputChip(
                   label: Text(tag),
-                  onDeleted: () => setState(() => widget.tags.remove(tag)),
+                  onDeleted: () => session.removeTag(tag),
                 ),
-              for (final String tag in state.allTags.where((String x) => !widget.tags.contains(x)).take(12))
+              for (final String tag in state.allTags.where((String x) => !session.tags.contains(x)).take(12))
                 ActionChip(
                   label: Text(tag),
                   avatar: const Icon(Icons.add, size: 16),
-                  onPressed: () => setState(() => widget.tags.add(tag)),
+                  onPressed: () => session.addTag(tag),
                 ),
             ],
           ),
@@ -148,7 +166,7 @@ class _PhotoDataSheetState extends State<_PhotoDataSheet> {
                   onSubmitted: (_) => _addTag(),
                 ),
               ),
-              IconButton(onPressed: _addTag, icon: const Icon(Icons.add_circle_outline)),
+              IconButton(tooltip: t(context, 'Añadir etiqueta', 'Add tag'), onPressed: _addTag, icon: const Icon(Icons.add_circle_outline)),
             ],
           ),
           const SizedBox(height: 12),
@@ -166,11 +184,7 @@ class _PhotoDataSheetState extends State<_PhotoDataSheet> {
     if (v.isEmpty) {
       return;
     }
-    setState(() {
-      if (!widget.tags.contains(v)) {
-        widget.tags.add(v);
-      }
-      _tag.clear();
-    });
+    _session!.addTag(v);
+    _tag.clear();
   }
 }

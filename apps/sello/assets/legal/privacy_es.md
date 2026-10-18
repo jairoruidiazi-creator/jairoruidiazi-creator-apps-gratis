@@ -22,21 +22,22 @@ Nosotros no recibimos nada de esto, no lo vemos y no lo podemos recuperar.
 ## Permisos
 
 - **Cámara:** para tomar las fotos.
-- **Ubicación mientras usas la app:** para las coordenadas, la altitud y la dirección. Sello no usa la ubicación en segundo plano.
-- **Sensores de movimiento:** para calcular el rumbo de la cámara y el nivel. Esos datos se usan en el teléfono.
+- **Ubicación mientras usas la app:** para las coordenadas, la altitud y la dirección, y para que la brújula use el norte verdadero. Sello no usa la ubicación en segundo plano.
+- **Sensores de movimiento:** para calcular el rumbo de la cámara, el nivel y si la foto va en vertical u horizontal. Esos datos se usan en el teléfono.
+- **Micrófono:** Sello no lo usa ni lo pide; solo toma fotos.
 - **Fotos y almacenamiento:** para guardar la copia en la galería, si la activas. En iPhone solo se pide permiso para agregar fotos, no para verlas; en Android 10 o anterior se usa el permiso de almacenamiento y desde Android 11 no hace falta ninguno. Sello no lee, analiza ni sube tus otras fotos.
 
 ## Qué sale del teléfono y a quién
 
 - **Dirección aproximada (opcional, encendida al instalar).** Para convertir las coordenadas en una dirección, Sello usa el servicio de direcciones del sistema operativo, que envía las coordenadas a Google (Android) o a Apple (iOS) y devuelve la dirección. Se rige por las políticas de privacidad de Google y de Apple. Se apaga en Ajustes › Dirección aproximada; las coordenadas siguen funcionando sin conexión.
-- **Mapa en línea (opcional, encendido al instalar).** Para dibujar el fondo del mapa, Sello descarga imágenes del mapa de los servidores de la Fundación OpenStreetMap, que reciben la zona que estás mirando y tu dirección IP, como cualquier sitio web. Se rige por la política de privacidad de la Fundación OpenStreetMap (osmfoundation.org/wiki/Privacy_Policy). Se apaga en Ajustes › Mapa en línea; el mapa sigue mostrando tus fotos y tu posición.
+- **Mapa en línea (opcional, encendido al instalar).** Cuando abres la pestaña Mapa, Sello descarga las imágenes del fondo de los servidores de la Fundación OpenStreetMap, que reciben las zonas que se muestran en el mapa y tu dirección IP, como cualquier sitio web. Mientras no abras el mapa no se descarga nada. Se rige por la política de privacidad de la Fundación OpenStreetMap (osmfoundation.org/wiki/Privacy_Policy). Se apaga en Ajustes › Mapa en línea; el mapa sigue mostrando tus fotos y tu posición.
 - **Abrir en mapas y cómo llegar.** Si tocas estas opciones, Sello abre la app de mapas que elijas con las coordenadas de la foto.
 
 Ninguno de estos servicios recibe tus fotos, tus proyectos ni tus notas, y nosotros no recibimos nada.
 
 ## Compartir y exportar
 
-Tú decides cuándo compartir una foto o exportar un proyecto (CSV, KML, KMZ, ZIP o PDF). Las fotos compartidas llevan el sello y sus metadatos con la ubicación; si prefieres, la opción "Compartir sin EXIF" quita los metadatos sin tocar el sello dibujado. Lo que compartes queda sujeto a las condiciones de quien lo recibe. La app borra su propio ejemplar de cada exportación la siguiente vez que la abres.
+Tú decides cuándo compartir una foto o exportar un proyecto (CSV, KML, KMZ, ZIP o PDF). Las fotos compartidas llevan el sello y sus metadatos con la ubicación; si prefieres, la opción "Compartir sin EXIF" quita los metadatos sin tocar el sello dibujado. La copia completa (Ajustes › Copia de seguridad) es un archivo ZIP con todas tus fotos y sus datos, incluida la ubicación, que tú guardas donde quieras para pasarlos a otro teléfono. Lo que compartes queda sujeto a las condiciones de quien lo recibe. La app borra su propio ejemplar de cada exportación la siguiente vez que la abres.
 
 ## Niños
 
@@ -44,7 +45,7 @@ Sello es una herramienta de trabajo de campo para público adulto. No está diri
 
 ## Seguridad
 
-Los datos quedan en el almacenamiento privado de la app, al que otras apps no tienen acceso (salvo la copia en la galería, si la activas). En iOS esa carpeta también se ve en la app Archivos (En mi iPhone › Sello), para que copies tus fotos cuando quieras. Recomendamos proteger el teléfono con bloqueo de pantalla. Si las copias de seguridad del sistema están activadas (Google en Android, iCloud en iOS), el sistema puede incluir en ellas los datos de la app; esas copias quedan en tu cuenta de Google o de Apple, se rigen por sus condiciones y nosotros no tenemos acceso a ellas.
+Los datos quedan en el almacenamiento privado de la app, al que otras apps no tienen acceso (salvo la copia en la galería, si la activas). En iOS esa carpeta también se ve en la app Archivos (En mi iPhone › Sello), para que copies tus fotos cuando quieras. Recomendamos proteger el teléfono con bloqueo de pantalla. Si las copias de seguridad del sistema están activadas, el sistema puede incluir en ellas datos de la app: en Android, la copia de Google lleva los proyectos, las plantillas, los logos y los ajustes, pero no las fotos ni sus datos, y el traspaso directo a un teléfono nuevo lleva todo; en iOS, la copia de iCloud puede incluir la carpeta de la app. Esas copias quedan en tu cuenta de Google o de Apple, se rigen por sus condiciones y nosotros no tenemos acceso a ellas.
 
 ## Conservación y borrado
 
@@ -60,4 +61,4 @@ Si la app cambia la forma en que maneja la información, actualizaremos esta pol
 
 ## Contacto
 
-Escríbenos abriendo un reporte en github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/issues o al correo de contacto del desarrollador que aparece en la ficha de la app.
+Escríbenos como se explica en la página de soporte: https://github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/blob/main/docs/SOPORTE.md. Allí está cómo abrir un reporte y cómo pedir un contacto privado si no quieres publicar tu consulta.

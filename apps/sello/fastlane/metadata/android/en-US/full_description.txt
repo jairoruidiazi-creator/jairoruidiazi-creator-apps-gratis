@@ -2,6 +2,7 @@ Sello is a field camera: every photo comes out with a stamp drawn on the image a
 
 CAMERA
 • Live stamp preview, zoom, tap to focus and expose, flash and torch.
+• Portrait or landscape photos depending on how you hold the phone, with the stamp always upright.
 • Self-timer, grid, horizon and tilt level, and the front camera.
 • Red filter for night work.
 
@@ -9,28 +10,29 @@ COORDINATES
 • Decimal degrees, degrees-minutes-seconds, UTM, MGRS and Plus Code.
 • In Colombia, the national CTM12 grid and the MAGNA-SIRGAS zones, computed on the phone.
 • Altitude above sea level with the built-in geoid model, offline.
-• Averaged readings, position lock for indoor work and manual position.
+• Averaged readings that stay locked, position lock for indoor work and manual position.
+• A warning when the GPS reading is old or imprecise.
 
 HEADING
-• Camera heading with true north: magnetic declination is computed with the WMM2025 model.
+• Camera heading with true north: magnetic declination is computed with the WMM2025 model from the GPS. Until there is a position, the heading is marked as magnetic.
 • Cardinal direction, tilt and a compass rose in the stamp.
 
 YOUR OWN STAMP
-• Templates with the data you want, in the order you want, with or without labels.
+• Templates with the data you choose, with or without labels.
 • Position, size, colors, date format, a second coordinate format and your logo.
 
 PROJECTS AND GALLERY
-• Projects with their own template, file name pattern and custom fields asked before each photo, such as lot, inspector or element.
+• Projects with their own template, file name pattern and custom fields such as lot, inspector or element: you fill them in on the camera and they stay for the next photos until you change them.
 • Gallery by day, project or place, with search across notes, address, tags and fields.
 • Batch editing, re-stamping with the current template and sharing without metadata.
 • Map of your photos on OpenStreetMap, with the distance to each one and directions.
 
 EXPORT
-• CSV with every coordinate format and field, plus KML and KMZ with the photos included.
+• CSV with every coordinate format and field (semicolons and decimal commas in Spanish, as Excel expects there), plus KML and KMZ with the photos included.
 • ZIP with stamped or original photos.
-• PDF report per project with a summary, a table and one page per photo.
+• PDF report per project with a summary, a table and a card for each photo.
 
 YOUR DATA
-Photos and data stay on your phone. They only leave it when you share them. The app goes online only for the map background and the approximate address, and both can be turned off. Sello is open source.
+Photos and data stay on your phone. They only leave it when you share them. The app goes online only for the map background, when you open the Map tab, and for the approximate address; both can be turned off. A full backup (a ZIP with every photo and its data) lets you move everything to another phone. Sello is open source.
 
 The stamp informs; it is not proof: a phone's time and location can be altered, so Sello does not claim evidentiary value.

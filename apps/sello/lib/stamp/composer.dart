@@ -5,38 +5,63 @@ import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
 
+/// La copia sellada se limita a este número de píxeles: las fotos más
+/// grandes (sensores de 48–200 MP) se decodifican reducidas a la mitad (o a
+/// un cuarto) directamente desde el JPEG, sin pasar por el tamaño completo.
+/// El original se conserva con su resolución.
+const int kMaxStampedPixels = 26000000;
+
 /// Datos que viajan al isolate de composición.
 class ComposeJob {
   const ComposeJob({
     required this.originalPath,
     required this.outputPath,
-    required this.overlayPng,
-    required this.overlayWidth,
-    required this.overlayHeight,
     required this.quality,
+    this.scale = 1,
+    this.expectedWidth = 0,
+    this.expectedHeight = 0,
+    this.overlayPng,
+    this.overlayLeft = 0,
+    this.overlayTop = 0,
     this.latitude,
     this.longitude,
-    this.altitude,
+    this.altitudeMsl,
     this.heading,
+    this.headingTrue = true,
     this.takenAt,
+    this.utcOffsetMinutes,
     this.description = '',
     this.software = 'Sello',
   });
 
   final String originalPath;
   final String outputPath;
-
-  /// Capa del sello (PNG con transparencia) dibujada a [overlayWidth] px; se
-  /// escala al ancho real de la foto ya orientada.
-  final Uint8List overlayPng;
-  final int overlayWidth;
-  final int overlayHeight;
   final int quality;
+
+  /// Reducción al decodificar (1, 2, 4 u 8; ver [planStamped]).
+  final int scale;
+
+  /// Tamaño (ya orientado) para el que se dibujó el sello; 0 si no se sabe.
+  final int expectedWidth;
+  final int expectedHeight;
+
+  /// Capa del sello (PNG con transparencia) y su posición en la foto.
+  final Uint8List? overlayPng;
+  final int overlayLeft;
+  final int overlayTop;
   final double? latitude;
   final double? longitude;
-  final double? altitude;
+
+  /// Altitud sobre el nivel del mar: es la única que el EXIF sabe expresar.
+  final double? altitudeMsl;
   final double? heading;
+
+  /// Falso si el rumbo es magnético (GPSImgDirectionRef = M).
+  final bool headingTrue;
+
+  /// Instante de la foto y desfase horario del teléfono al tomarla.
   final DateTime? takenAt;
+  final int? utcOffsetMinutes;
   final String description;
   final String software;
 }
@@ -49,40 +74,120 @@ class ComposeResult {
   final int bytes;
 }
 
+/// Tamaño que tendrá la copia sellada de un JPEG: orientado según su EXIF y
+/// reducido por [scale] si pasa de [maxPixels].
+class StampedPlan {
+  const StampedPlan({required this.scale, required this.width, required this.height, required this.orientation});
+
+  final int scale;
+  final int width;
+  final int height;
+  final int orientation;
+}
+
+int _ceilDiv(int a, int b) => (a + b - 1) ~/ b;
+
+StampedPlan? planStamped(Uint8List jpeg, {int maxPixels = kMaxStampedPixels}) {
+  final JpegDims? d = jpegSize(jpeg);
+  if (d == null || d.width <= 0 || d.height <= 0) {
+    return null;
+  }
+  int scale = 1;
+  while (scale < 8 && _ceilDiv(d.width, scale) * _ceilDiv(d.height, scale) > maxPixels) {
+    scale *= 2;
+  }
+  int w = _ceilDiv(d.width, scale);
+  int h = _ceilDiv(d.height, scale);
+  final int orientation = exifOrientation(jpeg);
+  if (orientation >= 5) {
+    final int tmp = w;
+    w = h;
+    h = tmp;
+  }
+  return StampedPlan(scale: scale, width: w, height: h, orientation: orientation);
+}
+
 /// Compone la copia sellada en un isolate: decodifica el JPEG original,
-/// aplica la orientación EXIF, superpone el sello escalado al ancho de la
-/// foto, escribe los datos en el EXIF (GPS, descripción, fecha) y guarda.
+/// aplica la orientación EXIF, superpone el sello, escribe los datos en el
+/// EXIF (GPS, descripción, fecha) y guarda de forma atómica.
 Future<ComposeResult> composeStamped(ComposeJob job) => Isolate.run(() => composeStampedSync(job));
 
 /// Versión síncrona (la usan el isolate y las pruebas).
 ComposeResult composeStampedSync(ComposeJob job) {
   final Uint8List original = File(job.originalPath).readAsBytesSync();
-  img.Image? photo = img.decodeJpg(original);
-  if (photo == null) {
+  img.Image? decoded = img.decodeJpg(original, scale: job.scale);
+  if (decoded == null) {
     throw StateError('No se pudo leer la foto');
   }
-  photo = img.bakeOrientation(photo);
-  final img.Image? overlay = img.decodePng(job.overlayPng);
-  if (overlay == null) {
-    throw StateError('No se pudo leer el sello');
+  final int orientation = decoded.exif.imageIfd.orientation ?? 1;
+  // Con orientación 1 no hace falta copiar la imagen.
+  final img.Image photo = orientation == 1 ? decoded : img.bakeOrientation(decoded);
+  final img.ExifData cameraExif = decoded.exif;
+  decoded = null;
+  photo.exif = _stampExif(cameraExif, job);
+  final Uint8List? png = job.overlayPng;
+  if (png != null) {
+    img.Image? overlay = img.decodePng(png);
+    if (overlay == null) {
+      throw StateError('No se pudo leer el sello');
+    }
+    int left = job.overlayLeft;
+    int top = job.overlayTop;
+    // Si la foto no salió del tamaño previsto, el sello se ajusta en
+    // proporción (no debería pasar; es una salvaguarda).
+    if (job.expectedWidth > 0 && job.expectedHeight > 0 && (photo.width != job.expectedWidth || photo.height != job.expectedHeight)) {
+      final double fx = photo.width / job.expectedWidth;
+      final double fy = photo.height / job.expectedHeight;
+      overlay = img.copyResize(overlay, width: (overlay.width * fx).round().clamp(1, photo.width), height: (overlay.height * fy).round().clamp(1, photo.height), interpolation: img.Interpolation.linear);
+      left = (left * fx).round();
+      top = (top * fy).round();
+    }
+    img.compositeImage(photo, overlay, dstX: left, dstY: top);
   }
-  // La capa se dibujó con la misma proporción que la foto; se ajusta al ancho real.
-  img.Image layer = overlay;
-  if (overlay.width != photo.width || overlay.height != photo.height) {
-    layer = img.copyResize(overlay, width: photo.width, height: photo.height, interpolation: img.Interpolation.linear);
-  }
-  img.compositeImage(photo, layer);
-  _writeExif(photo, job);
   final Uint8List out = img.encodeJpg(photo, quality: job.quality, chroma: img.JpegChroma.yuv420);
-  File(job.outputPath).writeAsBytesSync(out, flush: true);
+  final File target = File(job.outputPath);
+  final File tmp = File('${job.outputPath}.tmp-compose');
+  tmp.writeAsBytesSync(out, flush: true);
+  tmp.renameSync(target.path);
   return ComposeResult(width: photo.width, height: photo.height, bytes: out.length);
 }
 
-void _writeExif(img.Image photo, ComposeJob job) {
+/// Etiquetas de la cámara que se conservan (exposición y equipo). Todo lo
+/// demás del EXIF de la cámara se descarta, en especial la miniatura (IFD1),
+/// que mostraría la foto sin sello.
+const List<int> _cameraImageTags = <int>[0x010F, 0x0110]; // Make, Model
+const List<int> _cameraExifTags = <int>[
+  0x829A, // ExposureTime
+  0x829D, // FNumber
+  0x8822, // ExposureProgram
+  0x8827, // ISO
+  0x9204, // ExposureBiasValue
+  0x9207, // MeteringMode
+  0x9209, // Flash
+  0x920A, // FocalLength
+  0xA403, // WhiteBalance
+  0xA405, // FocalLengthIn35mmFilm
+  0xA433, // LensMake
+  0xA434, // LensModel
+];
+
+img.ExifData _stampExif(img.ExifData camera, ComposeJob job) {
   // Las etiquetas se escriben con valores IfdValue explícitos: el paquete
   // `image` solo convierte tipos simples para las etiquetas con tipo
   // declarado, y las de GPS no lo tienen.
-  final img.ExifData exif = photo.exif;
+  final img.ExifData exif = img.ExifData();
+  for (final int tag in _cameraImageTags) {
+    final img.IfdValue? v = camera.imageIfd[tag];
+    if (v != null) {
+      exif.imageIfd[tag] = v.clone();
+    }
+  }
+  for (final int tag in _cameraExifTags) {
+    final img.IfdValue? v = camera.exifIfd[tag];
+    if (v != null) {
+      exif.exifIfd[tag] = v.clone();
+    }
+  }
   exif.imageIfd['Software'] = img.IfdValueAscii(job.software);
   if (job.description.isNotEmpty) {
     // ImageDescription en UTF-8 (es lo que leen Android, Lightroom y
@@ -93,12 +198,19 @@ void _writeExif(img.Image photo, ComposeJob job) {
     exif.imageIfd['XPTitle'] = img.IfdByteValue.list(_utf16le(job.software));
     exif.imageIfd['XPComment'] = img.IfdByteValue.list(_utf16le(job.description));
   }
-  final DateTime? t = job.takenAt;
-  if (t != null) {
+  final DateTime? taken = job.takenAt;
+  if (taken != null) {
+    // Hora local de la foto (en su zona) y su desfase (EXIF 2.31).
+    final int offset = job.utcOffsetMinutes ?? taken.timeZoneOffset.inMinutes;
+    final DateTime t = taken.toUtc().add(Duration(minutes: offset));
     final String s = '${t.year}:${_two(t.month)}:${_two(t.day)} ${_two(t.hour)}:${_two(t.minute)}:${_two(t.second)}';
     exif.imageIfd['DateTime'] = img.IfdValueAscii(s);
     exif.exifIfd['DateTimeOriginal'] = img.IfdValueAscii(s);
     exif.exifIfd['DateTimeDigitized'] = img.IfdValueAscii(s);
+    final String o = '${offset < 0 ? '-' : '+'}${_two(offset.abs() ~/ 60)}:${_two(offset.abs() % 60)}';
+    exif.exifIfd[0x9010] = img.IfdValueAscii(o); // OffsetTime
+    exif.exifIfd[0x9011] = img.IfdValueAscii(o); // OffsetTimeOriginal
+    exif.exifIfd[0x9012] = img.IfdValueAscii(o); // OffsetTimeDigitized
   }
   final double? lat = job.latitude;
   final double? lon = job.longitude;
@@ -109,22 +221,24 @@ void _writeExif(img.Image photo, ComposeJob job) {
     gps['GPSLatitude'] = _dmsRational(lat.abs());
     gps['GPSLongitudeRef'] = img.IfdValueAscii(lon >= 0 ? 'E' : 'W');
     gps['GPSLongitude'] = _dmsRational(lon.abs());
-    final double? alt = job.altitude;
+    final double? alt = job.altitudeMsl;
     if (alt != null && alt.isFinite) {
+      // GPSAltitude es altitud respecto al nivel del mar (0 = encima, 1 = debajo).
       gps['GPSAltitudeRef'] = img.IfdByteValue(alt >= 0 ? 0 : 1);
       gps['GPSAltitude'] = img.IfdValueRational((alt.abs() * 100).round(), 100);
     }
     final double? h = job.heading;
     if (h != null && h.isFinite) {
-      gps['GPSImgDirectionRef'] = img.IfdValueAscii('T');
+      gps['GPSImgDirectionRef'] = img.IfdValueAscii(job.headingTrue ? 'T' : 'M');
       gps['GPSImgDirection'] = img.IfdValueRational(((h % 360) * 100).round(), 100);
     }
-    if (t != null) {
-      final DateTime u = t.toUtc();
+    if (taken != null) {
+      final DateTime u = taken.toUtc();
       gps['GPSDateStamp'] = img.IfdValueAscii('${u.year}:${_two(u.month)}:${_two(u.day)}');
       gps['GPSTimeStamp'] = _rationals(<List<int>>[<int>[u.hour, 1], <int>[u.minute, 1], <int>[u.second, 1]]);
     }
   }
+  return exif;
 }
 
 Uint8List _utf16le(String text) {
@@ -159,6 +273,76 @@ img.IfdValueRational _rationals(List<List<int>> pairs) {
 
 String _two(int v) => v.toString().padLeft(2, '0');
 
+/// Datos que Sello escribió en el EXIF de una foto sellada (para recuperar
+/// su ficha si el índice se perdió).
+class StampExif {
+  const StampExif({this.takenAt, this.utcOffsetMinutes, this.latitude, this.longitude, this.altitudeMsl, this.heading, this.headingTrue = true, this.description = ''});
+
+  final DateTime? takenAt;
+  final int? utcOffsetMinutes;
+  final double? latitude;
+  final double? longitude;
+  final double? altitudeMsl;
+  final double? heading;
+  final bool headingTrue;
+  final String description;
+}
+
+StampExif readStampExif(Uint8List jpeg) {
+  final img.ExifData? exif = img.decodeJpgExif(jpeg);
+  if (exif == null) {
+    return const StampExif();
+  }
+  int? offset;
+  final String? o = exif.exifIfd[0x9011]?.toString().trim();
+  final RegExpMatch? om = o == null ? null : RegExp(r'^([+-])(\d{2}):(\d{2})').firstMatch(o);
+  if (om != null) {
+    offset = (int.parse(om.group(2)!) * 60 + int.parse(om.group(3)!)) * (om.group(1) == '-' ? -1 : 1);
+  }
+  DateTime? taken;
+  final String? dt = exif.exifIfd['DateTimeOriginal']?.toString().trim();
+  final RegExpMatch? m = dt == null ? null : RegExp(r'^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})').firstMatch(dt);
+  if (m != null) {
+    final List<int> v = <int>[for (int i = 1; i <= 6; i++) int.parse(m.group(i)!)];
+    taken = offset == null ? DateTime(v[0], v[1], v[2], v[3], v[4], v[5]) : DateTime.utc(v[0], v[1], v[2], v[3], v[4], v[5]).subtract(Duration(minutes: offset));
+  }
+  double? coord(String valueTag, String refTag, String negative) {
+    final img.IfdValue? v = exif.gpsIfd[valueTag];
+    if (v == null || v.length < 3) {
+      return null;
+    }
+    final double deg = v.toDouble(0) + v.toDouble(1) / 60 + v.toDouble(2) / 3600;
+    return exif.gpsIfd[refTag]?.toString().trim() == negative ? -deg : deg;
+  }
+
+  final double? lat = coord('GPSLatitude', 'GPSLatitudeRef', 'S');
+  final double? lon = coord('GPSLongitude', 'GPSLongitudeRef', 'W');
+  double? alt;
+  final img.IfdValue? a = exif.gpsIfd['GPSAltitude'];
+  if (a != null) {
+    alt = a.toDouble();
+    if (exif.gpsIfd['GPSAltitudeRef']?.toInt() == 1) {
+      alt = -alt;
+    }
+  }
+  final img.IfdValue? h = exif.gpsIfd['GPSImgDirection'];
+  String description = '';
+  final img.IfdValue? d = exif.imageIfd['ImageDescription'];
+  if (d != null) {
+    description = utf8.decode(d.toData(), allowMalformed: true).replaceAll('\u0000', '').trim();
+  }
+  return StampExif(
+    takenAt: taken,
+    utcOffsetMinutes: offset,
+    latitude: lat,
+    longitude: lon,
+    altitudeMsl: alt,
+    heading: h?.toDouble(),
+    headingTrue: exif.gpsIfd['GPSImgDirectionRef']?.toString().trim() != 'M',
+    description: description,
+  );
+}
+
 /// Dimensiones de un JPEG.
 class JpegDims {
   const JpegDims(this.width, this.height);
@@ -177,14 +361,67 @@ JpegDims? jpegSize(Uint8List bytes) {
   return JpegDims(info.width, info.height);
 }
 
-/// Copia del JPEG sin metadatos (quita los segmentos APP1 Exif/XMP, APP13 y COM),
-/// sin recomprimir la imagen. Para compartir sin ubicación.
+/// Lee la etiqueta de orientación EXIF (1 si no hay).
+int exifOrientation(Uint8List bytes) {
+  try {
+    final ByteData d = ByteData.sublistView(bytes);
+    int i = 2;
+    while (i + 4 < bytes.length) {
+      if (bytes[i] != 0xFF) {
+        return 1;
+      }
+      final int marker = bytes[i + 1];
+      final int len = d.getUint16(i + 2);
+      if (marker == 0xE1 && i + 10 < bytes.length && bytes[i + 4] == 0x45 && bytes[i + 5] == 0x78) {
+        final int tiff = i + 10;
+        final bool little = bytes[tiff] == 0x49;
+        final Endian e = little ? Endian.little : Endian.big;
+        final int ifd = tiff + d.getUint32(tiff + 4, e);
+        final int count = d.getUint16(ifd, e);
+        for (int k = 0; k < count; k++) {
+          final int entry = ifd + 2 + k * 12;
+          if (d.getUint16(entry, e) == 0x0112) {
+            return d.getUint16(entry + 8, e);
+          }
+        }
+        return 1;
+      }
+      if (marker == 0xDA) {
+        return 1;
+      }
+      i += 2 + len;
+    }
+  } catch (_) {}
+  return 1;
+}
+
+/// Segmento APP1 mínimo con solo la etiqueta de orientación.
+Uint8List _orientationApp1(int orientation) {
+  final BytesBuilder b = BytesBuilder();
+  // Marcador y largo (incluye los 2 bytes del largo): 2 + 6 + 8 + 2 + 12 + 4 = 34.
+  b.add(<int>[0xFF, 0xE1, 0x00, 34]);
+  b.add(<int>[0x45, 0x78, 0x69, 0x66, 0x00, 0x00]); // "Exif\0\0"
+  b.add(<int>[0x4D, 0x4D, 0x00, 0x2A, 0x00, 0x00, 0x00, 0x08]); // TIFF big-endian, IFD0 en 8
+  b.add(<int>[0x00, 0x01]); // una entrada
+  b.add(<int>[0x01, 0x12, 0x00, 0x03, 0x00, 0x00, 0x00, 0x01, (orientation >> 8) & 0xFF, orientation & 0xFF, 0x00, 0x00]);
+  b.add(<int>[0x00, 0x00, 0x00, 0x00]); // sin IFD siguiente
+  return b.toBytes();
+}
+
+/// Copia del JPEG sin metadatos (quita los segmentos APP1 Exif/XMP, APP13 y
+/// COM), sin recomprimir la imagen. Para compartir sin ubicación ni fecha.
+/// Si la imagen dependía de la etiqueta de orientación (una original de la
+/// cámara), se deja solo esa etiqueta para que no se vea de lado.
 Uint8List stripMetadata(Uint8List bytes) {
   if (bytes.length < 4 || bytes[0] != 0xFF || bytes[1] != 0xD8) {
     return bytes;
   }
+  final int orientation = exifOrientation(bytes);
   final BytesBuilder out = BytesBuilder(copy: false);
   out.add(<int>[0xFF, 0xD8]);
+  if (orientation > 1 && orientation <= 8) {
+    out.add(_orientationApp1(orientation));
+  }
   int i = 2;
   while (i + 4 <= bytes.length) {
     if (bytes[i] != 0xFF) {

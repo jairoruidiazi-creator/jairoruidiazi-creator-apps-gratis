@@ -4,3 +4,4 @@
 "NSPhotoLibraryAddUsageDescription" = "Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges.";
 "NSPhotoLibraryUsageDescription" = "Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges.";
 "NSMotionUsageDescription" = "Sello usa los sensores de movimiento para calcular el rumbo de la cámara.";
+"NSMicrophoneUsageDescription" = "Sello solo toma fotos: no usa el micrófono ni graba audio.";

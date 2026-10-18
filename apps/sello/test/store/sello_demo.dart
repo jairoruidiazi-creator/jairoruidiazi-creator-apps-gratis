@@ -1,6 +1,13 @@
 // Datos de ejemplo de las capturas de tienda de Sello: dos proyectos ficticios
 // en Chía (Cundinamarca) con fotos libres de Wikimedia Commons (ver
 // photos/CREDITOS.md) selladas con la tubería real de la app.
+//
+// Cada foto entra por el mismo camino que una toma de la cámara: el JPEG tal
+// como lo entrega el teléfono (las apaisadas son las tomadas con el teléfono
+// en horizontal, que la cámara guarda así desde que la captura sigue la
+// orientación física), la posición del GPS, el rumbo de la brújula y los
+// campos del proyecto; se guarda el original con su ficha pendiente y la cola
+// la sella con la plantilla del proyecto.
 
 import 'dart:io';
 
@@ -8,9 +15,10 @@ import 'package:sello/core/app_state.dart';
 import 'package:sello/core/settings.dart';
 import 'package:sello/core/storage.dart';
 import 'package:sello/geo/coords.dart';
+import 'package:sello/geo/heading.dart';
+import 'package:sello/geo/location_service.dart';
 import 'package:sello/model/models.dart';
 import 'package:sello/stamp/capture_pipeline.dart';
-import 'package:sello/stamp/stamp_data.dart';
 
 /// Centro de los datos de ejemplo; las teselas de test/store/tiles lo cubren
 /// (ver .github/workflows/store-assets.yml, tarea osm-tiles).
@@ -101,31 +109,35 @@ Future<String> seedSelloDemo({required AppState state, required JsonStore store,
   String lastId = '';
   for (final _Shot s in _shots) {
     final Project project = s.project == 'mirador' ? mirador : variante;
-    final StampTemplate template = state.templateForProject(project);
     final DateTime d = day.subtract(Duration(days: s.daysAgo));
     final DateTime time = DateTime(d.year, d.month, d.day, s.hour, s.minute, 7 + s.minute % 50);
     final Map<String, String> fields = <String, String>{
       for (final MapEntry<String, String> e in s.fields.entries) e.key: e.key == 'elemento' && !spanish ? _elementEn(e.value) : e.value,
     };
-    final StampData data = StampData(
-      time: time,
-      latitude: demoLat + s.dLat,
-      longitude: demoLon + s.dLon,
-      accuracy: s.accuracy,
-      altitude: s.altitude,
-      heading: s.heading,
-      pitch: s.pitch,
-      address: s.project == 'mirador' ? tr('Carrera 12, Chía, Cundinamarca', 'Carrera 12, Chía, Cundinamarca, Colombia') : tr('Avenida Calle 2, Chía, Cundinamarca', 'Avenida Calle 2, Chía, Cundinamarca, Colombia'),
-      projectName: project.name,
-      fields: fields,
-      fieldLabels: <String, String>{for (final FieldDef f in project.fields) f.key: f.label},
-      notes: spanish ? s.notesEs : s.notesEn,
-      spanish: spanish,
-    );
+    final double lat = demoLat + s.dLat;
+    final double lon = demoLon + s.dLon;
+    // Lectura del GPS al disparar (altura sobre el nivel del mar y sobre el
+    // elipsoide; en Chía el geoide está unos 21 m por encima del elipsoide).
+    final Fix fix = Fix(latitude: lat, longitude: lon, time: time, accuracy: s.accuracy, altitudeMsl: s.altitude, altitudeEllipsoid: s.altitude + 21.3);
+    final Orientation3 orientation = Orientation3(cameraHeading: s.heading, deviceHeading: s.heading, pitch: s.pitch, roll: 0, flat: false);
+    final String street = s.project == 'mirador' ? 'Carrera 12' : 'Avenida Calle 2';
+    final String region = spanish ? 'Chía, Cundinamarca' : 'Chía, Cundinamarca, Colombia';
+    final Address address = Address(line1: street, line2: region, full: '$street, $region', latitude: lat, longitude: lon);
     final String temp = '$scratchDir/${s.file}';
     await File('$photosDir/${s.file}').copy(temp);
-    final CaptureOutcome out = await pipeline.process(jpegPath: temp, project: project, template: template, data: data, fields: fields, notes: data.notes, tags: spanish ? s.tagsEs : s.tagsEn);
-    lastId = out.record.id;
+    final PhotoRecord record = await pipeline.saveCapture(
+      jpegPath: temp,
+      project: project,
+      fix: fix,
+      orientation: orientation,
+      address: address,
+      fields: fields,
+      notes: spanish ? s.notesEs : s.notesEn,
+      tags: spanish ? s.tagsEs : s.tagsEn,
+      now: time,
+    );
+    await pipeline.stamp(record);
+    lastId = record.id;
   }
   return lastId;
 }

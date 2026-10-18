@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Copia de Google y traspaso a un teléfono nuevo (Android 12 o superior).
+
+  La copia en la nube admite hasta 25 MB por app: con las fotos dentro no se
+  haría ninguna. Por eso viajan los proyectos, las plantillas, los logos y los
+  ajustes, y quedan fuera las fotos y su índice (un índice sin sus fotos solo
+  dejaría fichas vacías). El traspaso por cable o Wi-Fi no tiene ese tope y
+  lleva todo. Para pasar las fotos por otra vía está la copia completa de la
+  app (Ajustes › Copia de seguridad).
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="app_flutter/sello/photos" />
+        <exclude domain="root" path="app_flutter/sello/photos.json" />
+        <exclude domain="root" path="app_flutter/sello/photos.json.bak" />
+        <exclude domain="root" path="app_flutter/sello/exports" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="app_flutter/sello/exports" />
+    </device-transfer>
+</data-extraction-rules>

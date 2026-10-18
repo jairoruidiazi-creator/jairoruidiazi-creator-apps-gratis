@@ -141,6 +141,11 @@ void main() {
     await tester.tap(find.text('Aceptar'));
     await settle(tester);
     expect(find.text('Lote'), findsOneWidget);
+    // El texto dice lo que la app hace (G8): no se piden antes de cada foto.
+    expect(find.textContaining('se llenan en la cámara'), findsOneWidget);
+    expect(find.textContaining('antes de cada foto'), findsNothing);
+    // Hasta guardar, el proyecto vivo no cambia (M21).
+    expect(services.state.projects.last.fields, isEmpty);
     await tester.tap(find.text('Guardar'));
     await waitFor(tester, () => find.byType(ProjectEditor).evaluate().isEmpty);
     expect(find.byType(ProjectEditor), findsNothing);

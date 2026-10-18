@@ -1,9 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/app_scope.dart';
+import 'core/app_state.dart';
+import 'model/models.dart';
+import 'stamp/stamp_queue.dart';
 import 'ui/camera/camera_screen.dart';
 import 'ui/gallery/gallery_screen.dart';
+import 'ui/gallery/photo_detail_screen.dart';
 import 'ui/map/map_screen.dart';
 import 'ui/projects/projects_screen.dart';
 import 'ui/settings/settings_screen.dart';
@@ -77,12 +83,109 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   late int _index = widget.initialIndex;
 
+  /// El mapa se crea la primera vez que se abre su pestaña: antes no hay
+  /// por qué pedir teselas a OpenStreetMap.
+  late bool _mapBuilt = widget.initialIndex == 2;
+  StreamSubscription<StampEvent>? _events;
+  bool _galleryNoticeShown = false;
+  bool _noticesShown = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_events == null) {
+      final Services s = AppScope.of(context);
+      _events = s.queue.events.listen(_onStampEvent);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showLoadNotices());
+    }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_events?.cancel());
+    super.dispose();
+  }
+
+  void _snack(String text, {SnackBarAction? action}) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text), action: action, duration: const Duration(seconds: 6)));
+  }
+
+  /// Avisos visibles de la cola de sellado: si una foto no se pudo sellar
+  /// (queda el original y se puede reintentar) o si no se copió a la fototeca
+  /// (este último, una vez por sesión).
+  void _onStampEvent(StampEvent e) {
+    if (!mounted) {
+      return;
+    }
+    final Services s = AppScope.of(context);
+    switch (e.kind) {
+      case StampEventKind.stamped:
+        break;
+      case StampEventKind.failed:
+        if (e.record.status == PhotoStatus.ok) {
+          // Falló volver a sellar una foto que ya tenía su copia: lo avisa el detalle.
+          break;
+        }
+        _snack(
+          t(context, 'Una foto no se pudo sellar. Quedó guardada con sus datos; ábrela en la galería para reintentar.', 'A photo could not be stamped. It was saved with its data; open it in the gallery to retry.'),
+          action: SnackBarAction(label: t(context, 'Ver', 'View'), onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => PhotoDetailScreen(photoId: e.record.id)))),
+        );
+        break;
+      case StampEventKind.galleryDenied:
+        if (!_galleryNoticeShown) {
+          _galleryNoticeShown = true;
+          _snack(
+            t(context, 'Guardada en la app. Para copiarla también a la fototeca, da el permiso en los ajustes del teléfono o apaga la copia en Ajustes.', 'Saved in the app. To also copy it to the photo library, allow it in the phone settings or turn the copy off in Settings.'),
+            action: SnackBarAction(label: t(context, 'Ajustes', 'Settings'), onPressed: () => s.location.backend.openAppSettings()),
+          );
+        }
+        break;
+      case StampEventKind.galleryError:
+        if (!_galleryNoticeShown) {
+          _galleryNoticeShown = true;
+          _snack(t(context, 'Guardada en la app; no se pudo copiar a la fototeca.', 'Saved in the app; could not copy to the photo library.'));
+        }
+        break;
+    }
+  }
+
+  /// Si al abrir hubo que recuperar datos, se dice qué pasó.
+  void _showLoadNotices() {
+    if (_noticesShown || !mounted) {
+      return;
+    }
+    _noticesShown = true;
+    final AppState st = AppScope.of(context).state;
+    for (final LoadNotice n in st.notices) {
+      switch (n.kind) {
+        case LoadNoticeKind.photosFromBackup:
+          _snack(t(context, 'El índice de fotos estaba dañado y se recuperó de la copia anterior.', 'The photo index was damaged and was restored from the previous copy.'));
+          break;
+        case LoadNoticeKind.photosLost:
+          _snack(t(context, 'El índice de fotos estaba dañado. Las fotos se recuperaron de la carpeta de la app con los datos de su EXIF.', 'The photo index was damaged. Photos were recovered from the app folder with their EXIF data.'));
+          break;
+        case LoadNoticeKind.projectsFromBackup:
+          _snack(t(context, 'Los proyectos estaban dañados y se recuperaron de la copia anterior.', 'Projects were damaged and were restored from the previous copy.'));
+          break;
+        case LoadNoticeKind.projectsLost:
+          _snack(t(context, 'No se pudieron leer los proyectos y plantillas; se empezó con los de fábrica.', 'Projects and templates could not be read; the defaults were used.'));
+          break;
+        case LoadNoticeKind.photosRecovered:
+          _snack('${t(context, 'Se recuperaron fotos que no estaban en el índice', 'Recovered photos that were missing from the index')}: ${n.count}');
+          break;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final List<Widget> pages = <Widget>[
       CameraScreen(enabled: widget.cameraEnabled, active: _index == 0),
       const GalleryScreen(),
-      const MapScreen(),
+      if (_mapBuilt) const MapScreen() else const SizedBox.shrink(),
       const ProjectsScreen(),
     ];
     return Scaffold(
@@ -101,7 +204,12 @@ class _HomeShellState extends State<HomeShell> {
       body: IndexedStack(index: _index, children: pages),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (int i) => setState(() => _index = i),
+        onDestinationSelected: (int i) => setState(() {
+          _index = i;
+          if (i == 2) {
+            _mapBuilt = true;
+          }
+        }),
         destinations: <NavigationDestination>[
           NavigationDestination(icon: const Icon(Icons.photo_camera_outlined), selectedIcon: const Icon(Icons.photo_camera), label: t(context, 'Cámara', 'Camera')),
           NavigationDestination(icon: const Icon(Icons.photo_library_outlined), selectedIcon: const Icon(Icons.photo_library), label: t(context, 'Galería', 'Gallery')),

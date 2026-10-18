@@ -8,76 +8,92 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../geo/coords.dart';
 import '../model/models.dart';
+import '../stamp/composer.dart';
 
 /// Informe PDF de un conjunto de fotos: resumen, tabla y una ficha por foto
 /// con su imagen sellada y todos los datos. Generado en el teléfono con el
-/// paquete `pdf` (sin servidor).
+/// paquete `pdf` (sin servidor) y en un isolate aparte, para no congelar la
+/// interfaz.
 class PdfReport {
   PdfReport._();
 
-  /// Reduce un JPEG a [maxWidth] px para incrustarlo en el PDF.
+  /// Reduce un JPEG a [maxWidth] px para incrustarlo en el PDF. Decodifica
+  /// directamente a tamaño reducido (1/2, 1/4 u 1/8) cuando se puede.
   static Future<Uint8List> thumbnail(Uint8List bytes, {int maxWidth = 900, int quality = 78}) {
-    return Isolate.run(() {
-      final img.Image? im = img.decodeJpg(bytes);
-      if (im == null) {
-        return bytes;
-      }
-      final img.Image baked = img.bakeOrientation(im);
-      final img.Image small = baked.width > maxWidth ? img.copyResize(baked, width: maxWidth, interpolation: img.Interpolation.average) : baked;
-      return img.encodeJpg(small, quality: quality, chroma: img.JpegChroma.yuv420);
-    });
+    return Isolate.run(() => thumbnailSync(bytes, maxWidth: maxWidth, quality: quality));
   }
 
-  /// Construye el PDF. [imageOf] devuelve los bytes (ya reducidos) de la foto
-  /// sellada o null si no está.
+  static Uint8List thumbnailSync(Uint8List bytes, {int maxWidth = 900, int quality = 78}) {
+    final JpegDims? dims = jpegSize(bytes);
+    int scale = 1;
+    if (dims != null) {
+      final int longest = dims.width > dims.height ? dims.width : dims.height;
+      while (scale < 8 && longest / (scale * 2) >= maxWidth) {
+        scale *= 2;
+      }
+    }
+    final img.Image? im = img.decodeJpg(bytes, scale: scale);
+    if (im == null) {
+      return bytes;
+    }
+    final img.Image baked = (im.exif.imageIfd.orientation ?? 1) == 1 ? im : img.bakeOrientation(im);
+    final img.Image small = baked.width > maxWidth ? img.copyResize(baked, width: maxWidth, interpolation: img.Interpolation.average) : baked;
+    return img.encodeJpg(small, quality: quality, chroma: img.JpegChroma.yuv420);
+  }
+
+  /// Construye el PDF en un isolate. [images] tiene las miniaturas por id de
+  /// foto (las que falten se muestran como "Sin imagen").
   static Future<Uint8List> build({
     required List<PhotoRecord> photos,
     required Map<String, Project> projects,
     required String title,
-    required Future<Uint8List?> Function(PhotoRecord p) imageOf,
+    required Map<String, Uint8List> images,
     bool spanish = true,
     String author = '',
     DateTime? now,
-  }) async {
+  }) {
     final DateTime when = now ?? clock.now();
+    return Isolate.run(() => buildInCurrentIsolate(photos: photos, projects: projects, title: title, images: images, spanish: spanish, author: author, now: when));
+  }
+
+  /// Construye el PDF en el isolate actual (lo usan [build] y las pruebas).
+  static Future<Uint8List> buildInCurrentIsolate({
+    required List<PhotoRecord> photos,
+    required Map<String, Project> projects,
+    required String title,
+    required Map<String, Uint8List> images,
+    bool spanish = true,
+    String author = '',
+    required DateTime now,
+  }) {
+    // En orden cronológico, como se recorre una obra.
+    final List<PhotoRecord> list = List<PhotoRecord>.of(photos)..sort((PhotoRecord a, PhotoRecord b) => a.takenAt.compareTo(b.takenAt));
     final List<pw.Widget> blocks = <pw.Widget>[];
-    final List<Uint8List?> images = <Uint8List?>[];
-    for (final PhotoRecord p in photos) {
-      images.add(await imageOf(p));
-    }
     String s(String es, String en) => _clean(spanish ? es : en);
     const pw.TextStyle small = pw.TextStyle(fontSize: 8.5, color: PdfColors.grey800);
     const pw.TextStyle label = pw.TextStyle(fontSize: 8.5, color: PdfColors.grey600);
     const pw.TextStyle h1 = pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: PdfColor.fromInt(0xFF1B4332));
     const pw.TextStyle h2 = pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold);
 
-    final List<PhotoRecord> located = photos.where((PhotoRecord p) => p.hasLocation).toList();
-    DateTime? first;
-    DateTime? last;
-    for (final PhotoRecord p in photos) {
-      if (first == null || p.takenAt.isBefore(first)) {
-        first = p.takenAt;
-      }
-      if (last == null || p.takenAt.isAfter(last)) {
-        last = p.takenAt;
-      }
-    }
-    final Set<String> projectNames = <String>{for (final PhotoRecord p in photos) projects[p.projectId]?.name ?? ''};
+    final List<PhotoRecord> located = list.where((PhotoRecord p) => p.hasLocation).toList();
+    final DateTime? first = list.isEmpty ? null : list.first.wallTime;
+    final DateTime? last = list.isEmpty ? null : list.last.wallTime;
+    final Set<String> projectNames = <String>{for (final PhotoRecord p in list) projects[p.projectId]?.name ?? ''}..remove('');
 
     // Portada / resumen
     blocks.add(pw.Text(_clean(title), style: h1));
     blocks.add(pw.SizedBox(height: 4));
     blocks.add(pw.Text(
-      '${s('Informe fotográfico', 'Photo report')} · ${photos.length} ${s('fotos', 'photos')}'
+      '${s('Informe fotográfico', 'Photo report')} · ${list.length} ${s('fotos', 'photos')}'
       '${first != null && last != null ? ' · ${formatDate(first, 'dd/MM/yyyy')}${_sameDay(first, last) ? '' : ' - ${formatDate(last, 'dd/MM/yyyy')}'}' : ''}'
       '${projectNames.isNotEmpty ? ' · ${s('Proyecto', 'Project')}: ${_clean(projectNames.join(', '))}' : ''}',
       style: small,
     ));
-    blocks.add(pw.Text('${s('Generado', 'Generated')} ${formatDate(when, 'dd/MM/yyyy HH:mm')}${author.isNotEmpty ? ' · ${_clean(author)}' : ''} · Sello', style: label));
+    blocks.add(pw.Text('${s('Generado', 'Generated')} ${formatDate(now, 'dd/MM/yyyy HH:mm')}${author.isNotEmpty ? ' · ${_clean(author)}' : ''} · Sello', style: label));
     blocks.add(pw.SizedBox(height: 10));
 
     // Tabla índice
-    if (photos.isNotEmpty) {
+    if (list.isNotEmpty) {
       blocks.add(pw.TableHelper.fromTextArray(
         headerStyle: const pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
         headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF40916C)),
@@ -86,45 +102,49 @@ class PdfReport {
         columnWidths: <int, pw.TableColumnWidth>{0: const pw.FixedColumnWidth(22), 1: const pw.FixedColumnWidth(78), 2: const pw.FixedColumnWidth(110), 3: const pw.FlexColumnWidth(2), 4: const pw.FlexColumnWidth(3)},
         headers: <String>['#', s('Fecha y hora', 'Date and time'), s('Coordenadas', 'Coordinates'), s('Proyecto', 'Project'), s('Notas', 'Notes')],
         data: <List<String>>[
-          for (int i = 0; i < photos.length; i++)
+          for (int i = 0; i < list.length; i++)
             <String>[
               '${i + 1}',
-              formatDate(photos[i].takenAt, 'dd/MM/yyyy HH:mm'),
-              photos[i].hasLocation ? Coords.dd(photos[i].latitude!, photos[i].longitude!, decimals: 5) : s('Sin GPS', 'No GPS'),
-              _clean(projects[photos[i].projectId]?.name ?? ''),
-              _clean(_truncate(photos[i].notes.isNotEmpty ? photos[i].notes : photos[i].description, 70)),
+              formatDate(list[i].wallTime, 'dd/MM/yyyy HH:mm'),
+              list[i].hasLocation ? Coords.dd(list[i].latitude!, list[i].longitude!, decimals: 5) : s('Sin GPS', 'No GPS'),
+              _clean(projects[list[i].projectId]?.name ?? ''),
+              _clean(_truncate(list[i].notes.isNotEmpty ? list[i].notes : list[i].description, 70)),
             ],
         ],
       ));
       blocks.add(pw.SizedBox(height: 14));
     }
 
-    // Fichas
-    for (int i = 0; i < photos.length; i++) {
-      final PhotoRecord p = photos[i];
-      final Uint8List? bytes = images[i];
+    // Fichas (varias por página: imagen a la izquierda y datos a la derecha)
+    for (int i = 0; i < list.length; i++) {
+      final PhotoRecord p = list[i];
+      final Uint8List? bytes = images[p.id];
       final Project? project = projects[p.projectId];
       final List<List<String>> rows = <List<String>>[
-        <String>[s('Fecha y hora', 'Date and time'), '${formatDate(p.takenAt, 'dd/MM/yyyy HH:mm:ss')} ${utcOffsetLabel(p.takenAt)}'],
+        <String>[s('Fecha y hora', 'Date and time'), '${formatDate(p.wallTime, 'dd/MM/yyyy HH:mm:ss')} ${p.offsetLabel}'],
         if (p.hasLocation) ...<List<String>>[
           <String>[s('Grados decimales', 'Decimal degrees'), Coords.dd(p.latitude!, p.longitude!)],
-          <String>['GMS', Coords.dms(p.latitude!, p.longitude!)],
+          <String>[s('GMS', 'DMS'), Coords.dms(p.latitude!, p.longitude!)],
           <String>['UTM', Coords.utm(p.latitude!, p.longitude!)],
           <String>['MGRS', Coords.mgrs(p.latitude!, p.longitude!)],
           <String>['Plus Code', Coords.plusCode(p.latitude!, p.longitude!, length: 11)],
           if (Coords.inColombia(p.latitude!, p.longitude!)) ...<List<String>>[
-            <String>['Origen Nacional (CTM12)', Coords.ctm12Text(p.latitude!, p.longitude!)],
+            <String>[s('Origen Nacional (CTM12)', 'National origin (CTM12)'), Coords.ctm12Text(p.latitude!, p.longitude!)],
             <String>['MAGNA-SIRGAS', Coords.magnaText(p.latitude!, p.longitude!)],
           ],
-          if (p.accuracy != null) <String>[s('Precisión', 'Accuracy'), '± ${p.accuracy!.toStringAsFixed(1)} m'],
+          if (p.positionSource == PositionSource.manual) <String>[s('Posición', 'Position'), s('escrita a mano', 'entered by hand')],
+          if (p.accuracy != null) <String>[s('Precisión', 'Accuracy'), '± ${p.accuracy!.toStringAsFixed(1)} m${p.averagedSamples > 1 ? ' (${s('promedio de', 'average of')} ${p.averagedSamples})' : ''}'],
           if (p.altitude != null) <String>[s('Altitud', 'Altitude'), '${p.altitude!.toStringAsFixed(1)} m ${p.altitudeReference == 'ellipsoid' ? s('(elipsoide)', '(ellipsoid)') : s('s. n. m.', 'MSL')}'],
         ] else
           <String>[s('Ubicación', 'Location'), s('Sin señal GPS', 'No GPS fix')],
-        if (p.heading != null) <String>[s('Rumbo', 'Heading'), '${p.heading!.toStringAsFixed(0)}° ${Coords.cardinal(p.heading!, spanish: spanish)} · ${s('fachada', 'facade')} ${Coords.facade(p.heading!, spanish: spanish)}${p.pitch != null ? ' · ${s('incl.', 'tilt')} ${p.pitch!.toStringAsFixed(0)}°' : ''}'],
+        if (p.heading != null)
+          <String>[
+            s('Rumbo', 'Heading'),
+            '${p.heading!.toStringAsFixed(0)}° ${Coords.cardinal(p.heading!, spanish: spanish)}${p.headingTrue ? '' : s(' (magnético)', ' (magnetic)')} · ${s('fachada', 'facade')} ${Coords.facade(p.heading!, spanish: spanish)}${p.pitch != null ? ' · ${s('incl.', 'tilt')} ${p.pitch!.toStringAsFixed(0)}°' : ''}',
+          ],
         if (p.address.isNotEmpty) <String>[s('Dirección', 'Address'), p.address],
         if (project != null) <String>[s('Proyecto', 'Project'), project.name],
-        for (final MapEntry<String, String> e in p.fields.entries)
-          if (e.value.isNotEmpty) <String>[_fieldLabel(project, e.key), e.value],
+        for (final MapEntry<String, String> e in p.labeledFields(project)) <String>[e.key, e.value],
         if (p.notes.isNotEmpty) <String>[s('Notas', 'Notes'), p.notes],
         if (p.tags.isNotEmpty) <String>[s('Etiquetas', 'Tags'), p.tags.map((String x) => '#$x').join(' ')],
         <String>[s('Archivo', 'File'), p.stampedFile.split('/').last],
@@ -148,7 +168,7 @@ class PdfReport {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: <pw.Widget>[
-                  pw.Text('${i + 1}. ${_clean(p.notes.isNotEmpty ? _truncate(p.notes, 60) : formatDate(p.takenAt, 'dd/MM/yyyy HH:mm'))}', style: h2),
+                  pw.Text('${i + 1}. ${_clean(p.notes.isNotEmpty ? _truncate(p.notes, 60) : formatDate(p.wallTime, 'dd/MM/yyyy HH:mm'))}', style: h2),
                   pw.SizedBox(height: 3),
                   for (final List<String> r in rows)
                     pw.Padding(
@@ -177,7 +197,7 @@ class PdfReport {
       footer: (pw.Context ctx) => pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: <pw.Widget>[
-          pw.Text('${_clean(title)} · ${located.length}/${photos.length} ${s('con GPS', 'with GPS')}', style: label),
+          pw.Text('${_clean(title)} · ${located.length}/${list.length} ${s('con GPS', 'with GPS')}', style: label),
           pw.Text('${ctx.pageNumber} / ${ctx.pagesCount}', style: label),
         ],
       ),
@@ -189,17 +209,6 @@ class PdfReport {
   static bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 
   static String _truncate(String s, int n) => s.length <= n ? s : '${s.substring(0, n - 1)}…';
-
-  static String _fieldLabel(Project? project, String key) {
-    if (project != null) {
-      for (final FieldDef f in project.fields) {
-        if (f.key == key) {
-          return f.label;
-        }
-      }
-    }
-    return key;
-  }
 
   /// Las fuentes incorporadas del PDF (Helvetica) solo cubren Latin-1: se
   /// sustituyen los signos frecuentes fuera de ese rango y se quitan emojis.

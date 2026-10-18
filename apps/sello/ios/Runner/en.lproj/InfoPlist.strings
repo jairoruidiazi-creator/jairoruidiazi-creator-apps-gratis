@@ -4,3 +4,4 @@
 "NSPhotoLibraryAddUsageDescription" = "Sello saves a copy of the stamped photos to your photo library if you choose to.";
 "NSPhotoLibraryUsageDescription" = "Sello saves a copy of the stamped photos to your photo library if you choose to.";
 "NSMotionUsageDescription" = "Sello uses the motion sensors to work out the camera heading.";
+"NSMicrophoneUsageDescription" = "Sello only takes photos: it does not use the microphone or record audio.";

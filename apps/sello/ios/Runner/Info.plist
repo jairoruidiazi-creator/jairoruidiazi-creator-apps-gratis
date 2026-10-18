@@ -76,6 +76,8 @@
 	<string>Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges.</string>
 	<key>NSMotionUsageDescription</key>
 	<string>Sello usa los sensores de movimiento para calcular el rumbo de la cámara.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Sello solo toma fotos: no usa el micrófono ni graba audio.</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>comgooglemaps</string>

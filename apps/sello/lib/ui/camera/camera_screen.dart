@@ -1,23 +1,25 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
+import 'package:clock/clock.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/app_scope.dart';
-import '../../core/app_state.dart';
+import '../../core/capture_session.dart';
 import '../../core/settings.dart';
 import '../../geo/coords.dart';
+import '../../geo/device_orientation.dart';
 import '../../geo/heading.dart';
 import '../../geo/location_service.dart';
 import '../../model/models.dart';
-import '../../stamp/capture_pipeline.dart';
 import '../../stamp/stamp_data.dart';
 import '../../stamp/stamp_painter.dart';
+import '../gallery/gallery_screen.dart';
 import '../gallery/photo_detail_screen.dart';
 import '../settings/settings_screen.dart';
 import 'gps_sheet.dart';
@@ -27,7 +29,10 @@ import 'photo_data_sheet.dart';
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key, this.enabled = true, this.active = true});
 
+  /// Falso en pruebas sin cámara: no se abre la cámara ni se piden permisos.
   final bool enabled;
+
+  /// La pestaña de la cámara es la visible.
   final bool active;
 
   @override
@@ -36,12 +41,12 @@ class CameraScreen extends StatefulWidget {
 
 class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver {
   Services? _services;
-  CapturePipeline? _pipeline;
   List<CameraDescription> _cameras = <CameraDescription>[];
   CameraController? _controller;
   int _cameraIndex = 0;
   String? _error;
-  bool _initializing = false;
+  Future<void>? _initFuture;
+  String? _activeResolution;
   double _zoom = 1;
   double _minZoom = 1;
   double _maxZoom = 1;
@@ -52,16 +57,21 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   FlashMode _flash = FlashMode.off;
   int _countdown = 0;
   Timer? _countdownTimer;
-  int _processing = 0;
-  PhotoRecord? _last;
+  String? _lastId;
   Offset? _focusPoint;
   Timer? _focusTimer;
-  ui.Image? _logo;
-  String? _logoPath;
-  final Map<String, String> _fields = <String, String>{};
-  String _notes = '';
-  final List<String> _tags = <String>[];
   bool _showExposure = false;
+  bool _capturing = false;
+  bool _started = false;
+  bool _appResumed = true;
+  bool _wakelockOn = false;
+
+  /// Orientación de la interfaz (vertical en teléfonos) y giro que se está
+  /// mostrando para el sello y los íconos.
+  DeviceOrientation _uiOrientation = DeviceOrientation.portraitUp;
+  bool _tablet = false;
+  int _shownTurns = 0;
+  double _iconTurns = 0;
 
   @override
   void initState() {
@@ -75,19 +85,16 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     if (_services == null) {
       final Services s = AppScope.of(context);
       _services = s;
-      _pipeline = CapturePipeline(store: s.store, state: s.state, settings: s.settings);
       s.location.addListener(_refresh);
       s.heading.addListener(_refresh);
       s.settings.addListener(_onSettings);
       s.state.addListener(_refresh);
-      if (widget.enabled) {
-        s.location.start();
-        s.heading.start();
-        _initCamera();
-        WakelockPlus.toggle(enable: s.settings.keepAwake).catchError((Object e) {});
-      }
+      s.session.addListener(_refresh);
+      s.queue.addListener(_refresh);
       s.location.geocodingEnabled = s.settings.geocoding;
-      _loadLogo();
+      if (widget.enabled && widget.active) {
+        unawaited(_start());
+      }
     }
   }
 
@@ -97,69 +104,86 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     }
   }
 
+  /// Primero la cámara (que pide su permiso) y después la ubicación: Android
+  /// no admite dos pedidos de permiso a la vez y descarta el segundo.
+  Future<void> _start() async {
+    if (_started) {
+      return;
+    }
+    _started = true;
+    final Services s = _services!;
+    s.heading.start();
+    _applyWakelock();
+    await _initCamera();
+    if (!mounted) {
+      return;
+    }
+    await s.location.start();
+  }
+
   void _onSettings() {
     final Services? s = _services;
     if (s == null) {
       return;
     }
     s.location.geocodingEnabled = s.settings.geocoding;
-    if (widget.enabled) {
-      WakelockPlus.toggle(enable: s.settings.keepAwake).catchError((Object e) {});
+    _applyWakelock();
+    // La resolución se aplica en el acto: hay que abrir la cámara de nuevo.
+    if (widget.enabled && _controller != null && _activeResolution != null && _activeResolution != s.settings.resolution && _initFuture == null) {
+      unawaited(_restartCamera());
     }
-    _loadLogo();
     _refresh();
   }
 
-  Future<void> _loadLogo() async {
+  void _applyWakelock() {
     final Services? s = _services;
-    if (s == null) {
+    if (!widget.enabled || s == null) {
       return;
     }
-    final Project p = _project;
-    final StampTemplate tpl = s.state.templateForProject(p);
-    if (tpl.logoPath == _logoPath) {
-      return;
+    final bool on = widget.active && _appResumed && s.settings.keepAwake;
+    if (on != _wakelockOn) {
+      _wakelockOn = on;
+      WakelockPlus.toggle(enable: on).catchError((Object e) {});
     }
-    _logoPath = tpl.logoPath;
-    _logo = null;
-    try {
-      final File? f = await s.state.logoFile(tpl);
-      if (f != null) {
-        _logo = await decodeLogo(await f.readAsBytes());
-      }
-    } catch (_) {}
-    _refresh();
-  }
-
-  Project get _project {
-    final Services s = _services!;
-    final String id = s.settings.currentProjectId;
-    return s.state.projectById(id);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    final CameraController? c = _controller;
     if (!widget.enabled) {
       return;
     }
+    final Services? s = _services;
     if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
-      _controller = null;
-      c?.dispose();
-      _services?.heading.stop();
-      _refresh();
+      _appResumed = false;
+      _cancelCountdown();
+      unawaited(_releaseCamera());
+      unawaited(s?.heading.stop());
+      _applyWakelock();
     } else if (state == AppLifecycleState.resumed) {
-      _initCamera();
-      _services?.heading.start();
+      _appResumed = true;
+      // Por si el permiso de ubicación quedó sin respuesta o se dio en los ajustes.
+      if (_started) {
+        unawaited(s?.location.retry());
+      }
+      // Solo se reabren la cámara y los sensores si la pestaña está a la vista.
+      if (widget.active && _started) {
+        unawaited(_initCamera());
+        s?.heading.start();
+      }
+      _applyWakelock();
     }
   }
 
-  Future<void> _initCamera() async {
-    if (_initializing) {
+  /// Abre la cámara. Si ya se está abriendo, espera esa misma apertura.
+  Future<void> _initCamera() => _initFuture ??= _openCamera().whenComplete(() => _initFuture = null);
+
+  Future<void> _openCamera() async {
+    final Services s = _services!;
+    if (_controller != null) {
       return;
     }
-    _initializing = true;
     _error = null;
+    _refresh();
     try {
       if (_cameras.isEmpty) {
         _cameras = await availableCameras();
@@ -169,7 +193,8 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         return;
       }
       _cameraIndex = _cameraIndex.clamp(0, _cameras.length - 1);
-      final CameraController c = CameraController(_cameras[_cameraIndex], _preset(_services!.settings.resolution), enableAudio: false, imageFormatGroup: ImageFormatGroup.jpeg);
+      final String resolution = s.settings.resolution;
+      final CameraController c = CameraController(_cameras[_cameraIndex], _preset(resolution), enableAudio: false, imageFormatGroup: ImageFormatGroup.jpeg);
       await c.initialize();
       try {
         _minZoom = await c.getMinZoomLevel();
@@ -182,22 +207,43 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       try {
         await c.setFlashMode(_flash);
       } catch (_) {}
-      try {
-        await c.lockCaptureOrientation();
-      } catch (_) {}
-      if (!mounted) {
+      // En iPhone la orientación de captura también gira el video de la
+      // vista previa: se fija en vertical, como la interfaz, y cada foto se
+      // toma girada según el teléfono (ver _takePicture).
+      if (defaultTargetPlatform == TargetPlatform.iOS && !_tablet) {
+        try {
+          await c.lockCaptureOrientation(DeviceOrientation.portraitUp);
+        } catch (_) {}
+      }
+      if (!mounted || !_appResumed) {
         await c.dispose();
         return;
       }
       _controller = c;
+      _activeResolution = resolution;
+      if (!widget.active) {
+        await c.pausePreview().catchError((Object e) {});
+      }
     } on CameraException catch (e) {
       _error = e.code.startsWith('CameraAccess') || e.code == 'cameraPermission' ? 'denied' : (e.description ?? e.code);
     } catch (e) {
       _error = e.toString();
     } finally {
-      _initializing = false;
       _refresh();
     }
+  }
+
+  Future<void> _releaseCamera() async {
+    final CameraController? c = _controller;
+    _controller = null;
+    _refresh();
+    await c?.dispose();
+  }
+
+  Future<void> _restartCamera() async {
+    await (_initFuture ?? Future<void>.value());
+    await _releaseCamera();
+    await _initCamera();
   }
 
   ResolutionPreset _preset(String r) {
@@ -213,15 +259,19 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     }
   }
 
+  bool get _front {
+    final CameraController? c = _controller;
+    return c != null && c.description.lensDirection == CameraLensDirection.front;
+  }
+
   Future<void> _switchCamera() async {
-    if (_cameras.length < 2) {
+    if (_cameras.length < 2 || _capturing) {
       return;
     }
-    final CameraController? old = _controller;
-    _controller = null;
-    _refresh();
-    await old?.dispose();
+    // Si la cámara se está abriendo, se espera antes de cambiarla.
+    await (_initFuture ?? Future<void>.value());
     _cameraIndex = (_cameraIndex + 1) % _cameras.length;
+    await _releaseCamera();
     await _initCamera();
   }
 
@@ -258,16 +308,37 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     final Offset rel = Offset((d.localPosition.dx / box.maxWidth).clamp(0.0, 1.0), (d.localPosition.dy / box.maxHeight).clamp(0.0, 1.0));
     setState(() => _focusPoint = d.localPosition);
     _focusTimer?.cancel();
-    _focusTimer = Timer(const Duration(seconds: 2), () => setState(() => _focusPoint = null));
+    _focusTimer = Timer(const Duration(seconds: 2), () => _refreshWith(() => _focusPoint = null));
     try {
       await c.setFocusPoint(rel);
       await c.setExposurePoint(rel);
     } catch (_) {}
   }
 
+  void _refreshWith(VoidCallback fn) {
+    if (mounted) {
+      setState(fn);
+    }
+  }
+
+  void _cancelCountdown() {
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
+    if (_countdown != 0) {
+      _countdown = 0;
+      _refresh();
+    }
+  }
+
   Future<void> _shutter() async {
     final Services s = _services!;
-    if (_controller == null || !_controller!.value.isInitialized || _countdown > 0) {
+    // Tocar el obturador durante la cuenta regresiva la cancela.
+    if (_countdown > 0) {
+      _cancelCountdown();
+      return;
+    }
+    final CameraController? c = _controller;
+    if (c == null || !c.value.isInitialized) {
       return;
     }
     final int timer = s.settings.timerSeconds;
@@ -282,7 +353,8 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         setState(() => _countdown -= 1);
         if (_countdown <= 0) {
           tm.cancel();
-          _capture();
+          _countdownTimer = null;
+          unawaited(_capture());
         }
       });
       return;
@@ -290,64 +362,105 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     await _capture();
   }
 
+  /// Toma la foto con la orientación física del teléfono. En Android la
+  /// orientación de captura no toca la vista previa. En iPhone sí (gira el
+  /// video): se congela el cuadro mientras se dispara y se vuelve a la
+  /// vertical después.
+  Future<XFile> _takePicture(CameraController c, DeviceOrientation target) async {
+    if (defaultTargetPlatform != TargetPlatform.iOS) {
+      await c.lockCaptureOrientation(target);
+      return c.takePicture();
+    }
+    final DeviceOrientation previewOrientation = _tablet ? c.value.deviceOrientation : DeviceOrientation.portraitUp;
+    if (target == previewOrientation) {
+      return c.takePicture();
+    }
+    await c.pausePreview();
+    try {
+      await c.lockCaptureOrientation(target);
+      return await c.takePicture();
+    } finally {
+      try {
+        if (_tablet) {
+          await c.unlockCaptureOrientation();
+        } else {
+          await c.lockCaptureOrientation(DeviceOrientation.portraitUp);
+        }
+      } catch (_) {}
+      try {
+        await c.resumePreview();
+      } catch (_) {}
+    }
+  }
+
   Future<void> _capture() async {
     final Services s = _services!;
     final CameraController? c = _controller;
-    if (c == null || c.value.isTakingPicture) {
+    if (c == null || !c.value.isInitialized || c.value.isTakingPicture || _capturing) {
       return;
     }
-    if (s.settings.hapticShutter) {
-      unawaited(HapticFeedback.mediumImpact());
-    }
-    final Project project = _project;
-    final StampTemplate tpl = s.state.templateForProject(project);
-    final StampData data = _pipeline!.buildData(project: project, fix: s.location.fix, orientation: s.heading.orientation, address: s.location.address, fields: _fields, notes: _notes);
-    XFile file;
+    _capturing = true;
     try {
-      file = await c.takePicture();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'No se pudo tomar la foto', 'Could not take the photo')}: $e')));
+      if (s.settings.hapticShutter) {
+        unawaited(HapticFeedback.mediumImpact());
       }
-      return;
-    }
-    setState(() => _processing += 1);
-    try {
-      final CaptureOutcome out = await _pipeline!.process(jpegPath: file.path, project: project, template: tpl, data: data, logo: _logo, fields: _fields, notes: _notes, tags: _tags);
-      if (mounted) {
-        setState(() => _last = out.record);
-        if (out.galleryDenied) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(t(context, 'Guardada en la app. Para copiarla también a la fototeca, da el permiso en los ajustes del teléfono o apaga la copia en Ajustes.', 'Saved in the app. To also copy it to the photo library, allow it in the phone settings or turn the copy off in Settings.')),
-          ));
-        } else if (out.galleryError != null) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Guardada en la app; no se pudo copiar a la fototeca.', 'Saved in the app; could not copy to the photo library.'))));
+      final CaptureSession session = s.session;
+      final Project project = session.project;
+      final Fix? fix = s.location.fix;
+      final Orientation3? ori = _orientationForLens(s.heading.orientation);
+      final DateTime now = clock.now();
+      final DeviceOrientation target = s.heading.physicalOrientation;
+      XFile file;
+      try {
+        file = await _takePicture(c, target);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'No se pudo tomar la foto', 'Could not take the photo')}: $e')));
         }
+        return;
       }
+      final PhotoRecord rec = await s.pipeline.saveCapture(
+        jpegPath: file.path,
+        project: project,
+        fix: fix,
+        orientation: ori,
+        address: s.location.addressFor(fix),
+        fields: session.fields,
+        notes: session.notes,
+        tags: session.tags,
+        frontCamera: _front,
+        now: now,
+      );
+      s.queue.enqueue(rec.id);
+      _refreshWith(() => _lastId = rec.id);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'Error al guardar', 'Error saving')}: $e')));
       }
     } finally {
-      if (mounted) {
-        setState(() => _processing -= 1);
-      }
+      _capturing = false;
     }
   }
+
+  /// La cámara frontal mira al lado contrario: su rumbo es 180° distinto.
+  Orientation3? _orientationForLens(Orientation3? o) => o == null ? null : (_front ? o.forFrontCamera() : o);
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _countdownTimer?.cancel();
     _focusTimer?.cancel();
-    _controller?.dispose();
-    if (widget.enabled) {
+    unawaited(_controller?.dispose());
+    if (widget.enabled && _wakelockOn) {
       WakelockPlus.disable().catchError((Object e) {});
     }
-    _services?.location.removeListener(_refresh);
-    _services?.heading.removeListener(_refresh);
-    _services?.settings.removeListener(_onSettings);
-    _services?.state.removeListener(_refresh);
+    final Services? s = _services;
+    s?.location.removeListener(_refresh);
+    s?.heading.removeListener(_refresh);
+    s?.settings.removeListener(_onSettings);
+    s?.state.removeListener(_refresh);
+    s?.session.removeListener(_refresh);
+    s?.queue.removeListener(_refresh);
     super.dispose();
   }
 
@@ -360,46 +473,99 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     // Al salir de la pestaña se pausan la vista previa y los sensores de
     // orientación; la ubicación sigue para que el mapa y la galería la usen.
     if (widget.active) {
-      _controller?.resumePreview().catchError((Object e) {});
+      if (!_started) {
+        unawaited(_start());
+      } else if (_controller == null) {
+        unawaited(_initCamera());
+      } else {
+        _controller?.resumePreview().catchError((Object e) {});
+      }
       _services?.heading.start();
     } else {
+      _cancelCountdown();
       _controller?.pausePreview().catchError((Object e) {});
-      _services?.heading.stop();
+      unawaited(_services?.heading.stop());
     }
+    _applyWakelock();
+  }
+
+  DeviceOrientation _computeUiOrientation(BuildContext context, HeadingService heading) {
+    _tablet = MediaQuery.sizeOf(context).shortestSide >= 600;
+    if (!_tablet) {
+      return DeviceOrientation.portraitUp;
+    }
+    final CameraController? c = _controller;
+    if (c != null && c.value.isInitialized && defaultTargetPlatform == TargetPlatform.android) {
+      // En Android la cámara informa la orientación de la interfaz.
+      return c.value.deviceOrientation;
+    }
+    final DeviceOrientation phys = heading.physicalOrientation;
+    if (MediaQuery.orientationOf(context) == Orientation.landscape) {
+      return isLandscapeOrientation(phys) ? phys : DeviceOrientation.landscapeLeft;
+    }
+    return phys == DeviceOrientation.portraitDown ? DeviceOrientation.portraitDown : DeviceOrientation.portraitUp;
   }
 
   @override
   Widget build(BuildContext context) {
     final Services s = AppScope.of(context);
     final AppSettings st = s.settings;
+    final CaptureSession session = s.session;
     final CameraController? c = _controller;
-    final Project project = _project;
-    final StampTemplate tpl = s.state.templateForProject(project);
+    final Project project = session.project;
+    final StampTemplate tpl = session.template;
     final Fix? fix = s.location.fix;
-    final Orientation3? ori = s.heading.orientation;
-    final StampData data = _pipeline!.buildData(project: project, fix: fix, orientation: ori, address: s.location.address, fields: _fields, notes: _notes);
+    final Orientation3? ori = _orientationForLens(s.heading.orientation);
     final bool spanish = st.spanish;
+    _uiOrientation = _computeUiOrientation(context, s.heading);
+    // Giro del sello y de los íconos para que se lean derechos con el
+    // teléfono como esté (el giro animado va por el camino más corto).
+    final int turns = quarterTurnsBetween(_uiOrientation, s.heading.physicalOrientation);
+    if (turns != _shownTurns) {
+      int delta = (turns - _shownTurns) % 4;
+      if (delta == 3) {
+        delta = -1;
+      }
+      _iconTurns += delta / 4;
+      _shownTurns = turns;
+    }
+    final PhotoRecord preview = s.pipeline.buildRecord(
+      id: 'vista-previa',
+      project: project,
+      originalFile: '',
+      stampedFile: '',
+      time: clock.now(),
+      fix: fix,
+      orientation: ori,
+      address: s.location.addressFor(fix),
+      fields: session.fields,
+      notes: session.notes,
+      tags: session.tags,
+      frontCamera: _front,
+    );
+    final StampData data = StampData.fromRecord(preview, project: project, spanish: spanish);
+    final Widget stamp = IgnorePointer(child: RotatedBox(quarterTurns: turns, child: CustomPaint(painter: StampPainter(template: tpl, data: data, logo: session.logo))));
 
-    Widget preview;
+    Widget previewArea;
     if (!widget.enabled) {
       // Sin cámara (pruebas): fondo negro con el sello en vivo encima.
-      preview = Center(
+      previewArea = Center(
         child: AspectRatio(
           aspectRatio: 3 / 4,
           child: Stack(
             fit: StackFit.expand,
             children: <Widget>[
               const ColoredBox(color: Colors.black, child: Center(child: Icon(Icons.photo_camera_outlined, color: Colors.white54, size: 64))),
-              IgnorePointer(child: CustomPaint(painter: StampPainter(template: tpl, data: data, logo: _logo))),
+              stamp,
             ],
           ),
         ),
       );
     } else if (_error != null) {
-      preview = ColoredBox(
+      previewArea = ColoredBox(
         color: Colors.black,
         child: Center(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -414,103 +580,128 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                   style: const TextStyle(color: Colors.white),
                 ),
                 const SizedBox(height: 12),
-                FilledButton(onPressed: _initCamera, child: Text(t(context, 'Reintentar', 'Retry'))),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: <Widget>[
+                    FilledButton(onPressed: _initCamera, child: Text(t(context, 'Reintentar', 'Retry'))),
+                    if (_error == 'denied') OutlinedButton(style: OutlinedButton.styleFrom(foregroundColor: Colors.white), onPressed: () => s.location.backend.openAppSettings(), child: Text(t(context, 'Abrir ajustes', 'Open settings'))),
+                  ],
+                ),
               ],
             ),
           ),
         ),
       );
     } else if (c == null || !c.value.isInitialized) {
-      preview = const ColoredBox(color: Colors.black, child: Center(child: CircularProgressIndicator()));
+      previewArea = const ColoredBox(color: Colors.black, child: Center(child: CircularProgressIndicator()));
     } else {
-      Widget cam = CameraPreview(c);
+      Widget cam = _SelloPreview(controller: c);
       if (st.redFilter) {
         cam = ColorFiltered(colorFilter: const ColorFilter.mode(Color(0xFFFF3B30), BlendMode.multiply), child: cam);
       }
-      preview = LayoutBuilder(builder: (BuildContext context, BoxConstraints box) {
-        return GestureDetector(
-          onTapDown: (TapDownDetails d) => _focusAt(d, box),
-          onScaleStart: (_) => _baseZoom = _zoom,
-          onScaleUpdate: (ScaleUpdateDetails d) => _setZoom(_baseZoom * d.scale),
-          child: Stack(
-            fit: StackFit.expand,
-            children: <Widget>[
-              cam,
-              if (st.grid) const IgnorePointer(child: CustomPaint(painter: _GridPainter())),
-              if (st.level && ori != null) IgnorePointer(child: CustomPaint(painter: _LevelPainter(roll: ori.roll, pitch: ori.pitch))),
-              IgnorePointer(child: CustomPaint(painter: StampPainter(template: tpl, data: data, logo: _logo))),
-              if (_focusPoint != null)
-                Positioned(
-                  left: _focusPoint!.dx - 32,
-                  top: _focusPoint!.dy - 32,
-                  child: Container(width: 64, height: 64, decoration: BoxDecoration(border: Border.all(color: Colors.amber, width: 2), borderRadius: BorderRadius.circular(8))),
-                ),
-              if (_countdown > 0) Center(child: Text('$_countdown', style: const TextStyle(fontSize: 120, fontWeight: FontWeight.w800, color: Colors.white, shadows: <Shadow>[Shadow(blurRadius: 12, color: Colors.black)]))),
-            ],
-          ),
-        );
-      });
-      final bool landscape = MediaQuery.orientationOf(context) == Orientation.landscape;
-      preview = Center(child: AspectRatio(aspectRatio: landscape ? c.value.aspectRatio : 1 / c.value.aspectRatio, child: preview));
+      final bool landscapeUi = isLandscapeOrientation(_uiOrientation);
+      previewArea = Center(
+        child: AspectRatio(
+          aspectRatio: landscapeUi ? c.value.aspectRatio : 1 / c.value.aspectRatio,
+          child: LayoutBuilder(builder: (BuildContext context, BoxConstraints box) {
+            return Semantics(
+              label: t(context, 'Vista previa de la cámara. Toca un punto para enfocar.', 'Camera preview. Tap a spot to focus.'),
+              child: GestureDetector(
+              onTapDown: (TapDownDetails d) => _focusAt(d, box),
+              onScaleStart: (_) => _baseZoom = _zoom,
+              onScaleUpdate: (ScaleUpdateDetails d) => _setZoom(_baseZoom * d.scale),
+              child: Stack(
+                fit: StackFit.expand,
+                children: <Widget>[
+                  cam,
+                  if (st.grid) const IgnorePointer(child: CustomPaint(painter: _GridPainter())),
+                  if (st.level && ori != null) IgnorePointer(child: CustomPaint(painter: _LevelPainter(roll: _levelRoll(ori.roll, turns), pitch: ori.pitch, turns: turns))),
+                  stamp,
+                  if (_focusPoint != null)
+                    Positioned(
+                      left: _focusPoint!.dx - 32,
+                      top: _focusPoint!.dy - 32,
+                      child: Container(width: 64, height: 64, decoration: BoxDecoration(border: Border.all(color: Colors.amber, width: 2), borderRadius: BorderRadius.circular(8))),
+                    ),
+                  if (_countdown > 0)
+                    Center(
+                      child: AnimatedRotation(
+                        turns: _iconTurns,
+                        duration: const Duration(milliseconds: 250),
+                        child: Text('$_countdown', style: const TextStyle(fontSize: 120, fontWeight: FontWeight.w800, color: Colors.white, shadows: <Shadow>[Shadow(blurRadius: 12, color: Colors.black)])),
+                      ),
+                    ),
+                ],
+              ),
+              ),
+            );
+          }),
+        ),
+      );
     }
 
-    final String gpsLabel = fix == null
-        ? (s.location.status == 'denied' ? t(context, 'GPS sin permiso', 'GPS denied') : (s.location.status == 'disabled' ? t(context, 'GPS apagado', 'GPS off') : t(context, 'Buscando GPS…', 'Searching GPS…')))
-        : '± ${fix.accuracy.toStringAsFixed(0)} m${fix.locked ? ' · ${t(context, 'fija', 'locked')}' : ''}${s.location.averaging ? ' · ${t(context, 'promediando', 'averaging')}' : ''}';
-    final Color gpsColor = fix == null ? Colors.redAccent : (fix.accuracy <= 10 ? Colors.lightGreenAccent : (fix.accuracy <= 30 ? Colors.amber : Colors.orangeAccent));
+    final _GpsChipInfo gps = _gpsChip(context, s.location, fix);
+    final int stamping = s.queue.pendingCount;
+    final PhotoRecord? last = _lastId == null ? null : s.state.photoById(_lastId!);
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Column(
           children: <Widget>[
-            // Barra superior: proyecto, GPS, rumbo, ajustes
-            SizedBox(
-              height: 48,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            // Barra superior: proyecto, GPS, rumbo, ajustes. Crece con el texto.
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
                 children: <Widget>[
-                  _Chip(icon: Icons.folder_outlined, label: project.name, onTap: () => showPhotoDataSheet(context, fields: _fields, notes: _notes, tags: _tags, onChanged: (String notes) => setState(() => _notes = notes))),
+                  _Chip(icon: Icons.folder_outlined, label: '${project.emoji.isNotEmpty ? '${project.emoji} ' : ''}${project.name}', semanticsHint: t(context, 'Proyecto, campos y notas de la próxima foto', 'Project, fields and notes for the next photo'), onTap: () => showPhotoDataSheet(context)),
                   const SizedBox(width: 6),
-                  _Chip(icon: Icons.gps_fixed, label: gpsLabel, color: gpsColor, onTap: () => showGpsSheet(context)),
+                  _Chip(icon: Icons.gps_fixed, label: gps.label, color: gps.color, semanticsHint: t(context, 'Detalle del GPS y la brújula', 'GPS and compass details'), onTap: () => showGpsSheet(context)),
                   const SizedBox(width: 6),
                   _Chip(
                     icon: Icons.explore_outlined,
-                    label: ori == null ? '—' : '${ori.cameraHeading.toStringAsFixed(0)}° ${Coords.cardinal(ori.cameraHeading, spanish: spanish)}${ori.flat ? '' : ' · ${ori.pitch.toStringAsFixed(0)}°'}',
+                    label: ori == null ? '—' : '${ori.cameraHeading.toStringAsFixed(0)}° ${Coords.cardinal(ori.cameraHeading, spanish: spanish)}${ori.trueNorth ? '' : t(context, ' magn.', ' magn.')}${ori.flat ? '' : ' · ${ori.pitch.toStringAsFixed(0)}°'}',
+                    semanticsHint: t(context, 'Rumbo de la cámara', 'Camera heading'),
                     onTap: () => showGpsSheet(context),
                   ),
-                  const SizedBox(width: 6),
-                  _Chip(icon: Icons.settings_outlined, label: '', onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen()))),
+                  const SizedBox(width: 2),
+                  IconButton(
+                    tooltip: t(context, 'Ajustes', 'Settings'),
+                    color: Colors.white,
+                    icon: const Icon(Icons.settings_outlined),
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen())),
+                  ),
                 ],
               ),
             ),
-            Expanded(child: preview),
+            Expanded(child: previewArea),
             // Controles secundarios (desplazables en pantallas angostas) y zoom.
-            SizedBox(
-              height: 48,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                child: Row(
-                  children: <Widget>[
-                    _Round(icon: _flashIcon(), onTap: _cycleFlash, label: t(context, 'Flash', 'Flash')),
-                    _Round(icon: st.grid ? Icons.grid_on : Icons.grid_off, onTap: () { st.grid = !st.grid; st.save(); }, label: t(context, 'Rejilla', 'Grid')),
-                    _Round(icon: Icons.straighten, onTap: () { st.level = !st.level; st.save(); }, label: t(context, 'Nivel', 'Level'), active: st.level),
-                    _Round(icon: st.timerSeconds == 0 ? Icons.timer_off_outlined : Icons.timer_outlined, badge: st.timerSeconds == 0 ? null : '${st.timerSeconds}', onTap: () { st.timerSeconds = st.timerSeconds == 0 ? 3 : (st.timerSeconds == 3 ? 10 : 0); st.save(); }, label: t(context, 'Temporizador', 'Timer')),
-                    _Round(icon: Icons.exposure, onTap: () => setState(() => _showExposure = !_showExposure), label: t(context, 'Exposición', 'Exposure'), active: _showExposure),
-                    _Round(icon: Icons.nightlight_outlined, onTap: () { st.redFilter = !st.redFilter; st.save(); }, label: t(context, 'Filtro rojo', 'Red filter'), active: st.redFilter),
-                    if (_maxZoom > _minZoom + 0.01) ...<Widget>[
-                      const SizedBox(width: 12),
-                      for (final double z in <double>[1, 2, 4, 8])
-                        if (z <= _maxZoom)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: _ZoomChip(label: '${z.toStringAsFixed(0)}x', selected: (_zoom - z).abs() < 0.3, onTap: () => _setZoom(z)),
-                          ),
-                    ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              child: Row(
+                children: <Widget>[
+                  _Round(icon: _flashIcon(), turns: _iconTurns, onTap: _cycleFlash, label: '${t(context, 'Flash', 'Flash')}: ${_flashName(context)}'),
+                  _Round(icon: st.grid ? Icons.grid_on : Icons.grid_off, turns: _iconTurns, onTap: () => _toggle(() => st.grid = !st.grid), label: t(context, 'Rejilla', 'Grid'), toggled: st.grid),
+                  _Round(icon: Icons.straighten, turns: _iconTurns, onTap: () => _toggle(() => st.level = !st.level), label: t(context, 'Nivel', 'Level'), toggled: st.level),
+                  _Round(
+                    icon: st.timerSeconds == 0 ? Icons.timer_off_outlined : Icons.timer_outlined,
+                    turns: _iconTurns,
+                    badge: st.timerSeconds == 0 ? null : '${st.timerSeconds}',
+                    onTap: () => _toggle(() => st.timerSeconds = st.timerSeconds == 0 ? 3 : (st.timerSeconds == 3 ? 10 : 0)),
+                    label: st.timerSeconds == 0 ? t(context, 'Temporizador apagado', 'Timer off') : '${t(context, 'Temporizador', 'Timer')}: ${st.timerSeconds} s',
+                  ),
+                  _Round(icon: Icons.exposure, turns: _iconTurns, onTap: () => setState(() => _showExposure = !_showExposure), label: t(context, 'Exposición', 'Exposure'), toggled: _showExposure),
+                  _Round(icon: Icons.nightlight_outlined, turns: _iconTurns, onTap: () => _toggle(() => st.redFilter = !st.redFilter), label: t(context, 'Filtro rojo', 'Red filter'), toggled: st.redFilter),
+                  if (_maxZoom > _minZoom + 0.01) ...<Widget>[
+                    const SizedBox(width: 8),
+                    for (final double z in <double>[1, 2, 4, 8])
+                      if (z <= _maxZoom) _ZoomChip(label: '${z.toStringAsFixed(0)}x', semantics: '${t(context, 'Zoom', 'Zoom')} ${z.toStringAsFixed(0)}x', selected: (_zoom - z).abs() < 0.3, onTap: () => _setZoom(z)),
                   ],
-                ),
+                ],
               ),
             ),
             if (_showExposure)
@@ -519,7 +710,16 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                 child: Row(
                   children: <Widget>[
                     const Icon(Icons.brightness_low, color: Colors.white70, size: 18),
-                    Expanded(child: Slider(min: _minExposure, max: _maxExposure <= _minExposure ? _minExposure + 1 : _maxExposure, value: _exposure.clamp(_minExposure, _maxExposure <= _minExposure ? _minExposure + 1 : _maxExposure), onChanged: _setExposure, label: _exposure.toStringAsFixed(1))),
+                    Expanded(
+                      child: Slider(
+                        min: _minExposure,
+                        max: _maxExposure <= _minExposure ? _minExposure + 1 : _maxExposure,
+                        value: _exposure.clamp(_minExposure, _maxExposure <= _minExposure ? _minExposure + 1 : _maxExposure),
+                        onChanged: _setExposure,
+                        label: _exposure.toStringAsFixed(1),
+                        semanticFormatterCallback: (double v) => '${t(context, 'Exposición', 'Exposure')} ${v.toStringAsFixed(1)}',
+                      ),
+                    ),
                     const Icon(Icons.brightness_high, color: Colors.white70, size: 18),
                   ],
                 ),
@@ -532,34 +732,59 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                   SizedBox(
                     width: 64,
                     height: 64,
-                    child: _last == null
+                    child: last == null
                         ? const SizedBox.shrink()
-                        : GestureDetector(
-                            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => PhotoDetailScreen(photoId: _last!.id))),
-                            child: ClipRRect(borderRadius: BorderRadius.circular(10), child: _Thumb(record: _last!)),
+                        : Semantics(
+                            button: true,
+                            label: t(context, 'Abrir la última foto', 'Open the last photo'),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(10),
+                              onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => PhotoDetailScreen(photoId: last.id))),
+                              child: AnimatedRotation(
+                                turns: _iconTurns,
+                                duration: const Duration(milliseconds: 250),
+                                child: ExcludeSemantics(child: ClipRRect(borderRadius: BorderRadius.circular(10), child: PhotoThumb(key: ValueKey<String>('${last.id}-${last.version}-${last.status.name}'), record: last, cacheWidth: kCameraThumbWidth))),
+                              ),
+                            ),
                           ),
                   ),
                   Expanded(
                     child: Center(
-                      child: GestureDetector(
-                        onTap: _shutter,
-                        child: Container(
-                          width: 78,
-                          height: 78,
-                          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 4), color: _processing > 0 ? Colors.white54 : Colors.white),
-                          child: _processing > 0 ? const Padding(padding: EdgeInsets.all(22), child: CircularProgressIndicator(strokeWidth: 3, color: Colors.black)) : null,
+                      child: Semantics(
+                        button: true,
+                        label: _countdown > 0 ? t(context, 'Cancelar el temporizador', 'Cancel the timer') : t(context, 'Tomar foto', 'Take photo'),
+                        child: Material(
+                          color: Colors.transparent,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: _shutter,
+                            child: Container(
+                              width: 78,
+                              height: 78,
+                              decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 4), color: _capturing ? Colors.white54 : Colors.white),
+                              child: _countdown > 0 ? const Icon(Icons.close, color: Colors.black, size: 34) : null,
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
                   SizedBox(
                     width: 64,
-                    height: 64,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        IconButton(onPressed: _cameras.length > 1 ? _switchCamera : null, icon: const Icon(Icons.cameraswitch_outlined, color: Colors.white), tooltip: t(context, 'Cambiar cámara', 'Switch camera')),
-                        if (_processing > 0) Text('${t(context, 'sellando', 'stamping')} $_processing', style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                        IconButton(
+                          onPressed: _cameras.length > 1 ? _switchCamera : null,
+                          icon: AnimatedRotation(turns: _iconTurns, duration: const Duration(milliseconds: 250), child: const Icon(Icons.cameraswitch_outlined, color: Colors.white)),
+                          tooltip: t(context, 'Cambiar cámara', 'Switch camera'),
+                        ),
+                        if (stamping > 0)
+                          Semantics(
+                            liveRegion: true,
+                            child: Text('${t(context, 'sellando', 'stamping')} $stamping', textAlign: TextAlign.center, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+                          ),
                       ],
                     ),
                   ),
@@ -570,6 +795,61 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         ),
       ),
     );
+  }
+
+  void _toggle(VoidCallback change) {
+    change();
+    unawaited(_services!.settings.save());
+  }
+
+  /// Giro del nivel respecto a la orientación de la foto (0 = nivelado en
+  /// vertical u horizontal).
+  static double _levelRoll(double roll, int turns) {
+    double r = roll - turns * 90;
+    while (r > 180) {
+      r -= 360;
+    }
+    while (r <= -180) {
+      r += 360;
+    }
+    return r;
+  }
+
+  _GpsChipInfo _gpsChip(BuildContext context, LocationService loc, Fix? fix) {
+    if (fix == null) {
+      final String label = loc.status == 'denied' || loc.status == 'deniedForever'
+          ? t(context, 'GPS sin permiso', 'GPS denied')
+          : (loc.status == 'disabled' ? t(context, 'GPS apagado', 'GPS off') : t(context, 'Buscando GPS…', 'Searching GPS…'));
+      return _GpsChipInfo(label, Colors.redAccent);
+    }
+    if (fix.manual) {
+      return _GpsChipInfo(t(context, 'posición manual', 'manual position'), Colors.lightBlueAccent);
+    }
+    final double acc = fix.accuracy ?? 999;
+    final StringBuffer b = StringBuffer(fix.accuracy == null ? '±?' : '± ${acc.toStringAsFixed(0)} m');
+    if (fix.locked) {
+      b.write(' · ${fix.source == PositionSource.averaged ? t(context, 'promedio fijo', 'averaged') : t(context, 'fija', 'locked')}');
+    }
+    if (loc.averaging) {
+      b.write(' · ${t(context, 'promediando', 'averaging')} ${loc.averagingSamples}');
+    }
+    Color color = acc <= 10 ? Colors.lightGreenAccent : (acc <= 30 ? Colors.amber : Colors.orangeAccent);
+    final Duration? age = loc.liveAge;
+    if (loc.stale && age != null) {
+      b.write(_services!.settings.spanish ? ' · hace ${_ageText(age)}' : ' · ${_ageText(age)} ago');
+      color = Colors.orangeAccent;
+    }
+    return _GpsChipInfo(b.toString(), color);
+  }
+
+  static String _ageText(Duration d) {
+    if (d.inSeconds < 90) {
+      return '${d.inSeconds} s';
+    }
+    if (d.inMinutes < 90) {
+      return '${d.inMinutes} min';
+    }
+    return '${d.inHours} h';
   }
 
   IconData _flashIcon() {
@@ -584,35 +864,97 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         return Icons.highlight;
     }
   }
+
+  String _flashName(BuildContext context) {
+    switch (_flash) {
+      case FlashMode.off:
+        return t(context, 'apagado', 'off');
+      case FlashMode.auto:
+        return t(context, 'automático', 'auto');
+      case FlashMode.always:
+        return t(context, 'siempre', 'always');
+      case FlashMode.torch:
+        return t(context, 'linterna', 'torch');
+    }
+  }
+}
+
+class _GpsChipInfo {
+  const _GpsChipInfo(this.label, this.color);
+
+  final String label;
+  final Color color;
+}
+
+/// Vista previa de la cámara con la orientación de la interfaz. A
+/// diferencia de CameraPreview, no gira con la orientación de captura (que
+/// aquí cambia en cada foto según cómo se sostenga el teléfono).
+class _SelloPreview extends StatelessWidget {
+  const _SelloPreview({required this.controller});
+
+  final CameraController controller;
+
+  static const Map<DeviceOrientation, int> _turns = <DeviceOrientation, int>{
+    DeviceOrientation.portraitUp: 0,
+    DeviceOrientation.landscapeRight: 1,
+    DeviceOrientation.portraitDown: 2,
+    DeviceOrientation.landscapeLeft: 3,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<CameraValue>(
+      valueListenable: controller,
+      builder: (BuildContext context, CameraValue value, Widget? _) {
+        if (!value.isInitialized) {
+          return const SizedBox.shrink();
+        }
+        final Widget preview = controller.buildPreview();
+        if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) {
+          return preview;
+        }
+        // En Android la cámara informa la orientación de la interfaz.
+        return RotatedBox(quarterTurns: _turns[value.deviceOrientation] ?? 0, child: preview);
+      },
+    );
+  }
 }
 
 class _Chip extends StatelessWidget {
-  const _Chip({required this.icon, required this.label, required this.onTap, this.color});
+  const _Chip({required this.icon, required this.label, required this.onTap, this.color, this.semanticsHint});
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final Color? color;
+  final String? semanticsHint;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white.withValues(alpha: 0.12),
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
+    return Semantics(
+      button: true,
+      hint: semanticsHint,
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(icon, size: 18, color: color ?? Colors.white),
-              if (label.isNotEmpty) ...<Widget>[
-                const SizedBox(width: 6),
-                Text(label, style: TextStyle(color: color ?? Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
-              ],
-            ],
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(icon, size: 18, color: color ?? Colors.white),
+                  if (label.isNotEmpty) ...<Widget>[
+                    const SizedBox(width: 6),
+                    Text(label, style: TextStyle(color: color ?? Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
       ),
@@ -621,31 +963,52 @@ class _Chip extends StatelessWidget {
 }
 
 class _Round extends StatelessWidget {
-  const _Round({required this.icon, required this.onTap, required this.label, this.active = false, this.badge});
+  const _Round({required this.icon, required this.onTap, required this.label, required this.turns, this.toggled, this.badge});
 
   final IconData icon;
   final VoidCallback onTap;
   final String label;
-  final bool active;
+  final double turns;
+  final bool? toggled;
   final String? badge;
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: label,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: onTap,
-        child: Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: active ? Colors.amber.withValues(alpha: 0.3) : Colors.transparent),
-          child: Stack(
-            alignment: Alignment.center,
-            children: <Widget>[
-              Icon(icon, color: active ? Colors.amber : Colors.white),
-              if (badge != null) Positioned(right: 4, bottom: 4, child: Text(badge!, style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.w800))),
-            ],
+    final bool active = toggled ?? false;
+    // excludeSemantics deja fuera la acción del InkWell: se declara aquí.
+    return Semantics(
+      button: true,
+      toggled: toggled,
+      label: label,
+      excludeSemantics: true,
+      onTap: onTap,
+      child: Tooltip(
+        message: label,
+        excludeFromSemantics: true,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: active ? Colors.amber.withValues(alpha: 0.3) : Colors.transparent),
+                child: AnimatedRotation(
+                  turns: turns,
+                  duration: const Duration(milliseconds: 250),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: <Widget>[
+                      Icon(icon, color: active ? Colors.amber : Colors.white),
+                      if (badge != null) Positioned(right: 4, bottom: 4, child: Text(badge!, style: const TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.w800))),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
@@ -654,41 +1017,35 @@ class _Round extends StatelessWidget {
 }
 
 class _ZoomChip extends StatelessWidget {
-  const _ZoomChip({required this.label, required this.selected, required this.onTap});
+  const _ZoomChip({required this.label, required this.semantics, required this.selected, required this.onTap});
 
   final String label;
+  final String semantics;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: semantics,
+      excludeSemantics: true,
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(color: selected ? Colors.white : Colors.white24, borderRadius: BorderRadius.circular(12)),
-        child: Text(label, style: TextStyle(color: selected ? Colors.black : Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+      child: InkWell(
+        customBorder: const StadiumBorder(),
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(color: selected ? Colors.white : Colors.white24, borderRadius: BorderRadius.circular(14)),
+              child: Text(label, style: TextStyle(color: selected ? Colors.black : Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+            ),
+          ),
+        ),
       ),
-    );
-  }
-}
-
-class _Thumb extends StatelessWidget {
-  const _Thumb({required this.record});
-
-  final PhotoRecord record;
-
-  @override
-  Widget build(BuildContext context) {
-    final AppState st = AppScope.of(context).state;
-    return FutureBuilder<File>(
-      future: st.fileOf(record.stampedFile),
-      builder: (BuildContext context, AsyncSnapshot<File> snap) {
-        if (!snap.hasData) {
-          return const ColoredBox(color: Colors.white24);
-        }
-        return Image.file(snap.data!, fit: BoxFit.cover, cacheWidth: 128, errorBuilder: (_, __, ___) => const ColoredBox(color: Colors.white24));
-      },
     );
   }
 }
@@ -712,12 +1069,16 @@ class _GridPainter extends CustomPainter {
 }
 
 /// Nivel: horizonte que gira con el teléfono y sube o baja con la inclinación
-/// de la cámara. Verde cuando está nivelado (±1°).
+/// de la cámara. Verde cuando está nivelado (±1°), en vertical u horizontal.
 class _LevelPainter extends CustomPainter {
-  const _LevelPainter({required this.roll, required this.pitch});
+  const _LevelPainter({required this.roll, required this.pitch, required this.turns});
 
+  /// Giro respecto a la orientación de la foto.
   final double roll;
   final double pitch;
+
+  /// Cuartos de vuelta de la foto respecto a la pantalla.
+  final int turns;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -728,16 +1089,20 @@ class _LevelPainter extends CustomPainter {
       ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
     final Offset c = Offset(size.width / 2, size.height / 2);
-    // Marca fija (la cámara).
-    canvas.drawLine(c + const Offset(-26, 0), c + const Offset(-10, 0), fixed);
-    canvas.drawLine(c + const Offset(10, 0), c + const Offset(26, 0), fixed);
-    canvas.drawCircle(c, 4, fixed);
-    // Horizonte: 1° de inclinación ≈ 1 % de la altura (saturado a ±25°).
-    final double dy = (pitch.clamp(-25.0, 25.0)) / 100 * size.height;
-    final double rad = -roll * math.pi / 180;
     canvas.save();
-    canvas.translate(c.dx, c.dy + dy);
-    canvas.rotate(rad);
+    canvas.translate(c.dx, c.dy);
+    // Todo se dibuja en el sistema de la foto (girado como el teléfono).
+    canvas.rotate(turns * math.pi / 2);
+    // Marca fija (la cámara).
+    canvas.drawLine(const Offset(-26, 0), const Offset(-10, 0), fixed);
+    canvas.drawLine(const Offset(10, 0), const Offset(26, 0), fixed);
+    canvas.drawCircle(Offset.zero, 4, fixed);
+    // Horizonte: 1° de inclinación ≈ 1 % de la altura (saturado a ±25°).
+    final double frameHeight = turns.isOdd ? size.width : size.height;
+    final double dy = (pitch.clamp(-25.0, 25.0)) / 100 * frameHeight;
+    canvas.save();
+    canvas.translate(0, dy);
+    canvas.rotate(-roll * math.pi / 180);
     final Paint h = Paint()
       ..color = color
       ..strokeWidth = 2.5
@@ -749,9 +1114,10 @@ class _LevelPainter extends CustomPainter {
       ..pushStyle(ui.TextStyle(color: color, shadows: <Shadow>[const Shadow(blurRadius: 3, color: Colors.black)]))
       ..addText('${roll.toStringAsFixed(0)}° / ${pitch.toStringAsFixed(0)}°');
     final ui.Paragraph par = pb.build()..layout(const ui.ParagraphConstraints(width: 120));
-    canvas.drawParagraph(par, Offset(c.dx - 60, c.dy + 34));
+    canvas.drawParagraph(par, const Offset(-60, 34));
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _LevelPainter old) => old.roll != roll || old.pitch != pitch;
+  bool shouldRepaint(covariant _LevelPainter old) => old.roll != roll || old.pitch != pitch || old.turns != turns;
 }

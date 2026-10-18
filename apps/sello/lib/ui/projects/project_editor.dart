@@ -23,22 +23,32 @@ class _ProjectEditorState extends State<ProjectEditor> {
   late final TextEditingController _emoji;
   late final TextEditingController _notes;
   late final TextEditingController _pattern;
-  Project? _project;
+
+  /// Copia que se edita; el proyecto vivo solo cambia al guardar.
+  Project? _draft;
   bool _dirty = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_project == null) {
+    if (_draft == null) {
       final Project p = AppScope.of(context).state.projectById(widget.projectId);
-      _project = p;
+      _draft = p.copy();
       _name = TextEditingController(text: p.name);
       _emoji = TextEditingController(text: p.emoji);
       _notes = TextEditingController(text: p.notes);
       _pattern = TextEditingController(text: p.fileNamePattern);
       for (final TextEditingController c in <TextEditingController>[_name, _emoji, _notes, _pattern]) {
-        c.addListener(() => setState(() => _dirty = true));
+        c.addListener(_markDirty);
       }
+    }
+  }
+
+  void _markDirty() {
+    if (!_dirty) {
+      setState(() => _dirty = true);
+    } else {
+      setState(() {});
     }
   }
 
@@ -49,13 +59,35 @@ class _ProjectEditorState extends State<ProjectEditor> {
   }
 
   Future<void> _save(AppState st) async {
-    final Project p = _project!;
-    p.name = _name.text.trim().isEmpty ? p.name : _name.text.trim();
-    p.emoji = _emoji.text.trim();
-    p.notes = _notes.text.trim();
-    p.fileNamePattern = _pattern.text.trim().isEmpty ? '{proyecto}_{fecha}_{hora}' : _pattern.text.trim();
-    await st.saveProjects();
+    final Project d = _draft!;
+    final Project live = st.projectById(widget.projectId);
+    d.name = _name.text.trim().isEmpty ? live.name : _name.text.trim();
+    d.emoji = _emoji.text.trim();
+    d.notes = _notes.text.trim();
+    d.fileNamePattern = _pattern.text.trim().isEmpty ? '{proyecto}_{fecha}_{hora}' : _pattern.text.trim();
+    if (live.id == d.id) {
+      live.assignFrom(d);
+      await st.saveProjects();
+    }
     if (mounted) {
+      setState(() => _dirty = false);
+      Navigator.of(context).pop();
+    }
+  }
+
+  /// Al salir sin guardar se pregunta si se descartan los cambios.
+  Future<void> _confirmDiscard() async {
+    final bool? discard = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Text(t(context, '¿Descartar los cambios?', 'Discard changes?')),
+        actions: <Widget>[
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t(context, 'Seguir editando', 'Keep editing'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(t(context, 'Descartar', 'Discard'))),
+        ],
+      ),
+    );
+    if (discard == true && mounted) {
       setState(() => _dirty = false);
       Navigator.of(context).pop();
     }
@@ -65,9 +97,16 @@ class _ProjectEditorState extends State<ProjectEditor> {
   Widget build(BuildContext context) {
     final Services s = AppScope.of(context);
     final AppState st = s.state;
-    final Project p = _project!;
+    final Project p = _draft!;
     final String sample = buildFileName(_pattern.text.trim().isEmpty ? '{proyecto}_{fecha}_{hora}' : _pattern.text, project: _name.text, time: clock.now(), lat: 4.711, lon: -74.0721, n: 7);
-    return Scaffold(
+    return PopScope<Object?>(
+      canPop: !_dirty,
+      onPopInvokedWithResult: (bool didPop, Object? _) {
+        if (!didPop) {
+          _confirmDiscard();
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text(t(context, 'Proyecto', 'Project')),
         actions: <Widget>[
@@ -90,10 +129,11 @@ class _ProjectEditorState extends State<ProjectEditor> {
                 if (ok == true) {
                   await st.deleteProject(p.id);
                   if (s.settings.currentProjectId == p.id) {
-                    s.settings.currentProjectId = st.projects.first.id;
-                    await s.settings.save();
+                    // La sesión de captura reinicia los campos al notar el cambio.
+                    await s.session.selectProject(st.projects.first.id);
                   }
                   if (context.mounted) {
+                    setState(() => _dirty = false);
                     Navigator.of(context).pop();
                   }
                 }
@@ -158,7 +198,14 @@ class _ProjectEditorState extends State<ProjectEditor> {
               ),
             ],
           ),
-          Text(t(context, 'Se piden antes de cada foto y salen en el sello, el CSV y el KML (por ejemplo: Lote, Inspector, Elemento).', 'Asked before each photo and written on the stamp, the CSV and the KML (e.g.: Lot, Inspector, Element).'), style: Theme.of(context).textTheme.bodySmall),
+          Text(
+            t(
+              context,
+              'Sus valores se llenan en la cámara, tocando el nombre del proyecto, y se conservan en las fotos siguientes hasta que los cambies o cambies de proyecto. Salen con su nombre en el sello, el CSV, el KML y el PDF (por ejemplo: Lote, Inspector, Elemento).',
+              'Their values are filled in on the camera, by tapping the project name, and stay for the next photos until you change them or switch projects. They appear with their name on the stamp, the CSV, the KML and the PDF (e.g.: Lot, Inspector, Element).',
+            ),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
           const SizedBox(height: 6),
           if (p.fields.isEmpty) Padding(padding: const EdgeInsets.all(12), child: Text(t(context, 'Sin campos.', 'No fields.'), style: Theme.of(context).textTheme.bodySmall)),
           for (int i = 0; i < p.fields.length; i++)
@@ -197,6 +244,7 @@ class _ProjectEditorState extends State<ProjectEditor> {
           const SizedBox(height: 24),
           FilledButton(onPressed: () => _save(st), child: Text(_dirty ? t(context, 'Guardar cambios', 'Save changes') : t(context, 'Listo', 'Done'))),
         ],
+      ),
       ),
     );
   }

@@ -1,9 +1,17 @@
+import 'dart:async';
+
+import 'package:clock/clock.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_info.dart';
 import '../../core/app_scope.dart';
+import '../../core/backup.dart';
+import '../../core/exports.dart';
 import '../../core/photo_library.dart';
 import '../../core/settings.dart';
+import '../../core/sharing.dart';
+import '../gallery/gallery_screen.dart';
 import '../legal/legal_document.dart';
 
 /// Ajustes de la app.
@@ -53,17 +61,18 @@ class SettingsScreen extends StatelessWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(t(context, 'Resolución', 'Resolution')),
-                subtitle: Text(t(context, 'Más resolución = archivos más grandes y sellado más lento.', 'Higher resolution = bigger files and slower stamping.')),
+                subtitle: Text(_resolutionText(context, st.resolution)),
               ),
               _left(SegmentedButton<String>(
                 segments: <ButtonSegment<String>>[
-                  ButtonSegment<String>(value: 'high', label: Text(t(context, 'Media', 'Medium'))),
-                  ButtonSegment<String>(value: 'veryHigh', label: Text(t(context, 'Alta', 'High'))),
-                  ButtonSegment<String>(value: 'ultraHigh', label: Text(t(context, 'Muy alta', 'Very high'))),
+                  const ButtonSegment<String>(value: 'high', label: Text('720p')),
+                  const ButtonSegment<String>(value: 'veryHigh', label: Text('1080p')),
+                  const ButtonSegment<String>(value: 'ultraHigh', label: Text('4K')),
                   ButtonSegment<String>(value: 'max', label: Text(t(context, 'Máxima', 'Max'))),
                 ],
                 selected: <String>{st.resolution},
                 showSelectedIcon: false,
+                // La cámara se vuelve a abrir con la nueva resolución al guardar.
                 onSelectionChanged: (Set<String> v) {
                   st.resolution = v.first;
                   save();
@@ -115,6 +124,7 @@ class SettingsScreen extends StatelessWidget {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                           content: Text(t(context, 'Sin permiso para la fototeca. Puedes darlo en los ajustes del teléfono.', 'No access to the photo library. You can allow it in the phone settings.')),
+                          action: SnackBarAction(label: t(context, 'Ajustes', 'Settings'), onPressed: () => s.location.backend.openAppSettings()),
                         ));
                       }
                       return;
@@ -174,7 +184,11 @@ class SettingsScreen extends StatelessWidget {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(t(context, 'Mapa en línea', 'Online map')),
-                subtitle: Text(t(context, 'Descarga el fondo del mapa de OpenStreetMap: su servidor recibe la zona que miras y tu dirección IP. Apagado, el mapa muestra solo tus fotos y tu posición.', 'Downloads the map background from OpenStreetMap: its server receives the area you view and your IP address. Off, the map shows only your photos and position.')),
+                subtitle: Text(t(
+                  context,
+                  'Al abrir la pestaña Mapa descarga su fondo de OpenStreetMap: su servidor recibe las zonas que se muestran y tu dirección IP. Apagado, el mapa muestra solo tus fotos y tu posición.',
+                  'When you open the Map tab it downloads the background from OpenStreetMap: its server receives the areas shown and your IP address. Off, the map shows only your photos and position.',
+                )),
                 value: st.mapTiles,
                 onChanged: (bool v) {
                   st.mapTiles = v;
@@ -195,7 +209,9 @@ class SettingsScreen extends StatelessWidget {
                 title: Text(t(context, 'Norte verdadero automático', 'Automatic true north')),
                 subtitle: Text(
                   st.autoDeclination
-                      ? '${t(context, 'La declinación magnética se calcula con el modelo WMM2025 a partir del GPS (sin internet). Valor actual', 'Magnetic declination is computed with the WMM2025 model from the GPS (offline). Current value')}: ${st.lastAutoDeclination >= 0 ? '+' : ''}${st.lastAutoDeclination.toStringAsFixed(1)}°'
+                      ? (s.heading.useSystemHeading
+                          ? t(context, 'El iPhone calcula el norte verdadero con su posición. Mientras no la tenga, el rumbo se marca como magnético.', 'The iPhone works out true north from its position. Until it has one, the heading is marked as magnetic.')
+                          : '${t(context, 'La declinación magnética se calcula con el modelo WMM2025 a partir del GPS (sin internet). Mientras no haya posición, el rumbo se marca como magnético. Último valor', 'Magnetic declination is computed with the WMM2025 model from the GPS (offline). Until there is a position, the heading is marked as magnetic. Last value')}: ${st.lastAutoDeclination >= 0 ? '+' : ''}${st.lastAutoDeclination.toStringAsFixed(1)}°')
                       : t(context, 'Apagado: se usa el valor manual de abajo.', 'Off: the manual value below is used.'),
                 ),
                 value: st.autoDeclination,
@@ -208,7 +224,11 @@ class SettingsScreen extends StatelessWidget {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text('${t(context, 'Declinación manual', 'Manual declination')}: ${st.declination >= 0 ? '+' : ''}${st.declination.toStringAsFixed(1)}°'),
-                  subtitle: Text(t(context, 'Se suma al rumbo de la brújula. En Colombia (2026) va de −6° (Nariño) a −11° (Guajira, Amazonas); Bogotá ≈ −9°, Medellín ≈ −8°, Cali ≈ −7°, Barranquilla ≈ −9°.', 'Added to the compass heading. Check your area\'s value in a declination calculator (e.g. NOAA).')),
+                  subtitle: Text(t(
+                    context,
+                    'Se suma al rumbo de la brújula. En Colombia (2026, WMM2025) va de unos −5° (San Andrés, Tumaco) a −13° (Puerto Carreño); Bogotá ≈ −9°, Medellín ≈ −8°, Cali ≈ −7°, Barranquilla ≈ −9°.',
+                    'Added to the compass heading. In Colombia (2026, WMM2025) it ranges from about −5° (San Andrés, Tumaco) to −13° (Puerto Carreño). Elsewhere, check a declination calculator (e.g. NOAA).',
+                  )),
                 ),
                 Row(
                   children: <Widget>[
@@ -233,6 +253,34 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
               ],
+              _Section(t(context, 'Copia de seguridad', 'Backup')),
+              Text(
+                t(
+                  context,
+                  'Un solo archivo ZIP con todas las fotos (selladas y originales), sus datos, los proyectos, las plantillas y los logos: para pasarlo a otro teléfono o guardarlo donde quieras. La copia automática de Google no lleva las fotos (admite hasta 25 MB por app).',
+                  'A single ZIP file with all the photos (stamped and original), their data, the projects, the templates and the logos: to move it to another phone or keep it wherever you want. Google\'s automatic backup does not carry the photos (it allows up to 25 MB per app).',
+                ),
+                style: tt.bodySmall,
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: <Widget>[
+                  Builder(
+                    builder: (BuildContext bc) => FilledButton.tonalIcon(
+                      onPressed: () => createBackup(bc),
+                      icon: const Icon(Icons.archive_outlined),
+                      label: Text(t(context, 'Crear copia completa', 'Create full backup')),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => restoreBackup(context),
+                    icon: const Icon(Icons.unarchive_outlined),
+                    label: Text(t(context, 'Restaurar una copia', 'Restore a backup')),
+                  ),
+                ],
+              ),
               _Section(t(context, 'Acerca de', 'About')),
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -256,7 +304,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(t(context, 'Mapa: © OpenStreetMap contributors. Dirección: servicio de geocodificación del sistema (Google en Android, Apple en iOS).', 'Map: © OpenStreetMap contributors. Address: the system geocoder (Google on Android, Apple on iOS).'), style: tt.bodySmall),
+                child: Text(t(context, 'Mapa: © colaboradores de OpenStreetMap. Dirección: servicio de geocodificación del sistema (Google en Android, Apple en iOS).', 'Map: © OpenStreetMap contributors. Address: the system geocoder (Google on Android, Apple on iOS).'), style: tt.bodySmall),
               ),
             ],
           ),
@@ -266,6 +314,116 @@ class SettingsScreen extends StatelessWidget {
   }
 
   static Widget _left(Widget child) => Align(alignment: Alignment.centerLeft, child: SingleChildScrollView(scrollDirection: Axis.horizontal, child: child));
+
+  /// Qué da cada opción de resolución (preajustes del complemento de cámara).
+  static String _resolutionText(BuildContext context, String r) {
+    switch (r) {
+      case 'high':
+        return t(context, '1280 × 720 (0,9 MP), 16:9. Archivos pequeños.', '1280 × 720 (0.9 MP), 16:9. Small files.');
+      case 'veryHigh':
+        return t(context, '1920 × 1080 (2 MP), 16:9.', '1920 × 1080 (2 MP), 16:9.');
+      case 'max':
+        return t(context, 'La mayor que dé la cámara (12 MP o más en la mayoría, 4:3). La copia sellada se limita a 26 MP; el original se guarda completo.', 'The largest the camera offers (12 MP or more on most phones, 4:3). The stamped copy is capped at 26 MP; the original is kept in full.');
+      case 'ultraHigh':
+      default:
+        return t(context, '3840 × 2160 (8 MP), 16:9.', '3840 × 2160 (8 MP), 16:9.');
+    }
+  }
+}
+
+String _backupStamp(DateTime d) {
+  String two(int v) => v.toString().padLeft(2, '0');
+  return '${d.year}${two(d.month)}${two(d.day)}_${two(d.hour)}${two(d.minute)}';
+}
+
+/// Arma la copia completa en un ZIP (en un isolate, con avance y cancelar)
+/// y la ofrece en la hoja de compartir, anclada en el botón pulsado.
+Future<void> createBackup(BuildContext buttonContext) async {
+  final Services s = AppScope.of(buttonContext);
+  final Rect origin = shareOriginOf(buttonContext);
+  final ScaffoldMessengerState messenger = ScaffoldMessenger.of(buttonContext);
+  final bool spanish = s.settings.spanish;
+  String k(String es, String en) => spanish ? es : en;
+  final ExportProgress progress = ExportProgress();
+  unawaited(showExportProgress(buttonContext, progress, title: k('Creando la copia', 'Creating the backup')));
+  try {
+    final List<ArchiveEntry> entries = await Backup.entries(s.state);
+    final String path = await s.store.absolutePath('exports/sello_${k('copia', 'backup')}_${_backupStamp(clock.now())}.zip');
+    await writeZipFile(path, entries, onProgress: (int d, int tot) => progress.update(d, tot, '${k('Guardando', 'Saving')} $d ${k('de', 'of')} $tot'), cancel: progress.cancel);
+    progress.close();
+    await shareFiles(<String>[path], origin: origin, subject: k('Copia de Sello', 'Sello backup'));
+  } on ExportCancelled {
+    progress.close();
+  } catch (e) {
+    progress.close();
+    messenger.showSnackBar(SnackBar(content: Text('${k('No se pudo crear la copia', 'Could not create the backup')}: $e')));
+  }
+}
+
+/// Elige un ZIP de copia y agrega lo que falte en este teléfono.
+Future<void> restoreBackup(BuildContext context) async {
+  final Services s = AppScope.of(context);
+  final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+  final bool spanish = s.settings.spanish;
+  String k(String es, String en) => spanish ? es : en;
+  const XTypeGroup zip = XTypeGroup(label: 'ZIP', extensions: <String>['zip'], mimeTypes: <String>['application/zip', 'application/x-zip-compressed'], uniformTypeIdentifiers: <String>['public.zip-archive']);
+  XFile? file;
+  try {
+    file = await openFile(acceptedTypeGroups: <XTypeGroup>[zip]);
+  } catch (e) {
+    messenger.showSnackBar(SnackBar(content: Text('${k('No se pudo abrir el selector', 'Could not open the picker')}: $e')));
+    return;
+  }
+  if (file == null || !context.mounted) {
+    return;
+  }
+  final bool? ok = await showDialog<bool>(
+    context: context,
+    builder: (BuildContext context) => AlertDialog(
+      title: Text(k('Restaurar copia', 'Restore backup')),
+      content: Text(k('Se agregan las fotos, proyectos y plantillas de la copia que no estén en este teléfono. No se borra ni se reemplaza nada.', 'The backup\'s photos, projects and templates that are not on this phone are added. Nothing is deleted or replaced.')),
+      actions: <Widget>[
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(k('Cancelar', 'Cancel'))),
+        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(k('Restaurar', 'Restore'))),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) {
+    return;
+  }
+  final NavigatorState nav = Navigator.of(context, rootNavigator: true);
+  unawaited(showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    useRootNavigator: true,
+    builder: (BuildContext context) => PopScope(
+      canPop: false,
+      child: AlertDialog(
+        content: Row(
+          children: <Widget>[
+            const SizedBox(width: 28, height: 28, child: CircularProgressIndicator()),
+            const SizedBox(width: 16),
+            Expanded(child: Text(k('Restaurando la copia…', 'Restoring the backup…'))),
+          ],
+        ),
+      ),
+    ),
+  ));
+  String message;
+  try {
+    final RestoreSummary r = await Backup.restore(file.path, s.state);
+    // Fotos que en el otro teléfono quedaron sin sellar.
+    s.queue.resumePending();
+    message = '${k('Copia restaurada', 'Backup restored')}: ${r.photos} ${k('fotos', 'photos')}, ${r.projects} ${k('proyectos', 'projects')}, ${r.templates} ${k('plantillas', 'templates')}.';
+  } on NotABackup {
+    message = k('Ese archivo no es una copia de Sello.', 'That file is not a Sello backup.');
+  } catch (e) {
+    message = '${k('No se pudo restaurar', 'Could not restore')}: $e';
+  }
+  if (nav.mounted && nav.canPop()) {
+    nav.pop();
+  }
+  messenger.showSnackBar(SnackBar(content: Text(message)));
 }
 
 class _Section extends StatelessWidget {

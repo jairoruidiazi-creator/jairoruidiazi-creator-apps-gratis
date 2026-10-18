@@ -4,8 +4,10 @@ import 'package:flutter/services.dart';
 import '../../core/app_scope.dart';
 import '../../core/maps_links.dart';
 import '../../geo/coords.dart';
+import '../../geo/declination.dart';
 import '../../geo/heading.dart';
 import '../../geo/location_service.dart';
+import '../../model/models.dart';
 
 /// Hoja con el detalle del GPS y la brújula: formatos de coordenadas,
 /// precisión, promedio, bloqueo y posición manual.
@@ -52,15 +54,24 @@ class _GpsSheet extends StatelessWidget {
                 for (final CoordFormat cf in Coords.formatsFor(f.latitude, f.longitude))
                   _CoordRow(label: Coords.formatName(cf, spanish: spanish), value: Coords.format(cf, f.latitude, f.longitude)),
                 const Divider(),
-                _Line(t(context, 'Precisión horizontal', 'Horizontal accuracy'), '± ${f.accuracy.toStringAsFixed(1)} m${f.averagedSamples > 1 ? ' · ${t(context, 'promedio de', 'average of')} ${f.averagedSamples}' : ''}'),
-                _Line(
-                  t(context, 'Altitud', 'Altitude'),
-                  '${f.altitudeMsl != null ? '${f.altitudeMsl!.toStringAsFixed(1)} m ${t(context, 's. n. m.', 'MSL')}' : ''}${f.altitudeMsl != null && f.altitudeEllipsoid != null ? ' · ' : ''}${f.altitudeEllipsoid != null ? '${f.altitudeEllipsoid!.toStringAsFixed(1)} m ${t(context, 'elipsoidal', 'ellipsoidal')}' : ''}${f.altitudeMsl == null && f.altitudeEllipsoid == null ? '${f.altitude.toStringAsFixed(1)} m' : ''}${f.altitudeAccuracy > 0 ? ' (± ${f.altitudeAccuracy.toStringAsFixed(0)} m)' : ''}',
-                ),
-                _Line(t(context, 'Velocidad', 'Speed'), '${(f.speed * 3.6).toStringAsFixed(1)} km/h'),
-                _Line(t(context, 'Hora de la lectura', 'Fix time'), TimeOfDay.fromDateTime(f.time.toLocal()).format(context)),
+                if (f.manual)
+                  _Line(t(context, 'Posición', 'Position'), t(context, 'Escrita a mano: sin precisión ni altitud medidas.', 'Entered by hand: no measured accuracy or altitude.'))
+                else ...<Widget>[
+                  _Line(t(context, 'Precisión horizontal', 'Horizontal accuracy'), f.accuracy == null ? t(context, 'desconocida', 'unknown') : '± ${f.accuracy!.toStringAsFixed(1)} m${f.averagedSamples > 1 ? ' · ${t(context, 'promedio de', 'average of')} ${f.averagedSamples}' : ''}'),
+                  _Line(t(context, 'Altitud', 'Altitude'), _altitudeText(context, f)),
+                  if (!f.locked) _Line(t(context, 'Velocidad', 'Speed'), '${(f.speed * 3.6).toStringAsFixed(1)} km/h'),
+                  _Line(t(context, 'Hora de la lectura', 'Fix time'), TimeOfDay.fromDateTime(f.time.toLocal()).format(context)),
+                ],
+                if (loc.stale)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      t(context, 'La última lectura del GPS es vieja: el teléfono puede estar en otro lugar. Sal a cielo abierto o fija la posición a propósito.', 'The last GPS reading is old: the phone may be somewhere else. Go out to open sky or lock the position on purpose.'),
+                      style: TextStyle(color: Theme.of(context).colorScheme.error),
+                    ),
+                  ),
                 if (loc.address != null) _Line(t(context, 'Dirección aproximada', 'Approximate address'), loc.address!.full),
-                if (f.accuracy > 30 && s.settings.showAccuracyWarning)
+                if (!f.manual && (f.accuracy ?? 0) > 30 && s.settings.showAccuracyWarning)
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
@@ -74,13 +85,21 @@ class _GpsSheet extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: <Widget>[
+                  if (loc.averaging) ...<Widget>[
+                    FilledButton.tonalIcon(
+                      onPressed: loc.finishAveraging,
+                      icon: const Icon(Icons.check_rounded),
+                      label: Text('${t(context, 'Terminar y fijar', 'Finish and lock')} (${loc.averagingSamples})'),
+                    ),
+                    OutlinedButton(onPressed: loc.cancelAveraging, child: Text(t(context, 'Cancelar promedio', 'Cancel averaging'))),
+                  ] else
+                    FilledButton.tonalIcon(
+                      onPressed: loc.live == null ? null : () => loc.startAveraging(seconds: 20),
+                      icon: const Icon(Icons.timelapse_rounded),
+                      label: Text(t(context, 'Promediar 20 s y fijar', 'Average 20 s and lock')),
+                    ),
                   FilledButton.tonalIcon(
-                    onPressed: loc.averaging ? loc.stopAveraging : () => loc.startAveraging(seconds: 20),
-                    icon: Icon(loc.averaging ? Icons.stop_rounded : Icons.timelapse_rounded),
-                    label: Text(loc.averaging ? t(context, 'Detener promedio', 'Stop averaging') : t(context, 'Promediar 20 s', 'Average 20 s')),
-                  ),
-                  FilledButton.tonalIcon(
-                    onPressed: f == null && !loc.locked ? null : (loc.locked ? loc.unlock : loc.lock),
+                    onPressed: loc.locked ? loc.unlock : (loc.live == null ? null : loc.lock),
                     icon: Icon(loc.locked ? Icons.lock_open_rounded : Icons.lock_outline_rounded),
                     label: Text(loc.locked ? t(context, 'Liberar posición', 'Unlock position') : t(context, 'Fijar posición', 'Lock position')),
                   ),
@@ -95,11 +114,17 @@ class _GpsSheet extends StatelessWidget {
                       icon: const Icon(Icons.map_outlined),
                       label: Text(t(context, 'Abrir en mapas', 'Open in maps')),
                     ),
-                  if (loc.status == 'denied' || loc.status == 'disabled')
+                  if (loc.status != 'ok')
                     OutlinedButton.icon(
-                      onPressed: () => loc.start(),
+                      onPressed: () => loc.retry(),
                       icon: const Icon(Icons.refresh_rounded),
                       label: Text(t(context, 'Reintentar GPS', 'Retry GPS')),
+                    ),
+                  if (loc.needsSettings)
+                    OutlinedButton.icon(
+                      onPressed: () => loc.status == 'disabled' ? loc.backend.openLocationSettings() : loc.backend.openAppSettings(),
+                      icon: const Icon(Icons.settings_outlined),
+                      label: Text(t(context, 'Abrir ajustes', 'Open settings')),
                     ),
                 ],
               ),
@@ -117,14 +142,17 @@ class _GpsSheet extends StatelessWidget {
                   child: Text(t(context, 'Sin lectura de brújula (este equipo puede no tener magnetómetro).', 'No compass reading (this device may lack a magnetometer).')),
                 )
               else ...<Widget>[
-                _Line(t(context, 'Rumbo de la cámara', 'Camera heading'), '${o.cameraHeading.toStringAsFixed(0)}° ${Coords.cardinal(o.cameraHeading, spanish: spanish)}'),
+                _Line(t(context, 'Rumbo de la cámara', 'Camera heading'), '${o.cameraHeading.toStringAsFixed(0)}° ${Coords.cardinal(o.cameraHeading, spanish: spanish)} ${o.trueNorth ? t(context, '(norte verdadero)', '(true north)') : t(context, '(norte magnético)', '(magnetic north)')}'),
+                if (o.accuracy != null) _Line(t(context, 'Precisión del rumbo', 'Heading accuracy'), '± ${o.accuracy!.toStringAsFixed(0)}°'),
                 _Line(t(context, 'Fachada fotografiada', 'Facade photographed'), Coords.facade(o.cameraHeading, spanish: spanish)),
                 _Line(t(context, 'Inclinación', 'Tilt'), '${o.pitch.toStringAsFixed(0)}°${o.flat ? ' · ${t(context, 'teléfono horizontal', 'phone flat')}' : ''}'),
-                _Line(t(context, 'Declinación aplicada', 'Declination applied'), '${s.heading.declination >= 0 ? '+' : ''}${s.heading.declination.toStringAsFixed(1)}° (${s.settings.autoDeclination ? 'WMM2025' : t(context, 'manual', 'manual')})${(s.declinationLink?.extrapolated ?? false) ? ' · ${t(context, 'modelo vencido, actualiza la app', 'model expired, update the app')}' : ''}'),
+                _Line(t(context, 'Declinación', 'Declination'), _declinationText(context, s)),
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
-                    t(context, 'Si el rumbo parece errado, mueve el teléfono dibujando un 8 para calibrar y aléjate de metales e imanes.', 'If the heading looks wrong, move the phone in a figure 8 to calibrate and keep away from metal and magnets.'),
+                    (o.accuracy ?? 0) > 20
+                        ? t(context, 'Rumbo poco preciso: mueve el teléfono dibujando un 8 para calibrar y aléjate de metales e imanes.', 'Imprecise heading: move the phone in a figure 8 to calibrate and keep away from metal and magnets.')
+                        : t(context, 'Si el rumbo parece errado, mueve el teléfono dibujando un 8 para calibrar y aléjate de metales e imanes.', 'If the heading looks wrong, move the phone in a figure 8 to calibrate and keep away from metal and magnets.'),
                     style: tt.bodySmall,
                   ),
                 ),
@@ -136,16 +164,56 @@ class _GpsSheet extends StatelessWidget {
     );
   }
 
+  static String _altitudeText(BuildContext context, Fix f) {
+    if (!f.hasAltitude) {
+      return t(context, 'sin dato (el GPS aún no la mide)', 'no data (the GPS has not measured it yet)');
+    }
+    final List<String> parts = <String>[
+      if (f.altitudeMsl != null) '${f.altitudeMsl!.toStringAsFixed(1)} m ${t(context, 's. n. m.', 'MSL')}',
+      if (f.altitudeEllipsoid != null) '${f.altitudeEllipsoid!.toStringAsFixed(1)} m ${t(context, 'elipsoidal', 'ellipsoidal')}',
+    ];
+    final double? acc = f.altitudeAccuracy;
+    return '${parts.join(' · ')}${acc != null && acc > 0 ? ' (± ${acc.toStringAsFixed(0)} m)' : ''}';
+  }
+
+  static String _declinationText(BuildContext context, Services s) {
+    String fmt(double d) => '${d >= 0 ? '+' : ''}${d.toStringAsFixed(1)}°';
+    if (s.heading.usingSystemDeclination) {
+      return '${fmt(s.heading.systemDeclination!)} (${t(context, 'calculada por iOS', 'computed by iOS')})';
+    }
+    final DeclinationSource? source = s.declinationLink?.source;
+    final String value = fmt(s.heading.declination);
+    if (!s.heading.declinationKnown || source == DeclinationSource.unknown) {
+      return t(context, 'sin GPS todavía: el rumbo es magnético', 'no GPS yet: the heading is magnetic');
+    }
+    if (source == DeclinationSource.manual || !s.settings.autoDeclination) {
+      return '$value (${t(context, 'manual', 'manual')})';
+    }
+    final bool expired = s.declinationLink?.extrapolated ?? false;
+    return '$value (WMM2025)${expired ? ' · ${t(context, 'modelo vencido, actualiza la app', 'model expired, update the app')}' : ''}';
+  }
+
   String _statusText(BuildContext context, LocationService loc) {
+    final Fix? f = loc.fix;
+    if (f != null && f.manual) {
+      return t(context, 'Posición escrita a mano', 'Position entered by hand');
+    }
+    if (f != null && f.source == PositionSource.averaged) {
+      return '${t(context, 'Posición promediada y fijada', 'Averaged and locked position')} (${f.averagedSamples})';
+    }
     switch (loc.status) {
       case 'denied':
+      case 'deniedForever':
         return t(context, 'Sin permiso de ubicación. Actívalo en los ajustes del teléfono.', 'Location permission denied. Enable it in the phone settings.');
       case 'disabled':
         return t(context, 'Ubicación apagada o sin señal.', 'Location off or unavailable.');
       case 'searching':
         return t(context, 'Buscando satélites…', 'Searching for satellites…');
       case 'ok':
-        return loc.locked ? t(context, 'Posición fijada manualmente', 'Position locked') : t(context, 'Posición en vivo', 'Live position');
+        if (loc.averaging) {
+          return '${t(context, 'Promediando lecturas…', 'Averaging readings…')} (${loc.averagingSamples})';
+        }
+        return loc.locked ? t(context, 'Posición fijada', 'Position locked') : t(context, 'Posición en vivo', 'Live position');
       default:
         return t(context, 'GPS apagado', 'GPS off');
     }
@@ -159,14 +227,16 @@ class _GpsSheet extends StatelessWidget {
       context: context,
       builder: (BuildContext context) => AlertDialog(
         title: Text(t(context, 'Posición manual', 'Manual position')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            TextField(controller: lat, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), decoration: InputDecoration(labelText: t(context, 'Latitud (grados decimales)', 'Latitude (decimal degrees)'))),
-            TextField(controller: lon, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), decoration: InputDecoration(labelText: t(context, 'Longitud (grados decimales)', 'Longitude (decimal degrees)'))),
-            const SizedBox(height: 8),
-            Text(t(context, 'Queda fija hasta que la liberes. Útil bajo techo o cuando el GPS no llega.', 'Stays locked until you release it. Useful indoors or without GPS signal.'), style: Theme.of(context).textTheme.bodySmall),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              TextField(controller: lat, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), decoration: InputDecoration(labelText: t(context, 'Latitud (grados decimales)', 'Latitude (decimal degrees)'))),
+              TextField(controller: lon, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), decoration: InputDecoration(labelText: t(context, 'Longitud (grados decimales)', 'Longitude (decimal degrees)'))),
+              const SizedBox(height: 8),
+              Text(t(context, 'Queda fija hasta que la liberes. Las fotos dicen "posición manual" y no llevan precisión ni altitud, porque no se midieron.', 'Stays locked until you release it. Photos say "manual position" and carry no accuracy or altitude, because they were not measured.'), style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
         ),
         actions: <Widget>[
           TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t(context, 'Cancelar', 'Cancel'))),

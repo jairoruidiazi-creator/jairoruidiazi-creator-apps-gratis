@@ -182,8 +182,11 @@ class Coords {
     if (la == 90) {
       la -= length <= 10 ? math.pow(20, (length ~/ -2) + 2).toDouble() : math.pow(20, -3).toDouble() / math.pow(5, length - 10);
     }
-    int latVal = ((la + 90) * 25000000).round();
-    int lonVal = ((lo + 180) * 8192000).round();
+    // Como la referencia: se redondea a 6 decimales (para absorber el error
+    // de coma flotante) y luego se trunca. Redondear al entero desplaza la
+    // celda en los bordes.
+    int latVal = _truncate6((la + 90) * 25000000);
+    int lonVal = _truncate6((lo + 180) * 8192000);
     String code = '';
     if (length > 10) {
       for (int i = 0; i < 5; i++) {
@@ -209,6 +212,8 @@ class Coords {
     }
     return '${code.substring(0, length)}${'0' * (8 - length)}+';
   }
+
+  static int _truncate6(double v) => double.parse(v.toStringAsFixed(6)).floor();
 
   /// Texto según el formato elegido.
   static String format(CoordFormat f, double lat, double lon) {

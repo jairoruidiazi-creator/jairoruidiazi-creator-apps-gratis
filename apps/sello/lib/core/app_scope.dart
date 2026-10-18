@@ -3,12 +3,19 @@ import 'package:flutter/widgets.dart';
 import '../geo/declination.dart';
 import '../geo/heading.dart';
 import '../geo/location_service.dart';
+import '../stamp/capture_pipeline.dart';
+import '../stamp/stamp_queue.dart';
 import 'app_state.dart';
+import 'capture_session.dart';
 import 'settings.dart';
 import 'storage.dart';
 
 class Services {
-  const Services({required this.settings, required this.state, required this.store, required this.location, required this.heading, this.declinationLink});
+  Services({required this.settings, required this.state, required this.store, required this.location, required this.heading, this.declinationLink, CaptureSession? session, CapturePipeline? pipeline, StampQueue? queue})
+      : session = session ?? CaptureSession(state: state, settings: settings),
+        pipeline = pipeline ?? CapturePipeline(store: store, state: state, settings: settings) {
+    this.queue = queue ?? StampQueue(pipeline: this.pipeline);
+  }
 
   final AppSettings settings;
   final AppState state;
@@ -18,6 +25,13 @@ class Services {
 
   /// Enlace GPS → declinación (nulo en pruebas).
   final DeclinationLink? declinationLink;
+
+  /// Proyecto, campos, notas, etiquetas y logo de la próxima foto.
+  final CaptureSession session;
+  final CapturePipeline pipeline;
+
+  /// Cola de sellado (una foto a la vez, con reanudación).
+  late final StampQueue queue;
 }
 
 class AppScope extends InheritedWidget {

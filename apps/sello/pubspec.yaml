@@ -4,8 +4,8 @@ publish_to: "none"
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.9.0 <4.0.0"
-  flutter: ">=3.35.0"
+  sdk: ">=3.11.0 <4.0.0"
+  flutter: ">=3.41.6"
 
 dependencies:
   flutter:
@@ -13,17 +13,22 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   camera: ^0.11.0
-  geolocator: ^14.0.0
+  # 14.1: geolocator_platform_interface 4.4 (Position.hasAltitude y compañía) y
+  # geolocator_linux 0.2.6, que convive con share_plus 13 (win32 6 y package_info_plus 10).
+  geolocator: ^14.1.0
   geocoding: ^4.0.0
   sensors_plus: ^6.0.0
-  image: ^4.5.0
+  # 4.12: decodeJpg con scale (decodificación reducida) y maxPixels.
+  image: ^4.12.0
   flutter_map: ^8.0.0
   latlong2: ^0.9.1
   gal: ^2.3.0
   archive: ^4.0.0
   clock: ^1.1.1
   pdf: ^3.11.0
-  share_plus: ^11.0.0
+  # 13.3.1: en iPhone e iPad la hoja de compartir necesita sharePositionOrigin
+  # al compilar con Xcode 26 (ver docs/DECISIONES.md).
+  share_plus: ^13.3.1
   url_launcher: ^6.3.0
   path_provider: ^2.1.3
   shared_preferences: ^2.2.3
@@ -35,6 +40,8 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.1
+  # Interfaz del complemento de cámara, para las pruebas con una cámara simulada.
+  camera_platform_interface: ^2.10.0
 
 flutter:
   uses-material-design: true

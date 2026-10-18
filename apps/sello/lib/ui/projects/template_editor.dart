@@ -35,6 +35,25 @@ class _TemplateEditorState extends State<TemplateEditor> {
   static const List<int> _textColors = <int>[0xFFFFFFFF, 0xFFFFEB3B, 0xFF000000, 0xFFB9F6CA, 0xFF80DEEA, 0xFFFFAB91];
   static const List<int> _bgColors = <int>[0xFF000000, 0xFFFFFFFF, 0xFF1B4332, 0xFF0D47A1, 0xFF4E342E, 0xFFB71C1C];
 
+  /// Nombres de los colores, para el lector de pantalla (mismo orden que las listas).
+  static List<String> _textColorNames(BuildContext context) => <String>[
+        t(context, 'Blanco', 'White'),
+        t(context, 'Amarillo', 'Yellow'),
+        t(context, 'Negro', 'Black'),
+        t(context, 'Verde claro', 'Light green'),
+        t(context, 'Turquesa claro', 'Light cyan'),
+        t(context, 'Salmón', 'Salmon'),
+      ];
+
+  static List<String> _bgColorNames(BuildContext context) => <String>[
+        t(context, 'Negro', 'Black'),
+        t(context, 'Blanco', 'White'),
+        t(context, 'Verde oscuro', 'Dark green'),
+        t(context, 'Azul oscuro', 'Dark blue'),
+        t(context, 'Café', 'Brown'),
+        t(context, 'Rojo oscuro', 'Dark red'),
+      ];
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -109,11 +128,23 @@ class _TemplateEditorState extends State<TemplateEditor> {
       return;
     }
     final Uint8List bytes = await file.readAsBytes();
+    // Antes de guardarlo se comprueba que sea una imagen legible.
+    try {
+      await decodeLogo(bytes);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'No se pudo leer esa imagen. Prueba con un PNG o un JPG.', 'Could not read that image. Try a PNG or a JPG.'))));
+      }
+      return;
+    }
     final String ext = file.name.contains('.') ? file.name.split('.').last.toLowerCase() : 'png';
-    final String rel = 'logos/${_tpl!.id}_${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final String rel = 'logos/${_tpl!.id}_${clock.now().millisecondsSinceEpoch}.$ext';
+    final String? old = _tpl!.logoPath;
     await st.store.writeBytes(rel, bytes);
     _edit(() => _tpl!.logoPath = rel);
     await _save(st);
+    // El logo reemplazado no se queda ocupando espacio (salvo que otra plantilla lo use).
+    await st.deleteLogoIfUnused(old);
     await _loadLogo();
   }
 
@@ -247,10 +278,10 @@ class _TemplateEditorState extends State<TemplateEditor> {
             Text('${t(context, 'Tamaño del texto', 'Text size')}: ${(tpl.textScale * 100).round()} %', style: tt.titleMedium),
             Slider(min: 0.6, max: 2.2, divisions: 16, value: tpl.textScale.clamp(0.6, 2.2), label: '${(tpl.textScale * 100).round()} %', onChanged: (double v) => _edit(() => tpl.textScale = v)),
             Text(t(context, 'Color del texto', 'Text color'), style: tt.titleMedium),
-            _Swatches(colors: _textColors, selected: tpl.textColor, onPick: (int c) => _edit(() => tpl.textColor = c)),
+            _Swatches(colors: _textColors, names: _textColorNames(context), selected: tpl.textColor, onPick: (int c) => _edit(() => tpl.textColor = c)),
             const SizedBox(height: 8),
             Text(t(context, 'Fondo', 'Background'), style: tt.titleMedium),
-            _Swatches(colors: _bgColors, selected: tpl.backgroundColor, onPick: (int c) => _edit(() => tpl.backgroundColor = c)),
+            _Swatches(colors: _bgColors, names: _bgColorNames(context), selected: tpl.backgroundColor, onPick: (int c) => _edit(() => tpl.backgroundColor = c)),
             Row(
               children: <Widget>[
                 Text(t(context, 'Opacidad', 'Opacity')),
@@ -274,10 +305,8 @@ class _TemplateEditorState extends State<TemplateEditor> {
                       _edit(() => tpl.logoPath = null);
                       _logo = null;
                       _logoLoadedFor = null;
-                      if (!old.startsWith('/')) {
-                        await st.store.delete(old);
-                      }
                       await _save(st);
+                      await st.deleteLogoIfUnused(old);
                     },
                     icon: const Icon(Icons.delete_outline),
                     label: Text(t(context, 'Quitar', 'Remove')),
@@ -344,7 +373,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
   static String? _itemHint(BuildContext context, StampItem i) {
     switch (i) {
       case StampItem.address:
-        return t(context, 'Necesita internet al momento de la foto', 'Needs internet when the photo is taken');
+        return t(context, 'Necesita internet al tomar la foto; si no hay una dirección de ese lugar, no se escribe', 'Needs internet when the photo is taken; left out if there is no address for that spot');
       case StampItem.facade:
         return t(context, 'Lado del edificio que mira a la cámara (rumbo + 180°)', 'Side of the building facing the camera (heading + 180°)');
       case StampItem.compass:
@@ -373,30 +402,51 @@ class _TemplateEditorState extends State<TemplateEditor> {
 }
 
 class _Swatches extends StatelessWidget {
-  const _Swatches({required this.colors, required this.selected, required this.onPick});
+  const _Swatches({required this.colors, required this.names, required this.selected, required this.onPick});
 
   final List<int> colors;
+  final List<String> names;
   final int selected;
   final ValueChanged<int> onPick;
 
   @override
   Widget build(BuildContext context) {
+    final ColorScheme cs = Theme.of(context).colorScheme;
     return Wrap(
-      spacing: 8,
-      runSpacing: 6,
+      spacing: 4,
+      runSpacing: 2,
       children: <Widget>[
-        for (final int c in colors)
-          GestureDetector(
-            onTap: () => onPick(c),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Color(c),
-                shape: BoxShape.circle,
-                border: Border.all(color: selected == c ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.outlineVariant, width: selected == c ? 3 : 1),
+        for (int i = 0; i < colors.length; i++)
+          Semantics(
+            button: true,
+            selected: selected == colors[i],
+            label: names[i],
+            excludeSemantics: true,
+            onTap: () => onPick(colors[i]),
+            child: Tooltip(
+              message: names[i],
+              excludeFromSemantics: true,
+              child: InkResponse(
+                onTap: () => onPick(colors[i]),
+                radius: 26,
+                // Objetivo táctil de 48 dp alrededor del círculo de 36.
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: Center(
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Color(colors[i]),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: selected == colors[i] ? cs.primary : cs.outlineVariant, width: selected == colors[i] ? 3 : 1),
+                      ),
+                      child: selected == colors[i] ? Icon(Icons.check, size: 18, color: Color(colors[i]).computeLuminance() > 0.5 ? Colors.black : Colors.white) : null,
+                    ),
+                  ),
+                ),
               ),
-              child: selected == c ? Icon(Icons.check, size: 18, color: Color(c).computeLuminance() > 0.5 ? Colors.black : Colors.white) : null,
             ),
           ),
       ],

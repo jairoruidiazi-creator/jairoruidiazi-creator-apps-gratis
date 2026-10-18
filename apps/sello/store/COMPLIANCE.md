@@ -27,20 +27,23 @@ Respuestas verificadas contra el código de la versión 1.0.0 (build 1).
 
 **Apps de salud, noticias, COVID-19, gobierno:** No.
 
-**Seguridad de los datos (Data safety):** criterio conservador, porque dos funciones opcionales envían coordenadas a terceros.
+**Seguridad de los datos (Data safety):** criterio conservador (ver `docs/DECISIONES.md`), porque dos funciones opcionales envían ubicación a terceros: el geocodificador del sistema recibe las coordenadas de la foto y los servidores de teselas de la Fundación OpenStreetMap reciben las teselas de la zona que se muestra cuando el usuario abre la pestaña Mapa. La Fundación no es un proveedor contratado, así que se declara como compartida.
 
 | Pregunta | Respuesta |
 | --- | --- |
-| ¿Recopila o comparte datos? | **Sí, recopila** |
+| ¿Recopila o comparte datos? | **Sí** |
 | Tipo de dato | Ubicación › **Ubicación precisa** y **Ubicación aproximada** |
-| ¿Se comparte? | **No** (va a los servicios que prestan la función: el geocodificador del sistema y los servidores de teselas de OpenStreetMap; no se vende ni se usa para otra cosa) |
+| ¿Se recopila? | **Sí** (sale del teléfono hacia los servicios de las dos funciones) |
+| ¿Se comparte? | **Sí**: con el geocodificador del sistema (Google en Android) y con la Fundación OpenStreetMap (teselas del mapa). No se vende ni se usa para publicidad |
 | ¿Se procesa de forma efímera? | No (los terceros pueden guardar registros de las peticiones) |
 | ¿Es obligatoria? | **No, opcional:** Ajustes › Dirección aproximada y Ajustes › Mapa en línea se pueden apagar |
-| Finalidad | Funcionalidad de la app |
+| Finalidad | Funcionalidad de la app (en recopilación y en uso compartido) |
 | ¿Cifrado en tránsito? | Sí (HTTPS) |
 | ¿Se puede pedir el borrado? | No: el desarrollador no guarda esos datos; el usuario borra sus fotos y datos en la app |
 
-Las fotos, proyectos y notas no salen del teléfono salvo que el usuario los comparta.
+Las fotos, proyectos y notas no salen del teléfono salvo que el usuario los comparta o guarde una copia completa donde quiera.
+
+**Copias de Google:** las reglas de copia (`native/android/data_extraction_rules.xml` y `backup_rules.xml`) dejan fuera de la copia en la nube las fotos y su índice (no caben en los 25 MB por app) y llevan los proyectos, las plantillas, los logos y los ajustes; el traspaso directo a un teléfono nuevo lleva todo. Ninguna de las dos es del desarrollador. Para pasar las fotos está la copia completa de la app.
 
 **Permisos:**
 
@@ -54,14 +57,16 @@ Las fotos, proyectos y notas no salen del teléfono salvo que el usuario los com
 
 El permiso de micrófono que declara el complemento de cámara se elimina del manifiesto (`tools:node="remove"`) y la CI verifica que no aparezca.
 
+**Funciones de hardware:** cámara, enfoque automático, brújula y GPS se declaran con `android:required="false"` para que la ficha no excluya equipos sin alguna de ellas (la app funciona con lo que haya).
+
 ## App Store Connect
 
-**Privacidad de la app:** "Datos recopilados" › **Ubicación precisa** › finalidad **Funcionalidad de la app**, **no vinculada** a la identidad del usuario y **no usada para rastreo**. Coincide con `ios/Runner/PrivacyInfo.xcprivacy` (`NSPrivacyCollectedDataTypePreciseLocation`, sin rastreo).
+**Privacidad de la app:** "Datos recopilados" › **Ubicación precisa** › finalidad **Funcionalidad de la app**, **no vinculada** a la identidad del usuario y **no usada para rastreo**. Cubre también la zona que reciben los servidores de teselas de OpenStreetMap (menos precisa). Coincide con `ios/Runner/PrivacyInfo.xcprivacy` (`NSPrivacyCollectedDataTypePreciseLocation`, sin rastreo).
 
 **Clasificación por edad:** todas las preguntas en "Ninguno"/"No". Resultado esperado: 4+.
 
 **Cifrado (exportación):** `ITSAppUsesNonExemptEncryption = NO`: solo usa HTTPS del sistema.
 
-**Textos de permisos (Info.plist, español e inglés):** cámara, ubicación mientras se usa, movimiento y fototeca. De la fototeca solo se pide "agregar a Fotos" (sin álbum propio, porque crear un álbum exige acceso completo); el texto de acceso completo está porque la biblioteca `gal` enlaza esa API, pero la app nunca lo solicita.
+**Textos de permisos (Info.plist, español e inglés):** cámara, ubicación mientras se usa (también da el norte verdadero de la brújula), movimiento, fototeca y micrófono. De la fototeca solo se pide "agregar a Fotos" (sin álbum propio, porque crear un álbum exige acceso completo); el texto de acceso completo está porque la biblioteca `gal` enlaza esa API, pero la app nunca lo solicita. El del micrófono está porque el complemento de cámara enlaza la grabación de audio (sin el texto, App Store Connect devuelve ITMS-90683); la cámara se abre sin audio y Sello nunca lo pide. Para no necesitar el texto de ubicación "siempre", el iOS se compila con la variable de entorno `BYPASS_PERMISSION_LOCATION_ALWAYS=1`, que quita del binario la petición de ese permiso en `geolocator_apple`.
 
 **Notas para la revisión:** `fastlane/metadata/ios/review_information/notes.txt`.

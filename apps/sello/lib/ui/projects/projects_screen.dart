@@ -28,7 +28,7 @@ class ProjectsScreen extends StatelessWidget {
               children: <Widget>[
                 Expanded(child: Text(t(context, 'Proyectos', 'Projects'), style: tt.titleLarge)),
                 FilledButton.tonalIcon(
-                  onPressed: () => _newProject(context, st, settings),
+                  onPressed: () => _newProject(context, s),
                   icon: const Icon(Icons.add),
                   label: Text(t(context, 'Nuevo', 'New')),
                 ),
@@ -41,6 +41,7 @@ class ProjectsScreen extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(vertical: 3),
                 child: ListTile(
                   leading: Icon(p.id == current.id ? Icons.radio_button_checked : Icons.radio_button_off, color: p.id == current.id ? Theme.of(context).colorScheme.primary : null),
+                  selected: p.id == current.id,
                   title: Text('${p.emoji.isNotEmpty ? '${p.emoji} ' : ''}${p.name}'),
                   subtitle: Text(
                     '${st.photos.where((PhotoRecord x) => x.projectId == p.id).length} ${t(context, 'fotos', 'photos')} · ${t(context, 'sello', 'stamp')}: ${st.templateForProject(p).name}${p.fields.isNotEmpty ? ' · ${p.fields.map((FieldDef f) => f.label).join(', ')}' : ''}',
@@ -52,10 +53,8 @@ class ProjectsScreen extends StatelessWidget {
                     icon: const Icon(Icons.edit_outlined),
                     onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ProjectEditor(projectId: p.id))),
                   ),
-                  onTap: () {
-                    settings.currentProjectId = p.id;
-                    settings.save();
-                  },
+                  // Al activar otro proyecto, la sesión de captura reinicia sus campos.
+                  onTap: () => s.session.selectProject(p.id),
                 ),
               ),
             const SizedBox(height: 20),
@@ -122,14 +121,13 @@ class ProjectsScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _newProject(BuildContext context, AppState st, AppSettings settings) async {
+  Future<void> _newProject(BuildContext context, Services s) async {
     final String? name = await askText(context, t(context, 'Nombre del proyecto', 'Project name'), hint: t(context, 'Ej.: Obra Calle 80', 'E.g.: Site 80th St'));
     if (name == null || name.trim().isEmpty) {
       return;
     }
-    final Project p = await st.addProject(name.trim());
-    settings.currentProjectId = p.id;
-    await settings.save();
+    final Project p = await s.state.addProject(name.trim());
+    await s.session.selectProject(p.id);
     if (context.mounted) {
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ProjectEditor(projectId: p.id)));
     }

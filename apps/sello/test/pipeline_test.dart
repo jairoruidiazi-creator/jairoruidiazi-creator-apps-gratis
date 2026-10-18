@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:archive/archive.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:sello/core/app_state.dart';
@@ -10,33 +12,57 @@ import 'package:sello/core/exports.dart';
 import 'package:sello/core/report.dart';
 import 'package:sello/core/storage.dart';
 import 'package:sello/model/models.dart';
-import 'package:sello/stamp/capture_pipeline.dart';
 import 'package:sello/stamp/composer.dart';
+import 'package:sello/stamp/stamp_data.dart';
+import 'package:sello/stamp/stamp_painter.dart';
 
-/// JPEG sintético: degradado con un recuadro, opcionalmente con orientación EXIF.
-Uint8List syntheticJpeg(int w, int h, {int orientation = 1}) {
-  final img.Image im = img.Image(width: w, height: h);
-  for (int y = 0; y < h; y++) {
-    for (int x = 0; x < w; x++) {
-      im.setPixelRgb(x, y, (255 * x / w).round(), (255 * y / h).round(), 90);
-    }
-  }
-  img.fillRect(im, x1: 10, y1: 10, x2: 60, y2: 40, color: img.ColorRgb8(255, 255, 255));
-  if (orientation != 1) {
-    im.exif.imageIfd.orientation = orientation;
-  }
-  return img.encodeJpg(im, quality: 90);
-}
+import 'support/fakes.dart';
 
-/// Capa de sello sintética: PNG transparente con una franja roja opaca abajo.
-Uint8List syntheticOverlay(int w, int h) {
+/// Capa de sello sintética: PNG opaco rojo de [w] × [h].
+Uint8List redOverlay(int w, int h) {
   final img.Image im = img.Image(width: w, height: h, numChannels: 4);
-  img.fill(im, color: img.ColorRgba8(0, 0, 0, 0));
-  img.fillRect(im, x1: 0, y1: (h * 0.8).round(), x2: w - 1, y2: h - 1, color: img.ColorRgba8(255, 0, 0, 255));
+  img.fill(im, color: img.ColorRgba8(255, 0, 0, 255));
   return img.encodePng(im);
 }
 
+/// Texto de un PDF: el archivo tal cual más sus flujos descomprimidos.
+String pdfText(Uint8List pdf) {
+  final String raw = latin1.decode(pdf);
+  final StringBuffer out = StringBuffer(raw);
+  int i = 0;
+  while (true) {
+    final int s = raw.indexOf('stream', i);
+    if (s < 0) {
+      break;
+    }
+    int start = s + 6;
+    if (start < raw.length && raw[start] == '\r') {
+      start++;
+    }
+    if (start < raw.length && raw[start] == '\n') {
+      start++;
+    }
+    final int e = raw.indexOf('endstream', start);
+    if (e < 0) {
+      break;
+    }
+    int end = e;
+    while (end > start && (raw[end - 1] == '\n' || raw[end - 1] == '\r')) {
+      end--;
+    }
+    final List<int> bytes = pdf.sublist(start, end);
+    try {
+      out.write(latin1.decode(zlib.decode(bytes), allowInvalid: true));
+    } catch (_) {
+      out.write(latin1.decode(bytes, allowInvalid: true));
+    }
+    i = e + 9;
+  }
+  return out.toString();
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late Directory tmp;
 
   setUp(() async {
@@ -48,21 +74,24 @@ void main() {
   });
 
   group('Composición del sello', () {
-    test('Superpone la capa, conserva el tamaño y escribe EXIF con GPS', () async {
-      final File orig = File('${tmp.path}/orig.jpg')..writeAsBytesSync(syntheticJpeg(640, 480));
+    test('Superpone la capa en su lugar y escribe un EXIF nuevo con los datos de Sello', () async {
+      final File orig = File('${tmp.path}/orig.jpg')..writeAsBytesSync(syntheticJpeg(640, 480, thumbnail: true, make: 'Acme', cameraLatitude: 51.5));
+      // La foto de la cámara traía miniatura (IFD1) y su propio GPS.
+      expect(img.decodeJpgExif(orig.readAsBytesSync())!.thumbnailData, isNotNull);
       final String out = '${tmp.path}/out.jpg';
       final ComposeResult r = composeStampedSync(ComposeJob(
         originalPath: orig.path,
         outputPath: out,
-        overlayPng: syntheticOverlay(2000, 1500),
-        overlayWidth: 2000,
-        overlayHeight: 1500,
         quality: 90,
+        overlayPng: redOverlay(640, 96),
+        overlayLeft: 0,
+        overlayTop: 384,
         latitude: 4.711,
         longitude: -74.0721,
-        altitude: 2601.4,
+        altitudeMsl: 2600.2,
         heading: 135.25,
-        takenAt: DateTime(2026, 3, 9, 14, 5, 7),
+        takenAt: DateTime.utc(2026, 3, 9, 19, 5, 7),
+        utcOffsetMinutes: -300,
         description: 'Prueba ñandú | GPS: 4.711000, -74.072100 · 135°',
       ));
       expect(r.width, 640);
@@ -70,155 +99,292 @@ void main() {
       final Uint8List bytes = File(out).readAsBytesSync();
       expect(bytes.length, r.bytes);
       final img.Image decoded = img.decodeJpg(bytes)!;
-      expect(decoded.width, 640);
-      // Abajo (franja roja del sello) el píxel es rojo; arriba sigue el degradado.
+      // Abajo (la capa roja) el píxel es rojo; arriba sigue la foto.
       final img.Pixel low = decoded.getPixel(320, 470);
       expect(low.r, greaterThan(200));
       expect(low.g, lessThan(60));
-      final img.Pixel high = decoded.getPixel(320, 100);
-      expect(high.r, lessThan(200));
-      // EXIF
-      expect(decoded.exif.imageIfd['Software'].toString(), 'Sello');
-      // La descripción va en UTF-8 dentro de la etiqueta ASCII.
-      expect(utf8.decode(decoded.exif.imageIfd['ImageDescription']!.toData()), 'Prueba ñandú | GPS: 4.711000, -74.072100 · 135°');
-      expect(decoded.exif.exifIfd['DateTimeOriginal'].toString(), '2026:03:09 14:05:07');
-      final img.IfdDirectory gps = decoded.exif.gpsIfd;
+      expect(decoded.getPixel(320, 100).r, lessThan(200));
+      final img.ExifData exif = decoded.exif;
+      expect(exif.imageIfd['Software'].toString(), 'Sello');
+      expect(utf8.decode(exif.imageIfd['ImageDescription']!.toData()).replaceAll('\u0000', ''), 'Prueba ñandú | GPS: 4.711000, -74.072100 · 135°');
+      // Hora local con su desfase (M9).
+      expect(exif.exifIfd['DateTimeOriginal'].toString(), '2026:03:09 14:05:07');
+      expect(exif.exifIfd[0x9011].toString(), '-05:00');
+      final img.IfdDirectory gps = exif.gpsIfd;
       expect(gps['GPSLatitudeRef'].toString(), 'N');
       expect(gps['GPSLongitudeRef'].toString(), 'W');
-      final img.IfdValue lat = gps['GPSLatitude']!;
-      expect(lat.toDouble(0), 4);
-      expect(lat.toDouble(1), 42);
-      expect(lat.toDouble(2), closeTo(39.6, 0.01));
-      final img.IfdValue lon = gps['GPSLongitude']!;
-      expect(lon.toDouble(0), 74);
-      expect(lon.toDouble(1), 4);
-      expect(lon.toDouble(2), closeTo(19.56, 0.01));
-      expect(gps['GPSAltitude']!.toDouble(), closeTo(2601.4, 0.01));
+      expect(gps['GPSLatitude']!.toDouble(0), 4);
+      expect(gps['GPSLatitude']!.toDouble(1), 42);
+      expect(gps['GPSLatitude']!.toDouble(2), closeTo(39.6, 0.01));
+      expect(gps['GPSLongitude']!.toDouble(2), closeTo(19.56, 0.01));
+      // Altitud sobre el nivel del mar con referencia 0 (encima) (M2).
+      expect(gps['GPSAltitude']!.toDouble(), closeTo(2600.2, 0.01));
+      expect(gps['GPSAltitudeRef']!.toInt(), 0);
       expect(gps['GPSImgDirection']!.toDouble(), closeTo(135.25, 0.01));
       expect(gps['GPSImgDirectionRef'].toString(), 'T');
-      expect(jpegSize(bytes)!.width, 640);
-      expect(jpegSize(bytes)!.height, 480);
-      // Texto con tildes en UTF-8 y XPComment en UTF-16.
-      expect(decoded.exif.imageIfd['XPComment'], isNotNull);
-      // Copia sin metadatos: misma imagen, sin EXIF.
-      final Uint8List clean = stripMetadata(bytes);
-      expect(clean.length, lessThan(bytes.length));
-      final img.Image cleanImg = img.decodeJpg(clean)!;
-      expect(cleanImg.width, 640);
-      expect(cleanImg.exif.imageIfd['Software'], isNull);
-      expect(cleanImg.exif.gpsIfd['GPSLatitude'], isNull);
-      expect(cleanImg.getPixel(320, 470).r, greaterThan(200));
-      expect(stripMetadata(Uint8List.fromList(<int>[1, 2, 3])).length, 3);
+      // De la cámara solo quedan los datos de equipo y exposición, sin miniatura ni su GPS (M22).
+      expect(exif.imageIfd['Make'].toString(), 'Acme');
+      expect(exif.exifIfd['FNumber']!.toDouble(), closeTo(1.8, 0.001));
+      final img.ExifData raw = img.decodeJpgExif(bytes)!;
+      expect(raw.thumbnailData, isNull);
+      expect(raw.directories.containsKey('ifd1'), isFalse);
+      expect(readStampExif(bytes).latitude, closeTo(4.711, 1e-6));
+      // Y lo escrito se vuelve a leer para recuperar la ficha.
+      final StampExif back = readStampExif(bytes);
+      expect(back.takenAt, DateTime.utc(2026, 3, 9, 19, 5, 7));
+      expect(back.utcOffsetMinutes, -300);
+      expect(back.altitudeMsl, closeTo(2600.2, 0.01));
+      expect(back.description, startsWith('Prueba ñandú'));
     });
 
-    test('Aplica la orientación EXIF antes de sellar', () async {
+    test('Rumbo magnético y altitud bajo el nivel del mar llevan su referencia (M1, M2)', () {
+      final File orig = File('${tmp.path}/o.jpg')..writeAsBytesSync(syntheticJpeg(64, 48));
+      final String out = '${tmp.path}/m.jpg';
+      composeStampedSync(ComposeJob(originalPath: orig.path, outputPath: out, quality: 80, latitude: 31.5, longitude: 35.5, altitudeMsl: -415, heading: 10, headingTrue: false));
+      final img.IfdDirectory gps = img.decodeJpgExif(File(out).readAsBytesSync())!.gpsIfd;
+      expect(gps['GPSImgDirectionRef'].toString(), 'M');
+      expect(gps['GPSAltitudeRef']!.toInt(), 1);
+      expect(gps['GPSAltitude']!.toDouble(), closeTo(415, 0.01));
+      // Sin altitud conocida no se escribe ninguna (nada de 0 m inventados).
+      composeStampedSync(ComposeJob(originalPath: orig.path, outputPath: out, quality: 80, latitude: 4.7, longitude: -74.1));
+      expect(img.decodeJpgExif(File(out).readAsBytesSync())!.gpsIfd['GPSAltitude'], isNull);
+    });
+
+    test('Aplica la orientación EXIF antes de sellar', () {
       // Foto guardada "acostada" (640×480) con orientación 6: al verla es 480×640.
       final File orig = File('${tmp.path}/rot.jpg')..writeAsBytesSync(syntheticJpeg(640, 480, orientation: 6));
-      expect(CapturePipeline.exifOrientation(orig.readAsBytesSync()), 6);
+      expect(exifOrientation(orig.readAsBytesSync()), 6);
+      final StampedPlan plan = planStamped(orig.readAsBytesSync())!;
+      expect(plan.width, 480);
+      expect(plan.height, 640);
       final String out = '${tmp.path}/rot-out.jpg';
-      final ComposeResult r = composeStampedSync(ComposeJob(
-        originalPath: orig.path,
-        outputPath: out,
-        overlayPng: syntheticOverlay(1500, 2000),
-        overlayWidth: 1500,
-        overlayHeight: 2000,
-        quality: 85,
-      ));
+      final ComposeResult r = composeStampedSync(ComposeJob(originalPath: orig.path, outputPath: out, quality: 85, overlayPng: redOverlay(480, 40), overlayTop: 600, expectedWidth: 480, expectedHeight: 640));
       expect(r.width, 480);
       expect(r.height, 640);
       final img.Image decoded = img.decodeJpg(File(out).readAsBytesSync())!;
       expect(decoded.width, 480);
       expect(decoded.exif.imageIfd.orientation ?? 1, 1);
-      final img.Pixel low = decoded.getPixel(240, 630);
-      expect(low.r, greaterThan(200));
-      expect(low.g, lessThan(60));
+      expect(decoded.getPixel(240, 630).r, greaterThan(200));
     });
 
     test('Sin orientación EXIF devuelve 1', () {
-      expect(CapturePipeline.exifOrientation(syntheticJpeg(64, 48)), 1);
-      expect(CapturePipeline.exifOrientation(Uint8List.fromList(<int>[1, 2, 3])), 1);
+      expect(exifOrientation(syntheticJpeg(64, 48)), 1);
+      expect(exifOrientation(Uint8List.fromList(<int>[1, 2, 3])), 1);
+    });
+
+    test('Las fotos muy grandes se sellan reducidas desde el JPEG (G1)', () {
+      final Uint8List jpeg = syntheticJpeg(400, 300);
+      expect(planStamped(jpeg)!.scale, 1);
+      final StampedPlan small = planStamped(jpeg, maxPixels: 40000)!;
+      expect(small.scale, 2);
+      expect(small.width, 200);
+      expect(small.height, 150);
+      expect(planStamped(jpeg, maxPixels: 10000)!.scale, 4);
+      final File orig = File('${tmp.path}/big.jpg')..writeAsBytesSync(jpeg);
+      final ComposeResult r = composeStampedSync(ComposeJob(originalPath: orig.path, outputPath: '${tmp.path}/big-out.jpg', quality: 80, scale: small.scale, expectedWidth: small.width, expectedHeight: small.height));
+      expect(r.width, 200);
+      expect(r.height, 150);
+    });
+
+    test('Compartir sin EXIF quita los datos pero conserva la orientación (M4)', () {
+      final Uint8List original = syntheticJpeg(64, 48, orientation: 6, make: 'Acme', cameraLatitude: 4.7);
+      final Uint8List clean = stripMetadata(original);
+      expect(exifOrientation(clean), 6);
+      final img.Image im = img.decodeJpg(clean)!;
+      expect(im.exif.imageIfd.orientation, 6);
+      expect(im.exif.imageIfd['Make'], isNull);
+      expect(im.exif.gpsIfd['GPSLatitude'], isNull);
+      // Una foto ya derecha queda sin ningún EXIF.
+      final Uint8List upright = stripMetadata(syntheticJpeg(64, 48, make: 'Acme'));
+      expect(img.decodeJpgExif(upright)?.imageIfd['Make'], isNull);
+      expect(exifOrientation(upright), 1);
+      expect(stripMetadata(Uint8List.fromList(<int>[1, 2, 3])).length, 3);
+    });
+  });
+
+  group('Capa del sello', () {
+    test('Se dibuja a tamaño real y solo donde hay algo (M19)', () async {
+      final StampTemplate t = StampTemplate.defaultTemplate();
+      final StampData d = StampData(time: DateTime(2026, 3, 9, 14, 5), latitude: 4.711, longitude: -74.0721, accuracy: 4, altitude: 2600, heading: 135, projectName: 'Obra', notes: 'Columna C-3');
+      final StampOverlay o = (await renderStampOverlay(t, d, width: 4000, height: 3000))!;
+      final StampLayout l = StampPainter.layout(const Size(4000, 3000), t, d);
+      // El texto mide en píxeles de la foto (1 % del ancho = 40 px): nada se amplía después.
+      expect(l.unit, 40);
+      expect(o.width, lessThan(4000));
+      expect(o.height, lessThan(3000));
+      expect(o.left + o.width, lessThanOrEqualTo(4000));
+      expect(o.top + o.height, lessThanOrEqualTo(3000));
+      final img.Image png = img.decodePng(o.png)!;
+      expect(png.width, o.width);
+      expect(png.height, o.height);
+    });
+
+    test('El logo queda dentro de la foto y fuera del texto, también con el sello arriba (M10)', () async {
+      final StampTemplate t = StampTemplate(id: 'x', name: 'x', position: StampPosition.topRight, logoPosition: StampPosition.topRight, items: <StampItem>{StampItem.dateTime, StampItem.coords, StampItem.notes});
+      final StampData d = StampData(time: DateTime(2026, 3, 9), latitude: 4.711, longitude: -74.0721, notes: 'Nota');
+      final ui.PictureRecorder rec = ui.PictureRecorder();
+      ui.Canvas(rec).drawRect(const Rect.fromLTWH(0, 0, 400, 400), ui.Paint());
+      final ui.Image logo = await rec.endRecording().toImage(400, 400);
+      for (final StampPosition pos in <StampPosition>[StampPosition.topRight, StampPosition.topLeft, StampPosition.bottomRight, StampPosition.bottomLeft]) {
+        t
+          ..position = pos
+          ..logoPosition = pos;
+        final StampLayout l = StampPainter.layout(const Size(1600, 1200), t, d, logo: logo);
+        final Rect logo = l.logo!;
+        expect(logo.left, greaterThanOrEqualTo(0), reason: '$pos');
+        expect(logo.top, greaterThanOrEqualTo(0), reason: '$pos');
+        expect(logo.right, lessThanOrEqualTo(1600), reason: '$pos');
+        expect(logo.bottom, lessThanOrEqualTo(1200), reason: '$pos');
+        expect(logo.overlaps(l.block!), isFalse, reason: '$pos');
+      }
     });
   });
 
   group('Exportaciones', () {
-    final Project obra = Project(id: 'p1', name: 'Obra, Calle 80', fields: <FieldDef>[const FieldDef('lote', 'Lote')]);
+    // Claves internas aleatorias, como las que crea la app.
+    final Project obra = Project(id: 'p1', name: 'Obra, Calle 80', fields: <FieldDef>[const FieldDef('mgx3k0001a', 'Lote'), const FieldDef('mgx3k0002b', 'Inspector')]);
     final Map<String, Project> projects = <String, Project>{'p1': obra};
-    final List<PhotoRecord> photos = <PhotoRecord>[
-      PhotoRecord(id: 'a', projectId: 'p1', originalFile: 'photos/p1/a-orig.jpg', stampedFile: 'photos/p1/a.jpg', takenAt: DateTime(2026, 3, 9, 14, 5, 7), latitude: 4.711, longitude: -74.0721, accuracy: 4.2, altitude: 2601, heading: 135, address: 'Cra 7 "La Séptima", Bogotá', notes: 'Columna\nC-3', tags: <String>['muro', 'fisura'], fields: <String, String>{'lote': '12'}, description: 'desc'),
-      PhotoRecord(id: 'b', projectId: 'p1', originalFile: 'photos/p1/b-orig.jpg', stampedFile: 'photos/p1/b.jpg', takenAt: DateTime(2026, 3, 9, 15), notes: 'sin gps'),
-    ];
+    List<PhotoRecord> photos() => <PhotoRecord>[
+          PhotoRecord(
+            id: 'a',
+            projectId: 'p1',
+            originalFile: 'photos/p1/a-orig.jpg',
+            stampedFile: 'photos/p1/a.jpg',
+            takenAt: DateTime.utc(2026, 3, 9, 19, 5, 7),
+            utcOffsetMinutes: -300,
+            latitude: 4.711,
+            longitude: -74.0721,
+            accuracy: 4.2,
+            altitude: 2601.5,
+            altitudeMsl: 2601.5,
+            heading: 135,
+            address: 'Cra 7 "La Séptima"; Bogotá',
+            notes: 'Columna\nC-3',
+            tags: <String>['muro', 'fisura'],
+            fields: <String, String>{'mgx3k0001a': '12', 'mgx3k0002b': '=HYPERLINK("http://x")'},
+            fieldLabels: <String, String>{'mgx3k0001a': 'Lote', 'mgx3k0002b': 'Inspector'},
+            description: 'desc',
+          ),
+          PhotoRecord(id: 'b', projectId: 'p1', originalFile: 'photos/p1/b-orig.jpg', stampedFile: 'photos/p1/b.jpg', takenAt: DateTime.utc(2026, 3, 9, 20), utcOffsetMinutes: -300, notes: '@ojo sin gps'),
+        ];
 
-    test('CSV con comillas, campos y formatos de coordenadas', () {
-      final String csv = Exports.csv(photos, projects);
-      // El salto de línea de las notas va entre comillas (una fila lógica
-      // ocupa dos líneas físicas): se cuentan las filas por su id.
+    test('CSV en español: punto y coma, coma decimal, rótulos y fórmulas neutralizadas (G8, G10)', () {
+      final String csv = Exports.csv(photos(), projects);
       final List<String> lines = const LineSplitter().convert(csv);
-      final List<String> rows = lines.where((String l) => l.startsWith('id,') || l.startsWith('a,') || l.startsWith('b,')).toList();
-      expect(rows.length, 3);
-      expect(csv, contains('"Columna\nC-3"'));
-      expect(lines.first, startsWith('id,proyecto,fecha_hora,utc,latitud,longitud'));
-      expect(lines.first, endsWith(',lote'));
-      final String rowA = csv.split('\nb,').first.split('\na,').last;
-      expect(rowA, contains('"Obra, Calle 80"'));
-      expect(rowA, contains('"Cra 7 ""La Séptima"", Bogotá"'));
+      expect(lines.first, startsWith('id;proyecto;fecha_hora;zona_horaria;utc;latitud;longitud'));
+      // Las columnas de los campos llevan el rótulo, nunca la clave interna.
+      expect(lines.first, endsWith(';Lote;Inspector'));
+      expect(csv, isNot(contains('mgx3k')));
+      final String rowA = csv.split('\nb;').first.split('\na;').last;
+      expect(rowA, contains('2026-03-09 14:05:07;-05:00;2026-03-09T19:05:07Z;4,7110000;-74,0721000;4,2;2601,5'));
+      expect(rowA, contains('"Cra 7 ""La Séptima""; Bogotá"'));
+      expect(rowA, contains('"Columna\nC-3"'));
       expect(rowA, contains('18NXL0291020787'));
       expect(rowA, contains('67P7PW6H+C52'));
-      expect(rowA, contains('4881143.15'));
-      expect(rowA, contains('muro fisura'));
-      expect(rowA.trimRight(), endsWith(',12'));
-      expect(lines.last, contains('sin gps'));
-      expect(Exports.csv(photos, projects, spanish: false), startsWith('id,project,datetime'));
+      expect(rowA, contains('4881143,15'));
+      expect(rowA, contains(';12;'));
+      // Una celda que empieza por = no se abre como fórmula.
+      expect(rowA, contains('"\'=HYPERLINK(""http://x"")"'));
+      expect(lines.last, contains("'@ojo sin gps"));
     });
 
-    test('KML solo con las fotos ubicadas', () {
-      final String kml = Exports.kml(photos, projects, title: 'Prueba <x>');
+    test('CSV en inglés: coma y punto decimal; con BOM al compartir', () {
+      final String csv = Exports.csv(photos(), projects, spanish: false);
+      expect(csv, startsWith('id,project,datetime,utc_offset,utc,latitude,longitude'));
+      expect(csv, contains('4.7110000,-74.0721000,4.2,2601.5'));
+      final Uint8List bytes = Exports.csvBytes(photos(), projects, spanish: false);
+      expect(bytes.sublist(0, 3), <int>[0xEF, 0xBB, 0xBF]);
+      expect(Exports.neutralizeFormula('-74.07'), '-74.07');
+      expect(Exports.neutralizeFormula('+57 300'), "'+57 300");
+      expect(Exports.neutralizeFormula('Muro'), 'Muro');
+    });
+
+    test('KML con rótulos, nombre corto del marcador y nombres en el idioma (G8, M6)', () {
+      final String kml = Exports.kml(photos(), projects, title: 'Prueba <x>');
       expect(kml, contains('<name>Prueba &lt;x&gt;</name>'));
-      expect(kml, contains('<coordinates>-74.0721000,4.7110000,2601.0</coordinates>'));
+      expect(kml, contains('<coordinates>-74.0721000,4.7110000,2601.5</coordinates>'));
       expect('<Placemark>'.allMatches(kml).length, 1);
-      expect(kml, contains('<Data name="lote"><value>12</value></Data>'));
-      expect(kml, contains('<when>2026-03-09T14:05:07.000Z</when>'));
+      expect(kml, contains('<Data name="Lote"><value>12</value></Data>'));
+      expect(kml, isNot(contains('mgx3k')));
+      expect(kml, contains('<when>2026-03-09T19:05:07Z</when>'));
+      // El marcador se llama como la nota (su primera línea), no como el sello entero.
+      expect(kml, contains('<Placemark><name>Columna</name>'));
+      expect(kml, contains('<Data name="fecha_hora">'));
+      final String en = Exports.kml(photos(), projects, title: 'T', spanish: false);
+      expect(en, contains('<Data name="datetime">'));
+      expect(en, contains('<Data name="address">'));
+      expect(en, isNot(contains('<Data name="direccion">')));
     });
 
-    test('KMZ y ZIP contienen las fotos y los datos', () async {
+    test('ZIP y KMZ: enlaces que coinciden con los archivos, CSV con BOM y nombres en el idioma (G9, G10, M5, M6)', () async {
       final JsonStore store = JsonStore(root: tmp);
-      for (final PhotoRecord p in photos) {
+      final List<PhotoRecord> list = photos();
+      final Map<String, String> stamped = <String, String>{};
+      final Map<String, String> originals = <String, String>{};
+      for (final PhotoRecord p in list) {
         await store.writeBytes(p.stampedFile, syntheticJpeg(64, 48));
+        await store.writeBytes(p.originalFile, syntheticJpeg(64, 48));
+        stamped[p.id] = await store.absolutePath(p.stampedFile);
+        originals[p.id] = await store.absolutePath(p.originalFile);
       }
-      Future<File?> file(PhotoRecord p) async => File(await store.absolutePath(p.stampedFile));
-      final Uint8List kmz = await Exports.kmz(photos, projects, title: 'T', stampedFile: file);
-      final Archive a = ZipDecoder().decodeBytes(kmz);
-      expect(a.files.map((ArchiveFile f) => f.name), containsAll(<String>['doc.kml', 'files/a.jpg', 'files/b.jpg']));
-      final String doc = utf8.decode(a.findFile('doc.kml')!.content as List<int>);
-      expect(doc, contains('<img src="files/a.jpg"'));
-      final Uint8List zip = await Exports.zip(photos, projects, title: 'T', file: file);
-      final Archive z = ZipDecoder().decodeBytes(zip);
-      expect(z.files.map((ArchiveFile f) => f.name), containsAll(<String>['fotos/a.jpg', 'fotos/b.jpg', 'datos.csv', 'mapa.kml']));
+      final List<int> progress = <int>[];
+      final String zipPath = '${tmp.path}/o.zip';
+      await writeZipFile(zipPath, Exports.zipEntries(list, projects, title: 'T', files: originals), onProgress: (int d, int t) => progress.add(d));
+      final Archive z = ZipDecoder().decodeBytes(File(zipPath).readAsBytesSync());
+      expect(z.files.map((ArchiveFile f) => f.name), containsAll(<String>['fotos/a-orig.jpg', 'fotos/b-orig.jpg', 'datos.csv', 'mapa.kml']));
+      expect(progress.last, 4);
+      // El KML del ZIP con originales enlaza los originales que van en el ZIP.
+      final String kml = utf8.decode(z.findFile('mapa.kml')!.content);
+      expect(kml, contains('<img src="fotos/a-orig.jpg"'));
+      // El CSV de adentro también lleva BOM.
+      expect(z.findFile('datos.csv')!.content.sublist(0, 3), <int>[0xEF, 0xBB, 0xBF]);
+      // Las fotos van sin volver a comprimir (un JPEG ya está comprimido).
+      expect(z.findFile('fotos/a-orig.jpg')!.compression, CompressionType.none);
+      final String enPath = '${tmp.path}/en.zip';
+      await writeZipFile(enPath, Exports.zipEntries(list, projects, title: 'T', files: stamped, spanish: false));
+      final Archive en = ZipDecoder().decodeBytes(File(enPath).readAsBytesSync());
+      expect(en.files.map((ArchiveFile f) => f.name), containsAll(<String>['photos/a.jpg', 'data.csv', 'map.kml']));
+      final String kmzPath = '${tmp.path}/t.kmz';
+      await writeZipFile(kmzPath, Exports.kmzEntries(list, projects, title: 'T', files: stamped));
+      final Archive k = ZipDecoder().decodeBytes(File(kmzPath).readAsBytesSync());
+      expect(k.files.map((ArchiveFile f) => f.name), containsAll(<String>['doc.kml', 'files/a.jpg', 'files/b.jpg']));
+      expect(utf8.decode(k.findFile('doc.kml')!.content), contains('<img src="files/a.jpg"'));
+    });
+
+    test('Cancelar una exportación borra el archivo a medias (G9)', () async {
+      final List<ArchiveEntry> entries = <ArchiveEntry>[
+        for (int i = 0; i < 200; i++) ArchiveEntry.bytes('x$i.bin', Uint8List(200000)),
+      ];
+      final ExportCancel cancel = ExportCancel();
+      final String path = '${tmp.path}/c.zip';
+      final Future<void> f = writeZipFile(path, entries, cancel: cancel, onProgress: (int d, int t) {
+        if (d == 3) {
+          cancel.cancel();
+        }
+      });
+      await expectLater(f, throwsA(isA<ExportCancelled>()));
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(File(path).existsSync(), isFalse);
     });
   });
 
   group('Informe PDF', () {
-    test('Se genera con imagen, tabla y fichas', () async {
-      final Project obra = Project(id: 'p1', name: 'Obra Calle 80 🏗️', fields: <FieldDef>[const FieldDef('lote', 'Lote')]);
-      final List<PhotoRecord> photos = <PhotoRecord>[
-        PhotoRecord(id: 'a', projectId: 'p1', originalFile: 'a-orig.jpg', stampedFile: 'a.jpg', takenAt: DateTime(2026, 3, 9, 14, 5, 7), latitude: 4.711, longitude: -74.0721, accuracy: 4.2, altitude: 2601, heading: 135, address: 'Cra 7 — Bogotá', notes: 'Columna “C-3”', tags: <String>['muro'], fields: <String, String>{'lote': '12'}),
-        PhotoRecord(id: 'b', projectId: 'p1', originalFile: 'b-orig.jpg', stampedFile: 'b.jpg', takenAt: DateTime(2026, 3, 10), notes: 'sin gps'),
+    test('Orden cronológico, imagen incrustada y rótulos en inglés (M6, M21)', () async {
+      final Project obra = Project(id: 'p1', name: 'Obra Calle 80 🏗️', fields: <FieldDef>[const FieldDef('k1', 'Lote')]);
+      final List<PhotoRecord> list = <PhotoRecord>[
+        PhotoRecord(id: 'b', projectId: 'p1', originalFile: 'b-orig.jpg', stampedFile: 'b.jpg', takenAt: DateTime.utc(2026, 3, 10, 15), notes: 'Segunda'),
+        PhotoRecord(id: 'a', projectId: 'p1', originalFile: 'a-orig.jpg', stampedFile: 'a.jpg', takenAt: DateTime.utc(2026, 3, 9, 19, 5, 7), latitude: 4.711, longitude: -74.0721, accuracy: 4.2, altitude: 2601, heading: 135, address: 'Cra 7 — Bogotá', notes: 'Primera', fields: <String, String>{'k1': '12'}, fieldLabels: <String, String>{'k1': 'Lote'}),
       ];
-      final Uint8List photo = syntheticJpeg(1600, 1200);
-      final Uint8List small = await PdfReport.thumbnail(photo, maxWidth: 400);
+      final Uint8List small = PdfReport.thumbnailSync(syntheticJpeg(1600, 1200), maxWidth: 400);
       expect(img.decodeJpg(small)!.width, 400);
-      final Uint8List pdf = await PdfReport.build(
-        photos: photos,
-        projects: <String, Project>{'p1': obra},
-        title: 'Informe de prueba',
-        imageOf: (PhotoRecord p) async => p.id == 'a' ? small : null,
-        now: DateTime(2026, 3, 11, 9),
-      );
+      final Uint8List pdf = await PdfReport.buildInCurrentIsolate(photos: list, projects: <String, Project>{'p1': obra}, title: 'Report', images: <String, Uint8List>{'a': small}, spanish: false, now: DateTime(2026, 3, 11, 9));
       expect(String.fromCharCodes(pdf.take(5)), '%PDF-');
-      expect(pdf.length, greaterThan(5000));
-      final String text = String.fromCharCodes(pdf);
-      expect(text, contains('/Type/Page'));
-      // Una imagen incrustada.
+      final String text = pdfText(pdf);
       expect(text, contains('/Subtype/Image'));
+      expect(text.indexOf('(Primera'), lessThan(text.indexOf('(Segunda')));
+      expect(text, contains('(DMS)'));
+      expect(text, isNot(contains('(GMS)')));
+      expect(text, contains('(Lote)'));
     });
   });
 
@@ -235,8 +401,8 @@ void main() {
       t.position = StampPosition.bottomBar;
       p.templateId = t.id;
       await st.saveProjects();
-      await store.writeBytes('photos/x/a.jpg', Uint8List.fromList(<int>[1, 2, 3]));
-      await st.addPhoto(PhotoRecord(id: 'a', projectId: p.id, originalFile: 'photos/x/a-orig.jpg', stampedFile: 'photos/x/a.jpg', takenAt: DateTime(2026, 1, 1), tags: <String>['t1']));
+      await store.writeBytes('photos/x/a.jpg', syntheticJpeg(16, 16));
+      await st.addPhoto(PhotoRecord(id: 'a', projectId: p.id, originalFile: 'photos/x/a-orig.jpg', stampedFile: 'photos/x/a.jpg', takenAt: DateTime.utc(2026), tags: <String>['t1']));
       expect(st.nextNumber(p.id), 2);
       expect(st.allTags, <String>{'t1'});
       final AppState again = AppState(store);
@@ -245,7 +411,6 @@ void main() {
       expect(again.projectById(p.id).fields.single.label, 'Lote');
       expect(again.templateForProject(again.projectById(p.id)).position, StampPosition.bottomBar);
       expect(again.photos.single.tags, <String>['t1']);
-      // Borrar la plantilla devuelve el proyecto a la estándar; borrar el proyecto mueve las fotos.
       await again.deleteTemplate(t.id);
       expect(again.projectById(p.id).templateId, 'default');
       await again.deleteProject(p.id);
@@ -253,7 +418,6 @@ void main() {
       await again.deletePhotos(again.photos.toList());
       expect(again.photos, isEmpty);
       expect(await File(await store.absolutePath('photos/x/a.jpg')).exists(), isFalse);
-      // La plantilla estándar y el último proyecto no se borran.
       await again.deleteTemplate('default');
       await again.deleteProject('general');
       expect(again.templates.length, 1);
