@@ -230,12 +230,12 @@ void main() {
           ..position = pos
           ..logoPosition = pos;
         final StampLayout l = StampPainter.layout(const Size(1600, 1200), t, d, logo: logo);
-        final Rect logo = l.logo!;
-        expect(logo.left, greaterThanOrEqualTo(0), reason: '$pos');
-        expect(logo.top, greaterThanOrEqualTo(0), reason: '$pos');
-        expect(logo.right, lessThanOrEqualTo(1600), reason: '$pos');
-        expect(logo.bottom, lessThanOrEqualTo(1200), reason: '$pos');
-        expect(logo.overlaps(l.block!), isFalse, reason: '$pos');
+        final Rect r = l.logo!;
+        expect(r.left, greaterThanOrEqualTo(0), reason: '$pos');
+        expect(r.top, greaterThanOrEqualTo(0), reason: '$pos');
+        expect(r.right, lessThanOrEqualTo(1600), reason: '$pos');
+        expect(r.bottom, lessThanOrEqualTo(1200), reason: '$pos');
+        expect(r.overlaps(l.block!), isFalse, reason: '$pos');
       }
     });
   });

@@ -302,7 +302,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
       }
       await shareFiles(paths, origin: origin, text: list.length == 1 ? list.first.description : null);
     } catch (e) {
-      _toast('${t(context, 'No se pudo compartir', 'Could not share')}: $e');
+      if (mounted) {
+        _toast('${t(context, 'No se pudo compartir', 'Could not share')}: $e');
+      }
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -333,7 +335,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
       await st.deletePhotos(list);
       _selected.clear();
     } catch (e) {
-      _toast('${t(context, 'No se pudo borrar', 'Could not delete')}: $e');
+      if (mounted) {
+        _toast('${t(context, 'No se pudo borrar', 'Could not delete')}: $e');
+      }
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -449,7 +453,9 @@ class _GalleryScreenState extends State<GalleryScreen> {
       progress.close();
     } catch (e) {
       progress.close();
-      _toast('${t(context, 'No se pudo exportar', 'Export failed')}: $e');
+      if (mounted) {
+        _toast('${t(context, 'No se pudo exportar', 'Export failed')}: $e');
+      }
     } finally {
       if (mounted) {
         setState(() => _busy = false);

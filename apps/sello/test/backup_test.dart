@@ -75,7 +75,7 @@ void main() {
 
   test('Un ZIP cualquiera no se toma por una copia', () async {
     final String zip = '${a.path}/otro.zip';
-    await writeZipFile(zip, <ArchiveEntry>[ArchiveEntry.bytes('hola.txt', <int>[104, 111, 108, 97])]);
+    await writeZipFile(zip, <ArchiveEntry>[const ArchiveEntry.bytes('hola.txt', <int>[104, 111, 108, 97])]);
     final AppState target = await testState(b);
     await expectLater(Backup.restore(zip, target), throwsA(isA<NotABackup>()));
   });
@@ -85,9 +85,9 @@ void main() {
     final String zip = '${a.path}/mala.zip';
     await writeZipFile(zip, <ArchiveEntry>[
       ArchiveEntry.bytes(Backup.manifestName, '{"app": "Sello", "format": 1}'.codeUnits),
-      ArchiveEntry.bytes('../fuera.txt', <int>[1]),
-      ArchiveEntry.bytes('photos/../../fuera.jpg', <int>[1]),
-      ArchiveEntry.bytes('settings.json', <int>[1]),
+      const ArchiveEntry.bytes('../fuera.txt', <int>[1]),
+      const ArchiveEntry.bytes('photos/../../fuera.jpg', <int>[1]),
+      const ArchiveEntry.bytes('settings.json', <int>[1]),
     ]);
     final RestoreSummary r = await Backup.restore(zip, target);
     expect(r.files, 0);

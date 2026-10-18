@@ -79,7 +79,7 @@ void main() {
   });
 
   group('Dirección (G3)', () {
-    List<Placemark> bogota(double lat, double lon) => <Placemark>[Placemark(thoroughfare: 'Carrera 7', subThoroughfare: '72-41', locality: 'Bogotá', country: 'Colombia')];
+    List<Placemark> bogota(double lat, double lon) => <Placemark>[const Placemark(thoroughfare: 'Carrera 7', subThoroughfare: '72-41', locality: 'Bogotá', country: 'Colombia')];
 
     test('Solo se usa cerca de donde se buscó y se borra al apagarla', () async {
       final FakeLocationBackend backend = FakeLocationBackend()..onPlacemarks = bogota;
