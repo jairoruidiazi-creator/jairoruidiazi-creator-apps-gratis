@@ -262,11 +262,12 @@ void main() {
       // Resumen de la semana, el mes y el año.
       await goTab(tester, 'Resumen');
       expect(find.text('Cumplimiento'), findsOneWidget);
+      await reveal(tester, find.text('Hábitos hechos por día'));
       expect(find.text('Hábitos hechos por día'), findsOneWidget);
-      await tester.tap(find.text('Año'));
-      await settle(tester);
-      expect(find.text('Hábitos hechos por mes'), findsOneWidget);
+      await scrollAndTap(tester, find.text('Año'));
       expect(find.text('2026'), findsOneWidget);
+      await reveal(tester, find.text('Hábitos hechos por mes'));
+      expect(find.text('Hábitos hechos por mes'), findsOneWidget);
       expectNoErrors(tester, 'resumen');
 
       // Ajustes: idioma, copia de seguridad y política de privacidad.
