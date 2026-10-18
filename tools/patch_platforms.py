@@ -94,11 +94,26 @@ APPS = {
             # El plugin de cámara declara el micrófono para grabar video; Sello solo toma fotos.
             ("android.permission.RECORD_AUDIO", {"tools:node": "remove"}),
         ],
-        "android_features": [("android.hardware.camera", False), ("android.hardware.sensor.compass", False), ("android.hardware.location.gps", False)],
+        # El enfoque automático tampoco es obligatorio: los equipos de foco fijo sirven (M16).
+        "android_features": [("android.hardware.camera", False), ("android.hardware.camera.autofocus", False), ("android.hardware.sensor.compass", False), ("android.hardware.location.gps", False)],
         # gal escribe el álbum "Sello" con la ruta clásica en Android 10 (API 29); sin
         # esto el almacenamiento con alcance lo bloquea. Desde Android 11 se ignora.
+        # Reglas de copia: la nube de Google (25 MB por app) no lleva las fotos ni su
+        # índice; el traspaso entre teléfonos lleva todo.
         "android_application_attrs": {
             "android:requestLegacyExternalStorage": "true",
+            "android:dataExtractionRules": "@xml/data_extraction_rules",
+            "android:fullBackupContent": "@xml/backup_rules",
+        },
+        # Código nativo propio: la altura elipsoidal del GPS (Android), el rumbo calibrado
+        # del sistema (iOS) y las reglas de copia de seguridad.
+        "android_files": {
+            "native/android/MainActivity.kt": "android/app/src/main/kotlin/co/appsgratis/sello/MainActivity.kt",
+            "native/android/data_extraction_rules.xml": "android/app/src/main/res/xml/data_extraction_rules.xml",
+            "native/android/backup_rules.xml": "android/app/src/main/res/xml/backup_rules.xml",
+        },
+        "ios_files": {
+            "native/ios/AppDelegate.swift": "ios/Runner/AppDelegate.swift",
         },
         "android_queries": [
             {"action": "android.intent.action.VIEW", "scheme": "geo"},
@@ -112,6 +127,9 @@ APPS = {
             "NSPhotoLibraryAddUsageDescription": "Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges.",
             "NSPhotoLibraryUsageDescription": "Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges.",
             "NSMotionUsageDescription": "Sello usa los sensores de movimiento para calcular el rumbo de la cámara.",
+            # El complemento de cámara enlaza la grabación de audio: sin el texto, App Store
+            # Connect devuelve ITMS-90683 aunque Sello nunca pida el micrófono (M17).
+            "NSMicrophoneUsageDescription": "Sello solo toma fotos: no usa el micrófono ni graba audio.",
             "LSApplicationQueriesSchemes": ["comgooglemaps", "maps", "waze"],
             # La carpeta de la app (fotos y exportaciones) se ve en la app Archivos, en "En mi iPhone".
             "UIFileSharingEnabled": True,
@@ -124,6 +142,7 @@ APPS = {
             "NSPhotoLibraryAddUsageDescription": "Sello saves a copy of the stamped photos to your photo library if you choose to.",
             "NSPhotoLibraryUsageDescription": "Sello saves a copy of the stamped photos to your photo library if you choose to.",
             "NSMotionUsageDescription": "Sello uses the motion sensors to work out the camera heading.",
+            "NSMicrophoneUsageDescription": "Sello only takes photos: it does not use the microphone or record audio.",
         },
         # Cámara: la interfaz va en vertical y el sello sigue la orientación del teléfono.
         "iphone_orientations": ["UIInterfaceOrientationPortrait"],

@@ -204,6 +204,9 @@ jobs:
       run:
         working-directory: apps/${{ inputs.app }}
     env:
+      # geolocator_apple (Swift Package Manager) quita del binario la petición de
+      # ubicación "siempre"; vale para flutter build y para xcodebuild archive.
+      BYPASS_PERMISSION_LOCATION_ALWAYS: "1"
       TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}

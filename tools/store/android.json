@@ -50,7 +50,9 @@
       "android.permission.WRITE_EXTERNAL_STORAGE": 29
     },
     "application": {
-      "requestLegacyExternalStorage": "true"
+      "requestLegacyExternalStorage": "true",
+      "dataExtractionRules": "@ref",
+      "fullBackupContent": "@ref"
     }
   },
   "plata": {

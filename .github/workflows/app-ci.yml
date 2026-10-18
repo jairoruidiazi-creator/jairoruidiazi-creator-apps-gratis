@@ -139,6 +139,10 @@ jobs:
           cache: true
       - run: flutter pub get
       - run: flutter build ipa --release --no-codesign 2>&1 | tee build-ios.log; exit ${PIPESTATUS[0]}
+        env:
+          # geolocator_apple (Swift Package Manager) quita del binario la petición de
+          # ubicación "siempre"; sin esto App Store Connect devuelve ITMS-90683.
+          BYPASS_PERMISSION_LOCATION_ALWAYS: "1"
       - name: Revisar el paquete de la app
         run: |
           set -eo pipefail
@@ -148,6 +152,16 @@ jobs:
           plutil -p "$APPDIR/Info.plist" | grep -E "CFBundleShortVersionString|CFBundleVersion\"|CFBundleLocalizations|MinimumOSVersion|ITSAppUsesNonExemptEncryption|UIDeviceFamily" -A3 | tee -a ios-check.log
           plutil -p "$APPDIR/PrivacyInfo.xcprivacy" | tee -a ios-check.log
           plutil -p "$APPDIR/en.lproj/InfoPlist.strings" | tee -a ios-check.log
+          # Sin texto para la ubicación «siempre», el binario no puede llamar a esa
+          # petición: App Store Connect lo detecta y rechaza la subida (ITMS-90683).
+          if ! plutil -extract NSLocationAlwaysAndWhenInUseUsageDescription raw "$APPDIR/Info.plist" > /dev/null 2>&1; then
+            if grep -r -l -a requestAlwaysAuthorization "$APPDIR" > always.txt; then
+              echo "El paquete pide la ubicación «siempre» sin texto en el Info.plist:" | tee -a ios-check.log
+              tee -a ios-check.log < always.txt
+              exit 1
+            fi
+            echo "Sin petición de ubicación «siempre» en el binario." | tee -a ios-check.log
+          fi
           du -sh "$APPDIR" | tee -a ios-check.log
       - name: Publicar registros
         if: always()
