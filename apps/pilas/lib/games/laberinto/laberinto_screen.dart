@@ -140,7 +140,6 @@ class _LaberintoScreenState extends State<LaberintoScreen> {
       }
       _solved = true;
       unawaited(s.sfx.play(SfxId.pop));
-      final int optimal = m.optimalSteps;
       final bool eficiente = m.eficiente(_steps);
       final String msg = eficiente
           ? '¡${Es.cap(m.theme.heroeConArticulo)} llegó ${m.theme.aMeta}!'

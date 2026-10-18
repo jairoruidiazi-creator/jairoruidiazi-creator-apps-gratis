@@ -27,10 +27,11 @@ class Ingrediente {
 class CocinaGenerator implements ChoiceGenerator {
   /// Peso aproximado en gramos de lo que sale en la balanza. Solo se comparan
   /// cosas que pesan claramente distinto (cuatro veces o más) o casi igual.
+  /// Es el peso de lo que muestra el dibujo (las cerezas son dos).
   static const Map<String, int> pesos = <String, int>{
     'sandia': 6000, 'pina': 1500, 'melon': 1500, 'coco': 1000, 'mango': 300,
     'manzana': 200, 'naranja': 200, 'pera': 180, 'banano': 150, 'durazno': 150,
-    'kiwi': 70, 'limon': 60, 'huevo': 60, 'fresa': 15, 'cereza': 8,
+    'kiwi': 70, 'limon': 60, 'huevo': 60, 'fresa': 15, 'cereza': 16,
     'balon': 450, 'libro': 350, 'lapiz': 6, 'llave': 15, 'dado': 5, 'cuchara': 30,
     'silla': 4000, 'olla': 1200, 'bicicleta': 12000, 'guitarra': 2500,
     'gato': 4000, 'perro': 15000, 'conejo': 2000, 'raton': 25, 'pajaro': 30,

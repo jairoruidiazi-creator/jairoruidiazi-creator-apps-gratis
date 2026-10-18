@@ -103,7 +103,7 @@ List<String> concordancia(String texto) {
   // Artículos y demostrativos pegados a un sustantivo conocido.
   for (final MapEntry<String, String> e in generos.entries) {
     final String n = RegExp.escape(e.key);
-    final String fin = '(?![$l])';
+    const String fin = '(?![$l])';
     if (e.value == 'f' && Es.aTonica(e.key)) {
       no(RegExp('(^|[^$l])(la|una|este|ese|aquel) $n$fin'), '"${e.key}" lleva "el" o "un" y demostrativo femenino');
     } else if (e.value == 'f') {

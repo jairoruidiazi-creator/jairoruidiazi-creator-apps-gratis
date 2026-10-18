@@ -130,7 +130,7 @@ class TraceCatalog {
     TraceTemplate('R', 'erre mayúscula', 'La erre, como en ratón.', <List<Offset>>[_l(<double>[25, 85, 25, 15]), _join(<List<Offset>>[_l(<double>[25, 15, 55, 15]), _arc(55, 34, 19, -90, 90), _l(<double>[55, 53, 25, 53])]), _l(<double>[45, 53, 78, 85])], ejemplo: '1f401'),
     TraceTemplate('S', 'ese mayúscula', 'La ese, como en sol.', <List<Offset>>[_join(<List<Offset>>[_arc(50, 33, 17, -40, -180, rx: 22), _arc(50, 67, 17, -90, 140, rx: 22)])], ejemplo: '2600'),
     TraceTemplate('T', 'te mayúscula', 'La te, como en tortuga.', <List<Offset>>[_l(<double>[20, 15, 80, 15]), _l(<double>[50, 15, 50, 85])], ejemplo: '1f422'),
-    TraceTemplate('U', 'u mayúscula', 'La u, como en uva.', <List<Offset>>[_join(<List<Offset>>[_l(<double>[25, 15, 25, 60]), _arc(50, 60, 25, 180, 0), _l(<double>[75, 60, 75, 15])])], ejemplo: '1f347'),
+    TraceTemplate('U', 'u mayúscula', 'La u, como en uvas.', <List<Offset>>[_join(<List<Offset>>[_l(<double>[25, 15, 25, 60]), _arc(50, 60, 25, 180, 0), _l(<double>[75, 60, 75, 15])])], ejemplo: '1f347'),
     TraceTemplate('V', 've mayúscula', 'La ve, como en vaca.', <List<Offset>>[_l(<double>[20, 15, 50, 85, 80, 15])], ejemplo: '1f404'),
     TraceTemplate('W', 'doble ve', 'La doble ve, como en wafle.', <List<Offset>>[_l(<double>[12, 15, 30, 85, 50, 35, 70, 85, 88, 15])], ejemplo: '1f9c7'),
     TraceTemplate('X', 'equis', 'La equis, como en taxi.', <List<Offset>>[_l(<double>[22, 15, 78, 85]), _l(<double>[78, 15, 22, 85])], ejemplo: '1f695'),

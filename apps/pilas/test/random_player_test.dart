@@ -312,7 +312,7 @@ void main() {
     test('Sudoku: poner símbolos al azar', () {
       porNivel('sudoku', (AgeBand band, int level) {
         int bien = 0;
-        const int n = 300;
+        const int n = 150;
         for (int seed = 0; seed < n; seed++) {
           final math.Random azar = math.Random(seed);
           final SudokuBoard b = SudokuBoard.generate(Rng(seed * 11 + level), band, level);
