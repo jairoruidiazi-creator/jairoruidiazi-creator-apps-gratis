@@ -22,7 +22,7 @@ flutter test
 flutter run
 ```
 
-Las carpetas `android/` e `ios/` de cada app se generan una sola vez con `flutter create` desde el flujo `bootstrap-platforms` y luego se ajustan con `tools/patch_platforms.py`.
+Las carpetas `android/` e `ios/` de cada app se generan una sola vez con `flutter create` desde el flujo `bootstrap-platforms` y luego se ajustan con `tools/patch_platforms.py`. Lo propio de cada app que va en esas carpetas vive en `apps/<app>/native/` y el script lo copia: código nativo, reglas de copia de seguridad y la pantalla de arranque (el ícono sobre el fondo claro u oscuro del sistema, generada con `tools/gen_launch_assets.py` a partir de `assets/icon/icon-1024.png`).
 
 ## Licencias
 

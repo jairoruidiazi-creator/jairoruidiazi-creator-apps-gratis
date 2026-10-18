@@ -265,6 +265,105 @@ OLD_RELEASE = '        release {\n            // TODO: Add your own signing conf
 NEW_RELEASE = '        release {\n            signingConfig = if (keystorePropertiesFile.exists()) {\n                signingConfigs.getByName("release")\n            } else {\n                signingConfigs.getByName("debug")\n            }\n        }'
 
 
+# ------------------------------------------------------- pantalla de arranque
+# Flutter deja en iOS un marcador vacío de 1×1 sobre blanco fijo (destello blanco
+# en modo oscuro) y en Android anterior a la 12 un fondo liso. Cada app arranca con
+# su ícono centrado sobre el fondo del sistema (claro u oscuro); las imágenes las
+# genera tools/gen_launch_assets.py en native/launch/ y aquí se copian.
+
+ANDROID_LAUNCH_XML = """<?xml version="1.0" encoding="utf-8"?>
+<!-- Pantalla de arranque antes de Android 12: el ícono de la app centrado sobre el
+     fondo del tema (claro u oscuro). Desde Android 12 el sistema dibuja la suya con
+     el ícono adaptativo. Generado por tools/patch_platforms.py. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="{background}" />
+    <item>
+        <bitmap
+            android:gravity="center"
+            android:src="@drawable/launch_image" />
+    </item>
+</layer-list>
+"""
+
+IOS_LAUNCH_COLORSET = """{
+  "colors" : [
+    {
+      "color" : {
+        "color-space" : "srgb",
+        "components" : { "alpha" : "1.000", "blue" : "1.000", "green" : "1.000", "red" : "1.000" }
+      },
+      "idiom" : "universal"
+    },
+    {
+      "appearances" : [ { "appearance" : "luminosity", "value" : "dark" } ],
+      "color" : {
+        "color-space" : "srgb",
+        "components" : { "alpha" : "1.000", "blue" : "0.000", "green" : "0.000", "red" : "0.000" }
+      },
+      "idiom" : "universal"
+    }
+  ],
+  "info" : { "author" : "xcode", "version" : 1 }
+}
+"""
+
+
+def png_size(path: Path) -> tuple[int, int]:
+    data = path.read_bytes()[:24]
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise SystemExit(f"{path} no es un PNG")
+    return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+
+
+def patch_android_launch() -> None:
+    src = Path("native/launch/android")
+    if not src.exists():
+        return
+    res = Path("android/app/src/main/res")
+    for folder in sorted(src.iterdir()):
+        target = res / folder.name / "launch_image.png"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((folder / "launch_image.png").read_bytes())
+    # API 21+ toma el color del tema (claro u oscuro); la versión sin calificador
+    # solo la usarían teléfonos anteriores, que las apps no admiten.
+    for name, background in (("drawable/launch_background.xml", "@android:color/white"), ("drawable-v21/launch_background.xml", "?android:colorBackground")):
+        target = res / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(ANDROID_LAUNCH_XML.format(background=background), encoding="utf-8")
+    print("pantalla de arranque de Android con el ícono de la app")
+
+
+def patch_ios_launch() -> None:
+    src = Path("native/launch/ios")
+    if not src.exists():
+        return
+    assets = Path("ios/Runner/Assets.xcassets")
+    imageset = assets / "LaunchImage.imageset"
+    for name in ("LaunchImage.png", "LaunchImage@2x.png", "LaunchImage@3x.png"):
+        (imageset / name).write_bytes((src / name).read_bytes())
+    colorset = assets / "LaunchBackground.colorset"
+    colorset.mkdir(parents=True, exist_ok=True)
+    (colorset / "Contents.json").write_text(IOS_LAUNCH_COLORSET, encoding="utf-8")
+    board = Path("ios/Runner/Base.lproj/LaunchScreen.storyboard")
+    t = board.read_text(encoding="utf-8")
+    t = re.sub(r'<color key="backgroundColor"[^>]*/>', '<color key="backgroundColor" name="LaunchBackground"/>', t, count=1)
+    if 'name="Named colors"' not in t:
+        t = t.replace("    </dependencies>", '        <capability name="Named colors" minToolsVersion="9.0"/>\n    </dependencies>', 1)
+    w, h = png_size(src / "LaunchImage.png")
+    t = re.sub(r'<image name="LaunchImage" width="[^"]*" height="[^"]*"/>', f'<image name="LaunchImage" width="{w}" height="{h}"/>', t, count=1)
+    if '<namedColor name="LaunchBackground">' not in t:
+        t = t.replace(
+            "    </resources>",
+            '        <namedColor name="LaunchBackground">\n'
+            '            <color red="1" green="1" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>\n'
+            "        </namedColor>\n"
+            "    </resources>",
+            1,
+        )
+    board.write_text(t, encoding="utf-8")
+    print("pantalla de arranque de iOS con el ícono de la app y fondo claro u oscuro")
+
+
 def patch_android(cfg: dict) -> None:
     manifest = Path("android/app/src/main/AndroidManifest.xml")
     text = manifest.read_text(encoding="utf-8")
@@ -324,6 +423,7 @@ def patch_android(cfg: dict) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(Path(src).read_bytes())
         print(f"copiado {src} -> {dst}")
+    patch_android_launch()
 
     for name in ("android/app/build.gradle.kts", "android/app/build.gradle"):
         gradle = Path(name)
@@ -372,6 +472,7 @@ def patch_ios(cfg: dict) -> None:
     for src, dst in cfg.get("ios_files", {}).items():
         Path(dst).write_text(Path(src).read_text(encoding="utf-8"), encoding="utf-8")
         print(f"copiado {src} -> {dst}")
+    patch_ios_launch()
 
     podfile = Path("ios/Podfile")
     if podfile.exists():
