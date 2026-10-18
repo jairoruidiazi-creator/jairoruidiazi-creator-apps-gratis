@@ -65,7 +65,7 @@ class ReportPdf {
                   a.area.nombre,
                   a.logradasTexto,
                   '${a.rondas}',
-                  a.rondas == 0 ? '-' : '${(a.precision * 100).round()} %',
+                  a.rondas == 0 ? '-' : '${(a.precision * 100).round()}\u00A0%',
                   a.juegos.isEmpty
                       ? (a.soloJuegoLibre ? 'Colorear y dibujar, sin evaluación' : 'Sin jugar todavía')
                       : a.juegos.map((GameLevel g) => g.nivelTexto.isEmpty ? g.game.nombre : '${g.game.nombre}: ${g.nivelTexto}').join('; '),

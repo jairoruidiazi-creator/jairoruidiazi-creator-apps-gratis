@@ -73,7 +73,7 @@ void main() {
       ..roundsPlayed = 3
       ..roundsCorrect = 2;
     final GameLevel lab = ChildReport(profile: p, progress: prog, now: ahora).areas.firstWhere((AreaSummary a) => a.area == Area.logica).juegos.firstWhere((GameLevel g) => g.game.id == 'laberintos');
-    expect(lab.resumen, '3 tableros · 67 % resueltos con eficiencia');
+    expect(lab.resumen, '3 tableros · 67\u00A0% resueltos con eficiencia');
   });
 
   test('M15: la tabla del grupo se abre bien en Excel', () async {

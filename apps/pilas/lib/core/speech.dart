@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 
+import '../content/money.dart';
 import 'settings.dart';
 
 /// Voz del sistema en español. Toda instrucción se puede repetir tocando el
@@ -108,6 +109,19 @@ class Voice extends ChangeNotifier {
     }
   }
 
+  /// El texto como debe sonar: los precios, porcentajes, medidas y signos de
+  /// las cuentas en palabras. Así la voz del sistema no lee "$ 3.500" como
+  /// dólares ni "12 m" como "doce eme".
+  static String paraVoz(String text) {
+    String t = text.replaceAllMapped(RegExp(r'\$[ \u00A0]?(\d{1,3}(?:\.\d{3})+|\d+)'), (Match m) => pesosEnPalabras(int.parse(m.group(1)!.replaceAll('.', ''))));
+    t = t.replaceAllMapped(RegExp(r'(\d)[ \u00A0]?%'), (Match m) => '${m.group(1)} por ciento');
+    String unidad(Match m, String singular, String plural) => '${m.group(1)} ${m.group(1) == '1' ? singular : plural}';
+    t = t.replaceAllMapped(RegExp(r'(\d+)[ \u00A0]?m²'), (Match m) => unidad(m, 'metro cuadrado', 'metros cuadrados'));
+    t = t.replaceAllMapped(RegExp(r'(\d+)[ \u00A0]?cm(?![a-záéíóúñ])'), (Match m) => unidad(m, 'centímetro', 'centímetros'));
+    t = t.replaceAllMapped(RegExp(r'(\d+)[ \u00A0]?m(?![a-záéíóúñ²])'), (Match m) => unidad(m, 'metro', 'metros'));
+    return t.replaceAll(' × ', ' por ').replaceAll(' ÷ ', ' dividido entre ').replaceAll(' = ', ' es igual a ').replaceAll(' + ', ' más ').replaceAll(' − ', ' menos ');
+  }
+
   /// Dice un texto. Interrumpe lo que se estuviera diciendo.
   Future<void> say(String text) async {
     if (!settings.voiceEnabled || text.trim().isEmpty) {
@@ -120,7 +134,7 @@ class Voice extends ChangeNotifier {
     try {
       await _engine.stop();
       await _engine.setSpeechRate(settings.voiceRate);
-      await _engine.speak(text);
+      await _engine.speak(paraVoz(text));
     } catch (e) {
       debugPrint('Error al hablar: $e');
     }

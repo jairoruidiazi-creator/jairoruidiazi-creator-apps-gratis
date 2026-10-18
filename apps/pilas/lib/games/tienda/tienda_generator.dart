@@ -405,7 +405,7 @@ class TiendaGenerator {
     final int pagas = precio - rebaja;
     return ChoiceRound(
       instruction: '${Es.cap(item.conArticulo)} ${item.verbo('cuesta', 'cuestan')} ${pesosEnPalabras(precio)} y ${item.verbo('tiene', 'tienen')} un descuento del ${Es.numero(pct)} por ciento. ¿Cuánto pagas?',
-      prompt: (BuildContext context) => BigPrompt(child: EmojiImage(item.emoji, size: 64, semanticsLabel: item.nombre), caption: '${formatPesos(precio)}  −$pct %'),
+      prompt: (BuildContext context) => BigPrompt(child: EmojiImage(item.emoji, size: 64, semanticsLabel: item.nombre), caption: '${formatPesos(precio)}  −$pct\u00A0%'),
       options: _opcionesPesos(rng, pagas, 500),
       correctId: 'n$pagas',
       hint: pct == 50 ? 'El cincuenta por ciento es la mitad.' : (pct == 25 ? 'El veinticinco por ciento es la cuarta parte.' : 'El diez por ciento es dividir entre diez.'),

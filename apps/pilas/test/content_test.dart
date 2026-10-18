@@ -7,6 +7,7 @@ import 'package:pilas/content/svg_path.dart';
 import 'package:pilas/content/vocab.dart';
 import 'package:pilas/core/es.dart';
 import 'package:pilas/core/parental_gate.dart';
+import 'package:pilas/core/speech.dart';
 import 'package:pilas/model/age_band.dart';
 import 'package:pilas/model/skill.dart';
 
@@ -116,5 +117,15 @@ void main() {
     expect(AgeBandX.forAge(8), AgeBand.b7a8);
     expect(AgeBandX.forAge(11), AgeBand.b9a11);
     expect(AgeBandX.fromId('7-8'), AgeBand.b7a8);
+  });
+
+  test('La voz dice en palabras los precios, porcentajes, medidas y signos', () {
+    expect(Voice.paraVoz('\$ 10.000 menos \$ 6.500 son \$\u00A03.500.'), '${pesosEnPalabras(10000)} menos ${pesosEnPalabras(6500)} son ${pesosEnPalabras(3500)}.');
+    expect(Voice.paraVoz('Un rectángulo mide 5 cm de largo.'), 'Un rectángulo mide 5 centímetros de largo.');
+    expect(Voice.paraVoz('Cada lado de un cuadrito mide 1 m.'), 'Cada lado de un cuadrito mide 1 metro.');
+    expect(Voice.paraVoz('Área = 4 × 3 = 12 m².'), 'Área es igual a 4 por 3 es igual a 12 metros cuadrados.');
+    expect(Voice.paraVoz('Tiene un descuento del 25\u00A0%.'), 'Tiene un descuento del 25 por ciento.');
+    // Lo que no es una unidad queda igual.
+    expect(Voice.paraVoz('Hay 5 manzanas y faltan 3 minutos.'), 'Hay 5 manzanas y faltan 3 minutos.');
   });
 }

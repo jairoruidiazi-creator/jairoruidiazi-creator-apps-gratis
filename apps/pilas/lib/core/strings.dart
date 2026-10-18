@@ -115,7 +115,7 @@ class S {
   static const String sinLimite = 'Sin límite';
   static String minutos(int n) => n == 1 ? '1 minuto' : '$n minutos';
   static const String textoGrande = 'Texto grande';
-  static const String textoGrandeDetalle = 'Agranda la letra un 25 % sobre el tamaño elegido en el teléfono, con un tope de 1,5 veces.';
+  static const String textoGrandeDetalle = 'Agranda la letra un 25\u00A0% sobre el tamaño elegido en el teléfono, con un tope de 1,5 veces.';
   static const String fuenteDislexia = 'Fuente para dislexia';
   static const String altoContraste = 'Alto contraste';
   static const String altoContrasteDetalle = 'Fondo blanco, texto negro y bordes marcados en toda la app y en los juegos; las figuras de colores llevan además una marca propia de cada color.';

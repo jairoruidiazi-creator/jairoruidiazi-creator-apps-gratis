@@ -51,7 +51,8 @@ class GameLevel {
   /// 67 % resueltos con eficiencia" (ahí el acierto es resolverlo bien).
   String get resumen {
     final String cuantas = _tablero ? (rondas == 1 ? '1 tablero' : '$rondas tableros') : (rondas == 1 ? '1 ronda' : '$rondas rondas');
-    final String pct = rondas == 0 ? '-' : '${(aciertos * 100 / rondas).round()} %';
+    // Espacio sin corte: el número y el % no se separan de línea.
+    final String pct = rondas == 0 ? '-' : '${(aciertos * 100 / rondas).round()}\u00A0%';
     return '$cuantas · $pct ${_tablero ? 'resueltos con eficiencia' : 'al primer intento'}';
   }
 }
@@ -89,7 +90,7 @@ class ChildReport {
   /// Rondas acertadas al primer intento.
   int get aciertosTotal => _evaluadas.fold<int>(0, (int s, MasteryState m) => s + m.roundsCorrect);
 
-  String get aciertosTexto => rondasTotal == 0 ? '-' : '${(aciertosTotal * 100 / rondasTotal).round()} %';
+  String get aciertosTexto => rondasTotal == 0 ? '-' : '${(aciertosTotal * 100 / rondasTotal).round()}\u00A0%';
 
   /// Habilidades del tramo actual.
   List<Skill> get skillsDelTramo => SkillCatalog.forBand(band);
