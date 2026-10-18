@@ -330,10 +330,15 @@ class Tuner extends ChangeNotifier {
   Future<void> _closeCapture() async {
     _timer?.cancel();
     _timer = null;
-    await _pausedSub?.cancel();
+    // Las cancelaciones no se esperan: su futuro vive en la zona raíz y, con
+    // el tiempo simulado de las pruebas, no terminaría nunca (el micrófono
+    // se cierra igual con stop).
+    final StreamSubscription<bool>? paused = _pausedSub;
     _pausedSub = null;
-    await _sub?.cancel();
+    unawaited(paused?.cancel());
+    final StreamSubscription<Uint8List>? sub = _sub;
     _sub = null;
+    unawaited(sub?.cancel());
     if (_capturing) {
       _capturing = false;
       try {

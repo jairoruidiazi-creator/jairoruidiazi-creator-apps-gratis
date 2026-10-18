@@ -2,10 +2,10 @@
 // (G5), y las guías de accesibilidad en los dos temas (G7).
 
 import 'dart:math' as math;
-import 'dart:typed_data';
 
 import 'package:clave/app.dart';
 import 'package:clave/ui/drone/drone_screen.dart';
+import 'package:clave/ui/metronome/metronome_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -22,6 +22,17 @@ Float32List aString(double hz) {
     out[i] = 0.3 * (math.sin(2 * math.pi * hz * t) + 0.5 * math.sin(4 * math.pi * hz * t)) / 1.5;
   }
   return out;
+}
+
+/// La lista desplazable principal de una pantalla (las pestañas ocultas
+/// siguen en el árbol: `find.byType(Scrollable).first` sería la del afinador).
+Finder mainScrollable(Type screen) => find.descendant(of: find.byType(screen), matching: find.byType(Scrollable)).first;
+
+/// Vuelve atrás con la flecha de la barra (pageBack busca el texto "Back"
+/// y la app está en español).
+Future<void> goBack(WidgetTester tester) async {
+  await tester.tap(find.byType(BackButton).last);
+  await tester.pumpAndSettle();
 }
 
 Future<void> goTab(WidgetTester tester, String label) async {
@@ -96,23 +107,20 @@ void main() {
         await tester.tap(find.text('Parar'));
         await tester.pump();
         // Preajustes, ajustes y calibración.
-        await tester.scrollUntilVisible(find.text('Preajustes'), 200, scrollable: find.byType(Scrollable).first);
+        await tester.scrollUntilVisible(find.text('Preajustes'), 200, scrollable: mainScrollable(MetronomeScreen));
         await tester.tap(find.text('Preajustes'));
         await tester.pumpAndSettle();
         expect(errors, isEmpty, reason: 'preajustes: ${report(errors)}');
-        await tester.pageBack();
-        await tester.pumpAndSettle();
+        await goBack(tester);
         await tester.tap(find.byTooltip('Ajustes'));
         await tester.pumpAndSettle();
         expect(errors, isEmpty, reason: 'ajustes: ${report(errors)}');
-        await tester.scrollUntilVisible(find.text('Calibrar con toques'), 200, scrollable: find.byType(Scrollable).first);
+        await tester.scrollUntilVisible(find.text('Calibrar con toques'), 200, scrollable: find.byType(Scrollable).last);
         await tester.tap(find.text('Calibrar con toques'));
         await tester.pumpAndSettle();
         expect(errors, isEmpty, reason: 'calibración: ${report(errors)}');
-        await tester.pageBack();
-        await tester.pumpAndSettle();
-        await tester.pageBack();
-        await tester.pumpAndSettle();
+        await goBack(tester);
+        await goBack(tester);
         expect(errors, isEmpty, reason: report(errors));
         await t.shutdown(tester);
       });
@@ -133,7 +141,7 @@ void main() {
     final SemanticsHandle handle = tester.ensureSemantics();
     final TestServices t = await openApp(tester);
     await goTab(tester, 'Tono');
-    await tester.scrollUntilVisible(find.byType(DroneKeyboard), 200, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(find.byType(DroneKeyboard), 200, scrollable: mainScrollable(DroneScreen));
     await tester.pumpAndSettle();
     for (final String name in <String>['Do 4', 'Do sostenido 4', 'Re 4', 'Mi 4', 'Fa 4', 'Sol 4', 'La 4', 'La sostenido 4', 'Si 4']) {
       final Finder key = find.bySemanticsLabel(name);
@@ -176,8 +184,7 @@ void main() {
       await tester.tap(find.byTooltip('Ajustes'));
       await tester.pumpAndSettle();
       await check('Ajustes');
-      await tester.pageBack();
-      await tester.pumpAndSettle();
+      await goBack(tester);
       handle.dispose();
       await t.shutdown(tester);
     });

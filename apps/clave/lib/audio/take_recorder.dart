@@ -259,8 +259,9 @@ class TakeRecorder extends ChangeNotifier {
     _paused = false;
     _segmentStart = null;
     _level = 0;
-    await _levelSub?.cancel();
+    final StreamSubscription<double>? levels = _levelSub;
     _levelSub = null;
+    unawaited(levels?.cancel());
     String? path;
     try {
       path = await _cap.stop();

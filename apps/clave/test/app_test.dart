@@ -49,6 +49,13 @@ List<FlutterErrorDetails> watchErrors() {
 
 String report(List<FlutterErrorDetails> errors) => errors.map((FlutterErrorDetails d) => d.toString()).join('\n----\n');
 
+/// Vuelve atrás con la flecha de la barra (pageBack busca el texto "Back"
+/// y la app está en español).
+Future<void> goBack(WidgetTester tester) async {
+  await tester.tap(find.byType(BackButton).last);
+  await tester.pumpAndSettle();
+}
+
 /// Un teléfono de 432 × 864 dp (con la barra de pestañas abajo).
 void usePhone(WidgetTester tester) {
   tester.view.physicalSize = const Size(1080, 2160);
@@ -95,9 +102,9 @@ void main() {
     await tester.tap(find.text('English'));
     await tester.pumpAndSettle();
     expect(find.text('Settings'), findsOneWidget);
-    expect(find.text('Audio delay'), findsOneWidget);
-    await tester.pageBack();
-    await tester.pumpAndSettle();
+    expect(find.text('Language'), findsOneWidget);
+    expect(find.text('Theme'), findsOneWidget);
+    await goBack(tester);
     expect(find.widgetWithText(NavigationDestination, 'Tuner'), findsOneWidget);
     expect(find.widgetWithText(NavigationDestination, 'Practice'), findsOneWidget);
     expect(find.text('Metronome'), findsWidgets);
@@ -120,8 +127,7 @@ void main() {
     await tester.tap(find.byTooltip('Ajustes'));
     await tester.pumpAndSettle();
     expect(t.mic.open, isFalse, reason: 'ajustes encima');
-    await tester.pageBack();
-    await tester.pumpAndSettle();
+    await goBack(tester);
     expect(t.mic.open, isTrue);
     // La hoja de ajustes del afinador también lo tapa.
     await tester.tap(find.text('Ajustar'));

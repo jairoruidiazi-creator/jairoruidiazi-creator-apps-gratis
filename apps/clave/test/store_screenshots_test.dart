@@ -12,6 +12,7 @@ import 'package:clave/audio/click_synth.dart';
 import 'package:clave/audio/sequencer.dart';
 import 'package:clave/core/settings.dart';
 import 'package:clave/music/notes.dart';
+import 'package:clave/ui/metronome/metronome_screen.dart';
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -97,7 +98,9 @@ void main() {
 
           // 3. Preajustes y setlists.
           final Finder presets = find.text(tr('Preajustes', 'Presets'));
-          await tester.scrollUntilVisible(presets, 200, scrollable: find.byType(Scrollable).first);
+          // Las pestañas ocultas siguen en el árbol: se desplaza la lista del metrónomo.
+          final Finder metronomeList = find.descendant(of: find.byType(MetronomeScreen), matching: find.byType(Scrollable)).first;
+          await tester.scrollUntilVisible(presets, 200, scrollable: metronomeList);
           await tester.tap(presets);
           await _settle(tester);
           await tester.tap(find.textContaining(tr('Ensayo del sábado', 'Saturday rehearsal')));

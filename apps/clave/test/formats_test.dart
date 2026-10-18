@@ -15,7 +15,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('Porcentajes, decimales y tiempos según el idioma (M15)', () {
-    expect(formatPercent(0.3, spanish: true), '30 %');
+    // Con espacio duro: el número y el signo no se separan al final de una línea.
+    expect(formatPercent(0.3, spanish: true), '30\u00a0%');
     expect(formatPercent(0.3, spanish: false), '30%');
     expect(formatDecimal(44.1, spanish: true), '44,1');
     expect(formatDecimal(44.1, spanish: false), '44.1');
