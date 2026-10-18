@@ -1,0 +1,27 @@
+Pilas reúne 26 juegos didácticos para niños de 3 a 11 años, con una voz que lee las instrucciones y los cuentos. Cada juego se ajusta a la edad del niño y sube de nivel según cómo le va. Es gratis, sin anuncios, sin compras, sin cuenta y sin internet.
+
+LOS 26 JUEGOS
+• Razonamiento y lógica: parejas y memoria, ¿qué sigue?, el intruso, laberintos, tangram y rompecabezas, sudoku de figuras.
+• Matemáticas: la tienda con monedas y billetes, carrera de cálculo, el reloj, cocina de medidas, constructor de figuras.
+• Lenguaje y lectura: sonidos y letras, trazo de letras, cuentos con voz, arma la palabra, ordena la oración.
+• Ciencias y entorno: clasifica seres vivos, arma el cuerpo, laboratorio guiado.
+• Creatividad: colorear, colorear por números, dibujo con sellos, pixel art.
+• Emociones y hábitos: ¿qué siento?, tablero de rutinas, historias con decisiones.
+
+HECHA PARA CADA NIÑO
+• Un perfil por niño, con su avatar y su propio avance.
+• Cuatro niveles por edad (3-4, 5-6, 7-8 y 9-11 años) que el adulto puede fijar a mano.
+• Pegatinas como recompensa por practicar.
+• Modo para zurdos, texto grande, alto contraste y una tipografía pensada para la dislexia.
+
+PARA PAPÁS, MAMÁS Y DOCENTES
+• Panel de adultos protegido con una puerta parental.
+• Informe por niño con las habilidades logradas y un PDF para compartir.
+• Cada juego trae una actividad para seguir en casa sin pantalla y una pregunta para conversar.
+• Límite de tiempo por sesión.
+• Modo docente con grupos, tabla del curso, exportación a CSV e informe del grupo.
+
+SEGURA PARA NIÑOS
+Pilas no tiene anuncios, ni compras, ni enlaces que lleven fuera de la app, ni herramientas de analítica o rastreo. No pide permisos de cámara, micrófono ni ubicación y no se conecta a internet. Los perfiles, el avance y los dibujos se guardan en el iPhone o iPad, y solo un adulto puede compartirlos. La voz es la del sistema del iPhone o iPad.
+
+Los contenidos toman como referencia los Derechos Básicos de Aprendizaje del Ministerio de Educación Nacional de Colombia. Pilas es de código abierto.

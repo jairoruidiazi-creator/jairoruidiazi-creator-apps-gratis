@@ -1,0 +1,5 @@
+Sello works without an account or sign-in.
+Camera: to take the field photos. Location (while in use only): to write coordinates, altitude and the approximate address on each photo. Motion: to compute the camera heading. Photo library: only to save a copy of each stamped photo to a "Sello" album when the user leaves that option on.
+Network use is limited to OpenStreetMap map tiles and the system geocoder (CLGeocoder) for the approximate address; both can be turned off in Settings and neither receives photos.
+The stamp is informative; the app states that a phone's time and location can be altered and makes no claim of evidentiary value.
+To try it quickly: allow camera and location, take a photo, then open the gallery and the map.

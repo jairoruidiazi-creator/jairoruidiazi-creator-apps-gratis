@@ -1,0 +1,1 @@
+Cada foto con fecha, hora, coordenadas, rumbo y tus notas, en el formato que necesitas: UTM, MGRS, CTM12 o MAGNA-SIRGAS. Exporta a KMZ, CSV o un informe PDF.

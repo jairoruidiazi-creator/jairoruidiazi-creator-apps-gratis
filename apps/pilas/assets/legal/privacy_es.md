@@ -19,7 +19,7 @@ Para que cada niño tenga su propio avance, un adulto puede crear perfiles con:
 - el año y el mes de nacimiento, solo para proponer los juegos de su edad,
 - si es zurdo, para acomodar los trazos.
 
-La app también guarda en el dispositivo el progreso de cada perfil en los juegos, las calcomanías ganadas, los dibujos que el niño hace y, en el modo docente, los grupos de aula y sus perfiles.
+La app también guarda en el dispositivo el progreso de cada perfil en los juegos, las pegatinas ganadas, los dibujos que el niño hace y, en el modo docente, los grupos de aula y sus perfiles.
 
 Todo esto vive en el almacenamiento privado de la app en el dispositivo. Nosotros no lo recibimos, no lo vemos y no lo podemos recuperar.
 

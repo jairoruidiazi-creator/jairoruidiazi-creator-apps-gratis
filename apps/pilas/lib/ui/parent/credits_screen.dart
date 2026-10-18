@@ -18,7 +18,7 @@ class CreditsScreen extends StatelessWidget {
         children: <Widget>[
           const Text('$kAppName $kAppVersion', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
           const SizedBox(height: 6),
-          const Text('Juegos didácticos gratuitos para niños de 3 a 11 años. Sin anuncios, sin suscripciones, sin cuenta y sin internet. Los datos de los niños quedan solo en este dispositivo.'),
+          const Text('Juegos didácticos gratuitos para niños de 3 a 11 años. Sin anuncios, sin suscripciones, sin cuenta y sin internet. Los datos de los niños se guardan en este dispositivo y no se envían a ningún servidor.'),
           const SizedBox(height: 18),
           const _Credit(titulo: 'Código', texto: 'Pilas es software libre con licencia Apache-2.0. El código está en el repositorio del proyecto apps-gratis en GitHub.'),
           const _Credit(titulo: 'Contenido propio', texto: 'Las láminas para colorear, los cuentos, las actividades y los textos son del proyecto y se publican con licencia CC BY 4.0.'),

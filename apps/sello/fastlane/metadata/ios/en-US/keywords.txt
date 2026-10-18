@@ -1,0 +1,1 @@
+geotag,timestamp,survey,inspection,construction,UTM,MGRS,compass,altitude,KML,KMZ,report,site

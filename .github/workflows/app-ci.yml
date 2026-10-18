@@ -30,6 +30,10 @@ jobs:
         working-directory: apps/${{ inputs.app }}
     steps:
       - uses: actions/checkout@v4
+      # Fichas de tienda (límites, palabras prohibidas, URL, versión y copias compartidas): solo Python.
+      - name: Fichas de tienda
+        working-directory: .
+        run: python3 tools/store/check_metadata.py "${{ inputs.app }}" 2>&1 | tee "apps/${{ inputs.app }}/metadata.log"; exit ${PIPESTATUS[0]}
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -39,14 +43,6 @@ jobs:
       # Los avisos de estilo (info) se revisan en el registro; errores y warnings sí bloquean.
       - run: flutter analyze --no-fatal-infos 2>&1 | tee analyze.log; exit ${PIPESTATUS[0]}
       - run: flutter test --exclude-tags screenshots 2>&1 | tee test.log; exit ${PIPESTATUS[0]}
-      - name: Fichas de tienda
-        working-directory: .
-        run: |
-          if [ -d "apps/${{ inputs.app }}/fastlane" ]; then
-            python3 tools/store/check_metadata.py "${{ inputs.app }}" 2>&1 | tee "apps/${{ inputs.app }}/metadata.log"; exit ${PIPESTATUS[0]}
-          else
-            echo "La app no tiene fichas de tienda todavía." | tee "apps/${{ inputs.app }}/metadata.log"
-          fi
       - name: Publicar registros
         if: always()
         working-directory: .
@@ -169,27 +165,28 @@ jobs:
           channel: stable
           cache: true
       - uses: actions/setup-python@v5
-        if: steps.has.outputs.yes == 'true'
         with:
           python-version: "3.12"
+      - name: Ícono y gráficos de la ficha
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 ../../tools/store/app_icons.py "${{ inputs.app }}" 2>&1 | tee shots.log; test ${PIPESTATUS[0]} -eq 0
+          python3 ../../tools/store/compose_screenshots.py "${{ inputs.app }}" --graphics-only 2>&1 | tee -a shots.log; exit ${PIPESTATUS[0]}
       - if: steps.has.outputs.yes == 'true'
         run: flutter pub get
       - name: Dibujar las pantallas
         if: steps.has.outputs.yes == 'true'
-        run: flutter test --tags screenshots 2>&1 | tee shots.log; exit ${PIPESTATUS[0]}
+        run: flutter test --tags screenshots 2>&1 | tee -a shots.log; exit ${PIPESTATUS[0]}
       - name: Componer las capturas de las tiendas
         if: steps.has.outputs.yes == 'true'
-        run: |
-          python3 -m pip install --quiet pillow
-          python3 ../../tools/store/compose_screenshots.py "${{ inputs.app }}" 2>&1 | tee -a shots.log; exit ${PIPESTATUS[0]}
+        run: python3 ../../tools/store/compose_screenshots.py "${{ inputs.app }}" 2>&1 | tee -a shots.log; exit ${PIPESTATUS[0]}
       - uses: actions/upload-artifact@v4
-        if: steps.has.outputs.yes == 'true'
         with:
           name: ${{ inputs.app }}-capturas-tienda
           path: apps/${{ inputs.app }}/build/store_listing
           retention-days: 30
       - name: Publicar capturas
-        if: always() && steps.has.outputs.yes == 'true'
+        if: always()
         working-directory: .
         env:
           GITHUB_TOKEN: ${{ github.token }}

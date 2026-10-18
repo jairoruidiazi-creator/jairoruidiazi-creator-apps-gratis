@@ -1,0 +1,36 @@
+Clave reúne en una sola app las herramientas para practicar un instrumento: afinador cromático, metrónomo, bordón con teclado y acordes, grabadora y registro de práctica. Es gratis, sin anuncios, sin suscripción y sin cuenta, y funciona sin internet en iPhone y iPad.
+
+AFINADOR
+• Cromático de Do0 a Do8 con nota, cents y frecuencia, y una gráfica de estabilidad.
+• La de referencia ajustable en pasos de 0,1 Hz.
+• Temperamentos igual, justo, pitagórico, mesotónico y uno propio editable por grado.
+• Instrumentos transpositores (Si bemol, Mi bemol, Fa, La) y capo.
+• Notación en solfeo (Do, Re, Mi), inglesa, alemana e india.
+• Perfiles con cuerdas para guitarra, bajo, ukelele, tiple, bandola, cuatro, requinto, charango, mandolina, banjo, violín, viola, violonchelo y contrabajo, con detección automática de la cuerda o cuerda fija.
+
+METRÓNOMO
+• De 20 a 400 BPM, tap tempo e indicación italiana del tempo.
+• Compases de 1 a 16 pulsos sobre 2, 4, 8 o 16, con subdivisiones, tresillos, seisillos y swing.
+• Editor de pulsos: acento, normal, silencio o solo subdivisión.
+• 12 sonidos sintetizados con tres variantes cada uno.
+• Entrenador de tempo que sube por pasos y compases mudos para practicar el pulso interno.
+• Péndulo, número grande, destello y vibración sincronizados con el audio, con ajuste para audífonos Bluetooth.
+• Conteo hablado, preajustes y setlists que se pueden exportar e importar.
+
+TONO Y TECLADO
+• Bordón con quinta opcional, cuatro formas de onda y volumen.
+• Teclado de 8 octavas y acordes sostenidos (mayor, menor, séptima, disminuido, aumentado, sus2, sus4 y quinta).
+• Todo sigue la referencia y el temperamento del afinador.
+
+GRABADORA
+• Tomas ilimitadas en AAC, WAV o FLAC.
+• Carpetas, búsqueda, notas, instrumento y tempo de cada toma.
+• Reproducción de 0,5x a 1,5x y opción de compartir.
+
+PRÁCTICA
+• Registro automático del tiempo al usar cualquier herramienta.
+• Metas diaria y semanal y una racha que no castiga los días de descanso.
+• Minutos por día y desglose por instrumento y herramienta.
+
+PRIVACIDAD
+Clave no tiene cuentas ni servidores y no se conecta a internet. El sonido del micrófono se analiza en el dispositivo y tus grabaciones quedan en él. Todos los sonidos se sintetizan en la app, sin muestras de terceros. Clave es de código abierto.

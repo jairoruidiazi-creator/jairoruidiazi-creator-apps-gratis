@@ -1,0 +1,36 @@
+Sello is a field camera: every photo comes out with a stamp drawn on the image and written into its metadata with the date and time, coordinates, altitude, GPS accuracy, heading, approximate address, project and your notes. It is built for construction sites, inspections, cadastral and farm work, and any field work in Colombia and beyond. It is free, with no ads, no subscription and no account.
+
+CAMERA
+• Live stamp preview, zoom, tap to focus and expose, flash and torch.
+• Self-timer, grid, horizon and tilt level, and the front camera.
+• Red filter for night work.
+
+COORDINATES
+• Decimal degrees, degrees-minutes-seconds, UTM, MGRS and Plus Code.
+• In Colombia, the national CTM12 grid and the MAGNA-SIRGAS zones, computed on the phone.
+• Altitude above sea level with the built-in geoid model, offline.
+• Averaged readings, position lock for indoor work and manual position.
+
+HEADING
+• Camera heading with true north: magnetic declination is computed with the WMM2025 model.
+• Cardinal direction, tilt and a compass rose in the stamp.
+
+YOUR OWN STAMP
+• Templates with the data you want, in the order you want, with or without labels.
+• Position, size, colors, date format, a second coordinate format and your logo.
+
+PROJECTS AND GALLERY
+• Projects with their own template, file name pattern and custom fields asked before each photo, such as lot, inspector or element.
+• Gallery by day, project or place, with search across notes, address, tags and fields.
+• Batch editing, re-stamping with the current template and sharing without metadata.
+• Map of your photos on OpenStreetMap, with the distance to each one and directions.
+
+EXPORT
+• CSV with every coordinate format and field, plus KML and KMZ with the photos included.
+• ZIP with stamped or original photos.
+• PDF report per project with a summary, a table and one page per photo.
+
+YOUR DATA
+Photos and data stay on your phone. They only leave it when you share them. The app goes online only for the map background and the approximate address, and both can be turned off. Sello is open source.
+
+The stamp informs; it is not proof: a phone's time and location can be altered, so Sello does not claim evidentiary value.

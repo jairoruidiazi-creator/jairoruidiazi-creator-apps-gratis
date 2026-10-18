@@ -284,7 +284,10 @@ void main() {
     await openMore(tester, 'Copias de seguridad');
     expect(find.text('Exportar copia cifrada'), findsOneWidget);
     await tester.tap(find.text('Hacer copia local ahora'));
-    await waitFor(tester, () => find.textContaining('.json.enc').evaluate().isNotEmpty, maxTenths: 80);
+    await tester.pump();
+    // La copia corre con E/S real; mientras tanto la pantalla muestra el indicador.
+    await waitFor(tester, () => find.byType(CircularProgressIndicator).evaluate().isEmpty, maxTenths: 80);
+    await tester.scrollUntilVisible(find.textContaining('.json.enc'), 200, scrollable: find.byType(Scrollable).first);
     expect(find.textContaining('plata-'), findsWidgets);
     await tester.tap(find.byType(BackButton));
     await settle(tester);

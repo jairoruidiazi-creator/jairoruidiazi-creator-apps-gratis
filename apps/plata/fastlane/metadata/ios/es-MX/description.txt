@@ -1,0 +1,36 @@
+Plata es una app de finanzas personales hecha para la forma en que se maneja la plata en Colombia: quincenas, tarjetas con fecha de corte, compras a cuotas, bolsillos y billeteras digitales. Es gratis, sin anuncios, sin suscripción y sin cuenta, y tus datos quedan cifrados en tu iPhone.
+
+ANOTA EN SEGUNDOS
+• Botón + con teclado calculadora: suma y resta mientras escribes, útil para dividir una cuenta.
+• Sugerencias de lo que ya anotaste: escribes las primeras letras y aparece el movimiento con su categoría y su monto.
+• Favoritos de un toque para lo que se repite, como el bus, el tinto o el almuerzo.
+• Categorías y subcategorías, etiquetas, notas, foto del recibo y división de un gasto en varias categorías.
+
+CUENTAS, BOLSILLOS Y TARJETAS
+• Efectivo, cuentas de ahorros, billeteras digitales, bolsillos, préstamos, inversiones y cuentas en otras monedas.
+• Tarjetas de crédito con día de corte y día de pago: estado de cuenta por ciclo, cuotas facturadas, cupo disponible y cuánto pagar.
+• Tarjetas débito enlazadas a su cuenta.
+• Transferencias, retiros y pagos de tarjeta que no se cuentan como gasto.
+
+QUINCENAS, PRESUPUESTOS Y PROGRAMADOS
+• Tu mes puede ir del 1 al último día, empezar el día de pago o dividirse en quincenas.
+• Presupuestos por categoría, por tarjeta o para todo el gasto, con arrastre del sobrante y disponible por día.
+• Arriendo, servicios, salario y cuotas se anotan solos el día que toca, con un recordatorio antes.
+
+INFORMES
+• En qué se te va la plata: dona por categoría con el detalle de subcategorías y movimientos.
+• Tendencia de ingresos, gastos y ahorro por periodo, y entradas y salidas por cuenta.
+• Calendario con el neto de cada día, búsqueda por texto o monto y filtros.
+• Exportación a CSV y Excel.
+
+MONEDAS
+Dólares, euros y otras monedas con la TRM oficial de datos.gov.co y las tasas de referencia del Banco Central Europeo, una vez al día, o con una tasa que pongas tú.
+
+PRIVACIDAD Y SEGURIDAD
+• Sin cuenta y sin servidores: no recogemos datos.
+• Todo cifrado en el iPhone con ChaCha20-Poly1305 y una llave que guarda el Llavero.
+• Clave de acceso, Face ID o Touch ID, bloqueo al salir y opción de ocultar los saldos.
+• Copias cifradas con contraseña para guardarlas donde quieras y pasar tus datos a otro iPhone.
+• La única conexión es para descargar las tasas de cambio, y se puede apagar.
+
+Plata es de código abierto. Muestra tus números; no es asesoría financiera.

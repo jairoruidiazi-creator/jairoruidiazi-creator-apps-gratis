@@ -1,0 +1,4 @@
+Pilas is an educational app for children aged 3 to 11, in Spanish. It has no ads, no in-app purchases, no analytics or tracking SDKs, no account and no network access.
+Adult areas (settings, reports, teacher mode, sharing, extra session time and the privacy policy) are behind a parental gate: a multiplication with a typed answer that a young child cannot solve.
+To try it: on the first screen tap "Nuevo perfil" (it asks the parental gate) to create a child profile, then pick any game. The adult panel opens from "Soy adulto".
+Instructions and stories are read with the system text-to-speech voice; if no Spanish voice is installed the text is shown instead.

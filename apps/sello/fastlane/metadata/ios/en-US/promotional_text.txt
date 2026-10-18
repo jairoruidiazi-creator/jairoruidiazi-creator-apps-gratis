@@ -1,0 +1,1 @@
+Every photo with date, time, coordinates, heading and your notes, in the format you need: UTM, MGRS, CTM12 or MAGNA-SIRGAS. Export to KMZ, CSV or a PDF report.

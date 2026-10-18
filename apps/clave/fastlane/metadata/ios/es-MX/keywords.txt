@@ -1,0 +1,1 @@
+guitarra,tiple,bandola,cuatro,ukelele,violín,bajo,tempo,BPM,cromático,acordes,temperamento,ensayo

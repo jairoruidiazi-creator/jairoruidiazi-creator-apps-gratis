@@ -1,0 +1,36 @@
+Clave brings together in one app the tools for practicing an instrument: a chromatic tuner, metronome, drone with keyboard and chords, recorder and practice log. It is free, with no ads, no subscription and no account, and it works offline on iPhone and iPad.
+
+TUNER
+• Chromatic from C0 to C8 with note, cents and frequency, plus a stability graph.
+• Reference A adjustable in 0.1 Hz steps.
+• Equal, just, Pythagorean, meantone and your own temperament, editable per degree.
+• Transposing instruments (B flat, E flat, F, A) and capo.
+• Solfège (Do, Re, Mi), English, German and Indian note names.
+• String profiles for guitar, bass, ukulele, tiple, bandola, cuatro, requinto, charango, mandolin, banjo, violin, viola, cello and double bass, with automatic string detection or a fixed string.
+
+METRONOME
+• 20 to 400 BPM, tap tempo and Italian tempo markings.
+• 1 to 16 beats over 2, 4, 8 or 16, with subdivisions, triplets, sextuplets and swing.
+• Beat editor: accent, normal, rest or subdivision only.
+• 12 synthesized sounds with three variants each.
+• Tempo trainer that steps up gradually, and muted bars to practice your inner pulse.
+• Pendulum, big number, flash and vibration locked to the audio clock, with an offset for Bluetooth headphones.
+• Spoken count-in, presets and setlists you can export and import.
+
+DRONE AND KEYBOARD
+• Drone with optional fifth, four waveforms and volume.
+• 8-octave keyboard and sustained chords (major, minor, seventh, diminished, augmented, sus2, sus4 and power chord).
+• Everything follows the tuner's reference and temperament.
+
+RECORDER
+• Unlimited takes in AAC, WAV or FLAC.
+• Folders, search, notes, instrument and tempo for each take.
+• Playback from 0.5x to 1.5x and sharing.
+
+PRACTICE
+• Practice time logged automatically whenever you use any tool.
+• Daily and weekly goals and a streak that does not punish rest days.
+• Minutes per day and a breakdown by instrument and tool.
+
+PRIVACY
+Clave has no accounts or servers and does not connect to the internet. Microphone sound is analyzed on the device and your recordings stay there. Every sound is synthesized in the app, with no third-party samples. Clave is open source.

@@ -1,0 +1,14 @@
+{
+  "name": "Sello",
+  "languages": ["es", "en"],
+  "brand": {"background": ["#1B4332", "#2D6A4F"], "text": "#FFFFFF", "accent": "#FF7043"},
+  "feature": {"es": "Fotos con fecha, hora, coordenadas y rumbo", "en": "Photos stamped with time, place and heading"},
+  "shots": [
+    {"id": "01-foto", "es": "Cada foto con fecha, hora y coordenadas", "en": "Every photo with date, time and coordinates"},
+    {"id": "02-datos", "es": "Todos los datos de la foto, listos para copiar", "en": "Every detail of the photo, ready to copy"},
+    {"id": "03-plantilla", "es": "Arma el sello con los datos que necesitas", "en": "Build the stamp with the data you need"},
+    {"id": "04-galeria", "es": "Proyectos y galería con búsqueda", "en": "Projects and a searchable gallery"},
+    {"id": "05-mapa", "es": "Tus fotos sobre el mapa", "en": "Your photos on the map"},
+    {"id": "06-exportar", "es": "Exporta a KMZ, CSV o un informe PDF", "en": "Export to KMZ, CSV or a PDF report"}
+  ]
+}

@@ -27,12 +27,22 @@ def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     return ImageFont.load_default()
 
 
+def coin_geometry(s: int, scale: float) -> tuple[float, float, float]:
+    return s * 0.42, s * 0.52, s * 0.30 * scale
+
+
+def draw_shadow(img: Image.Image, s: int, scale: float = 1.0) -> Image.Image:
+    """Sombra de la moneda mezclada sobre lo que haya debajo (ImageDraw no mezcla:
+    pintar con transparencia dejaría un hueco semitransparente en el ícono)."""
+    cx, cy, r = coin_geometry(s, scale)
+    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    ImageDraw.Draw(layer).ellipse([cx - r + s * 0.015, cy - r + s * 0.025, cx + r + s * 0.015, cy + r + s * 0.025], fill=(0, 0, 0, 70))
+    return Image.alpha_composite(img, layer)
+
+
 def draw(d: ImageDraw.ImageDraw, s: int, scale: float = 1.0) -> None:
-    cx, cy = s * 0.42, s * 0.52
-    r = s * 0.30 * scale
+    cx, cy, r = coin_geometry(s, scale)
     ring = int(s * 0.035 * scale)
-    # Sombra de la moneda
-    d.ellipse([cx - r + s * 0.015, cy - r + s * 0.025, cx + r + s * 0.015, cy + r + s * 0.025], fill=(0, 0, 0, 70))
     # Moneda
     d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=ORO)
     d.ellipse([cx - r + ring, cy - r + ring, cx + r - ring, cy + r - ring], fill=ORO, outline=ORO_OSCURO, width=int(ring * 0.5))
@@ -56,9 +66,10 @@ def draw(d: ImageDraw.ImageDraw, s: int, scale: float = 1.0) -> None:
 
 def render(size: int, scale: float, background: bool) -> Image.Image:
     img = Image.new("RGBA", (size, size), VERDE if background else (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    draw(d, size, scale)
-    return img
+    img = draw_shadow(img, size, scale)
+    draw(ImageDraw.Draw(img), size, scale)
+    # Con fondo, el ícono es opaco: iOS y Google Play no aceptan transparencia.
+    return img.convert("RGB") if background else img
 
 
 def main() -> None:

@@ -218,7 +218,7 @@ class SettingsScreen extends StatelessWidget {
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.approval_outlined),
                 title: const Text('$kAppName $kAppVersion'),
-                subtitle: Text(t(context, 'Cámara de campo con sello de GPS, hora y rumbo. Gratis, sin anuncios y sin cuentas. Las fotos nunca salen del teléfono salvo que las compartas. El sello informa, no prueba: la hora y el GPS de un teléfono se pueden alterar.', 'Field camera with GPS, time and heading stamp. Free, no ads, no accounts. Photos never leave the phone unless you share them. The stamp informs; it is not proof: a phone\'s time and GPS can be altered.')),
+                subtitle: Text(t(context, 'Cámara de campo con sello de GPS, hora y rumbo. Gratis, sin anuncios y sin cuentas. Sello no sube tus fotos a ningún servidor. El sello informa, no prueba: la hora y el GPS de un teléfono se pueden alterar.', 'Field camera with GPS, time and heading stamp. Free, no ads, no accounts. Sello never uploads your photos to any server. The stamp informs; it is not proof: a phone\'s time and GPS can be altered.')),
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,

@@ -88,7 +88,7 @@ class ReportPdf {
               ],
             ),
           pw.SizedBox(height: 18),
-          pw.Text('Pilas es gratuita, sin anuncios y sin cuenta. Los datos del niño viven solo en el dispositivo; este informe se generó allí mismo.', style: pw.TextStyle(fontSize: 9, color: suave)),
+          pw.Text('Pilas es gratuita, sin anuncios y sin cuenta. Los datos del niño se guardan en el dispositivo y no se envían a ningún servidor; este informe se generó allí mismo.', style: pw.TextStyle(fontSize: 9, color: suave)),
         ],
       ),
     );

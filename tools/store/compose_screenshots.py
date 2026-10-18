@@ -1,27 +1,31 @@
 #!/usr/bin/env python3
-"""Compone las capturas de tienda a partir de las capturas crudas de la app.
+"""Compone las imágenes de las fichas de tienda a partir de las capturas crudas.
 
 Entrada: apps/<app>/build/store_shots/<dispositivo>/<idioma>/<id>.png (las
-dibujan las pruebas con la etiqueta "screenshots") y los titulares de
-apps/<app>/store/screenshots.json.
+dibujan las pruebas con la etiqueta "screenshots"), los titulares y colores de
+apps/<app>/store/screenshots.json y el ícono apps/<app>/assets/icon/icon-1024.png.
 
-Salida (por defecto apps/<app>/build/store_listing/):
-    play/<idioma>/phoneScreenshots/NN.png      1080 × 2160 (1:2)
-    play/<idioma>/tenInchScreenshots/NN.png    1440 × 2560 (9:16, también sirve para 7")
-    appstore/<idioma>/iphone69/NN.png          1320 × 2868 (iPhone 6,9")
-    appstore/<idioma>/ipad13/NN.png            2064 × 2752 (iPad 13")
+Salida (por defecto apps/<app>/build/store_listing/), lista para fastlane:
+    android/<es-419|en-US>/images/phoneScreenshots/NN-id.png    1080 × 1920 (9:16)
+    android/<es-419|en-US>/images/tenInchScreenshots/NN-id.png  1440 × 2560 (9:16)
+    android/<es-419|en-US>/images/featureGraphic.png            1024 × 500
+    android/<es-419|en-US>/images/icon.png                      512 × 512
+    ios/<es-MX|en-US>/NN-id-iphone69.png                        1320 × 2868 (iPhone 6,9")
+    ios/<es-MX|en-US>/NN-id-ipad13.png                          2064 × 2752 (iPad 13")
 
-Requisitos que cumple: Google Play pide JPEG o PNG de 24 bits sin
-transparencia, lados entre 320 y 3840 px y proporción de hasta 2:1 (tabletas
-16:9 o 9:16 con lados ≥ 1080 px); App Store Connect pide los tamaños exactos de
-arriba, sin canal alfa.
+Requisitos que cumple: Google Play pide PNG o JPEG sin transparencia, 9:16 para
+optar a los espacios destacados, titulares que no ocupen más del 20 % de la
+imagen y nada de precios, rankings ni llamados a la acción (eso lo revisa
+tools/store/check_metadata.py); el gráfico de funciones no lleva imágenes de
+dispositivos. App Store Connect pide los tamaños exactos de arriba, sin alfa.
 
-Uso: compose_screenshots.py <app> [--out carpeta] [--only es,en]
+Uso: compose_screenshots.py <app> [--out carpeta] [--only es,en] [--graphics-only]
 """
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -31,12 +35,20 @@ ROOT = Path(__file__).resolve().parents[2]
 FONTS = ROOT / "tools" / "store" / "fonts"
 
 TARGETS = {
-    # dispositivo crudo: (tienda, carpeta, tamaño final, es tableta)
-    "android_phone": ("play", "phoneScreenshots", (1080, 2160), False),
-    "android_tablet": ("play", "tenInchScreenshots", (1440, 2560), True),
-    "iphone": ("appstore", "iphone69", (1320, 2868), False),
-    "ipad": ("appstore", "ipad13", (2064, 2752), True),
+    # dispositivo crudo: (plataforma, carpeta o sufijo, tamaño final, es tableta)
+    "android_phone": ("android", "phoneScreenshots", (1080, 1920), False),
+    "android_tablet": ("android", "tenInchScreenshots", (1440, 2560), True),
+    "iphone": ("ios", "iphone69", (1320, 2868), False),
+    "ipad": ("ios", "ipad13", (2064, 2752), True),
 }
+# Idioma de la app -> idioma de la ficha en cada tienda (español latino y
+# español de México, que es el de Latinoamérica en la App Store).
+LOCALES = {
+    "android": {"es": "es-419", "en": "en-US"},
+    "ios": {"es": "es-MX", "en": "en-US"},
+}
+# Los titulares no pueden ocupar más de esta fracción de la imagen (Google Play: 20 %).
+MAX_CAPTION_SHARE = 0.18
 # Barra de estado y barra inferior de cada captura cruda, en píxeles.
 SAFE = {
     "android_phone": (24 * 2.625, 16 * 2.625),
@@ -93,7 +105,8 @@ def balanced_wrap(draw: ImageDraw.ImageDraw, text: str, f: ImageFont.FreeTypeFon
 
 def luminance(img: Image.Image) -> float:
     small = img.convert("L").resize((32, 4))
-    px = list(small.getdata())
+    flat = getattr(small, "get_flattened_data", None)
+    px = list(flat() if flat else small.getdata())
     return sum(px) / len(px)
 
 
@@ -150,26 +163,32 @@ def compose(shot: Image.Image, device: str, caption: str, brand: dict) -> Image.
     canvas = Image.composite(Image.new("RGB", (W, H), bottom_color), canvas, grad)
     d = ImageDraw.Draw(canvas)
 
-    # Titular
+    # Titular: a lo sumo dos líneas y nunca más del 18 % del alto.
     pad_x = int(W * 0.08)
-    size = int(W * (0.056 if tablet else 0.07))
+    size = int(W * (0.052 if tablet else 0.066))
     f = font("Bold", size)
     lines = balanced_wrap(d, caption, f, W - 2 * pad_x)
-    while len(lines) > 3 and size > 20:
-        size = int(size * 0.92)
+    while (len(lines) > 2 or len(lines) * size * 1.22 > H * MAX_CAPTION_SHARE) and size > 20:
+        size = int(size * 0.94)
         f = font("Bold", size)
         lines = balanced_wrap(d, caption, f, W - 2 * pad_x)
+    if len(lines) > 2:
+        raise SystemExit(f"El titular no cabe en dos líneas: {caption!r}")
     line_h = int(size * 1.22)
-    y = int(H * (0.045 if tablet else 0.055))
+    y = int(H * (0.04 if tablet else 0.045))
+    caption_top = y
     text_color = hex_color(brand.get("text", "#FFFFFF"))
     for line in lines:
         d.text((W / 2, y), line, font=f, fill=text_color, anchor="ma")
         y += line_h
+    share = (y - caption_top) / H
+    if share > MAX_CAPTION_SHARE + 1e-6:
+        raise SystemExit(f"El titular ocupa {share:.0%} de la imagen: {caption!r}")
     accent = brand.get("accent")
     if accent:
         bar_w = int(W * 0.09)
         d.rounded_rectangle((W / 2 - bar_w / 2, y + size * 0.25, W / 2 + bar_w / 2, y + size * 0.25 + max(6, size * 0.12)), radius=size * 0.06, fill=hex_color(accent))
-    y += int(size * 1.3)
+    y += int(size * 1.2)
 
     # Teléfono o tableta: la captura con marco, sombra y esquinas redondeadas.
     sw, sh = shot.size
@@ -200,24 +219,84 @@ def compose(shot: Image.Image, device: str, caption: str, brand: dict) -> Image.
     return canvas.convert("RGB")
 
 
+def feature_graphic(app_name: str, tagline: str, icon: Image.Image, brand: dict) -> Image.Image:
+    """Gráfico de funciones de Google Play: 1024 × 500, sin dispositivos ni promociones."""
+    W, H = 1024, 500
+    top_color = hex_color(brand["background"][0])
+    bottom_color = hex_color(brand["background"][1])
+    grad = Image.linear_gradient("L").rotate(90).resize((W, H))
+    canvas = Image.composite(Image.new("RGB", (W, H), top_color), Image.new("RGB", (W, H), bottom_color), grad).convert("RGBA")
+    # Ícono con esquinas redondeadas y sombra suave, centrado en vertical.
+    side = 250
+    ix, iy = 110, (H - side) // 2
+    shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).rounded_rectangle((ix + 6, iy + 12, ix + side + 6, iy + side + 12), radius=int(side * 0.22), fill=(0, 0, 0, 110))
+    canvas = Image.alpha_composite(canvas, shadow.filter(ImageFilter.GaussianBlur(14)))
+    mask = Image.new("L", (side, side), 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, side - 1, side - 1), radius=int(side * 0.22), fill=255)
+    canvas.paste(icon.convert("RGB").resize((side, side), Image.LANCZOS), (ix, iy), mask)
+    d = ImageDraw.Draw(canvas)
+    text_color = hex_color(brand.get("text", "#FFFFFF"))
+    tx = ix + side + 70
+    max_w = W - tx - 60
+    name_size = 104
+    fn = font("Bold", name_size)
+    while d.textlength(app_name, font=fn) > max_w and name_size > 40:
+        name_size -= 4
+        fn = font("Bold", name_size)
+    tag_size = 40
+    ft = font("Medium", tag_size)
+    lines = balanced_wrap(d, tagline, ft, max_w)
+    while len(lines) > 2 and tag_size > 22:
+        tag_size -= 2
+        ft = font("Medium", tag_size)
+        lines = balanced_wrap(d, tagline, ft, max_w)
+    if len(lines) > 2:
+        raise SystemExit(f"El lema del gráfico de funciones no cabe en dos líneas: {tagline!r}")
+    accent_h = 10
+    block = name_size * 1.05 + 26 + accent_h + 24 + len(lines) * tag_size * 1.3
+    y = (H - block) / 2
+    d.text((tx, y), app_name, font=fn, fill=text_color, anchor="la")
+    y += name_size * 1.05 + 26
+    accent = brand.get("accent")
+    if accent:
+        d.rounded_rectangle((tx, y, tx + 90, y + accent_h), radius=accent_h / 2, fill=hex_color(accent))
+    y += accent_h + 24
+    for line in lines:
+        d.text((tx, y), line, font=ft, fill=text_color, anchor="la")
+        y += tag_size * 1.3
+    return canvas.convert("RGB")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("app")
     ap.add_argument("--raw", help="carpeta de capturas crudas (por defecto apps/<app>/build/store_shots)")
     ap.add_argument("--out", help="carpeta de salida (por defecto apps/<app>/build/store_listing)")
     ap.add_argument("--only", help="idiomas, separados por comas")
+    ap.add_argument("--graphics-only", action="store_true", help="solo el gráfico de funciones y el ícono")
     args = ap.parse_args()
     app_dir = ROOT / "apps" / args.app
     raw = Path(args.raw) if args.raw else app_dir / "build" / "store_shots"
     out = Path(args.out) if args.out else app_dir / "build" / "store_listing"
     spec = json.loads((app_dir / "store" / "screenshots.json").read_text(encoding="utf-8"))
-    langs = args.only.split(",") if args.only else ["es", "en"]
+    langs = args.only.split(",") if args.only else spec.get("languages", ["es", "en"])
+    icon = Image.open(app_dir / "assets" / "icon" / "icon-1024.png")
     made = 0
+    for lang in langs:
+        images = out / "android" / LOCALES["android"][lang] / "images"
+        images.mkdir(parents=True, exist_ok=True)
+        feature_graphic(spec["name"], spec["feature"][lang], icon, spec["brand"]).save(images / "featureGraphic.png", optimize=True)
+        icon.convert("RGB").resize((512, 512), Image.LANCZOS).save(images / "icon.png", optimize=True)
+        made += 2
+    if args.graphics_only:
+        print(f"{made} gráficos en {out}")
+        return 0
     missing: list[str] = []
-    for device, (store, folder, _size, _tablet) in TARGETS.items():
-        platform = "ios" if store == "appstore" else "android"
+    for device, (platform, folder, _size, _tablet) in TARGETS.items():
         for lang in langs:
             n = 0
+            locale = LOCALES[platform][lang]
             for shot in spec["shots"]:
                 if platform not in shot.get("platforms", ["android", "ios"]):
                     continue
@@ -231,11 +310,15 @@ def main() -> int:
                 img = Image.open(src).convert("RGB")
                 draw_status_bar(img, device)
                 result = compose(img, device, shot[lang], spec["brand"])
-                dest = out / store / lang / folder / f"{n:02d}-{shot['id']}.png"
+                name = re.sub(r"^\d+-", "", shot["id"])
+                if platform == "android":
+                    dest = out / "android" / locale / "images" / folder / f"{n:02d}-{name}.png"
+                else:
+                    dest = out / "ios" / locale / f"{n:02d}-{name}-{folder}.png"
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 result.save(dest, optimize=True)
                 made += 1
-    print(f"{made} capturas compuestas en {out}")
+    print(f"{made} imágenes compuestas en {out}")
     if missing:
         print("Faltan capturas crudas:")
         for m in missing:

@@ -1,0 +1,36 @@
+Sello es una cámara de campo: cada foto sale con un sello dibujado en la imagen y escrito en sus metadatos con la fecha y la hora, las coordenadas, la altitud, la precisión del GPS, el rumbo, la dirección aproximada, el proyecto y tus notas. Está pensada para obras, interventorías, catastro, inspecciones, agro y trabajo de campo en Colombia. Es gratis, sin anuncios, sin suscripción y sin cuenta.
+
+CÁMARA
+• Vista previa con el sello en vivo, zoom, enfoque y exposición con un toque, flash y linterna.
+• Temporizador, rejilla, nivel de horizonte e inclinación y cámara frontal.
+• Filtro rojo para trabajar de noche.
+
+COORDENADAS
+• Grados decimales, grados-minutos-segundos, UTM, MGRS y Plus Code.
+• En Colombia, Origen Nacional (CTM12) y las zonas MAGNA-SIRGAS, calculadas en el iPhone.
+• Altitud sobre el nivel del mar con el modelo de geoide incluido, sin internet.
+• Promedio de lecturas, bloqueo de la posición para interiores y posición manual.
+
+RUMBO
+• Rumbo de la cámara con norte verdadero: la declinación magnética se calcula con el modelo WMM2025.
+• Punto cardinal, inclinación y rosa de los vientos en el sello.
+
+SELLO A TU MEDIDA
+• Plantillas con los datos que quieras, en el orden que quieras, con o sin rótulos.
+• Posición, tamaño, colores, formato de fecha, segundo formato de coordenadas y tu logo.
+
+PROYECTOS Y GALERÍA
+• Proyectos con su plantilla, patrón de nombre de archivo y campos propios que se piden antes de cada foto, como lote, inspector o elemento.
+• Galería por día, proyecto o lugar, con búsqueda en notas, dirección, etiquetas y campos.
+• Edición en lote, re-sellado con la plantilla actual y opción de compartir sin metadatos.
+• Mapa con tus fotos sobre OpenStreetMap, distancia hasta cada una y cómo llegar.
+
+EXPORTAR
+• CSV con todas las coordenadas y campos, KML y KMZ con las fotos incluidas.
+• ZIP con fotos selladas u originales.
+• Informe PDF por proyecto con resumen, tabla y una ficha por foto.
+
+TUS DATOS
+Las fotos y los datos quedan en tu iPhone (y, si quieres, en la app Archivos). Solo salen cuando tú los compartes. La app se conecta a internet únicamente para el fondo del mapa y la dirección aproximada, y ambas cosas se pueden apagar. Sello es de código abierto.
+
+El sello informa, no prueba: la hora y la ubicación de un teléfono se pueden alterar, así que Sello no pretende tener valor probatorio.

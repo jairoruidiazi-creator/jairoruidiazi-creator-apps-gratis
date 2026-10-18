@@ -95,5 +95,5 @@ class S {
 
   // Áreas y varios
   static const String sinConexion = 'Funciona sin internet, sin anuncios y sin cuenta.';
-  static const String privacidad = 'Los datos de los niños quedan solo en este dispositivo.';
+  static const String privacidad = 'Los datos de los niños se guardan en este dispositivo y no se envían a ningún servidor.';
 }

@@ -1,0 +1,36 @@
+Plata is a personal finance app built around the way money works in Colombia: fortnightly pay, credit cards with statement dates, installment purchases, savings pockets and digital wallets. It is free, with no ads, no subscription and no account, and your data stays encrypted on your iPhone.
+
+LOG IN SECONDS
+• The + button opens a calculator keypad that adds and subtracts as you type, handy for splitting a bill.
+• Suggestions from what you logged before: type a few letters and the entry appears with its category and amount.
+• One-tap favorites for what repeats, like the bus, coffee or lunch.
+• Categories and subcategories, tags, notes, receipt photo and splitting one expense across categories.
+
+ACCOUNTS, POCKETS AND CARDS
+• Cash, savings accounts, digital wallets, pockets, loans, investments and accounts in other currencies.
+• Credit cards with statement and payment days: statement per cycle, billed installments, available credit and how much to pay.
+• Debit cards linked to their account.
+• Transfers, withdrawals and card payments that are not counted as spending.
+
+FORTNIGHTS, BUDGETS AND SCHEDULED ITEMS
+• Your month can run from the 1st to the last day, start on payday or be split into fortnights.
+• Budgets per category, per card or for all spending, with rollover and a daily allowance.
+• Rent, utilities, salary and installments are logged automatically when due, with a reminder beforehand.
+
+REPORTS
+• Where your money goes: a donut by category with subcategory and transaction detail.
+• Income, spending and savings trend by period, and money in and out per account.
+• A calendar with each day's net, search by text or amount, and filters.
+• Export to CSV and Excel.
+
+CURRENCIES
+Dollars, euros and other currencies with the official Colombian peso rate (TRM) from datos.gov.co and the European Central Bank reference rates, once a day, or with a rate you set.
+
+PRIVACY AND SECURITY
+• No account and no servers: we collect no data.
+• Everything encrypted on the iPhone with ChaCha20-Poly1305 and a key kept in the Keychain.
+• Passcode, Face ID or Touch ID, lock on leave and an option to hide balances.
+• Password-encrypted backups you can keep wherever you like and use to move your data to another iPhone.
+• The only connection is to download exchange rates, and it can be turned off.
+
+Plata is open source. It shows your numbers; it is not financial advice.

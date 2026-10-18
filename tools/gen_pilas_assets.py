@@ -59,11 +59,11 @@ def gen_icon() -> None:
     out = ASSETS / "icon"
     out.mkdir(parents=True, exist_ok=True)
     size = 1024
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    # Cuadrado completo y opaco: iOS y Google Play recortan las esquinas ellos mismos.
+    img = Image.new("RGBA", (size, size), YELLOW)
     d = ImageDraw.Draw(img)
-    d.rounded_rectangle([0, 0, size - 1, size - 1], radius=int(size * 0.22), fill=YELLOW)
     draw_bolt(d, size)
-    img.save(out / "icon-1024.png")
+    img.convert("RGB").save(out / "icon-1024.png")
 
     fg = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     d2 = ImageDraw.Draw(fg)
