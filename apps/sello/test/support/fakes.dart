@@ -214,7 +214,12 @@ class FakeCameraPlatform extends CameraPlatform {
   Stream<CameraClosingEvent> onCameraClosing(int cameraId) => _closing.stream;
 
   @override
-  Stream<CameraErrorEvent> onCameraError(int cameraId) => _errors.stream;
+  // Cada cámara recibe sus errores. (En camera_android_camerax los avisos
+  // del canal estático llegan a todos los controladores, también a los ya
+  // cerrados; CameraController los anota en su valor y en modo de
+  // depuración eso dispara una aserción. No afecta a la app publicada y la
+  // app ya no lee CameraValue.errorDescription.)
+  Stream<CameraErrorEvent> onCameraError(int cameraId) => _errors.stream.where((CameraErrorEvent e) => e.cameraId == cameraId);
 
   /// Simula un error de la cámara ya abierta (otra app la tomó, el sistema
   /// la cerró…).
