@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # Centro de los datos de ejemplo de test/store/sello_demo.dart.
-      - run: python3 tools/store/fetch_osm_tiles.py tiles --lat 4.8610 --lon -74.0590 --zoom 17 --rx 3 --ry 4 2>&1 | tee tiles.log
+      - run: python3 tools/store/fetch_osm_tiles.py tiles --lat 4.8545 --lon -74.0665 --zoom 17 --rx 3 --ry 4 2>&1 | tee tiles.log
       - name: Publicar
         if: always()
         env:

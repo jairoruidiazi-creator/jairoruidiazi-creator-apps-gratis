@@ -14,8 +14,8 @@ import 'package:sello/stamp/stamp_data.dart';
 
 /// Centro de los datos de ejemplo; las teselas de test/store/tiles lo cubren
 /// (ver .github/workflows/store-assets.yml, tarea osm-tiles).
-const double demoLat = 4.8610;
-const double demoLon = -74.0590;
+const double demoLat = 4.8545;
+const double demoLon = -74.0665;
 
 class _Shot {
   const _Shot(this.file, this.project, this.daysAgo, this.hour, this.minute, this.dLat, this.dLon, this.accuracy, this.altitude, this.heading, this.pitch, this.notesEs, this.notesEn, {this.fields = const <String, String>{}, this.tagsEs = const <String>[], this.tagsEn = const <String>[]});
@@ -39,14 +39,14 @@ class _Shot {
 }
 
 const List<_Shot> _shots = <_Shot>[
-  _Shot('valle-obra.jpg', 'variante', 6, 8, 12, 0.0016, 0.0010, 4.8, 2571.3, 118, -6, 'Vista general del frente de obra desde el talud', 'Overview of the work front from the slope', fields: <String, String>{'abscisa': 'K3+240'}, tagsEs: <String>['avance'], tagsEn: <String>['progress']),
-  _Shot('volqueta.jpg', 'variante', 5, 10, 47, 0.0011, 0.0007, 3.6, 2566.8, 205, -2, 'Volqueta con material de base granular', 'Dump truck with granular base material', fields: <String, String>{'abscisa': 'K3+180'}, tagsEs: <String>['materiales'], tagsEn: <String>['materials']),
-  _Shot('via-curva.jpg', 'variante', 5, 11, 20, 0.0007, 0.0012, 4.1, 2565.2, 64, -3, 'Empalme con la vía existente, demarcación pendiente', 'Tie-in with the existing road, markings pending', fields: <String, String>{'abscisa': 'K3+120'}, tagsEs: <String>['pavimento'], tagsEn: <String>['pavement']),
-  _Shot('via-puente.jpg', 'variante', 4, 15, 5, 0.0003, 0.0011, 5.2, 2563.9, 92, -1, 'Paso bajo el puente vehicular, cuneta despejada', 'Pass under the road bridge, ditch clear', fields: <String, String>{'abscisa': 'K3+060'}, tagsEs: <String>['drenaje'], tagsEn: <String>['drainage']),
-  _Shot('cimentacion.jpg', 'mirador', 3, 9, 33, -0.0006, -0.0008, 6.1, 2562.4, 271, -18, 'Recalce de cimentación en el eje C', 'Foundation underpinning on axis C', fields: <String, String>{'elemento': 'Zapata C-4', 'inspector': 'L. Rojas'}, tagsEs: <String>['estructura'], tagsEn: <String>['structure']),
-  _Shot('anden.jpg', 'mirador', 2, 16, 41, -0.0010, -0.0004, 3.9, 2561.7, 12, -4, 'Andén perimetral terminado, tramo norte', 'Perimeter sidewalk finished, north section', fields: <String, String>{'elemento': 'Andén norte', 'inspector': 'L. Rojas'}, tagsEs: <String>['acabados'], tagsEn: <String>['finishes']),
-  _Shot('plataforma.jpg', 'mirador', 1, 11, 2, -0.0013, -0.0009, 4.4, 2562.0, 318, 9, 'Plataforma elevadora en la fachada occidental', 'Boom lift at the west facade', fields: <String, String>{'elemento': 'Fachada occidental', 'inspector': 'M. Peña'}, tagsEs: <String>['seguridad', 'fachada'], tagsEn: <String>['safety', 'facade']),
-  _Shot('obra-grua.jpg', 'mirador', 0, 9, 41, -0.0008, -0.0012, 3.2, 2562.6, 337, 4, 'Montaje de la grúa torre, costado norte', 'Tower crane assembly, north side', fields: <String, String>{'elemento': 'Grúa torre G-1', 'inspector': 'M. Peña'}, tagsEs: <String>['seguridad'], tagsEn: <String>['safety']),
+  _Shot('valle-obra.jpg', 'variante', 6, 8, 12, -0.0013, 0.0011, 4.8, 2571.3, 118, -6, 'Vista general del frente de obra desde el talud', 'Overview of the work front from the slope', fields: <String, String>{'abscisa': 'K3+240'}, tagsEs: <String>['avance'], tagsEn: <String>['progress']),
+  _Shot('volqueta.jpg', 'variante', 5, 10, 47, -0.0009, 0.0005, 3.6, 2566.8, 205, -2, 'Volqueta con material de base granular', 'Dump truck with granular base material', fields: <String, String>{'abscisa': 'K3+180'}, tagsEs: <String>['materiales'], tagsEn: <String>['materials']),
+  _Shot('via-curva.jpg', 'variante', 5, 11, 20, 0.0001, -0.0011, 4.1, 2565.2, 64, -3, 'Empalme con la vía existente, demarcación pendiente', 'Tie-in with the existing road, markings pending', fields: <String, String>{'abscisa': 'K3+120'}, tagsEs: <String>['pavimento'], tagsEn: <String>['pavement']),
+  _Shot('via-puente.jpg', 'variante', 4, 15, 5, 0.0011, -0.0012, 5.2, 2563.9, 92, -1, 'Paso bajo el puente vehicular, cuneta despejada', 'Pass under the road bridge, ditch clear', fields: <String, String>{'abscisa': 'K3+060'}, tagsEs: <String>['drenaje'], tagsEn: <String>['drainage']),
+  _Shot('cimentacion.jpg', 'mirador', 3, 9, 33, 0.0006, 0.0002, 6.1, 2562.4, 271, -18, 'Recalce de cimentación en el eje C', 'Foundation underpinning on axis C', fields: <String, String>{'elemento': 'Zapata C-4', 'inspector': 'L. Rojas'}, tagsEs: <String>['estructura'], tagsEn: <String>['structure']),
+  _Shot('anden.jpg', 'mirador', 2, 16, 41, 0.0009, 0.0006, 3.9, 2561.7, 12, -4, 'Andén perimetral terminado, tramo norte', 'Perimeter sidewalk finished, north section', fields: <String, String>{'elemento': 'Andén norte', 'inspector': 'L. Rojas'}, tagsEs: <String>['acabados'], tagsEn: <String>['finishes']),
+  _Shot('plataforma.jpg', 'mirador', 1, 11, 2, 0.0012, 0.0003, 4.4, 2562.0, 318, 9, 'Plataforma elevadora en la fachada occidental', 'Boom lift at the west facade', fields: <String, String>{'elemento': 'Fachada occidental', 'inspector': 'M. Peña'}, tagsEs: <String>['seguridad', 'fachada'], tagsEn: <String>['safety', 'facade']),
+  _Shot('obra-grua.jpg', 'mirador', 0, 9, 41, 0.0008, 0.0009, 3.2, 2562.6, 337, 4, 'Montaje de la grúa torre, costado norte', 'Tower crane assembly, north side', fields: <String, String>{'elemento': 'Grúa torre G-1', 'inspector': 'M. Peña'}, tagsEs: <String>['seguridad'], tagsEn: <String>['safety']),
 ];
 
 /// Crea proyectos, plantilla y fotos selladas en [state]. Devuelve el id de la
@@ -86,7 +86,7 @@ Future<String> seedSelloDemo({required AppState state, required JsonStore store,
   );
   final Project variante = Project(
     id: 'variante',
-    name: tr('Variante Chía · Tramo 3', 'Chía Bypass · Section 3'),
+    name: tr('Avenida Calle 2 · Tramo 3', 'Calle 2 Avenue · Section 3'),
     templateId: 'vias',
     fields: <FieldDef>[FieldDef('abscisa', tr('Abscisa', 'Station'))],
     fileNamePattern: '{proyecto}_{fecha}_{n}',
@@ -115,7 +115,7 @@ Future<String> seedSelloDemo({required AppState state, required JsonStore store,
       altitude: s.altitude,
       heading: s.heading,
       pitch: s.pitch,
-      address: s.project == 'mirador' ? tr('Avenida Pradilla, Chía, Cundinamarca', 'Avenida Pradilla, Chía, Cundinamarca, Colombia') : tr('Variante Chía, Cundinamarca', 'Variante Chía, Cundinamarca, Colombia'),
+      address: s.project == 'mirador' ? tr('Carrera 12, Chía, Cundinamarca', 'Carrera 12, Chía, Cundinamarca, Colombia') : tr('Avenida Calle 2, Chía, Cundinamarca', 'Avenida Calle 2, Chía, Cundinamarca, Colombia'),
       projectName: project.name,
       fields: fields,
       fieldLabels: <String, String>{for (final FieldDef f in project.fields) f.key: f.label},
