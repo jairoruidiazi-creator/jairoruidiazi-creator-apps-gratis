@@ -1,0 +1,4 @@
+"CFBundleDisplayName" = "Plata";
+"NSFaceIDUsageDescription" = "Plata uses Face ID to unlock your accounts without typing the passcode.";
+"NSCameraUsageDescription" = "Plata uses the camera to attach a photo of a receipt to a transaction.";
+"NSPhotoLibraryUsageDescription" = "Plata accesses your photos to attach a receipt to a transaction.";

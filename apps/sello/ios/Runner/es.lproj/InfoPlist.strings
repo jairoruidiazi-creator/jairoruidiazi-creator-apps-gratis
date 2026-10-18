@@ -1,0 +1,6 @@
+"CFBundleDisplayName" = "Sello";
+"NSCameraUsageDescription" = "Sello usa la cámara para tomar las fotos de campo que luego sella con la hora, la ubicación y el rumbo.";
+"NSLocationWhenInUseUsageDescription" = "Sello usa tu ubicación para escribir en cada foto las coordenadas, la altitud y la dirección aproximada. Tus fotos y coordenadas se guardan solo en el teléfono.";
+"NSPhotoLibraryAddUsageDescription" = "Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges.";
+"NSPhotoLibraryUsageDescription" = "Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges.";
+"NSMotionUsageDescription" = "Sello usa los sensores de movimiento para calcular el rumbo de la cámara.";

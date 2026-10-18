@@ -56,8 +56,6 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
@@ -71,7 +69,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Sello usa la cámara para tomar las fotos de campo que luego sella con la hora, la ubicación y el rumbo.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Sello usa tu ubicación para escribir las coordenadas, la altitud y la dirección en cada foto. Los datos quedan en el teléfono.</string>
+	<string>Sello usa tu ubicación para escribir en cada foto las coordenadas, la altitud y la dirección aproximada. Tus fotos y coordenadas se guardan solo en el teléfono.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -88,5 +86,10 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>es</string>
+		<string>en</string>
+	</array>
 </dict>
 </plist>

@@ -6,10 +6,39 @@ Uso: python3 tools/patch_platforms.py <app>   (se ejecuta dentro de apps/<app>)
 Cada app declara aquí su nombre visible, permisos y claves de Info.plist. El
 script es idempotente: se puede volver a correr sin duplicar nada.
 """
+import hashlib
 import plistlib
 import re
 import sys
 from pathlib import Path
+
+# Firma de release: si existe android/key.properties (la CI lo escribe con los
+# secretos de la llave de subida), se firma con ella; si no, con la de depuración
+# para que `flutter build apk --release` siga funcionando en local.
+SIGNING_HEADER = """import java.io.FileInputStream
+import java.util.Properties
+
+"""
+SIGNING_PROPS = """
+// Llave de subida a Google Play (ver docs/PUBLICACION.md). Nunca se versiona.
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+"""
+SIGNING_CONFIGS = """    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+            }
+        }
+    }
+
+    buildTypes {"""
 
 APPS = {
     "pilas": {
@@ -22,6 +51,10 @@ APPS = {
             "CFBundleDisplayName": "Pilas",
             "ITSAppUsesNonExemptEncryption": False,
         },
+        "ios_strings_en": {"CFBundleDisplayName": "Pilas"},
+        # Los niños juegan en tabletas y teléfonos en cualquier posición.
+        "iphone_orientations": ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"],
+        "ios_privacy_collected": [],
         "ios_min": "13.0",
     },
     "clave": {
@@ -35,6 +68,12 @@ APPS = {
             "NSMicrophoneUsageDescription": "Clave usa el micrófono para afinar tu instrumento y grabar tus tomas. El audio no sale del dispositivo.",
             "UIBackgroundModes": ["audio"],
         },
+        "ios_strings_en": {
+            "CFBundleDisplayName": "Clave",
+            "NSMicrophoneUsageDescription": "Clave uses the microphone to tune your instrument and record your takes. The audio never leaves the device.",
+        },
+        "iphone_orientations": ["UIInterfaceOrientationPortrait"],
+        "ios_privacy_collected": [],
         "ios_min": "13.0",
     },
     "sello": {
@@ -58,7 +97,7 @@ APPS = {
             "CFBundleDisplayName": "Sello",
             "ITSAppUsesNonExemptEncryption": False,
             "NSCameraUsageDescription": "Sello usa la cámara para tomar las fotos de campo que luego sella con la hora, la ubicación y el rumbo.",
-            "NSLocationWhenInUseUsageDescription": "Sello usa tu ubicación para escribir las coordenadas, la altitud y la dirección en cada foto. Los datos quedan en el teléfono.",
+            "NSLocationWhenInUseUsageDescription": "Sello usa tu ubicación para escribir en cada foto las coordenadas, la altitud y la dirección aproximada. Tus fotos y coordenadas se guardan solo en el teléfono.",
             "NSPhotoLibraryAddUsageDescription": "Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges.",
             "NSPhotoLibraryUsageDescription": "Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges.",
             "NSMotionUsageDescription": "Sello usa los sensores de movimiento para calcular el rumbo de la cámara.",
@@ -67,6 +106,21 @@ APPS = {
             "UIFileSharingEnabled": True,
             "LSSupportsOpeningDocumentsInPlace": True,
         },
+        "ios_strings_en": {
+            "CFBundleDisplayName": "Sello",
+            "NSCameraUsageDescription": "Sello uses the camera to take the field photos it then stamps with the time, location and heading.",
+            "NSLocationWhenInUseUsageDescription": "Sello uses your location to write the coordinates, altitude and approximate address on each photo. Your photos and coordinates are stored only on your phone.",
+            "NSPhotoLibraryAddUsageDescription": "Sello saves a copy of the stamped photos to your photo library if you choose to.",
+            "NSPhotoLibraryUsageDescription": "Sello saves a copy of the stamped photos to your photo library if you choose to.",
+            "NSMotionUsageDescription": "Sello uses the motion sensors to work out the camera heading.",
+        },
+        # Cámara: la interfaz va en vertical y el sello sigue la orientación del teléfono.
+        "iphone_orientations": ["UIInterfaceOrientationPortrait"],
+        # La dirección aproximada (geocodificador del sistema) y las teselas del mapa
+        # (OpenStreetMap) envían coordenadas fuera del teléfono; ambas son opcionales.
+        "ios_privacy_collected": [
+            {"type": "NSPrivacyCollectedDataTypePreciseLocation", "linked": False, "tracking": False, "purposes": ["NSPrivacyCollectedDataTypePurposeAppFunctionality"]},
+        ],
         "ios_min": "13.0",
     },
     "plata": {
@@ -100,7 +154,9 @@ APPS = {
         "android_desugaring": True,
         "ios_plist": {
             "CFBundleDisplayName": "Plata",
-            "ITSAppUsesNonExemptEncryption": False,
+            # Cifra los datos con ChaCha20-Poly1305 (algoritmo estándar que no es el del sistema):
+            # App Store Connect hace las preguntas de exportación en cada versión (ver store/COMPLIANCE.md).
+            "ITSAppUsesNonExemptEncryption": True,
             "NSFaceIDUsageDescription": "Plata usa Face ID para desbloquear tus cuentas sin escribir la clave.",
             "NSCameraUsageDescription": "Plata usa la cámara para adjuntar la foto de un recibo a un movimiento.",
             "NSPhotoLibraryUsageDescription": "Plata accede a tus fotos para adjuntar un recibo a un movimiento.",
@@ -108,9 +164,21 @@ APPS = {
             "UIFileSharingEnabled": True,
             "LSSupportsOpeningDocumentsInPlace": True,
         },
+        "ios_strings_en": {
+            "CFBundleDisplayName": "Plata",
+            "NSFaceIDUsageDescription": "Plata uses Face ID to unlock your accounts without typing the passcode.",
+            "NSCameraUsageDescription": "Plata uses the camera to attach a photo of a receipt to a transaction.",
+            "NSPhotoLibraryUsageDescription": "Plata accesses your photos to attach a receipt to a transaction.",
+        },
+        "iphone_orientations": ["UIInterfaceOrientationPortrait"],
+        "ios_privacy_collected": [],
         "ios_min": "13.0",
     },
 }
+
+
+OLD_RELEASE = '        release {\n            // TODO: Add your own signing config for the release build.\n            // Signing with the debug keys for now, so `flutter run --release` works.\n            signingConfig = signingConfigs.getByName("debug")\n        }'
+NEW_RELEASE = '        release {\n            signingConfig = if (keystorePropertiesFile.exists()) {\n                signingConfigs.getByName("release")\n            } else {\n                signingConfigs.getByName("debug")\n            }\n        }'
 
 
 def patch_android(cfg: dict) -> None:
@@ -175,6 +243,14 @@ def patch_android(cfg: dict) -> None:
                 g = g.replace("compileOptions {", "compileOptions {\n        coreLibraryDesugaringEnabled true", 1)
                 g += "\ndependencies {\n    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'\n}\n"
             print(f"desugaring activado en {name}")
+        if name.endswith(".kts") and "keystoreProperties" not in g:
+            g = SIGNING_HEADER + g
+            g = g.replace("\nandroid {", SIGNING_PROPS + "\nandroid {", 1)
+            g = g.replace("    buildTypes {", SIGNING_CONFIGS, 1)
+            if OLD_RELEASE not in g:
+                raise SystemExit(f"No encontré el bloque release esperado en {name}; revisa la plantilla de flutter create.")
+            g = g.replace(OLD_RELEASE, NEW_RELEASE, 1)
+            print(f"firma de release por key.properties en {name}")
         gradle.write_text(g, encoding="utf-8")
         print(f"minSdk fijado en {min_sdk} en {name}")
 
@@ -184,6 +260,10 @@ def patch_ios(cfg: dict) -> None:
     with plist_path.open("rb") as f:
         plist = plistlib.load(f)
     plist.update(cfg["ios_plist"])
+    # Idiomas que la App Store muestra en la ficha y que iOS usa para los textos del sistema.
+    plist["CFBundleLocalizations"] = ["es", "en"]
+    if "iphone_orientations" in cfg:
+        plist["UISupportedInterfaceOrientations"] = cfg["iphone_orientations"]
     with plist_path.open("wb") as f:
         plistlib.dump(plist, f, sort_keys=False)
 
@@ -197,7 +277,115 @@ def patch_ios(cfg: dict) -> None:
     if pbx.exists():
         t = pbx.read_text(encoding="utf-8")
         t = re.sub(r"IPHONEOS_DEPLOYMENT_TARGET = [0-9.]+;", f"IPHONEOS_DEPLOYMENT_TARGET = {cfg['ios_min']};", t)
+        t = add_privacy_manifest(t, cfg)
+        t = add_infoplist_strings(t, cfg, plist)
         pbx.write_text(t, encoding="utf-8")
+
+
+# ----------------------------------------------------------------- Xcode
+
+def pbx_id(key: str) -> str:
+    """Identificador estable de 24 caracteres para objetos que agregamos."""
+    return hashlib.sha1(("apps-gratis:" + key).encode()).hexdigest()[:24].upper()
+
+
+def pbx_insert(t: str, section: str, entry: str) -> str:
+    marker = f"/* End {section} section */"
+    if marker not in t:
+        # La sección no existe todavía: se crea antes de la siguiente.
+        t = t.replace("/* Begin PBXGroup section */", f"/* Begin {section} section */\n/* End {section} section */\n\n/* Begin PBXGroup section */", 1)
+    return t.replace(marker, entry + marker, 1)
+
+
+def pbx_add_to_runner_group(t: str, ref_id: str, comment: str) -> str:
+    m = re.search(r"children = \(\n((?:\t\t\t\t[^\n]*\n)*?)\t\t\t\);\n\t\t\tpath = Runner;", t)
+    if not m:
+        raise SystemExit("No encontré el grupo Runner en project.pbxproj")
+    if ref_id in m.group(1):
+        return t
+    insert_at = m.end(1)
+    return t[:insert_at] + f"\t\t\t\t{ref_id} /* {comment} */,\n" + t[insert_at:]
+
+
+def pbx_add_to_runner_resources(t: str, build_id: str, comment: str) -> str:
+    # La fase de recursos del Runner es la que ya lleva Assets.xcassets.
+    for m in re.finditer(r"/\* Resources \*/ = \{\n\t\t\tisa = PBXResourcesBuildPhase;\n\t\t\tbuildActionMask = \d+;\n\t\t\tfiles = \(\n((?:\t\t\t\t[^\n]*\n)*?)\t\t\t\);", t):
+        if "Assets.xcassets in Resources" in m.group(1):
+            if build_id in m.group(1):
+                return t
+            insert_at = m.end(1)
+            return t[:insert_at] + f"\t\t\t\t{build_id} /* {comment} in Resources */,\n" + t[insert_at:]
+    raise SystemExit("No encontré la fase de recursos del Runner en project.pbxproj")
+
+
+def privacy_manifest(cfg: dict) -> dict:
+    return {
+        "NSPrivacyTracking": False,
+        "NSPrivacyTrackingDomains": [],
+        "NSPrivacyCollectedDataTypes": [
+            {
+                "NSPrivacyCollectedDataType": c["type"],
+                "NSPrivacyCollectedDataTypeLinked": c["linked"],
+                "NSPrivacyCollectedDataTypeTracking": c["tracking"],
+                "NSPrivacyCollectedDataTypePurposes": c["purposes"],
+            }
+            for c in cfg.get("ios_privacy_collected", [])
+        ],
+        # shared_preferences guarda los ajustes de la app en sus propios UserDefaults.
+        "NSPrivacyAccessedAPITypes": [
+            {"NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults", "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]},
+        ],
+    }
+
+
+def add_privacy_manifest(t: str, cfg: dict) -> str:
+    path = Path("ios/Runner/PrivacyInfo.xcprivacy")
+    with path.open("wb") as f:
+        plistlib.dump(privacy_manifest(cfg), f, sort_keys=False)
+    ref, build = pbx_id("PrivacyInfo.ref"), pbx_id("PrivacyInfo.build")
+    if ref not in t:
+        t = pbx_insert(t, "PBXFileReference", f"\t\t{ref} /* PrivacyInfo.xcprivacy */ = {{isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = \"<group>\"; }};\n")
+        t = pbx_insert(t, "PBXBuildFile", f"\t\t{build} /* PrivacyInfo.xcprivacy in Resources */ = {{isa = PBXBuildFile; fileRef = {ref} /* PrivacyInfo.xcprivacy */; }};\n")
+    t = pbx_add_to_runner_group(t, ref, "PrivacyInfo.xcprivacy")
+    t = pbx_add_to_runner_resources(t, build, "PrivacyInfo.xcprivacy")
+    print("manifiesto de privacidad PrivacyInfo.xcprivacy")
+    return t
+
+
+def strings_file(values: dict) -> str:
+    def esc(v: str) -> str:
+        return v.replace("\\", "\\\\").replace('"', '\\"')
+    return "".join(f'"{k}" = "{esc(v)}";\n' for k, v in values.items())
+
+
+def add_infoplist_strings(t: str, cfg: dict, plist: dict) -> str:
+    """InfoPlist.strings en español e inglés (nombre y textos de permisos)."""
+    keys = [k for k in plist if k == "CFBundleDisplayName" or k.endswith("UsageDescription")]
+    es = {k: plist[k] for k in keys}
+    en = dict(cfg.get("ios_strings_en", {}))
+    missing = [k for k in keys if k not in en]
+    if missing:
+        raise SystemExit(f"Faltan traducciones al inglés en ios_strings_en: {missing}")
+    for lang, values in (("es", es), ("en", en)):
+        d = Path(f"ios/Runner/{lang}.lproj")
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "InfoPlist.strings").write_text(strings_file(values), encoding="utf-8")
+    group = pbx_id("InfoPlist.strings.group")
+    build = pbx_id("InfoPlist.strings.build")
+    refs = {lang: pbx_id(f"InfoPlist.strings.{lang}") for lang in ("es", "en")}
+    if group not in t:
+        for lang, ref in refs.items():
+            t = pbx_insert(t, "PBXFileReference", f"\t\t{ref} /* {lang} */ = {{isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = {lang}; path = {lang}.lproj/InfoPlist.strings; sourceTree = \"<group>\"; }};\n")
+        children = "".join(f"\t\t\t\t{ref} /* {lang} */,\n" for lang, ref in refs.items())
+        t = pbx_insert(t, "PBXVariantGroup", f"\t\t{group} /* InfoPlist.strings */ = {{\n\t\t\tisa = PBXVariantGroup;\n\t\t\tchildren = (\n{children}\t\t\t);\n\t\t\tname = InfoPlist.strings;\n\t\t\tsourceTree = \"<group>\";\n\t\t}};\n")
+        t = pbx_insert(t, "PBXBuildFile", f"\t\t{build} /* InfoPlist.strings in Resources */ = {{isa = PBXBuildFile; fileRef = {group} /* InfoPlist.strings */; }};\n")
+    t = pbx_add_to_runner_group(t, group, "InfoPlist.strings")
+    t = pbx_add_to_runner_resources(t, build, "InfoPlist.strings")
+    m = re.search(r"knownRegions = \(\n((?:\t\t\t\t[^\n]*\n)*?)\t\t\t\);", t)
+    if m and "\t\t\t\tes,\n" not in m.group(1):
+        t = t[: m.end(1)] + "\t\t\t\tes,\n" + t[m.end(1):]
+    print("InfoPlist.strings en es y en")
+    return t
 
 
 def main() -> int:

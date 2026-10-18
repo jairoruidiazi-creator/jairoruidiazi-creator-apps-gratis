@@ -1,0 +1,6 @@
+"CFBundleDisplayName" = "Sello";
+"NSCameraUsageDescription" = "Sello uses the camera to take the field photos it then stamps with the time, location and heading.";
+"NSLocationWhenInUseUsageDescription" = "Sello uses your location to write the coordinates, altitude and approximate address on each photo. Your photos and coordinates are stored only on your phone.";
+"NSPhotoLibraryAddUsageDescription" = "Sello saves a copy of the stamped photos to your photo library if you choose to.";
+"NSPhotoLibraryUsageDescription" = "Sello saves a copy of the stamped photos to your photo library if you choose to.";
+"NSMotionUsageDescription" = "Sello uses the motion sensors to work out the camera heading.";

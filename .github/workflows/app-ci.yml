@@ -1,0 +1,149 @@
+name: App (flujo reutilizable)
+
+# Análisis, pruebas y compilaciones de una app de apps/<app>. Lo llaman los
+# flujos de cada app (pilas.yml, clave.yml, …) con `uses:`.
+#
+# Además de compilar, revisa lo que piden las tiendas:
+# - Android: firma de release (con una llave temporal que prueba la
+#   configuración de key.properties), SDK objetivo, permisos efectivos del APK
+#   y páginas de 16 KB en las bibliotecas nativas.
+# - iOS: archivo .xcarchive sin firma con el manifiesto de privacidad y los
+#   textos de permisos en español e inglés dentro del paquete.
+# - Capturas de tienda (si la app tiene pruebas con la etiqueta "screenshots").
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    name: Analizar y probar
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/${{ inputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter --version 2>&1 | tee version.log
+      - run: flutter pub get 2>&1 | tee pubget.log; exit ${PIPESTATUS[0]}
+      # Los avisos de estilo (info) se revisan en el registro; errores y warnings sí bloquean.
+      - run: flutter analyze --no-fatal-infos 2>&1 | tee analyze.log; exit ${PIPESTATUS[0]}
+      - run: flutter test --exclude-tags screenshots 2>&1 | tee test.log; exit ${PIPESTATUS[0]}
+      - name: Fichas de tienda
+        working-directory: .
+        run: |
+          if [ -d "apps/${{ inputs.app }}/fastlane" ]; then
+            python3 tools/store/check_metadata.py "${{ inputs.app }}" 2>&1 | tee "apps/${{ inputs.app }}/metadata.log"; exit ${PIPESTATUS[0]}
+          else
+            echo "La app no tiene fichas de tienda todavía." | tee "apps/${{ inputs.app }}/metadata.log"
+          fi
+      - name: Publicar registros
+        if: always()
+        working-directory: .
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          bash tools/ci/publish_logs.sh ci-logs-${{ inputs.app }}-check
+          apps/${{ inputs.app }}/version.log apps/${{ inputs.app }}/pubget.log apps/${{ inputs.app }}/analyze.log
+          apps/${{ inputs.app }}/test.log apps/${{ inputs.app }}/metadata.log
+
+  android:
+    name: APK y AAB Android
+    needs: check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/${{ inputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Llave temporal para probar la firma de release
+        run: |
+          keytool -genkeypair -keystore "$RUNNER_TEMP/ci-upload.jks" -storetype JKS -keyalg RSA -keysize 2048 \
+            -validity 10000 -alias ci -storepass ci-store-pass -keypass ci-store-pass -dname "CN=apps-gratis CI, C=CO"
+          printf 'storePassword=ci-store-pass\nkeyPassword=ci-store-pass\nkeyAlias=ci\nstoreFile=%s\n' "$RUNNER_TEMP/ci-upload.jks" > android/key.properties
+      - run: flutter build apk --release 2>&1 | tee build-android.log; exit ${PIPESTATUS[0]}
+      - run: flutter build appbundle --release 2>&1 | tee -a build-android.log; exit ${PIPESTATUS[0]}
+      - name: Revisar firma, SDK objetivo, permisos y páginas de 16 KB
+        run: |
+          set -eo pipefail
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          APK=build/app/outputs/flutter-apk/app-release.apk
+          AAB=build/app/outputs/bundle/release/app-release.aab
+          echo "build-tools: $BT" | tee package.log
+          "$BT/aapt2" dump badging "$APK" > badging.txt
+          "$BT/apksigner" verify --print-certs "$APK" | tee signing.log
+          grep -q "CN=apps-gratis CI" signing.log
+          jarsigner -verify -strict "$AAB" | tee -a signing.log
+          if "$BT/zipalign" 2>&1 | grep -q -- "-P"; then
+            "$BT/zipalign" -c -P 16 -v 4 "$APK" > zipalign.log
+            tail -1 zipalign.log | tee -a package.log
+          fi
+          python3 ../../tools/ci/check_android_package.py "$APK" --badging badging.txt \
+            --config ../../tools/store/android.json --app "${{ inputs.app }}" | tee -a package.log
+          python3 ../../tools/ci/check_android_package.py "$AAB" | tee -a package.log
+          ls -l "$APK" "$AAB" | tee -a package.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.app }}-android-apk
+          path: apps/${{ inputs.app }}/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+      - name: Publicar registros
+        if: always()
+        working-directory: .
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          bash tools/ci/publish_logs.sh ci-logs-${{ inputs.app }}-android
+          apps/${{ inputs.app }}/build-android.log apps/${{ inputs.app }}/badging.txt
+          apps/${{ inputs.app }}/signing.log apps/${{ inputs.app }}/package.log
+
+  ios:
+    name: iOS (archivo sin firma)
+    needs: check
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: apps/${{ inputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter build ipa --release --no-codesign 2>&1 | tee build-ios.log; exit ${PIPESTATUS[0]}
+      - name: Revisar el paquete de la app
+        run: |
+          set -eo pipefail
+          APPDIR=build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
+          plutil -lint "$APPDIR/Info.plist" "$APPDIR/PrivacyInfo.xcprivacy" | tee ios-check.log
+          for l in es en; do plutil -lint "$APPDIR/$l.lproj/InfoPlist.strings" | tee -a ios-check.log; done
+          plutil -p "$APPDIR/Info.plist" | grep -E "CFBundleShortVersionString|CFBundleVersion\"|CFBundleLocalizations|MinimumOSVersion|ITSAppUsesNonExemptEncryption|UIDeviceFamily" -A3 | tee -a ios-check.log
+          plutil -p "$APPDIR/PrivacyInfo.xcprivacy" | tee -a ios-check.log
+          plutil -p "$APPDIR/en.lproj/InfoPlist.strings" | tee -a ios-check.log
+          du -sh "$APPDIR" | tee -a ios-check.log
+      - name: Publicar registros
+        if: always()
+        working-directory: .
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash tools/ci/publish_logs.sh ci-logs-${{ inputs.app }}-ios apps/${{ inputs.app }}/build-ios.log apps/${{ inputs.app }}/ios-check.log

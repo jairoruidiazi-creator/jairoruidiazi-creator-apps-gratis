@@ -19,12 +19,18 @@ class MapScreen extends StatefulWidget {
   /// Falso en pruebas: no se descargan teselas.
   static bool tilesEnabled = true;
 
+  static const String userAgent = 'Sello/1.0 (co.appsgratis.sello; +https://github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis)';
+
   @override
   State<MapScreen> createState() => _MapScreenState();
 }
 
 class _MapScreenState extends State<MapScreen> {
   final MapController _map = MapController();
+
+  /// La política de teselas de OpenStreetMap pide un User-Agent propio que
+  /// nombre la app y una forma de contacto. TileLayer lo libera al cerrarse.
+  late final NetworkTileProvider _tiles = NetworkTileProvider(headers: <String, String>{'User-Agent': MapScreen.userAgent});
   String? _projectId;
   bool _fitted = false;
   bool _ready = false;
@@ -59,7 +65,7 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     final Services s = AppScope.of(context);
     return ListenableBuilder(
-      listenable: Listenable.merge(<Listenable>[s.state, s.location]),
+      listenable: Listenable.merge(<Listenable>[s.state, s.location, s.settings]),
       builder: (BuildContext context, Widget? _) {
         final AppState st = s.state;
         final List<PhotoRecord> photos = _visible(st);
@@ -86,10 +92,11 @@ class _MapScreenState extends State<MapScreen> {
                 },
               ),
               children: <Widget>[
-                if (MapScreen.tilesEnabled)
+                if (MapScreen.tilesEnabled && s.settings.mapTiles)
                   TileLayer(
                     urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    userAgentPackageName: 'co.apps.sello',
+                    userAgentPackageName: 'co.appsgratis.sello',
+                    tileProvider: _tiles,
                     maxNativeZoom: 19,
                   ),
                 if (fix != null)

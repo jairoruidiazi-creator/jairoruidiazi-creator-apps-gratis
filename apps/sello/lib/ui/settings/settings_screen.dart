@@ -141,11 +141,21 @@ class SettingsScreen extends StatelessWidget {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(t(context, 'Dirección aproximada', 'Approximate address')),
-                subtitle: Text(t(context, 'Usa el servicio del teléfono (necesita internet). Las coordenadas funcionan siempre sin conexión.', 'Uses the phone\'s service (needs internet). Coordinates always work offline.')),
+                subtitle: Text(t(context, 'Envía las coordenadas al servicio de direcciones del teléfono (Google en Android, Apple en iOS) y necesita internet. Las coordenadas funcionan siempre sin conexión.', 'Sends the coordinates to the phone\'s address service (Google on Android, Apple on iOS) and needs internet. Coordinates always work offline.')),
                 value: st.geocoding,
                 onChanged: (bool v) {
                   st.geocoding = v;
                   s.location.geocodingEnabled = v;
+                  save();
+                },
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(t(context, 'Mapa en línea', 'Online map')),
+                subtitle: Text(t(context, 'Descarga el fondo del mapa de OpenStreetMap: su servidor recibe la zona que miras y tu dirección IP. Apagado, el mapa muestra solo tus fotos y tu posición.', 'Downloads the map background from OpenStreetMap: its server receives the area you view and your IP address. Off, the map shows only your photos and position.')),
+                value: st.mapTiles,
+                onChanged: (bool v) {
+                  st.mapTiles = v;
                   save();
                 },
               ),

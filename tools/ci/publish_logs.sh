@@ -2,7 +2,7 @@
 # Publica registros de la CI en una rama huérfana del repositorio, para poder
 # leerlos con git cuando la descarga de registros de Actions no está disponible.
 #
-# Uso: publish_logs.sh <rama> <archivo>...
+# Uso: publish_logs.sh <rama> <archivo o carpeta>...
 set -u
 BRANCH="$1"
 shift
@@ -10,6 +10,8 @@ TMP="$(mktemp -d)"
 for f in "$@"; do
   if [ -f "$f" ]; then
     cp "$f" "$TMP/$(basename "$f")"
+  elif [ -d "$f" ]; then
+    cp -r "$f" "$TMP/$(basename "$f")"
   fi
 done
 {

@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""Revisa un APK o AAB antes de publicarlo en Google Play.
+
+Comprueba, sin dependencias externas:
+
+1. Páginas de 16 KB: cada biblioteca nativa de 64 bits (arm64-v8a y x86_64)
+   debe tener todos sus segmentos PT_LOAD alineados a 16 KB o más. Es un
+   requisito de Google Play para las apps que apuntan a Android 15 o superior.
+   https://developer.android.com/guide/practices/page-sizes
+2. Alineación dentro del ZIP (solo APK): las bibliotecas guardadas sin
+   comprimir deben empezar en un múltiplo de 16 KB para poder mapearse
+   directamente (equivale a `zipalign -c -P 16 4`).
+3. Opcionalmente, con --badging <archivo>, lee la salida de
+   `aapt2 dump badging` y exige un targetSdkVersion mínimo y que no se
+   declaren permisos prohibidos (por ejemplo AD_ID en apps para niños).
+
+Uso:
+    check_android_package.py app-release.apk [--badging badging.txt]
+        [--min-target-sdk 36] [--forbid-permission android.permission.X]...
+        [--allow-permission ...]...
+
+Termina con código 1 si algo falla y escribe un informe legible.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import struct
+import sys
+import zipfile
+
+PAGE = 16384
+PT_LOAD = 1
+ABIS_64 = ("arm64-v8a", "x86_64")
+
+
+def elf_load_alignments(data: bytes) -> list[int]:
+    """Alineaciones (p_align) de los segmentos PT_LOAD de un ELF."""
+    if data[:4] != b"\x7fELF":
+        raise ValueError("no es un ELF")
+    ei_class = data[4]
+    endian = "<" if data[5] == 1 else ">"
+    if ei_class == 2:  # ELF64
+        e_phoff = struct.unpack_from(endian + "Q", data, 0x20)[0]
+        e_phentsize, e_phnum = struct.unpack_from(endian + "HH", data, 0x36)
+        out = []
+        for i in range(e_phnum):
+            off = e_phoff + i * e_phentsize
+            p_type = struct.unpack_from(endian + "I", data, off)[0]
+            if p_type == PT_LOAD:
+                p_align = struct.unpack_from(endian + "Q", data, off + 0x30)[0]
+                out.append(p_align)
+        return out
+    if ei_class == 1:  # ELF32
+        e_phoff = struct.unpack_from(endian + "I", data, 0x1C)[0]
+        e_phentsize, e_phnum = struct.unpack_from(endian + "HH", data, 0x2A)
+        out = []
+        for i in range(e_phnum):
+            off = e_phoff + i * e_phentsize
+            p_type = struct.unpack_from(endian + "I", data, off)[0]
+            if p_type == PT_LOAD:
+                p_align = struct.unpack_from(endian + "I", data, off + 0x1C)[0]
+                out.append(p_align)
+        return out
+    raise ValueError(f"clase ELF desconocida {ei_class}")
+
+
+def local_header_data_offset(zf: zipfile.ZipFile, info: zipfile.ZipInfo) -> int:
+    """Desplazamiento real de los datos de una entrada dentro del ZIP."""
+    fp = zf.fp
+    assert fp is not None
+    fp.seek(info.header_offset)
+    header = fp.read(30)
+    if header[:4] != b"PK\x03\x04":
+        raise ValueError(f"cabecera local inválida en {info.filename}")
+    name_len, extra_len = struct.unpack_from("<HH", header, 26)
+    return info.header_offset + 30 + name_len + extra_len
+
+
+def check_archive(path: str) -> tuple[list[str], list[str]]:
+    problems: list[str] = []
+    report: list[str] = []
+    is_aab = path.endswith(".aab")
+    with zipfile.ZipFile(path) as zf:
+        libs = [i for i in zf.infolist() if i.filename.endswith(".so") and "/lib/" in "/" + i.filename]
+        if not libs:
+            report.append("Sin bibliotecas nativas.")
+        for info in libs:
+            parts = info.filename.split("/")
+            abi = parts[-2] if len(parts) >= 2 else "?"
+            data = zf.read(info)
+            try:
+                aligns = elf_load_alignments(data)
+            except ValueError as e:
+                problems.append(f"{info.filename}: {e}")
+                continue
+            worst = min(aligns) if aligns else 0
+            ok_elf = abi not in ABIS_64 or worst >= PAGE
+            line = f"{info.filename}: PT_LOAD min 2**{worst.bit_length() - 1 if worst else 0}"
+            if not is_aab and info.compress_type == zipfile.ZIP_STORED:
+                offset = local_header_data_offset(zf, info)
+                zip_ok = abi not in ABIS_64 or offset % PAGE == 0
+                line += f", sin comprimir, desplazamiento {offset} ({'alineado' if zip_ok else 'NO alineado'} a 16 KB)"
+                if not zip_ok:
+                    problems.append(f"{info.filename}: datos sin comprimir no alineados a 16 KB (desplazamiento {offset})")
+            elif not is_aab:
+                line += ", comprimida (se extrae al instalar)"
+            report.append(line + ("" if ok_elf else "  <-- NO cumple 16 KB"))
+            if not ok_elf:
+                problems.append(f"{info.filename}: segmentos PT_LOAD alineados a {worst} bytes (< 16384)")
+    return problems, report
+
+
+def check_badging(path: str, min_target: int | None, forbid: list[str], allow: list[str] | None) -> tuple[list[str], list[str]]:
+    problems: list[str] = []
+    report: list[str] = []
+    text = open(path, encoding="utf-8", errors="replace").read()
+    pkg = re.search(r"package: name='([^']+)' versionCode='(\d+)' versionName='([^']*)'", text)
+    if pkg:
+        report.append(f"Paquete {pkg.group(1)}, versionCode {pkg.group(2)}, versionName {pkg.group(3)}")
+    target = re.search(r"targetSdkVersion:'(\d+)'", text)
+    min_sdk = re.search(r"(?:minSdkVersion|sdkVersion):'(\d+)'", text)
+    if min_sdk:
+        report.append(f"minSdk {min_sdk.group(1)}")
+    if target:
+        report.append(f"targetSdk {target.group(1)}")
+        if min_target is not None and int(target.group(1)) < min_target:
+            problems.append(f"targetSdkVersion {target.group(1)} < {min_target} (requisito de Google Play)")
+    elif min_target is not None:
+        problems.append("no se encontró targetSdkVersion en el badging")
+    perms = sorted(set(re.findall(r"uses-permission: name='([^']+)'", text)))
+    report.append("Permisos: " + (", ".join(perms) if perms else "ninguno"))
+    for p in forbid:
+        if p in perms:
+            problems.append(f"permiso prohibido presente: {p}")
+    if allow is not None:
+        extra = [p for p in perms if p not in allow and not p.endswith(".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")]
+        if extra:
+            problems.append("permisos no previstos: " + ", ".join(extra))
+    return problems, report
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("package", help="APK o AAB")
+    ap.add_argument("--badging", help="salida de `aapt2 dump badging` del APK")
+    ap.add_argument("--min-target-sdk", type=int)
+    ap.add_argument("--forbid-permission", action="append", default=[])
+    ap.add_argument("--allow-permission", action="append", default=None, help="si se da, todo permiso fuera de la lista falla")
+    ap.add_argument("--config", help="JSON con min_target_sdk, forbid y allow por app (tools/store/android.json)")
+    ap.add_argument("--app", help="app dentro del JSON de --config")
+    args = ap.parse_args()
+    if args.config:
+        conf = json.load(open(args.config, encoding="utf-8"))
+        common = conf.get("*", {})
+        app = conf.get(args.app or "", {})
+        if args.min_target_sdk is None:
+            args.min_target_sdk = app.get("min_target_sdk", common.get("min_target_sdk"))
+        args.forbid_permission += common.get("forbid", []) + app.get("forbid", [])
+        if args.allow_permission is None and "allow" in app:
+            args.allow_permission = app["allow"]
+
+    problems, report = check_archive(args.package)
+    if args.badging:
+        p2, r2 = check_badging(args.badging, args.min_target_sdk, args.forbid_permission, args.allow_permission)
+        problems += p2
+        report = r2 + report
+    print(f"== {args.package}")
+    for line in report:
+        print("  " + line)
+    if problems:
+        print("PROBLEMAS:")
+        for p in problems:
+            print("  - " + p)
+        return 1
+    print("OK: cumple 16 KB" + (" y los requisitos del badging" if args.badging else ""))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

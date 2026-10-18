@@ -1,4 +1,8 @@
+import 'dart:async';
+import 'dart:ui' show FlutterView;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app.dart';
 import 'audio/audio_engine.dart';
@@ -27,6 +31,20 @@ Future<void> main() async {
     ..toleranceCents = settings.toleranceCents
     ..damping = settings.damping;
   runApp(ClaveApp(services: Services(settings: settings, state: state, store: store, engine: engine, metronome: metronome, tuner: tuner)));
+  WidgetsBinding.instance.addPostFrameCallback((_) => lockPhonePortrait());
   // El motor arranca después del primer cuadro para no retrasar la pantalla.
   Future<void>.microtask(engine.init);
+}
+
+/// Los teléfonos van en vertical; las tabletas (lado corto de 600 dp o más)
+/// giran libremente. En iPhone lo mismo lo fija el Info.plist.
+void lockPhonePortrait() {
+  final FlutterView? view = WidgetsBinding.instance.platformDispatcher.implicitView;
+  if (view == null || view.devicePixelRatio <= 0) {
+    return;
+  }
+  final double shortest = view.physicalSize.shortestSide / view.devicePixelRatio;
+  if (shortest > 0 && shortest < 600) {
+    unawaited(SystemChrome.setPreferredOrientations(<DeviceOrientation>[DeviceOrientation.portraitUp]));
+  }
 }

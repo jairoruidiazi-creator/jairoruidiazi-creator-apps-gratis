@@ -17,6 +17,9 @@ class AppSettings extends ChangeNotifier {
   int timerSeconds = 0;
   bool redFilter = false;
   bool geocoding = true;
+
+  /// Fondo del mapa con teselas de OpenStreetMap (necesita internet).
+  bool mapTiles = true;
   double declination = 0;
   bool autoDeclination = true;
 
@@ -48,6 +51,7 @@ class AppSettings extends ChangeNotifier {
     timerSeconds = p.getInt('timerSeconds') ?? 0;
     redFilter = p.getBool('redFilter') ?? false;
     geocoding = p.getBool('geocoding') ?? true;
+    mapTiles = p.getBool('mapTiles') ?? true;
     declination = p.getDouble('declination') ?? 0;
     autoDeclination = p.getBool('autoDeclination') ?? true;
     lastAutoDeclination = p.getDouble('lastAutoDeclination') ?? 0;
@@ -77,6 +81,7 @@ class AppSettings extends ChangeNotifier {
     await p.setInt('timerSeconds', timerSeconds);
     await p.setBool('redFilter', redFilter);
     await p.setBool('geocoding', geocoding);
+    await p.setBool('mapTiles', mapTiles);
     await p.setDouble('declination', declination);
     await p.setBool('autoDeclination', autoDeclination);
     await p.setDouble('lastAutoDeclination', lastAutoDeclination);

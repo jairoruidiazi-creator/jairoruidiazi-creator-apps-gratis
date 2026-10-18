@@ -1,7 +1,7 @@
 name: pilas
 description: "Pilas: juegos didácticos gratuitos, sin anuncios y sin cuenta, para niños de 3 a 11 años."
 publish_to: "none"
-version: 0.1.0+1
+version: 1.0.0+1
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
