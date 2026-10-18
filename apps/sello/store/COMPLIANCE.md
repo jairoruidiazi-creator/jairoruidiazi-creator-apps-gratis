@@ -57,7 +57,7 @@ Las fotos, proyectos y notas no salen del teléfono salvo que el usuario los com
 
 El permiso de micrófono que declara el complemento de cámara se elimina del manifiesto (`tools:node="remove"`) y la CI verifica que no aparezca.
 
-**Funciones de hardware:** Sello es una cámara y Google Play solo la ofrece a equipos con cámara y ubicación: el APK exige `android.hardware.camera.any` (lo declara CameraX) y `android.hardware.location` (implícito en el permiso de ubicación), como muestra el badging de la CI. Lo demás se declara con `android:required="false"` para no excluir equipos por eso: cámara trasera, enfoque automático, brújula y GPS. Sin brújula la foto sale sin rumbo y sin GPS la posición se fija a mano en el mapa.
+**Funciones de hardware:** Sello es una cámara y Google Play solo la ofrece a equipos con cámara y ubicación: el APK exige `android.hardware.camera.any` (lo declara CameraX) y `android.hardware.location` (implícito en el permiso de ubicación), como muestra el badging de la CI. Lo demás se declara con `android:required="false"` para no excluir equipos por eso: cámara trasera, enfoque automático, brújula y GPS. Sin brújula la foto sale sin rumbo y sin GPS la posición se escribe a mano (coordenadas) en la hoja del GPS de la cámara, con el rótulo "posición manual".
 
 ## App Store Connect
 

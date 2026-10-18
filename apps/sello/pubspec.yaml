@@ -13,6 +13,9 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   camera: ^0.11.0
+  # Interfaz del complemento de cámara: errores de la cámara en marcha
+  # (onCameraError) y la cámara simulada de las pruebas.
+  camera_platform_interface: ^2.10.0
   # 14.1: geolocator_platform_interface 4.4 (Position.hasAltitude y compañía) y
   # geolocator_linux 0.2.6, que convive con share_plus 13 (win32 6 y package_info_plus 10).
   geolocator: ^14.1.0
@@ -40,8 +43,6 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.1
-  # Interfaz del complemento de cámara, para las pruebas con una cámara simulada.
-  camera_platform_interface: ^2.10.0
 
 flutter:
   uses-material-design: true

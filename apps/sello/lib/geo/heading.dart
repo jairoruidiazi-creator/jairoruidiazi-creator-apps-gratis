@@ -238,15 +238,19 @@ class HeadingService extends ChangeNotifier {
     }
   }
 
+  /// Detiene los sensores. Se toman las suscripciones de este momento antes
+  /// de esperar nada: si [start] vuelve a entrar mientras se cancelan (salir
+  /// y volver enseguida a la cámara), las suscripciones nuevas no se tocan.
   Future<void> stop() async {
     _running = false;
     _lastKey = null;
-    await _accSub?.cancel();
-    await _magSub?.cancel();
-    await _sysSub?.cancel();
+    final List<StreamSubscription<Object?>?> old = <StreamSubscription<Object?>?>[_accSub, _magSub, _sysSub];
     _accSub = null;
     _magSub = null;
     _sysSub = null;
+    for (final StreamSubscription<Object?>? sub in old) {
+      await sub?.cancel();
+    }
   }
 
   List<double> _smooth(List<double>? prev, List<double> v) {

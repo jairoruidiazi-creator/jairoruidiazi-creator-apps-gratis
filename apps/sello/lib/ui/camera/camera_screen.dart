@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
+import 'package:camera_platform_interface/camera_platform_interface.dart' show CameraErrorEvent, CameraPlatform;
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,7 @@ import '../../stamp/stamp_painter.dart';
 import '../gallery/gallery_screen.dart';
 import '../gallery/photo_detail_screen.dart';
 import '../settings/settings_screen.dart';
+import 'camera_errors.dart';
 import 'gps_sheet.dart';
 import 'photo_data_sheet.dart';
 
@@ -49,6 +51,21 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
 
   /// Error de la cámara ya abierta (otra app la tomó, el sistema la cerró…).
   String? _runtimeError;
+  StreamSubscription<CameraErrorEvent>? _errorSub;
+
+  /// Disparo en curso (nunca falla): liberar la cámara lo espera para no
+  /// perder la foto.
+  Future<void>? _shot;
+
+  /// Liberación en curso: abrir otra vez la cámara la espera.
+  Future<void>? _releasing;
+
+  /// Exposición pedida y la última aplicada: se aplica de a una petición y
+  /// como mucho cada [_exposureInterval] (CameraX cancela la anterior si
+  /// llega otra antes de terminar).
+  double _exposureApplied = 0;
+  bool _exposureBusy = false;
+  static const Duration _exposureInterval = Duration(milliseconds: 150);
   Future<void>? _initFuture;
   String? _activeResolution;
   double _zoom = 1;
@@ -69,6 +86,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   bool _started = false;
   bool _appResumed = true;
   bool _wakelockOn = false;
+  bool _disposing = false;
 
   /// Orientación de la interfaz (vertical en teléfonos) y giro que se está
   /// mostrando para el sello y los íconos.
@@ -103,7 +121,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   }
 
   void _refresh() {
-    if (mounted) {
+    if (mounted && !_disposing) {
       setState(() {});
     }
   }
@@ -218,6 +236,8 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
 
   Future<void> _openCamera() async {
     final Services s = _services!;
+    // La cámara anterior puede estar terminando un disparo antes de cerrarse.
+    await (_releasing ?? Future<void>.value());
     if (_controller != null) {
       return;
     }
@@ -244,9 +264,14 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       } catch (_) {}
       _zoom = _minZoom;
       _exposure = 0;
-      try {
-        await c.setFlashMode(_flash);
-      } catch (_) {}
+      _exposureApplied = 0;
+      // La cámara frontal no tiene flash: no se le pide (en Android, la
+      // linterna en una cámara sin flash es un error del complemento).
+      if (c.description.lensDirection != CameraLensDirection.front) {
+        try {
+          await c.setFlashMode(_flash);
+        } catch (_) {}
+      }
       // En iPhone la orientación de captura también gira el video de la
       // vista previa: se fija en vertical, como la interfaz, y cada foto se
       // toma girada según el teléfono (ver _takePicture).
@@ -262,7 +287,12 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       }
       _controller = c;
       _activeResolution = resolution;
-      c.addListener(_onControllerValue);
+      _errorSub = CameraPlatform.instance.onCameraError(c.cameraId).listen((CameraErrorEvent e) => _onCameraError(c, e.description));
+      // Un error que llegó mientras se abría.
+      final String? early = c.value.errorDescription;
+      if (early != null) {
+        _onCameraError(c, early);
+      }
     } on CameraException catch (e) {
       _error = e.code.startsWith('CameraAccess') || e.code == 'cameraPermission' ? 'denied' : (e.description ?? e.code);
     } catch (e) {
@@ -272,36 +302,55 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     }
   }
 
-  Future<void> _releaseCamera() async {
+  /// Libera la cámara. Si hay un disparo en curso, se espera a que termine
+  /// (la foto no se pierde) y después se cierra; la siguiente apertura espera
+  /// a que esta termine.
+  Future<void> _releaseCamera() {
     final CameraController? c = _controller;
+    if (c == null) {
+      return _releasing ?? Future<void>.value();
+    }
     _controller = null;
     _refresh();
-    c?.removeListener(_onControllerValue);
-    await c?.dispose();
+    final StreamSubscription<CameraErrorEvent>? sub = _errorSub;
+    _errorSub = null;
+    final Future<void>? shot = _shot;
+    late final Future<void> done;
+    done = () async {
+      try {
+        await sub?.cancel();
+        if (shot != null) {
+          await shot;
+        }
+        await c.dispose();
+      } catch (e) {
+        debugPrint('Al cerrar la cámara: $e');
+      } finally {
+        if (identical(_releasing, done)) {
+          _releasing = null;
+        }
+      }
+    }();
+    _releasing = done;
+    return done;
   }
 
-  /// Un error de la cámara ya abierta (otra app la tomó en pantalla
-  /// dividida, el sistema la cerró, se interrumpió la sesión…) dejaba la
-  /// vista congelada y el obturador sin responder. Ahora se libera y se
-  /// ofrece reintentar.
-  void _onControllerValue() {
-    final CameraController? c = _controller;
-    if (c == null || !mounted) {
+  /// Error de la cámara en marcha. Solo los errores de estado (otra app tomó
+  /// la cámara, el sistema la cerró, se cayó la sesión de iOS) la cierran y
+  /// ofrecen reintentar; los avisos de operaciones canceladas (exposición,
+  /// enfoque, linterna, zoom) no son fallos y se ignoran.
+  void _onCameraError(CameraController c, String description) {
+    if (!isFatalCameraError(description)) {
+      debugPrint('Aviso de la cámara (se ignora): $description');
       return;
     }
-    final String? err = c.value.errorDescription;
-    if (err != null && _runtimeError == null) {
-      _runtimeError = err;
-      _error = 'runtime';
-      _cancelCountdown();
-      // Fuera de este aviso: no se puede liberar un controlador mientras
-      // está avisando a sus oyentes.
-      scheduleMicrotask(() {
-        if (identical(_controller, c)) {
-          unawaited(_releaseCamera());
-        }
-      });
+    if (!mounted || !identical(_controller, c) || _runtimeError != null) {
+      return;
     }
+    _runtimeError = description;
+    _error = 'runtime';
+    _cancelCountdown();
+    unawaited(_releaseCamera());
   }
 
   Future<void> _restartCamera() async {
@@ -335,11 +384,18 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     // Si la cámara se está abriendo, se espera antes de cambiarla.
     await (_initFuture ?? Future<void>.value());
     _cameraIndex = (_cameraIndex + 1) % _cameras.length;
+    // La linterna no pasa de una cámara a otra.
+    if (_flash == FlashMode.torch) {
+      _flash = FlashMode.off;
+    }
     await _releaseCamera();
     await _initCamera();
   }
 
   Future<void> _cycleFlash() async {
+    if (_front) {
+      return;
+    }
     const List<FlashMode> modes = <FlashMode>[FlashMode.off, FlashMode.auto, FlashMode.always, FlashMode.torch];
     _flash = modes[(modes.indexOf(_flash) + 1) % modes.length];
     try {
@@ -356,12 +412,36 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     _refresh();
   }
 
-  Future<void> _setExposure(double v) async {
+  /// El deslizador cambia el valor en pantalla al instante; a la cámara le
+  /// llega una petición a la vez, como mucho cada 150 ms, y siempre la
+  /// última (también al soltar el deslizador).
+  void _setExposure(double v) {
     _exposure = v.clamp(_minExposure, _maxExposure);
-    try {
-      await _controller?.setExposureOffset(_exposure);
-    } catch (_) {}
     _refresh();
+    unawaited(_applyExposure());
+  }
+
+  Future<void> _applyExposure() async {
+    if (_exposureBusy) {
+      return;
+    }
+    _exposureBusy = true;
+    try {
+      while (mounted && _exposure != _exposureApplied) {
+        final CameraController? c = _controller;
+        if (c == null) {
+          break;
+        }
+        final double v = _exposure;
+        try {
+          await c.setExposureOffset(v);
+        } catch (_) {}
+        _exposureApplied = v;
+        await Future<void>.delayed(_exposureInterval);
+      }
+    } finally {
+      _exposureBusy = false;
+    }
   }
 
   Future<void> _focusAt(TapDownDetails d, BoxConstraints box) async {
@@ -475,8 +555,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       final DateTime now = clock.now();
       final DeviceOrientation target = s.heading.physicalOrientation;
       XFile file;
+      final Future<XFile> taking = _takePicture(c, target);
+      _shot = taking.then<void>((XFile _) {}, onError: (Object _) {});
       try {
-        file = await _takePicture(c, target);
+        file = await taking;
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'No se pudo tomar la foto', 'Could not take the photo')}: $e')));
@@ -503,6 +585,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       }
     } finally {
       _capturing = false;
+      _shot = null;
     }
   }
 
@@ -512,10 +595,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _disposing = true;
     _countdownTimer?.cancel();
     _focusTimer?.cancel();
-    _controller?.removeListener(_onControllerValue);
-    unawaited(_controller?.dispose());
+    unawaited(_releaseCamera());
     final Services? s = _services;
     if (widget.enabled && _wakelockOn) {
       s?.keepAwake.set(false).catchError((Object e) {});
@@ -753,7 +836,8 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               child: Row(
                 children: <Widget>[
-                  _Round(icon: _flashIcon(), turns: _iconTurns, onTap: _cycleFlash, label: '${t(context, 'Flash', 'Flash')}: ${_flashName(context)}'),
+                  // La cámara frontal no tiene flash ni linterna.
+                  if (!_front) _Round(icon: _flashIcon(), turns: _iconTurns, onTap: _cycleFlash, label: '${t(context, 'Flash', 'Flash')}: ${_flashName(context)}'),
                   _Round(icon: st.grid ? Icons.grid_on : Icons.grid_off, turns: _iconTurns, onTap: () => _toggle(() => st.grid = !st.grid), label: t(context, 'Rejilla', 'Grid'), toggled: st.grid),
                   _Round(icon: Icons.straighten, turns: _iconTurns, onTap: () => _toggle(() => st.level = !st.level), label: t(context, 'Nivel', 'Level'), toggled: st.level),
                   _Round(
@@ -785,6 +869,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                         max: _maxExposure <= _minExposure ? _minExposure + 1 : _maxExposure,
                         value: _exposure.clamp(_minExposure, _maxExposure <= _minExposure ? _minExposure + 1 : _maxExposure),
                         onChanged: _setExposure,
+                        onChangeEnd: _setExposure,
                         label: _exposure.toStringAsFixed(1),
                         semanticFormatterCallback: (double v) => '${t(context, 'Exposición', 'Exposure')} ${v.toStringAsFixed(1)}',
                       ),

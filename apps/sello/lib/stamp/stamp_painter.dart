@@ -119,11 +119,13 @@ class StampPainter extends CustomPainter {
     }
     final bool compass = t.items.contains(StampItem.compass) && d.heading != null;
     final double compassSize = compass ? unit * 11 : 0;
+    // Debajo del anillo va el número de grados (ver _drawCompass).
+    final double compassBoxH = compass ? compassSize + unit * kCompassNumberUnits : 0;
     Rect? block;
     Offset? compassCenter;
     if (lines.isNotEmpty || compass) {
       final double blockW = bar ? size.width : math.min(size.width - margin * 2, textWidth + pad * 2 + (compass ? compassSize + pad : 0));
-      final double blockH = math.max(textHeight + pad * 2, compass ? compassSize + pad * 2 : 0);
+      final double blockH = math.max(textHeight + pad * 2, compass ? compassBoxH + pad * 2 : 0);
       final double left;
       final double top;
       switch (t.position) {
@@ -222,6 +224,7 @@ class StampPainter extends CustomPainter {
   }
 
   static void _drawCompass(Canvas canvas, Offset c, double r, double heading, Color color, double unit) {
+    final CompassGeometry g = CompassGeometry(c, r, heading);
     final Paint ring = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
@@ -232,28 +235,58 @@ class StampPainter extends CustomPainter {
       final Offset p1 = c + Offset(math.cos(a), math.sin(a)) * (r * 0.84);
       final Offset p2 = c + Offset(math.cos(a), math.sin(a)) * r;
       canvas.drawLine(p1, p2, ring);
-      if (i == 0) {
-        final ui.ParagraphBuilder pb = ui.ParagraphBuilder(ui.ParagraphStyle(fontSize: r * 0.42, fontWeight: FontWeight.w800, textAlign: TextAlign.center))
-          ..pushStyle(ui.TextStyle(fontFamily: kStampFont, color: color, fontWeight: FontWeight.w800))
-          ..addText('N');
-        final ui.Paragraph p = pb.build()..layout(ui.ParagraphConstraints(width: r));
-        final Offset pos = c + Offset(math.cos(a), math.sin(a)) * (r * 0.6);
-        canvas.drawParagraph(p, pos - Offset(r / 2, p.height / 2));
-      }
     }
-    // Flecha fija hacia arriba: hacia dónde apunta la cámara.
+    final ui.ParagraphBuilder nb = ui.ParagraphBuilder(ui.ParagraphStyle(fontSize: r * CompassGeometry.nFont, fontWeight: FontWeight.w800, textAlign: TextAlign.center))
+      ..pushStyle(ui.TextStyle(fontFamily: kStampFont, color: color, fontWeight: FontWeight.w800))
+      ..addText('N');
+    final ui.Paragraph n = nb.build()..layout(ui.ParagraphConstraints(width: r));
+    canvas.drawParagraph(n, g.north - Offset(r / 2, n.height / 2));
+    // Flecha fija hacia arriba (hacia dónde apunta la cámara), corta y en el
+    // centro: la "N" gira por la corona de afuera y nunca la pisa.
     final Path arrow = Path()
-      ..moveTo(c.dx, c.dy - r * 0.9)
-      ..lineTo(c.dx - r * 0.18, c.dy - r * 0.45)
-      ..lineTo(c.dx + r * 0.18, c.dy - r * 0.45)
+      ..moveTo(c.dx, c.dy - r * CompassGeometry.arrowTip)
+      ..lineTo(c.dx - r * 0.2, c.dy + r * 0.12)
+      ..lineTo(c.dx + r * 0.2, c.dy + r * 0.12)
       ..close();
     canvas.drawPath(arrow, Paint()..color = const Color(0xFFFF7043));
+    // Los grados van debajo del anillo, fuera del recorrido de la "N".
     final ui.ParagraphBuilder pb = ui.ParagraphBuilder(ui.ParagraphStyle(fontSize: r * 0.38, fontWeight: FontWeight.w700, textAlign: TextAlign.center))
       ..pushStyle(ui.TextStyle(fontFamily: kStampFont, color: color, fontWeight: FontWeight.w700))
       ..addText('${heading.toStringAsFixed(0)}°');
-    final ui.Paragraph p = pb.build()..layout(ui.ParagraphConstraints(width: r * 2));
-    canvas.drawParagraph(p, Offset(c.dx - r, c.dy - p.height / 2 + r * 0.15));
+    final ui.Paragraph p = pb.build()..layout(ui.ParagraphConstraints(width: r * 3));
+    canvas.drawParagraph(p, Offset(c.dx - r * 1.5, g.numberTop));
   }
+}
+
+/// Alto, en unidades del sello, que se reserva bajo la rosa para los grados.
+const double kCompassNumberUnits = 3;
+
+/// Dónde van las partes de la rosa de los vientos de centro [c] y radio [r]:
+/// la "N" gira por una corona (entre [nInner] y [nOuter] veces el radio), la
+/// flecha queda dentro de [arrowTip] veces el radio y los grados, debajo del
+/// anillo. Así ninguna se monta sobre otra con ningún rumbo.
+class CompassGeometry {
+  CompassGeometry(this.c, this.r, double heading)
+      : north = c + Offset(math.cos(-math.pi / 2 - heading * math.pi / 180), math.sin(-math.pi / 2 - heading * math.pi / 180)) * (r * nRadius),
+        numberTop = c.dy + r * 1.08;
+
+  final Offset c;
+  final double r;
+
+  /// Centro de la "N".
+  final Offset north;
+
+  /// Borde de arriba del número de grados.
+  final double numberTop;
+
+  static const double nRadius = 0.64;
+  static const double nFont = 0.36;
+
+  /// La "N" (letra de nFont·r de cuerpo) ocupa, como mucho, media letra a
+  /// cada lado de su centro.
+  static const double nInner = nRadius - nFont / 2;
+  static const double nOuter = nRadius + nFont / 2;
+  static const double arrowTip = 0.42;
 }
 
 /// Capa del sello lista para componer: un PNG con transparencia que cubre

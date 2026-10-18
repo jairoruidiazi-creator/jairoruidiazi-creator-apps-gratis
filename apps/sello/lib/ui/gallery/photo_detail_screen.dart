@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -414,6 +415,29 @@ class _Photo extends StatefulWidget {
 class _PhotoState extends State<_Photo> {
   Future<File?>? _file;
 
+  /// Al acercar más de 2,5× se decodifica con más detalle (hasta
+  /// [kDetailZoomBox]); antes, al doble de lo que ocupa en pantalla.
+  final TransformationController _zoom = TransformationController();
+  bool _zoomed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _zoom.addListener(_onZoom);
+  }
+
+  void _onZoom() {
+    if (!_zoomed && _zoom.value.getMaxScaleOnAxis() > 2.5) {
+      setState(() => _zoomed = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _zoom.dispose();
+    super.dispose();
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -441,17 +465,25 @@ class _PhotoState extends State<_Photo> {
           fit: StackFit.expand,
           children: <Widget>[
             if (f != null)
-              InteractiveViewer(
-                maxScale: 8,
-                child: Semantics(
-                  image: true,
-                  label: AppScope.of(context).settings.spanish ? 'Foto' : 'Photo',
-                  child: Image.file(
-                    f,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => Center(child: Text(AppScope.of(context).settings.spanish ? 'No se encontró el archivo' : 'File not found', style: const TextStyle(color: Colors.white70))),
-                  ),
-                ),
+              LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints box) {
+                  final double dpr = MediaQuery.devicePixelRatioOf(context);
+                  final double side = math.max(box.maxWidth.isFinite ? box.maxWidth : 0, box.maxHeight.isFinite ? box.maxHeight : 0) * dpr * 2;
+                  return InteractiveViewer(
+                    maxScale: 8,
+                    transformationController: _zoom,
+                    child: Semantics(
+                      image: true,
+                      label: AppScope.of(context).settings.spanish ? 'Foto' : 'Photo',
+                      child: Image(
+                        image: detailImage(f, _zoomed ? kDetailZoomBox : detailBoxFor(side)),
+                        fit: BoxFit.contain,
+                        gaplessPlayback: true,
+                        errorBuilder: (_, __, ___) => Center(child: Text(AppScope.of(context).settings.spanish ? 'No se encontró el archivo' : 'File not found', style: const TextStyle(color: Colors.white70))),
+                      ),
+                    ),
+                  );
+                },
               )
             else if (snap.connectionState == ConnectionState.done)
               Center(child: Text(AppScope.of(context).settings.spanish ? 'No se encontró el archivo' : 'File not found', style: const TextStyle(color: Colors.white70))),

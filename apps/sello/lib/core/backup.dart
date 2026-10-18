@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
@@ -74,9 +75,17 @@ class Backup {
 
   /// Restaura la copia de [zipPath]: copia las fotos y logos que no estén y
   /// agrega los proyectos, plantillas y fichas que falten (por id).
-  static Future<RestoreSummary> restore(String zipPath, AppState state) async {
+  ///
+  /// Se descomprime en un isolate que avisa el avance a [onProgress]
+  /// (archivos revisados de los que trae la copia). Si [cancel] se activa,
+  /// el isolate se detiene entre un archivo y otro, borra los que alcanzó a
+  /// copiar y no se agrega nada al índice: lanza [ExportCancelled].
+  static Future<RestoreSummary> restore(String zipPath, AppState state, {void Function(int done, int total)? onProgress, ExportCancel? cancel}) async {
     final String root = (await state.store.root()).path;
-    final _Extracted ex = await Isolate.run(() => _extract(zipPath, root));
+    final _Extracted ex = await _extractInIsolate(zipPath, root, onProgress: onProgress, cancel: cancel);
+    if (ex.cancelled) {
+      throw const ExportCancelled();
+    }
     if (!ex.valid) {
       throw const NotABackup();
     }
@@ -146,9 +155,10 @@ Object? _decode(String text) {
 }
 
 class _Extracted {
-  const _Extracted({required this.valid, this.projectsJson, this.photosJson, this.files = 0});
+  const _Extracted({required this.valid, this.projectsJson, this.photosJson, this.files = 0, this.cancelled = false});
 
   final bool valid;
+  final bool cancelled;
   final String? projectsJson;
   final String? photosJson;
   final int files;
@@ -162,7 +172,75 @@ bool _safeName(String name) {
   return name.startsWith('photos/') || name.startsWith('logos/');
 }
 
-_Extracted _extract(String zipPath, String root) {
+/// Marca de cancelación: el isolate la busca entre un archivo y otro (no
+/// comparte memoria con la app).
+String _cancelMark(String root) => '$root${Platform.pathSeparator}exports${Platform.pathSeparator}.cancelar-restaurar';
+
+class _ExtractRequest {
+  const _ExtractRequest(this.port, this.zipPath, this.root);
+
+  final SendPort port;
+  final String zipPath;
+  final String root;
+}
+
+Future<_Extracted> _extractInIsolate(String zipPath, String root, {void Function(int done, int total)? onProgress, ExportCancel? cancel}) async {
+  final File mark = File(_cancelMark(root));
+  if (mark.existsSync()) {
+    mark.deleteSync();
+  }
+  void markCancelled() {
+    try {
+      mark.parent.createSync(recursive: true);
+      mark.writeAsStringSync('1');
+    } catch (_) {}
+  }
+
+  cancel?.whenCancelled(markCancelled);
+  if (cancel?.cancelled ?? false) {
+    markCancelled();
+  }
+  final ReceivePort port = ReceivePort();
+  final Completer<_Extracted> done = Completer<_Extracted>();
+  final StreamSubscription<dynamic> sub = port.listen((dynamic msg) {
+    if (msg is _Extracted) {
+      if (!done.isCompleted) {
+        done.complete(msg);
+      }
+    } else if (msg is List && msg.length == 3 && msg[0] == 'progress') {
+      onProgress?.call(msg[1] as int, msg[2] as int);
+    } else if (msg is List) {
+      // Error sin atrapar del isolate: [error, pila].
+      if (!done.isCompleted) {
+        done.completeError(FileSystemException('${msg.isNotEmpty ? msg.first : msg}'));
+      }
+    } else if (msg == null) {
+      // El isolate terminó sin responder.
+      if (!done.isCompleted) {
+        done.completeError(const FileSystemException('La restauración se detuvo'));
+      }
+    }
+  });
+  try {
+    await Isolate.spawn<_ExtractRequest>(_extractMain, _ExtractRequest(port.sendPort, zipPath, root), onError: port.sendPort, onExit: port.sendPort);
+    return await done.future;
+  } finally {
+    cancel?.whenCancelled(null);
+    await sub.cancel();
+    port.close();
+    try {
+      if (mark.existsSync()) {
+        mark.deleteSync();
+      }
+    } catch (_) {}
+  }
+}
+
+void _extractMain(_ExtractRequest r) {
+  r.port.send(_extract(r.zipPath, r.root, progress: (int d, int t) => r.port.send(<Object>['progress', d, t]), cancelled: () => File(_cancelMark(r.root)).existsSync()));
+}
+
+_Extracted _extract(String zipPath, String root, {void Function(int done, int total)? progress, bool Function()? cancelled}) {
   final InputFileStream input = InputFileStream(zipPath);
   try {
     final Archive archive = ZipDecoder().decodeStream(input);
@@ -177,9 +255,21 @@ _Extracted _extract(String zipPath, String root) {
     String? projects;
     String? photos;
     int files = 0;
-    for (final ArchiveFile f in archive.files) {
-      if (!f.isFile) {
-        continue;
+    final List<ArchiveFile> entries = archive.files.where((ArchiveFile f) => f.isFile).toList();
+    final List<String> created = <String>[];
+    int seen = 0;
+    for (final ArchiveFile f in entries) {
+      progress?.call(seen, entries.length);
+      seen++;
+      if (cancelled != null && cancelled()) {
+        // Lo que se alcanzó a copiar se borra: sin sus fichas, el reindexado
+        // lo "recuperaría" como fotos sueltas.
+        for (final String path in created) {
+          try {
+            File(path).deleteSync();
+          } catch (_) {}
+        }
+        return const _Extracted(valid: true, cancelled: true);
       }
       final String name = f.name.replaceAll('\\', '/');
       if (name == 'projects.json') {
@@ -203,8 +293,10 @@ _Extracted _extract(String zipPath, String root) {
       f.writeContent(out);
       out.closeSync();
       File(tmp).renameSync(dest.path);
+      created.add(dest.path);
       files++;
     }
+    progress?.call(entries.length, entries.length);
     return _Extracted(valid: true, projectsJson: projects, photosJson: photos, files: files);
   } finally {
     input.closeSync();

@@ -93,6 +93,24 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('El detalle no decodifica la foto entera; con zoom, más detalle pero con tope (M3 de la ronda 3)', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.625;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(const PhotoDetailScreen(photoId: 'a')));
+    await tester.pump();
+    await waitReal(tester, () => find.byType(InteractiveViewer).evaluate().isNotEmpty);
+    ResizeImage shown() => tester.widget<Image>(find.descendant(of: find.byType(InteractiveViewer), matching: find.byType(Image))).image as ResizeImage;
+    expect(shown().policy, ResizeImagePolicy.fit);
+    expect(shown().width, lessThanOrEqualTo(4096));
+    expect(shown().height, shown().width);
+    final InteractiveViewer viewer = tester.widget<InteractiveViewer>(find.byType(InteractiveViewer));
+    viewer.transformationController!.value = Matrix4.diagonal3Values(3, 3, 1);
+    await tester.pump();
+    expect(shown().width, kDetailZoomBox);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('Galería: compartir lo seleccionado y exportar', (WidgetTester tester) async {
     await tester.pumpWidget(app(const GalleryScreen()));
     await tester.pump();
@@ -249,17 +267,79 @@ void main() {
         ..toOpen = zip;
       await openSettings(tester, 'Restaurar una copia');
       await waitReal(tester, () => find.text('Restaurar').evaluate().isNotEmpty);
+      // Antes de copiar nada: el peso, lo que hace falta y lo que hay.
+      expect(files.copies, 0);
       expect(find.textContaining('La copia pesa'), findsOneWidget);
+      expect(find.textContaining('hacen falta unos'), findsOneWidget);
+      expect(find.textContaining('Hay 8,0 GB libres'), findsOneWidget);
       await tester.tap(find.text('Restaurar'));
       await waitReal(tester, () => services.state.photos.isNotEmpty, maxTenths: 150);
       await waitReal(tester, () => find.textContaining('Copia restaurada').evaluate().isNotEmpty);
       expect(services.state.photos.single.id, 'a');
       expect(find.textContaining('Copia restaurada: 1 fotos'), findsOneWidget);
+      // Se avisó el avance de la copia hasta el final.
+      expect(files.progress, isNotEmpty);
+      expect(files.progress.last, File(zip).lengthSync());
       final String brought = (await tester.runAsync(() => services.store.absolutePath('exports/restaurar_copia.zip')))!;
       await waitReal(tester, () => !File(brought).existsSync());
       expect(File(brought).existsSync(), isFalse);
       await tester.pumpWidget(const SizedBox.shrink());
     });
+
+    Future<String> backupWithoutPhotos(WidgetTester tester) async {
+      final String zip = '${tmp.path}/copia.zip';
+      await tester.runAsync(() async {
+        await writeZipFile(zip, await Backup.entries(services.state));
+        await services.state.deletePhotos(services.state.photos.toList());
+      });
+      return zip;
+    }
+
+    testWidgets('Restaurar sin espacio para traer la copia y agregar sus fotos: no copia nada (M5 de la ronda 3)', (WidgetTester tester) async {
+      final String zip = await backupWithoutPhotos(tester);
+      final int size = File(zip).lengthSync();
+      files
+        ..picker = true
+        // Alcanza para la copia, no para la copia y sus fotos.
+        ..free = size + kBackupSpareBytes
+        ..toOpen = zip;
+      await openSettings(tester, 'Restaurar una copia');
+      await waitReal(tester, () => find.text('Cancelar').evaluate().isNotEmpty);
+      expect(find.textContaining('No hay espacio suficiente'), findsOneWidget);
+      expect(find.text('Restaurar'), findsNothing);
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(files.copies, 0);
+      expect(services.state.photos, isEmpty);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
+    for (final bool noSpace in <bool>[false, true]) {
+      testWidgets(noSpace ? 'Si el teléfono se llena al traer la copia se dice claro y no queda nada a medias' : 'Cancelar mientras se trae la copia no deja nada a medias', (WidgetTester tester) async {
+        final String zip = await backupWithoutPhotos(tester);
+        files
+          ..picker = true
+          ..free = 8 * 1024 * 1024 * 1024
+          ..toOpen = zip;
+        if (noSpace) {
+          files.noSpaceWhileCopying = true;
+        } else {
+          files.cancelAt = 1024;
+        }
+        await openSettings(tester, 'Restaurar una copia');
+        await waitReal(tester, () => find.text('Restaurar').evaluate().isNotEmpty);
+        await tester.tap(find.text('Restaurar'));
+        final String expected = noSpace ? 'se quedó sin espacio al traer la copia' : 'Se canceló la restauración';
+        await waitReal(tester, () => find.textContaining(expected).evaluate().isNotEmpty, maxTenths: 150);
+        expect(find.textContaining(expected), findsOneWidget);
+        expect(find.textContaining('ENOSPC'), findsNothing);
+        expect(services.state.photos, isEmpty);
+        final String brought = (await tester.runAsync(() => services.store.absolutePath('exports/restaurar_copia.zip')))!;
+        expect(File(brought).existsSync(), isFalse);
+        expect(File('$brought.tmp-open').existsSync(), isFalse);
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+    }
   });
 
   testWidgets('El origen nunca es un rectángulo vacío', (WidgetTester tester) async {

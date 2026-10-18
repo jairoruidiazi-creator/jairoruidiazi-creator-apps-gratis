@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -345,6 +346,40 @@ void main() {
       await h.stop();
       h.dispose();
     });
+  });
+
+  test('Detener y volver a arrancar la brújula enseguida no la deja congelada (M2)', () async {
+    final List<StreamController<List<double>>> acc = <StreamController<List<double>>>[];
+    final List<StreamController<List<double>>> mag = <StreamController<List<double>>>[];
+    // Cancelar tarda, como en el teléfono con el hilo principal ocupado.
+    StreamController<List<double>> slow(List<StreamController<List<double>>> into) {
+      final StreamController<List<double>> c = StreamController<List<double>>(onCancel: () => Future<void>.delayed(const Duration(milliseconds: 20)));
+      into.add(c);
+      return c;
+    }
+
+    final HeadingService h = HeadingService(useSystemHeading: false, accelerometer: () => slow(acc).stream, magnetometer: () => slow(mag).stream);
+    h.start();
+    final Future<void> stopping = h.stop();
+    // Se vuelve a la cámara mientras los sensores viejos todavía se cancelan.
+    h.start();
+    await stopping;
+    expect(h.running, isTrue);
+    expect(acc, hasLength(2));
+    expect(acc.first.hasListener, isFalse);
+    expect(mag.first.hasListener, isFalse);
+    expect(acc.last.hasListener, isTrue);
+    expect(mag.last.hasListener, isTrue);
+    // Las lecturas nuevas siguen llegando.
+    acc.last.add(<double>[0, 9.81, 0]);
+    mag.last.add(<double>[0, 20, -30]);
+    await Future<void>.delayed(Duration.zero);
+    expect(h.orientation, isNotNull);
+    // Y detenerla después no deja ningún sensor encendido.
+    await h.stop();
+    expect(acc.last.hasListener, isFalse);
+    expect(mag.last.hasListener, isFalse);
+    h.dispose();
   });
 
   group('Orientación física del teléfono (B2)', () {

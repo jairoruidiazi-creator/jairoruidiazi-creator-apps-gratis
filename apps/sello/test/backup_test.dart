@@ -73,6 +73,33 @@ void main() {
     expect(reopened.photos.length, 2);
   });
 
+  test('Restaurar avisa el avance y cancelar no agrega nada (M5 de la ronda 3)', () async {
+    final AppState source = await testState(a);
+    for (final String id in <String>['f1', 'f2', 'f3']) {
+      await source.store.writeBytes('photos/general/x_$id.jpg', syntheticJpeg(32, 24));
+      await source.addPhoto(PhotoRecord(id: id, projectId: 'general', originalFile: '', stampedFile: 'photos/general/x_$id.jpg', takenAt: DateTime.utc(2026, 3, 9)));
+    }
+    final String zip = '${a.path}/copia.zip';
+    await writeZipFile(zip, await Backup.entries(source));
+
+    // Cancelada: ni fichas ni archivos (que el reindexado "recuperaría").
+    final AppState cancelled = await testState(b);
+    final ExportCancel cancel = ExportCancel()..cancel();
+    await expectLater(Backup.restore(zip, cancelled, cancel: cancel), throwsA(isA<ExportCancelled>()));
+    expect(cancelled.photos, isEmpty);
+    expect(Directory('${b.path}/sello/photos').existsSync() ? Directory('${b.path}/sello/photos').listSync(recursive: true).whereType<File>() : <File>[], isEmpty);
+    expect((await testState(b)).photos, isEmpty);
+    expect(File('${b.path}/sello/exports/.cancelar-restaurar').existsSync(), isFalse);
+
+    // Completa: el avance llega hasta el total.
+    final List<List<int>> progress = <List<int>>[];
+    final RestoreSummary r = await Backup.restore(zip, cancelled, onProgress: (int d, int t) => progress.add(<int>[d, t]));
+    expect(r.photos, 3);
+    expect(progress, isNotEmpty);
+    expect(progress.last[0], progress.last[1]);
+    expect(progress.last[1], greaterThanOrEqualTo(5));
+  });
+
   test('Un ZIP cualquiera no se toma por una copia', () async {
     final String zip = '${a.path}/otro.zip';
     await writeZipFile(zip, <ArchiveEntry>[const ArchiveEntry.bytes('hola.txt', <int>[104, 111, 108, 97])]);

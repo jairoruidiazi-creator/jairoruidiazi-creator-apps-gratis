@@ -14,6 +14,7 @@ import 'package:sello/geo/heading.dart';
 import 'package:sello/geo/location_service.dart';
 import 'package:sello/model/models.dart';
 import 'package:sello/stamp/stamp_painter.dart';
+import 'package:sello/ui/camera/camera_errors.dart';
 import 'package:sello/ui/camera/camera_screen.dart';
 import 'package:sello/ui/settings/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -312,6 +313,118 @@ void main() {
     await pumpMany(tester);
     expect(camera.created, 4);
     expect(locating(), isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpMany(tester);
+  });
+
+  testWidgets('Los avisos de CameraX no cierran la cámara: exposición, enfoque, linterna (G1)', (WidgetTester tester) async {
+    phone(tester);
+    await tester.pumpWidget(cameraApp());
+    await pumpMany(tester);
+    expect(camera.created, 1);
+    Finder startsWith(String prefix) => find.byWidgetPredicate((Widget w) => w is Semantics && (w.properties.label ?? '').startsWith(prefix));
+
+    // Exposición: arrastrar el deslizador manda pocas peticiones, de a una,
+    // y la última es la que quedó en pantalla.
+    await tester.tap(labeled('Exposición').first);
+    await pumpMany(tester, 3);
+    final Finder slider = find.byType(Slider);
+    final TestGesture drag = await tester.startGesture(tester.getCenter(slider));
+    for (int i = 0; i < 30; i++) {
+      await drag.moveBy(const Offset(5, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await drag.up();
+    await pumpMany(tester, 40);
+    expect(camera.exposureRequests.length, greaterThan(1));
+    expect(camera.exposureRequests.length, lessThan(15));
+    expect(camera.exposureMaxRunning, 1);
+    expect(camera.exposureRequests.last, tester.widget<Slider>(slider).value);
+    expect(tester.widget<Slider>(slider).value, greaterThan(0));
+
+    // Enfoque: tocar otro punto antes de que termine el primero (CameraX
+    // cancela el primero y el complemento lo avisa como error).
+    final Finder preview = labeled('Vista previa de la cámara. Toca un punto para enfocar.');
+    await tester.tapAt(tester.getCenter(preview) - const Offset(40, 40));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tapAt(tester.getCenter(preview) + const Offset(40, 40));
+    await pumpMany(tester, 40);
+
+    // Los demás avisos que no son fallos.
+    for (final String notice in kHarmlessCameraXNotices) {
+      camera.emitError(notice);
+    }
+    await pumpMany(tester);
+    expect(camera.disposed, 0);
+    expect(find.textContaining('dejó de responder'), findsNothing);
+    expect(labeled('Tomar foto'), findsOneWidget);
+
+    // Linterna y cambio a la frontal: la linterna no pasa a la frontal, que
+    // no muestra el flash.
+    for (int i = 0; i < 3; i++) {
+      await tester.tap(startsWith('Flash').first);
+      await pumpMany(tester, 2);
+    }
+    expect(camera.calls.last, 'flash:torch');
+    final int before = camera.calls.length;
+    await tester.tap(find.byTooltip('Cambiar cámara'));
+    await pumpMany(tester);
+    expect(camera.calls.sublist(before), contains('create:frontal:max'));
+    expect(camera.calls.sublist(before).where((String c) => c.startsWith('flash:')), isEmpty);
+    expect(startsWith('Flash'), findsNothing);
+    expect(camera.disposed, 1);
+    expect(find.textContaining('dejó de responder'), findsNothing);
+    // De vuelta a la trasera, la linterna sigue apagada.
+    await tester.tap(find.byTooltip('Cambiar cámara'));
+    await pumpMany(tester);
+    expect(camera.calls.where((String c) => c.startsWith('flash:')).last, 'flash:off');
+
+    // Un error real de la sesión (iPhone) sí la cierra.
+    camera.emitError('Optional(Error Domain=AVFoundationErrorDomain Code=-11819 "Cannot Complete Action")');
+    await pumpMany(tester);
+    expect(camera.disposed, 3);
+    expect(find.textContaining('dejó de responder'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpMany(tester, 30);
+  });
+
+  testWidgets('Salir de la cámara mientras dispara no pierde la foto (M1)', (WidgetTester tester) async {
+    phone(tester);
+    await tester.pumpWidget(SelloApp(services: services));
+    await pumpMany(tester);
+    // Otra pestaña durante un disparo largo: la cámara espera a que termine.
+    camera.takeGate = Completer<void>();
+    await tester.tap(labeled('Tomar foto'));
+    await pumpMany(tester, 3);
+    expect(camera.calls, contains('take'));
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Galería'));
+    await pumpMany(tester);
+    expect(camera.disposed, 0);
+    camera.takeGate!.complete();
+    await waitReal(tester, () => pipeline.stamped.length == 1);
+    await pumpMany(tester);
+    expect(camera.disposed, 1);
+    expect(services.state.photos, hasLength(1));
+    expect(find.textContaining('No se pudo tomar la foto'), findsNothing);
+
+    // Lo mismo si el sistema deja la app inactiva en pleno disparo.
+    await tester.tap(find.widgetWithText(NavigationDestination, 'Cámara'));
+    await pumpMany(tester);
+    expect(camera.created, 2);
+    camera.takeGate = Completer<void>();
+    await tester.tap(labeled('Tomar foto'));
+    await pumpMany(tester, 3);
+    lifecycle(tester, <AppLifecycleState>[AppLifecycleState.inactive]);
+    await pumpMany(tester);
+    expect(camera.disposed, 1);
+    camera.takeGate!.complete();
+    await waitReal(tester, () => pipeline.stamped.length == 2);
+    await pumpMany(tester);
+    expect(camera.disposed, 2);
+    expect(services.state.photos, hasLength(2));
+    lifecycle(tester, <AppLifecycleState>[AppLifecycleState.resumed]);
+    await pumpMany(tester);
+    expect(camera.created, 3);
     await tester.pumpWidget(const SizedBox.shrink());
     await pumpMany(tester);
   });

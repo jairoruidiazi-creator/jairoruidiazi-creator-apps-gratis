@@ -12,6 +12,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image/image.dart' as img;
 import 'package:sello/core/app_state.dart';
 import 'package:sello/core/device_files.dart';
+import 'package:sello/core/exports.dart';
 import 'package:sello/core/keep_awake.dart';
 import 'package:sello/core/settings.dart';
 import 'package:sello/core/storage.dart';
@@ -139,6 +140,7 @@ class FakeCameraPlatform extends CameraPlatform {
   int created = 0;
   int disposed = 0;
   int _nextId = 1;
+  final Set<int> _disposedIds = <int>{};
   DeviceOrientation? _locked;
 
   /// Si no es null, initializeCamera espera hasta que se complete (como
@@ -159,8 +161,23 @@ class FakeCameraPlatform extends CameraPlatform {
   @override
   Future<List<CameraDescription>> availableCameras() async => cameras;
 
+  /// Cámara abierta ahora (para saber si es la frontal, sin flash).
+  CameraDescription? current;
+
+  /// Si no es null, cada disparo espera hasta que se complete (un disparo
+  /// largo, como con la resolución máxima).
+  Completer<void>? takeGate;
+
+  /// Exposición: valores pedidos, cuántos a la vez y cuánto tarda cada uno.
+  final List<double> exposureRequests = <double>[];
+  int exposureRunning = 0;
+  int exposureMaxRunning = 0;
+  int _exposureSeq = 0;
+  int _focusSeq = 0;
+
   @override
   Future<int> createCameraWithSettings(CameraDescription cameraDescription, MediaSettings mediaSettings) async {
+    current = cameraDescription;
     created++;
     presets.add(mediaSettings.resolutionPreset);
     _log('create:${cameraDescription.name}:${mediaSettings.resolutionPreset?.name}');
@@ -221,13 +238,28 @@ class FakeCameraPlatform extends CameraPlatform {
   @override
   Future<XFile> takePicture(int cameraId) async {
     _log('take');
+    final Completer<void>? gate = takeGate;
+    if (gate != null) {
+      await gate.future;
+    }
+    if (_disposedIds.contains(cameraId)) {
+      // Como CameraX: cerrar la cámara a mitad del disparo lo hace fallar.
+      throw CameraException('captureFailed', 'La cámara se cerró durante el disparo');
+    }
     final String path = '${directory.path}/toma_${calls.length}.jpg';
     File(path).writeAsBytesSync(picture(_locked));
     return XFile(path);
   }
 
   @override
-  Future<void> setFlashMode(int cameraId, FlashMode mode) async => _log('flash:${mode.name}');
+  Future<void> setFlashMode(int cameraId, FlashMode mode) async {
+    _log('flash:${mode.name}');
+    // camera_android_camerax 0.6.30: la linterna en una cámara sin flash
+    // falla en CameraX y el complemento lo manda al canal de errores.
+    if (mode == FlashMode.torch && current?.lensDirection == CameraLensDirection.front) {
+      _errors.add(CameraErrorEvent(cameraId, 'The camera was unable to change torch modes.'));
+    }
+  }
 
   @override
   Future<void> setExposureMode(int cameraId, ExposureMode mode) async {}
@@ -245,13 +277,38 @@ class FakeCameraPlatform extends CameraPlatform {
   Future<double> getExposureOffsetStepSize(int cameraId) async => 0.5;
 
   @override
-  Future<double> setExposureOffset(int cameraId, double offset) async => offset;
+  Future<double> setExposureOffset(int cameraId, double offset) async {
+    exposureRequests.add(offset);
+    exposureRunning++;
+    exposureMaxRunning = max(exposureMaxRunning, exposureRunning);
+    final int mine = ++_exposureSeq;
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+    } finally {
+      exposureRunning--;
+    }
+    if (mine != _exposureSeq) {
+      // Como CameraX: la petición anterior se cancela y el complemento lo
+      // avisa por el canal de errores antes de lanzar la excepción.
+      _errors.add(CameraErrorEvent(cameraId, 'Setting exposure compensation index was canceled due to the camera being closed or a new request being submitted.'));
+      throw CameraException('setExposureOffsetFailed', 'canceled');
+    }
+    return offset;
+  }
 
   @override
   Future<void> setFocusMode(int cameraId, FocusMode mode) async {}
 
   @override
-  Future<void> setFocusPoint(int cameraId, Point<double>? point) async {}
+  Future<void> setFocusPoint(int cameraId, Point<double>? point) async {
+    // Como CameraX: un enfoque nuevo cancela el que no ha terminado, y el
+    // complemento lo avisa por el canal de errores.
+    final int mine = ++_focusSeq;
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (mine != _focusSeq) {
+      _errors.add(CameraErrorEvent(cameraId, 'Starting focus and metering was canceled due to the camera being closed or a new request being submitted.'));
+    }
+  }
 
   @override
   Future<double> getMaxZoomLevel(int cameraId) async => 8;
@@ -273,6 +330,7 @@ class FakeCameraPlatform extends CameraPlatform {
 
   @override
   Future<void> dispose(int cameraId) async {
+    _disposedIds.add(cameraId);
     disposed++;
     _log('dispose');
   }
@@ -338,6 +396,21 @@ class FakeDeviceFiles extends DeviceFiles {
   /// ZIP que "elige" el usuario al restaurar (null: cancela).
   String? toOpen;
 
+  /// Tamaño que informa el proveedor del documento (null: el del archivo;
+  /// -1: no lo dice).
+  int? reportedSize;
+
+  /// La copia falla por falta de espacio, como un ENOSPC del canal nativo.
+  bool noSpaceWhileCopying = false;
+
+  /// Se cancela al llegar a este avance (bytes copiados), como si el
+  /// usuario tocara Cancelar a mitad de la copia.
+  int? cancelAt;
+
+  /// Avance que se avisó y si se llegó a copiar.
+  final List<int> progress = <int>[];
+  int copies = 0;
+
   @override
   bool get usesDocumentPicker => picker;
 
@@ -352,14 +425,46 @@ class FakeDeviceFiles extends DeviceFiles {
   }
 
   @override
-  Future<PickedDocument?> openDocument(String targetPath, {List<String> mimes = const <String>[]}) async {
+  Future<PickedDocument?> pickDocument({List<String> mimes = const <String>[]}) async {
     final String? source = toOpen;
     if (source == null) {
       return null;
     }
-    File(targetPath).parent.createSync(recursive: true);
-    File(source).copySync(targetPath);
-    return PickedDocument(path: targetPath, name: 'copia.zip', size: File(targetPath).lengthSync());
+    return PickedDocument(uri: 'content://fake/$source', name: 'copia.zip', size: reportedSize ?? File(source).lengthSync());
+  }
+
+  @override
+  Future<int> copyDocument(PickedDocument doc, String targetPath, {void Function(int done, int total)? onProgress, ExportCancel? cancel}) async {
+    copies++;
+    final Uint8List bytes = File(doc.uri.substring('content://fake/'.length)).readAsBytesSync();
+    final File tmp = File('$targetPath.tmp-open');
+    tmp.parent.createSync(recursive: true);
+    final RandomAccessFile out = tmp.openSync(mode: FileMode.write);
+    try {
+      const int chunk = 1024;
+      for (int i = 0; i < bytes.length; i += chunk) {
+        if (cancelAt != null && i >= cancelAt!) {
+          cancel?.cancel();
+        }
+        if (cancel?.cancelled ?? false) {
+          throw const DocumentCopyCancelled();
+        }
+        if (noSpaceWhileCopying && i > 0) {
+          throw const DocumentNoSpace();
+        }
+        out.writeFromSync(bytes, i, min(i + chunk, bytes.length));
+        progress.add(min(i + chunk, bytes.length));
+        onProgress?.call(min(i + chunk, bytes.length), doc.size);
+        await Future<void>.delayed(Duration.zero);
+      }
+    } catch (_) {
+      out.closeSync();
+      tmp.deleteSync();
+      rethrow;
+    }
+    out.closeSync();
+    tmp.renameSync(targetPath);
+    return bytes.length;
   }
 }
 

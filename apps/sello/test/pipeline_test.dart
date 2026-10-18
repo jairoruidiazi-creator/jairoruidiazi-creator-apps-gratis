@@ -268,6 +268,27 @@ void main() {
       expect(png.height, o.height);
     });
 
+    test('En la rosa de los vientos la N nunca pisa los grados ni la flecha (M4 de la ronda 3)', () {
+      const Offset c = Offset(100, 100);
+      const double r = 50;
+      for (int h = 0; h < 360; h++) {
+        final CompassGeometry g = CompassGeometry(c, r, h.toDouble());
+        final double fromCenter = (g.north - c).distance;
+        expect(fromCenter, closeTo(r * CompassGeometry.nRadius, 1e-9));
+        // La N (media letra a cada lado) queda entre la flecha y las marcas.
+        expect(CompassGeometry.nInner, greaterThan(CompassGeometry.arrowTip));
+        expect(CompassGeometry.nOuter, lessThan(0.84));
+        // Los grados van debajo del anillo, donde la N no llega.
+        expect(g.numberTop, greaterThan(c.dy + r));
+        expect(g.north.dy + r * CompassGeometry.nFont / 2, lessThan(g.numberTop));
+      }
+      // El recuadro del sello reserva el lugar de los grados bajo la rosa.
+      final StampTemplate t = StampTemplate.defaultTemplate()..items = <StampItem>{StampItem.compass};
+      final StampLayout l = StampPainter.layout(const Size(3000, 4000), t, StampData(time: DateTime(2026, 3, 9), heading: 135));
+      final double numberBottom = CompassGeometry(l.compassCenter!, l.compassRadius, 135).numberTop + l.compassRadius * 0.38 * 1.2;
+      expect(l.block!.bottom, greaterThanOrEqualTo(numberBottom));
+    });
+
     test('En horizontal el sello mide lo mismo que en vertical y nunca pasa de un cuarto del alto (G4)', () {
       // La plantilla por defecto con todos los datos posibles.
       final StampTemplate t = StampTemplate.defaultTemplate()..items = StampItem.values.toSet();

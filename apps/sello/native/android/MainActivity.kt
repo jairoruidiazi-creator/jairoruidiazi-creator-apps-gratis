@@ -43,7 +43,10 @@ import java.io.OutputStream
  * elija (ACTION_CREATE_DOCUMENT) y se restaura desde donde la tenga
  * (ACTION_OPEN_DOCUMENT) copiando el flujo en un hilo aparte, de a 1 MB: el
  * archivo nunca pasa entero por la memoria (el selector de archivos de
- * Flutter lo leía completo en el hilo principal). También da el espacio libre.
+ * Flutter lo leía completo en el hilo principal). Para restaurar, primero se
+ * elige el documento (con su tamaño, para revisar el espacio antes de
+ * copiar) y después se copia con avance ("copyProgress") y se puede cancelar
+ * ("cancelCopy"). También da el espacio libre.
  */
 class MainActivity : FlutterActivity() {
     private var altitude: GpsAltitudeStream? = null
@@ -54,9 +57,10 @@ class MainActivity : FlutterActivity() {
         val stream = GpsAltitudeStream(applicationContext)
         altitude = stream
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, "co.appsgratis.sello/altitude").setStreamHandler(stream)
-        val docs = DocumentFiles(this)
+        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "co.appsgratis.sello/files")
+        val docs = DocumentFiles(this, channel)
         documents = docs
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "co.appsgratis.sello/files").setMethodCallHandler(docs)
+        channel.setMethodCallHandler(docs)
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
@@ -76,11 +80,14 @@ class MainActivity : FlutterActivity() {
 }
 
 /** Guardar y abrir documentos del sistema copiando el flujo en un hilo aparte. */
-private class DocumentFiles(private val activity: Activity) : MethodChannel.MethodCallHandler {
+private class DocumentFiles(private val activity: Activity, private val channel: MethodChannel) : MethodChannel.MethodCallHandler {
     private val main = Handler(Looper.getMainLooper())
     private var pending: MethodChannel.Result? = null
     private var pendingSource: String? = null
-    private var pendingTarget: String? = null
+
+    /** Copia en curso al restaurar: se puede cancelar desde Dart. */
+    @Volatile private var copyCancelled = false
+    @Volatile private var copying = false
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -104,32 +111,59 @@ private class DocumentFiles(private val activity: Activity) : MethodChannel.Meth
                 }
                 launch(intent, REQUEST_SAVE, result, source = source)
             }
-            "openDocument" -> {
-                val target = call.argument<String>("target")
-                if (target == null) {
-                    result.error("args", "Falta el destino", null)
-                    return
-                }
+            "pickDocument" -> {
                 val mimes = call.argument<List<String>>("mimes") ?: listOf("application/zip")
                 val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                     addCategory(Intent.CATEGORY_OPENABLE)
                     type = "*/*"
                     putExtra(Intent.EXTRA_MIME_TYPES, mimes.toTypedArray())
                 }
-                launch(intent, REQUEST_OPEN, result, target = target)
+                launch(intent, REQUEST_OPEN, result)
+            }
+            "copyDocument" -> {
+                val uri = call.argument<String>("uri")
+                val target = call.argument<String>("target")
+                if (uri == null || target == null) {
+                    result.error("args", "Faltan el documento o el destino", null)
+                    return
+                }
+                if (copying) {
+                    result.error("busy", "Ya se está copiando un documento", null)
+                    return
+                }
+                copying = true
+                copyCancelled = false
+                val total = (call.argument<Number>("size") ?: -1).toLong()
+                Thread {
+                    try {
+                        val size = copyFromUri(Uri.parse(uri), File(target), total)
+                        main.post { result.success(size) }
+                    } catch (e: CopyCancelled) {
+                        main.post { result.error("cancelled", "Copia cancelada", null) }
+                    } catch (e: Exception) {
+                        val message = e.message ?: e.toString()
+                        val code = if (message.contains("ENOSPC") || message.contains("No space left")) "nospace" else "io"
+                        main.post { result.error(code, message, null) }
+                    } finally {
+                        copying = false
+                    }
+                }.start()
+            }
+            "cancelCopy" -> {
+                copyCancelled = true
+                result.success(null)
             }
             else -> result.notImplemented()
         }
     }
 
-    private fun launch(intent: Intent, request: Int, result: MethodChannel.Result, source: String? = null, target: String? = null) {
+    private fun launch(intent: Intent, request: Int, result: MethodChannel.Result, source: String? = null) {
         if (pending != null) {
             result.error("busy", "Ya hay un selector de archivos abierto", null)
             return
         }
         pending = result
         pendingSource = source
-        pendingTarget = target
         try {
             activity.startActivityForResult(intent, request)
         } catch (e: ActivityNotFoundException) {
@@ -141,7 +175,6 @@ private class DocumentFiles(private val activity: Activity) : MethodChannel.Meth
     private fun clear() {
         pending = null
         pendingSource = null
-        pendingTarget = null
     }
 
     /** Verdadero si el resultado era de este canal. */
@@ -151,36 +184,35 @@ private class DocumentFiles(private val activity: Activity) : MethodChannel.Meth
         }
         val result = pending ?: return true
         val source = pendingSource
-        val target = pendingTarget
         clear()
         val uri = data?.data
         if (resultCode != Activity.RESULT_OK || uri == null) {
-            // Cancelado: guardar devuelve falso; abrir, nada.
+            // Cancelado: guardar devuelve falso; elegir, nada.
             result.success(if (requestCode == REQUEST_SAVE) false else null)
+            return true
+        }
+        if (requestCode == REQUEST_OPEN) {
+            // Solo se consulta el nombre y el tamaño: copiar viene después,
+            // cuando la app ya revisó que haya espacio.
+            Thread {
+                val info = describe(uri)
+                main.post { result.success(mapOf("uri" to uri.toString(), "name" to info.first, "size" to info.second)) }
+            }.start()
             return true
         }
         Thread {
             try {
-                if (requestCode == REQUEST_SAVE) {
-                    copyToUri(File(source!!), uri)
-                    main.post { result.success(true) }
-                } else {
-                    val size = copyFromUri(uri, File(target!!))
-                    val name = displayName(uri)
-                    main.post { result.success(mapOf("name" to name, "size" to size)) }
-                }
+                copyToUri(File(source!!), uri)
+                main.post { result.success(true) }
             } catch (e: Exception) {
-                if (requestCode == REQUEST_SAVE) {
-                    // Un documento a medias no sirve de copia: se borra.
-                    try {
-                        DocumentsContract.deleteDocument(activity.contentResolver, uri)
-                    } catch (ignored: Exception) {
-                    }
-                } else if (target != null) {
-                    File(target).delete()
-                    File("$target.tmp-open").delete()
+                // Un documento a medias no sirve de copia: se borra.
+                try {
+                    DocumentsContract.deleteDocument(activity.contentResolver, uri)
+                } catch (ignored: Exception) {
                 }
-                main.post { result.error("io", e.message ?: e.toString(), null) }
+                val message = e.message ?: e.toString()
+                val code = if (message.contains("ENOSPC") || message.contains("No space left")) "nospace" else "io"
+                main.post { result.error(code, message, null) }
             }
         }.start()
         return true
@@ -202,42 +234,74 @@ private class DocumentFiles(private val activity: Activity) : MethodChannel.Meth
         }
     }
 
-    private fun copyFromUri(uri: Uri, dest: File): Long {
+    private class CopyCancelled : Exception()
+
+    /** Copia el documento a [dest] de a 1 MB, avisando el avance y atento a "cancelCopy". */
+    private fun copyFromUri(uri: Uri, dest: File, total: Long): Long {
         dest.parentFile?.mkdirs()
         val tmp = File("${dest.path}.tmp-open")
-        val input = activity.contentResolver.openInputStream(uri) ?: throw IOException("No se pudo abrir el archivo")
-        val copied = input.use { i ->
-            FileOutputStream(tmp).use { o ->
-                val n = i.copyTo(o, BUFFER)
-                o.fd.sync()
-                n
+        try {
+            val input = activity.contentResolver.openInputStream(uri) ?: throw IOException("No se pudo abrir el archivo")
+            var copied = 0L
+            input.use { i ->
+                FileOutputStream(tmp).use { o ->
+                    val buffer = ByteArray(BUFFER)
+                    var lastReport = 0L
+                    while (true) {
+                        if (copyCancelled) {
+                            throw CopyCancelled()
+                        }
+                        val n = i.read(buffer)
+                        if (n < 0) {
+                            break
+                        }
+                        o.write(buffer, 0, n)
+                        copied += n
+                        if (copied - lastReport >= REPORT_EVERY) {
+                            lastReport = copied
+                            val done = copied
+                            main.post { channel.invokeMethod("copyProgress", mapOf("done" to done, "total" to total)) }
+                        }
+                    }
+                    o.fd.sync()
+                }
             }
+            if (dest.exists()) {
+                dest.delete()
+            }
+            if (!tmp.renameTo(dest)) {
+                throw IOException("No se pudo guardar la copia elegida")
+            }
+            return copied
+        } catch (e: Exception) {
+            tmp.delete()
+            throw e
         }
-        if (dest.exists()) {
-            dest.delete()
-        }
-        if (!tmp.renameTo(dest)) {
-            throw IOException("No se pudo guardar la copia elegida")
-        }
-        return copied
     }
 
-    private fun displayName(uri: Uri): String {
+    /** Nombre y tamaño del documento (-1 si el proveedor no lo dice). */
+    private fun describe(uri: Uri): Pair<String, Long> {
+        var name = ""
+        var size = -1L
         try {
-            activity.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            activity.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
                 if (c.moveToFirst()) {
-                    return c.getString(0) ?: ""
+                    name = c.getString(0) ?: ""
+                    if (!c.isNull(1)) {
+                        size = c.getLong(1)
+                    }
                 }
             }
         } catch (ignored: Exception) {
         }
-        return ""
+        return Pair(name, size)
     }
 
     companion object {
         const val REQUEST_SAVE = 0x5E11
         const val REQUEST_OPEN = 0x5E12
         const val BUFFER = 1 shl 20
+        const val REPORT_EVERY = 8L shl 20
     }
 }
 

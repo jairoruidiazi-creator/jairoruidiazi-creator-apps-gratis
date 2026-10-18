@@ -23,11 +23,27 @@ const int kMapThumbWidth = 160;
 const int kGalleryThumbWidth = 300;
 const List<int> kThumbWidths = <int>[kCameraThumbWidth, kMapThumbWidth, kGalleryThumbWidth];
 
-/// Olvida las copias en caché de una imagen (tamaño completo y miniaturas).
+/// Lados del recuadro en que el detalle decodifica una foto: el que alcanza
+/// para el doble de la pantalla y, al hacer zoom, el mayor. Nunca la foto
+/// entera: una de 50 MP ocuparía unos 200 MB en memoria.
+const List<int> kDetailBoxes = <int>[1024, 2048, 3072, 4096, kDetailZoomBox];
+const int kDetailZoomBox = 6144;
+
+/// Imagen del detalle reducida para caber en [box] × [box] (sin agrandar).
+ImageProvider<Object> detailImage(File file, int box) => ResizeImage(FileImage(file), width: box, height: box, policy: ResizeImagePolicy.fit);
+
+/// Recuadro de [kDetailBoxes] que cubre [pixels] (el lado mayor que se ve).
+int detailBoxFor(double pixels) => kDetailBoxes.firstWhere((int b) => b >= pixels, orElse: () => 4096).clamp(1024, 4096);
+
+/// Olvida las copias en caché de una imagen (tamaño completo, miniaturas y
+/// las del detalle).
 Future<void> evictPhotoImages(File file) async {
   await FileImage(file).evict();
   for (final int w in kThumbWidths) {
     await ResizeImage(FileImage(file), width: w).evict();
+  }
+  for (final int b in kDetailBoxes) {
+    await detailImage(file, b).evict();
   }
 }
 

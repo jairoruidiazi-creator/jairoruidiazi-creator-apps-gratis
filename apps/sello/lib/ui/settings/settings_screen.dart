@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../../core/app_info.dart';
 import '../../core/app_scope.dart';
 import '../../core/backup.dart';
+import '../../core/device_files.dart';
 import '../../core/exports.dart';
 import '../../core/photo_library.dart';
 import '../../core/settings.dart';
@@ -469,7 +470,7 @@ Future<void> createBackup(BuildContext buttonContext) async {
     progress.close();
   } catch (e) {
     progress.close();
-    messenger.showSnackBar(SnackBar(content: Text('${k('No se pudo crear la copia', 'Could not create the backup')}: $e')));
+    messenger.showSnackBar(SnackBar(content: Text(_isNoSpace(e) ? k('No hay espacio para la copia donde elegiste guardarla (o en el teléfono). Libera espacio o elige otro lugar.', 'There is no space for the backup where you chose to save it (or on the phone). Free up space or choose another place.') : '${k('No se pudo crear la copia', 'Could not create the backup')}: $e')));
   } finally {
     // En Android la copia ya quedó donde se eligió: la de la app sobra. En
     // iPhone la hoja de compartir la necesita; se borra al abrir la app.
@@ -488,97 +489,140 @@ Future<void> _deleteQuietly(String path) async {
   } catch (_) {}
 }
 
-/// Elige un ZIP de copia y agrega lo que falte en este teléfono. En Android
-/// el documento elegido se copia a la app de a 1 MB en un hilo aparte (nunca
-/// entero en la memoria) y desde esa copia se descomprime.
+/// Elige un ZIP de copia y agrega lo que falte en este teléfono.
+///
+/// Antes de copiar nada dice cuánto pesa la copia y cuánto espacio hace
+/// falta, y si no alcanza no deja seguir. En Android el documento elegido se
+/// trae a la app de a 1 MB en un hilo aparte (nunca entero en la memoria) y
+/// por eso hace falta unas dos veces su tamaño: la copia traída más las
+/// fotos que se agregan (la traída se borra al terminar). En iPhone el
+/// selector ya la copió. Traerla y agregar las fotos muestran el avance y se
+/// pueden cancelar; cancelar no deja nada a medias.
 Future<void> restoreBackup(BuildContext context) async {
   final Services s = AppScope.of(context);
   final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
   final bool spanish = s.settings.spanish;
   final bool picker = s.files.usesDocumentPicker;
   String k(String es, String en) => spanish ? es : en;
-  final NavigatorState nav = Navigator.of(context, rootNavigator: true);
-  String? zipPath;
-  if (picker) {
-    final String target = await s.store.absolutePath('exports/restaurar_copia.zip');
-    if (!context.mounted) {
-      return;
-    }
-    unawaited(showBusyDialog(context, k('Preparando la copia elegida…', 'Preparing the chosen backup…')));
-    try {
-      zipPath = (await s.files.openDocument(target))?.path;
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('${k('No se pudo abrir la copia', 'Could not open the backup')}: $e')));
-      return;
-    } finally {
-      if (nav.mounted && nav.canPop()) {
-        nav.pop();
+  String size(int b) => formatBytes(b, spanish: spanish);
+  void say(String text) => messenger.showSnackBar(SnackBar(content: Text(text)));
+
+  // 1. Elegir la copia (en Android, sin copiarla todavía).
+  PickedDocument? doc;
+  String? pickedPath;
+  int zipBytes = -1;
+  try {
+    if (picker) {
+      doc = await s.files.pickDocument();
+      zipBytes = doc?.size ?? -1;
+    } else {
+      const XTypeGroup zip = XTypeGroup(label: 'ZIP', extensions: <String>['zip'], mimeTypes: <String>['application/zip', 'application/x-zip-compressed'], uniformTypeIdentifiers: <String>['public.zip-archive']);
+      pickedPath = (await openFile(acceptedTypeGroups: <XTypeGroup>[zip]))?.path;
+      if (pickedPath != null) {
+        try {
+          zipBytes = await File(pickedPath).length();
+        } catch (_) {}
       }
     }
-  } else {
-    const XTypeGroup zip = XTypeGroup(label: 'ZIP', extensions: <String>['zip'], mimeTypes: <String>['application/zip', 'application/x-zip-compressed'], uniformTypeIdentifiers: <String>['public.zip-archive']);
-    try {
-      zipPath = (await openFile(acceptedTypeGroups: <XTypeGroup>[zip]))?.path;
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('${k('No se pudo abrir el selector', 'Could not open the picker')}: $e')));
-      return;
-    }
-  }
-  if (zipPath == null) {
+  } catch (e) {
+    say('${k('No se pudo abrir el selector', 'Could not open the picker')}: $e');
     return;
   }
-  final String path = zipPath;
-  try {
-    // Las fotos de la copia van sin comprimir: ocupan casi lo que pesa el ZIP.
-    int zipBytes = 0;
-    try {
-      zipBytes = await File(path).length();
-    } catch (_) {}
-    final int? free = await s.files.freeBytes();
-    if (!context.mounted) {
-      return;
-    }
-    final bool enough = free == null || free >= zipBytes + kBackupSpareBytes;
-    final String sizes = '${k('La copia pesa', 'The backup weighs')} ${formatBytes(zipBytes, spanish: spanish)}${free == null ? '' : '; ${k('hay', 'there are')} ${formatBytes(free, spanish: spanish)} ${k('libres', 'free')}'}.';
-    final bool? ok = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: Text(k('Restaurar copia', 'Restore backup')),
-        content: Text(
-          '${k('Se agregan las fotos, proyectos y plantillas de la copia que no estén en este teléfono. No se borra ni se reemplaza nada.', 'The backup\'s photos, projects and templates that are not on this phone are added. Nothing is deleted or replaced.')} $sizes'
-          '${enough ? '' : '\n\n${k('No hay espacio suficiente para las fotos de la copia. Libera espacio e inténtalo de nuevo.', 'There is not enough space for the backup\'s photos. Free up space and try again.')}'}',
-        ),
-        actions: <Widget>[
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(k('Cancelar', 'Cancel'))),
-          if (enough) FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(k('Restaurar', 'Restore'))),
-        ],
+  if (doc == null && pickedPath == null) {
+    return;
+  }
+
+  // 2. Espacio: en Android se trae la copia y después se agregan sus fotos
+  // (casi todo el ZIP son fotos sin comprimir).
+  final int? free = await s.files.freeBytes();
+  if (!context.mounted) {
+    return;
+  }
+  final int needed = zipBytes < 0 ? -1 : zipBytes * (picker ? 2 : 1) + kBackupSpareBytes;
+  final bool enough = free == null || needed < 0 || free >= needed;
+  final String weight = zipBytes < 0 ? k('No se sabe cuánto pesa la copia.', 'The backup size is unknown.') : '${k('La copia pesa', 'The backup weighs')} ${size(zipBytes)}.';
+  final String space = needed < 0
+      ? ''
+      : ' ${picker ? k('Para restaurarla hacen falta unos ${size(needed)} libres: primero se trae al teléfono y después se agregan sus fotos (la copia traída se borra al terminar).', 'Restoring it needs about ${size(needed)} free: it is first brought to the phone and then its photos are added (the brought copy is deleted at the end).') : k('Para agregar sus fotos hacen falta unos ${size(needed)} libres.', 'Adding its photos needs about ${size(needed)} free.')}'
+          '${free == null ? '' : ' ${k('Hay', 'There are')} ${size(free)} ${k('libres', 'free')}.'}';
+  final bool? ok = await showDialog<bool>(
+    context: context,
+    builder: (BuildContext context) => AlertDialog(
+      title: Text(k('Restaurar copia', 'Restore backup')),
+      content: Text(
+        '${k('Se agregan las fotos, proyectos y plantillas de la copia que no estén en este teléfono. No se borra ni se reemplaza nada.', 'The backup\'s photos, projects and templates that are not on this phone are added. Nothing is deleted or replaced.')} $weight$space'
+        '${enough ? '' : '\n\n${k('No hay espacio suficiente. Libera espacio en el teléfono e inténtalo de nuevo.', 'There is not enough space. Free up space on the phone and try again.')}'}',
       ),
+      actions: <Widget>[
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(k('Cancelar', 'Cancel'))),
+        if (enough) FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(k('Restaurar', 'Restore'))),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) {
+    return;
+  }
+
+  // 3. Traer la copia (Android) y agregar lo que falte, con avance y cancelar.
+  final ExportProgress progress = ExportProgress();
+  unawaited(showExportProgress(context, progress, title: k('Restaurando la copia', 'Restoring the backup')));
+  String? brought;
+  String message;
+  try {
+    String path;
+    if (doc != null) {
+      path = await s.store.absolutePath('exports/restaurar_copia.zip');
+      brought = path;
+      final int total = zipBytes;
+      await s.files.copyDocument(
+        doc,
+        path,
+        cancel: progress.cancel,
+        onProgress: (int done, int tot) {
+          final int all = tot > 0 ? tot : total;
+          progress.update(done, all > 0 ? all : 0, '${k('Trayendo la copia', 'Bringing the backup')}: ${size(done)}${all > 0 ? ' ${k('de', 'of')} ${size(all)}' : ''}');
+        },
+      );
+    } else {
+      path = pickedPath!;
+    }
+    progress.update(0, 0, k('Agregando fotos…', 'Adding photos…'));
+    final RestoreSummary r = await Backup.restore(
+      path,
+      s.state,
+      cancel: progress.cancel,
+      onProgress: (int done, int total) => progress.update(done, total, '${k('Agregando', 'Adding')} $done ${k('de', 'of')} $total'),
     );
-    if (ok != true || !context.mounted) {
-      return;
-    }
-    unawaited(showBusyDialog(context, k('Restaurando la copia…', 'Restoring the backup…')));
-    String message;
-    try {
-      final RestoreSummary r = await Backup.restore(path, s.state);
-      // Fotos que en el otro teléfono quedaron sin sellar.
-      s.queue.resumePending();
-      message = '${k('Copia restaurada', 'Backup restored')}: ${r.photos} ${k('fotos', 'photos')}, ${r.projects} ${k('proyectos', 'projects')}, ${r.templates} ${k('plantillas', 'templates')}.';
-    } on NotABackup {
-      message = k('Ese archivo no es una copia de Sello.', 'That file is not a Sello backup.');
-    } catch (e) {
-      message = '${k('No se pudo restaurar', 'Could not restore')}: $e';
-    }
-    if (nav.mounted && nav.canPop()) {
-      nav.pop();
-    }
-    messenger.showSnackBar(SnackBar(content: Text(message)));
+    // Fotos que en el otro teléfono quedaron sin sellar.
+    s.queue.resumePending();
+    message = '${k('Copia restaurada', 'Backup restored')}: ${r.photos} ${k('fotos', 'photos')}, ${r.projects} ${k('proyectos', 'projects')}, ${r.templates} ${k('plantillas', 'templates')}.';
+  } on DocumentCopyCancelled {
+    message = k('Se canceló la restauración; no se agregó nada.', 'Restoring was cancelled; nothing was added.');
+  } on ExportCancelled {
+    message = k('Se canceló la restauración; no se agregó nada.', 'Restoring was cancelled; nothing was added.');
+  } on DocumentNoSpace {
+    message = k('El teléfono se quedó sin espacio al traer la copia. Libera espacio e inténtalo de nuevo.', 'The phone ran out of space while bringing the backup. Free up space and try again.');
+  } on NotABackup {
+    message = k('Ese archivo no es una copia de Sello.', 'That file is not a Sello backup.');
+  } catch (e) {
+    message = _isNoSpace(e) ? k('El teléfono se quedó sin espacio. Libera espacio e inténtalo de nuevo.', 'The phone ran out of space. Free up space and try again.') : '${k('No se pudo restaurar', 'Could not restore')}: $e';
   } finally {
+    progress.close();
     // La copia que se trajo a la app (Android) ya no hace falta.
-    if (picker) {
-      await _deleteQuietly(path);
+    if (brought != null) {
+      await _deleteQuietly(brought);
     }
   }
+  say(message);
+}
+
+/// Error de disco lleno, venga de Dart (errno 28) o del canal nativo.
+bool _isNoSpace(Object e) {
+  if (e is FileSystemException && e.osError?.errorCode == 28) {
+    return true;
+  }
+  final String text = e.toString();
+  return text.contains('ENOSPC') || text.contains('No space left') || text.contains('nospace');
 }
 
 class _Section extends StatelessWidget {
