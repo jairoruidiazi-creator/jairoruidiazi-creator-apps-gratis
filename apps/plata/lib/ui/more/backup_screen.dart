@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:clock/clock.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
@@ -66,7 +67,7 @@ class _BackupScreenState extends State<BackupScreen> {
     await _run(() async {
       await s.ledger.flush();
       final Uint8List bytes = await s.backups.exportEncrypted(pass);
-      await shareBytes(s.store, 'plata-${dayKey(DateTime.now())}.plata', bytes, text: 'Plata backup');
+      await shareBytes(s.store, 'plata-${dayKey(clock.now())}.plata', bytes, text: 'Plata backup');
     });
   }
 
@@ -77,7 +78,7 @@ class _BackupScreenState extends State<BackupScreen> {
     }
     await _run(() async {
       await s.ledger.flush();
-      await shareBytes(s.store, 'plata-${dayKey(DateTime.now())}.json', s.backups.exportPlain(), text: 'Plata JSON');
+      await shareBytes(s.store, 'plata-${dayKey(clock.now())}.json', s.backups.exportPlain(), text: 'Plata JSON');
     });
   }
 

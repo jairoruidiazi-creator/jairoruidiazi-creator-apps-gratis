@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -70,7 +71,7 @@ class RateService {
       }
     }
     if (any) {
-      table.updatedAt = now ?? DateTime.now();
+      table.updatedAt = now ?? clock.now();
       table.source = trm != null ? 'TRM + BCE' : 'BCE';
     }
     return any;

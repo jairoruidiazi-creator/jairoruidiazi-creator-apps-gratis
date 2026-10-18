@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
@@ -22,7 +23,7 @@ class _TxListScreenState extends State<TxListScreen> {
   late TxFilter _filter = widget.initialFilter ?? const TxFilter();
   final TextEditingController _search = TextEditingController();
   bool _calendar = false;
-  DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
+  DateTime _month = DateTime(clock.now().year, clock.now().month);
   DateTime? _selectedDay;
 
   @override
@@ -143,7 +144,7 @@ class _TxListScreenState extends State<TxListScreen> {
   }
 
   String _dayLabel(BuildContext context, DateTime d) {
-    final DateTime today = dateOnly(DateTime.now());
+    final DateTime today = dateOnly(clock.now());
     final DateTime day = dateOnly(d);
     final bool spanish = AppScope.of(context).settings.spanish;
     if (day == today) {
@@ -204,7 +205,7 @@ class _TxListScreenState extends State<TxListScreen> {
               }
               final bool hasBill = upcoming.any((Scheduled sc) => dateOnly(sc.nextDate) == day);
               final bool sel = _selectedDay != null && dateOnly(_selectedDay!) == day;
-              final bool today = dateOnly(DateTime.now()) == day;
+              final bool today = dateOnly(clock.now()) == day;
               return InkWell(
                 borderRadius: BorderRadius.circular(8),
                 onTap: () => setState(() => _selectedDay = day),
@@ -351,7 +352,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                 avatar: const Icon(Icons.event, size: 16),
                 label: Text(_f.from == null ? t(context, 'Desde', 'From') : formatDate(_f.from!, 'dd MMM yyyy', spanish: s.settings.spanish)),
                 onPressed: () async {
-                  final DateTime? d = await showDatePicker(context: context, initialDate: _f.from ?? DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
+                  final DateTime? d = await showDatePicker(context: context, initialDate: _f.from ?? clock.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
                   if (d != null) {
                     setState(() => _f = _f.copyWith(from: d));
                   }
@@ -361,7 +362,7 @@ class _FilterSheetState extends State<_FilterSheet> {
                 avatar: const Icon(Icons.event, size: 16),
                 label: Text(_f.to == null ? t(context, 'Hasta', 'To') : formatDate(_f.to!, 'dd MMM yyyy', spanish: s.settings.spanish)),
                 onPressed: () async {
-                  final DateTime? d = await showDatePicker(context: context, initialDate: _f.to ?? DateTime.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
+                  final DateTime? d = await showDatePicker(context: context, initialDate: _f.to ?? clock.now(), firstDate: DateTime(2000), lastDate: DateTime(2100));
                   if (d != null) {
                     setState(() => _f = _f.copyWith(to: d));
                   }
@@ -376,9 +377,9 @@ class _FilterSheetState extends State<_FilterSheet> {
                   label: Text(q[0] as String),
                   onPressed: () => setState(() {
                     if (q[1] == 'year') {
-                      _f = _f.copyWith(from: DateTime(DateTime.now().year), to: DateTime(DateTime.now().year, 12, 31));
+                      _f = _f.copyWith(from: DateTime(clock.now().year), to: DateTime(clock.now().year, 12, 31));
                     } else {
-                      final Period p = l.periodSpec.shift(l.periodSpec.containing(DateTime.now()), q[1] as int);
+                      final Period p = l.periodSpec.shift(l.periodSpec.containing(clock.now()), q[1] as int);
                       _f = _f.copyWith(from: p.start, to: p.lastDay);
                     }
                   }),

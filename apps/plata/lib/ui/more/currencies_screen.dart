@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
@@ -30,7 +31,7 @@ class _CurrenciesScreenState extends State<CurrenciesScreen> {
     } catch (_) {
       ok = false;
     }
-    s.settings.lastRatesAttempt = DateTime.now();
+    s.settings.lastRatesAttempt = clock.now();
     await s.settings.save();
     if (ok) {
       s.ledger.save();

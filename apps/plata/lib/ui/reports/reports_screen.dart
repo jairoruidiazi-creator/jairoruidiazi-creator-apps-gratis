@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
@@ -37,7 +38,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
       listenable: s.ledger,
       builder: (BuildContext context, Widget? _) {
         final Ledger l = s.ledger;
-        final Period period = l.periodSpec.shift(l.periodSpec.containing(DateTime.now()), _shift);
+        final Period period = l.periodSpec.shift(l.periodSpec.containing(clock.now()), _shift);
         return Scaffold(
           appBar: AppBar(
             title: Text(t(context, 'Informes', 'Reports')),

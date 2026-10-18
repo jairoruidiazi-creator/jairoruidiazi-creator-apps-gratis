@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
@@ -76,7 +77,7 @@ class _BudgetCard extends StatelessWidget {
     final Budget b = progress.budget;
     final ColorScheme cs = Theme.of(context).colorScheme;
     final Color color = progress.over ? kindColor(context, TxKind.expense) : (progress.fraction > 0.85 ? Colors.orange : cs.primary);
-    final int daysLeft = progress.period.end.difference(dateOnly(DateTime.now())).inDays;
+    final int daysLeft = progress.period.end.difference(dateOnly(clock.now())).inDays;
     final int perDay = daysLeft > 0 && progress.availableMinor > 0 ? progress.availableMinor ~/ daysLeft : 0;
     final String cats = b.categoryIds.isEmpty ? t(context, 'Todos los gastos', 'All expenses') : b.categoryIds.map((String id) => l.category(id)?.name ?? '?').join(', ');
     final Category? first = b.categoryIds.isEmpty ? null : l.category(b.categoryIds.first);
@@ -185,7 +186,7 @@ class _BudgetEditorState extends State<BudgetEditor> {
   late final Set<String> _cats = widget.existing?.categoryIds.toSet() ?? <String>{};
   late String? _accountId = widget.existing?.accountId;
   late BudgetPeriod _period = widget.existing?.period ?? BudgetPeriod.month;
-  late DateTime _start = widget.existing?.startDate ?? DateTime(DateTime.now().year, DateTime.now().month);
+  late DateTime _start = widget.existing?.startDate ?? DateTime(clock.now().year, clock.now().month);
   late bool _rollover = widget.existing?.rollover ?? false;
 
   @override

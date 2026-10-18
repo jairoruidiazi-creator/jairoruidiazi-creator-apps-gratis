@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:clock/clock.dart';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
@@ -36,7 +37,7 @@ class AppLock extends ChangeNotifier {
     if (b == null) {
       return 0;
     }
-    final int s = b.difference(DateTime.now()).inSeconds;
+    final int s = b.difference(clock.now()).inSeconds;
     return s > 0 ? s : 0;
   }
 
@@ -115,7 +116,7 @@ class AppLock extends ChangeNotifier {
       _failures += 1;
       if (_failures >= 3) {
         final int seconds = 30 * (1 << (_failures - 3).clamp(0, 6));
-        _blockedUntil = DateTime.now().add(Duration(seconds: seconds));
+        _blockedUntil = clock.now().add(Duration(seconds: seconds));
       }
     }
     notifyListeners();
@@ -163,12 +164,12 @@ class AppLock extends ChangeNotifier {
     }
   }
 
-  void onBackground() => _background = DateTime.now();
+  void onBackground() => _background = clock.now();
 
   void onForeground() {
     final DateTime? b = _background;
     _background = null;
-    if (_enabled && !locked && b != null && DateTime.now().difference(b).inSeconds >= lockAfterSeconds) {
+    if (_enabled && !locked && b != null && clock.now().difference(b).inSeconds >= lockAfterSeconds) {
       locked = true;
       notifyListeners();
     }

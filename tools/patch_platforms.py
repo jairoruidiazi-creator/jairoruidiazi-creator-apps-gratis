@@ -55,7 +55,7 @@ APPS = {
         # Los niños juegan en tabletas y teléfonos en cualquier posición.
         "iphone_orientations": ["UIInterfaceOrientationPortrait", "UIInterfaceOrientationLandscapeLeft", "UIInterfaceOrientationLandscapeRight"],
         "ios_privacy_collected": [],
-        "ios_min": "13.0",
+        "ios_min": "15.0",
     },
     "clave": {
         "display_name": "Clave",
@@ -74,7 +74,7 @@ APPS = {
         },
         "iphone_orientations": ["UIInterfaceOrientationPortrait"],
         "ios_privacy_collected": [],
-        "ios_min": "13.0",
+        "ios_min": "15.0",
     },
     "sello": {
         "display_name": "Sello",
@@ -121,7 +121,7 @@ APPS = {
         "ios_privacy_collected": [
             {"type": "NSPrivacyCollectedDataTypePreciseLocation", "linked": False, "tracking": False, "purposes": ["NSPrivacyCollectedDataTypePurposeAppFunctionality"]},
         ],
-        "ios_min": "13.0",
+        "ios_min": "15.0",
     },
     "plata": {
         "display_name": "Plata",
@@ -172,7 +172,7 @@ APPS = {
         },
         "iphone_orientations": ["UIInterfaceOrientationPortrait"],
         "ios_privacy_collected": [],
-        "ios_min": "13.0",
+        "ios_min": "15.0",
     },
 }
 

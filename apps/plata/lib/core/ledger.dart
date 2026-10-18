@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart' as clk;
 import 'package:flutter/foundation.dart' hide Category;
 
 import '../model/models.dart';
@@ -104,7 +105,7 @@ class CardStatement {
 /// Todo el libro: cuentas, categorías, movimientos, programados, presupuestos,
 /// plantillas, avisos y tasas, con sus cálculos. Se guarda cifrado.
 class Ledger extends ChangeNotifier {
-  Ledger(this.store, {this.spanish = true, DateTime Function()? clock}) : _clock = clock ?? DateTime.now;
+  Ledger(this.store, {this.spanish = true, DateTime Function()? clock}) : _clock = clock ?? _systemNow;
 
   final EncryptedStore store;
   final bool spanish;
@@ -1034,3 +1035,6 @@ class AccountFlow {
 
   int get netMinor => inMinor - outMinor;
 }
+
+/// Hora del reloj inyectable (package:clock), fijo en las pruebas.
+DateTime _systemNow() => clk.clock.now();

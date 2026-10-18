@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
@@ -66,7 +67,7 @@ class _CardPanelState extends State<_CardPanel> {
     final Account c = widget.card;
     final ColorScheme cs = Theme.of(context).colorScheme;
     final bool es = s.settings.spanish;
-    CardCycle cycle = CardCycle.current(c, DateTime.now());
+    CardCycle cycle = CardCycle.current(c, clock.now());
     for (int i = 0; i < _back; i++) {
       cycle = cycle.previous(c);
     }

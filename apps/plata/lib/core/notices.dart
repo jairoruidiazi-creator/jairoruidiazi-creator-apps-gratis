@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -22,7 +23,7 @@ class RawNotice {
       return null;
     }
     final Map<Object?, Object?> m = o;
-    final int ms = (m['time'] as num?)?.toInt() ?? DateTime.now().millisecondsSinceEpoch;
+    final int ms = (m['time'] as num?)?.toInt() ?? clock.now().millisecondsSinceEpoch;
     return RawNotice(package: (m['package'] ?? '').toString(), title: (m['title'] ?? '').toString(), text: (m['text'] ?? '').toString(), time: DateTime.fromMillisecondsSinceEpoch(ms));
   }
 }

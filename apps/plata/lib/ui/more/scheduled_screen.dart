@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
@@ -39,7 +40,7 @@ class ScheduledScreen extends StatelessWidget {
             }
             return a.nextDate.compareTo(b.nextDate);
           });
-        final DateTime today = dateOnly(DateTime.now());
+        final DateTime today = dateOnly(clock.now());
         int monthlyOut = 0;
         int monthlyIn = 0;
         for (final Scheduled sch in list.where((Scheduled x) => x.enabled)) {
@@ -130,7 +131,7 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
   late String? _toAccountId = widget.existing?.toAccountId;
   late String? _categoryId = widget.existing?.categoryId;
   late FrequencyUnit _unit = widget.existing?.frequency.unit ?? FrequencyUnit.month;
-  late DateTime _next = widget.existing?.nextDate ?? dateOnly(DateTime.now());
+  late DateTime _next = widget.existing?.nextDate ?? dateOnly(clock.now());
   late DateTime? _end = widget.existing?.endDate;
   late bool _autoPost = widget.existing?.autoPost ?? true;
   late int _remind = widget.existing?.remindDaysBefore ?? 1;

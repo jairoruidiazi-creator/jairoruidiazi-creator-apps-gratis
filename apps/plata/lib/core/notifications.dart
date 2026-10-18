@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
@@ -98,7 +99,7 @@ class LocalNotifier implements Notifier {
     if (!_ready) {
       return;
     }
-    final DateTime now = DateTime.now();
+    final DateTime now = clock.now();
     DateTime first = DateTime(now.year, now.month, now.day, hour, minute);
     if (!first.isAfter(now)) {
       first = first.add(const Duration(days: 1));
@@ -113,7 +114,7 @@ class LocalNotifier implements Notifier {
   @override
   Future<void> scheduleAt({required int id, required DateTime when, required String title, required String body}) async {
     await init();
-    if (!_ready || !when.isAfter(DateTime.now())) {
+    if (!_ready || !when.isAfter(clock.now())) {
       return;
     }
     try {

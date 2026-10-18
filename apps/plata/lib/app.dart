@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -191,10 +192,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       return;
     }
     final DateTime? last = s.settings.lastRatesAttempt;
-    if (last != null && DateTime.now().difference(last).inHours < 20) {
+    if (last != null && clock.now().difference(last).inHours < 20) {
       return;
     }
-    s.settings.lastRatesAttempt = DateTime.now();
+    s.settings.lastRatesAttempt = clock.now();
     await s.settings.save();
     try {
       if (await s.rates.refresh(s.ledger.rates, base: s.ledger.baseCurrency, currencies: foreign)) {

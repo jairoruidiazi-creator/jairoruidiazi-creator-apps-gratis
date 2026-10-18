@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:clock/clock.dart';
+
 import '../model/models.dart';
 import 'crypto_store.dart';
 import 'ledger.dart';
@@ -23,14 +25,14 @@ class BackupManager {
 
   /// Copia local si hoy no se ha hecho. Devuelve la ruta relativa creada.
   Future<String?> autoBackup({DateTime? now, bool force = false}) async {
-    final DateTime today = dateOnly(now ?? DateTime.now());
+    final DateTime today = dateOnly(now ?? clock.now());
     final DateTime? last = settings.lastBackupAt;
     if (!force && last != null && !dateOnly(last).isBefore(today)) {
       return null;
     }
     final String rel = 'backups/plata-${dayKey(today)}.json.enc';
     await ledger.store.writeJson(rel, ledger.toJson());
-    settings.lastBackupAt = now ?? DateTime.now();
+    settings.lastBackupAt = now ?? clock.now();
     await settings.save();
     final List<String> all = await store.list('backups', extension: '.json.enc');
     if (all.length > keep) {

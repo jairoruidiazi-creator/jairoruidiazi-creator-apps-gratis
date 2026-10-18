@@ -2,7 +2,19 @@
 /// son enteros en centavos (`...Minor`).
 library;
 
-String newId() => '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${(DateTime.now().millisecond * 7919 % 1296).toRadixString(36)}';
+import 'dart:math';
+
+import 'package:clock/clock.dart';
+
+int _idCounter = 0;
+final Random _idRandom = Random();
+
+/// Identificador único: microsegundos reales + contador + azar (dos llamadas
+/// en el mismo microsegundo no chocan).
+String newId() {
+  _idCounter = (_idCounter + 1) % 1679616; // 36^4
+  return '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${_idCounter.toRadixString(36).padLeft(4, '0')}${_idRandom.nextInt(46656).toRadixString(36)}';
+}
 
 String _dateKey(DateTime d) => '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
@@ -13,7 +25,7 @@ DateTime _parseDate(dynamic v, {DateTime? fallback}) {
       return d;
     }
   }
-  return fallback ?? DateTime.now();
+  return fallback ?? clock.now();
 }
 
 /// Tipos de cuenta. `wallet` es Nequi/Daviplata/etc.; `pocket` es un
@@ -189,7 +201,7 @@ class Tx {
   })  : tags = tags ?? <String>[],
         splits = splits ?? <TxSplit>[],
         attachments = attachments ?? <String>[],
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? clock.now();
 
   final String id;
   TxKind kind;
@@ -285,7 +297,7 @@ class Tx {
         createdAt: _parseDate(j['createdAt']),
       );
 
-  Tx copy({String? id, DateTime? date}) => Tx.fromJson(toJson()..['id'] = id ?? this.id..['date'] = (date ?? this.date).toIso8601String()..['createdAt'] = DateTime.now().toIso8601String());
+  Tx copy({String? id, DateTime? date}) => Tx.fromJson(toJson()..['id'] = id ?? this.id..['date'] = (date ?? this.date).toIso8601String()..['createdAt'] = clock.now().toIso8601String());
 }
 
 /// Frecuencia de un movimiento programado.
@@ -448,7 +460,7 @@ class Budget {
     this.rollover = false,
     this.notes = '',
   })  : categoryIds = categoryIds ?? <String>[],
-        startDate = startDate ?? DateTime(DateTime.now().year, DateTime.now().month);
+        startDate = startDate ?? DateTime(clock.now().year, clock.now().month);
 
   final String id;
   String name;

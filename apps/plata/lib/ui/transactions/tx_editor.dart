@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -66,7 +67,7 @@ class _TxEditorState extends State<TxEditor> {
     _toAccountId = e?.toAccountId ?? tpl?.toAccountId ?? widget.initialToAccountId;
     _toMinor = e?.toAmountMinor;
     _categoryId = e?.categoryId ?? tpl?.categoryId;
-    _date = e?.date ?? ib?.receivedAt ?? widget.initialDate ?? DateTime.now();
+    _date = e?.date ?? ib?.receivedAt ?? widget.initialDate ?? clock.now();
     _desc.text = e?.description ?? tpl?.description ?? ib?.merchant ?? widget.initialDescription ?? '';
     _payee.text = e?.payee ?? tpl?.payee ?? '';
     _notes.text = e?.notes ?? (ib == null ? '' : ib.rawText);
@@ -253,7 +254,7 @@ class _TxEditorState extends State<TxEditor> {
                   }
                 }
               } else if (v == 'duplicate' && widget.existing != null) {
-                await l.addTx(widget.existing!.copy(id: newId(), date: DateTime.now()));
+                await l.addTx(widget.existing!.copy(id: newId(), date: clock.now()));
                 if (context.mounted) {
                   Navigator.of(context).pop();
                 }

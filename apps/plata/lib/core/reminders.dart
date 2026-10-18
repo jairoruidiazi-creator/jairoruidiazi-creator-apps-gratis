@@ -1,3 +1,5 @@
+import 'package:clock/clock.dart';
+
 import '../model/models.dart';
 import '../model/money.dart';
 import 'ledger.dart';
@@ -12,7 +14,7 @@ class Reminders {
   static const int dailyId = 1;
 
   static Future<void> sync({required Ledger ledger, required AppSettings settings, required Notifier notifier, DateTime? now, bool spanish = true}) async {
-    final DateTime today = dateOnly(now ?? DateTime.now());
+    final DateTime today = dateOnly(now ?? clock.now());
     await notifier.cancelAll();
     if (settings.dailyReminder) {
       await notifier.scheduleDaily(
@@ -33,7 +35,7 @@ class Reminders {
       }
       final int days = s.remindDaysBefore;
       final DateTime when = DateTime(s.nextDate.year, s.nextDate.month, s.nextDate.day - days, 9);
-      if (!when.isAfter(now ?? DateTime.now())) {
+      if (!when.isAfter(now ?? clock.now())) {
         continue;
       }
       final String amount = Money.format(s.amountMinor, ledger.account(s.accountId)?.currency ?? ledger.baseCurrency, showCents: settings.showCents);
@@ -55,7 +57,7 @@ class Reminders {
       final CardStatement st = ledger.nextPayment(a, now: today);
       final DateTime pay = st.cycle.payDate;
       final DateTime when = DateTime(pay.year, pay.month, pay.day - settings.billReminderDaysBefore, 9);
-      if (st.dueMinor <= 0 || !when.isAfter(now ?? DateTime.now())) {
+      if (st.dueMinor <= 0 || !when.isAfter(now ?? clock.now())) {
         continue;
       }
       await notifier.scheduleAt(

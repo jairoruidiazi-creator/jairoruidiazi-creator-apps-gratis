@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/app_scope.dart';
@@ -28,7 +29,7 @@ class HomeScreen extends StatelessWidget {
       listenable: Listenable.merge(<Listenable>[s.ledger, s.settings]),
       builder: (BuildContext context, Widget? _) {
         final Ledger l = s.ledger;
-        final DateTime now = DateTime.now();
+        final DateTime now = clock.now();
         final Period period = l.periodSpec.containing(now);
         final PeriodTotals totals = l.totals(period);
         final List<Account> visible = l.activeAccounts.where((Account a) => !a.isPocket && !a.isDebit).toList();
@@ -188,7 +189,7 @@ class HomeScreen extends StatelessWidget {
 
   Widget _periodCard(BuildContext context, Ledger l, Period period, PeriodTotals totals, List<BudgetProgress> budgets) {
     final ColorScheme cs = Theme.of(context).colorScheme;
-    final int daysLeft = period.end.difference(dateOnly(DateTime.now())).inDays;
+    final int daysLeft = period.end.difference(dateOnly(clock.now())).inDays;
     final int perDay = daysLeft > 0 ? ((totals.incomeMinor - totals.expenseMinor) / daysLeft).floor() : 0;
     return Card(
       child: Padding(
@@ -413,7 +414,7 @@ class _ScheduledRow extends StatelessWidget {
     final Services s = AppScope.of(context);
     final Ledger l = s.ledger;
     final Account? a = l.account(item.accountId);
-    final int days = dateOnly(item.nextDate).difference(dateOnly(DateTime.now())).inDays;
+    final int days = dateOnly(item.nextDate).difference(dateOnly(clock.now())).inDays;
     final String when = days < 0 ? t(context, 'Vencido', 'Overdue') : (days == 0 ? t(context, 'Hoy', 'Today') : (days == 1 ? t(context, 'Mañana', 'Tomorrow') : formatDate(item.nextDate, 'EEE dd MMM', spanish: s.settings.spanish)));
     return ListTile(
       dense: true,

@@ -92,7 +92,9 @@ jobs:
           "$BT/aapt2" dump badging "$APK" > badging.txt
           "$BT/apksigner" verify --print-certs "$APK" | tee signing.log
           grep -q "CN=apps-gratis CI" signing.log
-          jarsigner -verify -strict "$AAB" | tee -a signing.log
+          # Las llaves de subida son autofirmadas (lo normal en Android), así que no se usa -strict.
+          jarsigner -verify "$AAB" | tee -a signing.log
+          grep -q "jar verified" signing.log
           if "$BT/zipalign" 2>&1 | grep -q -- "-P"; then
             "$BT/zipalign" -c -P 16 -v 4 "$APK" > zipalign.log
             tail -1 zipalign.log | tee -a package.log
