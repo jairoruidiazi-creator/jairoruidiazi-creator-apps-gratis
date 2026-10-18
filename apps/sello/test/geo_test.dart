@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sello/geo/coords.dart';
@@ -141,6 +143,11 @@ void main() {
       expect(Geoid.undulation(4.711, -74.0721), closeTo(21.82, 0.02)); // Bogotá
       expect(Geoid.undulation(-4.2153, -69.9406), closeTo(18.40, 0.02)); // Leticia
       expect(Geoid.undulation(10.39, -75.51), closeTo(-6.06, 0.02)); // Cartagena
+      // Extremos del texto de Ajustes (M4): de unos −21 m a unos +28 m.
+      expect(Geoid.undulation(12.46, -71.67), closeTo(-21.13, 0.05)); // Punta Gallinas
+      expect(Geoid.undulation(2.44, -76.61), closeTo(28.07, 0.05)); // Popayán
+      expect(Geoid.undulation(0.83, -77.64), closeTo(27.75, 0.05)); // Ipiales
+      expect(Geoid.undulation(3.451, -76.532), closeTo(26.98, 0.05)); // Cali
       expect(Geoid.undulation(48.14, 11.58), closeTo(45.5, 0.3)); // Múnich
       expect(Geoid.undulation(-33.8688, 151.2093), closeTo(22.4, 0.3)); // Sídney
       expect(Geoid.undulation(-33.4489, -70.6693), closeTo(27.1, 0.3)); // Santiago
@@ -463,6 +470,17 @@ void main() {
       expect(raro, isNot(contains('\\')));
       expect(raro, isNot(contains('..')));
       expect(raro, endsWith('20260309'));
+      // Un contrato con nombre largo (y con tildes, de dos bytes) no lleva el
+      // nombre del archivo más allá del límite de 255 bytes (M9): la fecha y
+      // el número siguen ahí.
+      final String contrato = 'Interventoría técnica, administrativa, financiera, contable, ambiental, social y jurídica del contrato de obra número 1234 de 2026 para la construcción de la variante de Chía y sus obras complementarias ' * 2;
+      final String largo = buildFileName('{proyecto}_{fecha}_{n}', project: contrato, time: t, n: 12);
+      expect(utf8.encode(largo).length, lessThanOrEqualTo(kMaxFileBaseBytes));
+      expect(largo, endsWith('_20260309_0012'));
+      expect(utf8.encode('${largo}_${'x' * 20}-orig.jpg.tmp-${'y' * 20}').length, lessThan(255));
+      // Nunca parte una letra de dos bytes.
+      expect(truncateUtf8('ñandú', 3), 'ña');
+      expect(truncateUtf8('ñandú', 1), '');
     });
 
     test('Plantillas y proyectos sobreviven al JSON', () {

@@ -7,7 +7,9 @@ class AppSettings extends ChangeNotifier {
 
   String language = 'es';
   String themeMode = 'system';
-  String resolution = 'ultraHigh'; // high | veryHigh | ultraHigh | max
+  // high | veryHigh | ultraHigh | max. Por defecto la máxima: todo el campo
+  // del sensor (4:3), sin el recorte del 16:9 (ver docs/DECISIONES.md).
+  String resolution = 'max';
   int jpegQuality = 92;
   bool keepOriginal = true;
   bool saveToGallery = true;
@@ -41,7 +43,7 @@ class AppSettings extends ChangeNotifier {
     _prefs = p;
     language = p.getString('language') ?? 'es';
     themeMode = p.getString('themeMode') ?? 'system';
-    resolution = p.getString('resolution') ?? 'ultraHigh';
+    resolution = p.getString('resolution') ?? 'max';
     jpegQuality = p.getInt('jpegQuality') ?? 92;
     keepOriginal = p.getBool('keepOriginal') ?? true;
     saveToGallery = p.getBool('saveToGallery') ?? true;

@@ -1,6 +1,7 @@
 {
   "name": "Sello",
   "languages": ["es", "en"],
+  "status_time": "10:05",
   "brand": {"background": ["#1B4332", "#2D6A4F"], "text": "#FFFFFF", "accent": "#FF7043"},
   "feature": {"es": "Fotos con fecha, hora, coordenadas y rumbo", "en": "Photos stamped with time, place and heading"},
   "shots": [

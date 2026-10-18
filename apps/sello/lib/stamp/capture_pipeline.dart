@@ -17,7 +17,7 @@ import 'stamp_painter.dart';
 
 /// Resultado de sellar una foto.
 class StampOutcome {
-  const StampOutcome({required this.record, this.galleryError, this.galleryDenied = false});
+  const StampOutcome({required this.record, this.galleryError, this.galleryDenied = false, this.removed = false});
 
   final PhotoRecord record;
 
@@ -26,18 +26,29 @@ class StampOutcome {
 
   /// La copia falló porque el usuario no dio permiso para la fototeca.
   final bool galleryDenied;
+
+  /// La foto se borró mientras esperaba o se sellaba: no se guardó ni se
+  /// copió nada, y no hay nada que avisar.
+  final bool removed;
 }
+
+/// Compone la copia sellada (por defecto, en un isolate).
+typedef ComposeFn = Future<ComposeResult> Function(ComposeJob job);
 
 /// Convierte la foto que entrega la cámara en: original guardado con su
 /// ficha (en el acto, para no perderla nunca) y, después, en la cola, la
 /// copia sellada con el EXIF, el registro actualizado y, si se pide, la
 /// copia en la fototeca del sistema.
 class CapturePipeline {
-  CapturePipeline({required this.store, required this.state, required this.settings});
+  CapturePipeline({required this.store, required this.state, required this.settings, ComposeFn? compose, Future<void> Function(String path)? toPhotoLibrary})
+      : _compose = compose ?? composeStamped,
+        _toPhotoLibrary = toPhotoLibrary ?? PhotoLibrary.put;
 
   final JsonStore store;
   final AppState state;
   final AppSettings settings;
+  final ComposeFn _compose;
+  final Future<void> Function(String path) _toPhotoLibrary;
 
   /// Ficha de una foto con el estado de los sensores al disparar.
   PhotoRecord buildRecord({
@@ -114,7 +125,7 @@ class CapturePipeline {
   }) async {
     final DateTime time = now ?? clock.now();
     final Uint8List bytes = await File(jpegPath).readAsBytes();
-    final int n = state.nextNumber(project.id);
+    final int n = await state.takeNumber(project.id);
     final String base = buildFileName(project.fileNamePattern, project: project.name, time: time, lat: fix?.latitude, lon: fix?.longitude, n: n);
     final String id = newId();
     final String originalRel = 'photos/${project.id}/${base}_$id-orig.jpg';
@@ -155,7 +166,14 @@ class CapturePipeline {
 
   /// Sella (o vuelve a sellar) una foto desde su original. Lanza una
   /// excepción si no se puede; la ficha no cambia en ese caso.
+  ///
+  /// El borrado gana siempre: si la foto se borra mientras se compone, lo
+  /// que se haya escrito se descarta, no se guarda nada ni se copia a la
+  /// fototeca, y el resultado lo dice con [StampOutcome.removed].
   Future<StampOutcome> stamp(PhotoRecord p, {ui.Image? logo, bool copyToGallery = false}) async {
+    if (state.isGone(p)) {
+      return StampOutcome(record: p, removed: true);
+    }
     final File original = await state.fileOf(p.originalFile);
     if (!await original.exists()) {
       throw const StampException(StampException.missingOriginal);
@@ -172,25 +190,41 @@ class CapturePipeline {
     final String stampedRel = p.stampedFile.isNotEmpty ? p.stampedFile : p.originalFile.replaceAll('-orig.jpg', '.jpg');
     final String stampedPath = await store.absolutePath(stampedRel);
     final String description = data.summary(template);
-    final ComposeResult result = await composeStamped(ComposeJob(
-      originalPath: original.path,
-      outputPath: stampedPath,
-      quality: settings.jpegQuality,
-      scale: plan.scale,
-      expectedWidth: plan.width,
-      expectedHeight: plan.height,
-      overlayPng: overlay?.png,
-      overlayLeft: overlay?.left ?? 0,
-      overlayTop: overlay?.top ?? 0,
-      latitude: p.latitude,
-      longitude: p.longitude,
-      altitudeMsl: p.altitudeMsl,
-      heading: p.heading,
-      headingTrue: p.headingTrue,
-      takenAt: p.takenAt,
-      utcOffsetMinutes: p.utcOffsetMinutes,
-      description: description,
-    ));
+    final ComposeResult result;
+    try {
+      result = await _compose(ComposeJob(
+        originalPath: original.path,
+        outputPath: stampedPath,
+        quality: settings.jpegQuality,
+        scale: plan.scale,
+        expectedWidth: plan.width,
+        expectedHeight: plan.height,
+        overlayPng: overlay?.png,
+        overlayLeft: overlay?.left ?? 0,
+        overlayTop: overlay?.top ?? 0,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        altitudeMsl: p.altitudeMsl,
+        heading: p.heading,
+        headingTrue: p.headingTrue,
+        takenAt: p.takenAt,
+        utcOffsetMinutes: p.utcOffsetMinutes,
+        description: description,
+      ));
+    } catch (_) {
+      // Borrada a mitad de camino (por ejemplo, el original ya no estaba).
+      if (state.isGone(p)) {
+        await _discard(stampedRel);
+        return StampOutcome(record: p, removed: true);
+      }
+      rethrow;
+    }
+    if (state.isGone(p)) {
+      // Se borró mientras se componía: lo que se escribió no debe quedar en
+      // la carpeta (el reindexado la "resucitaría") ni llegar a la fototeca.
+      await _discard(stampedRel);
+      return StampOutcome(record: p, removed: true);
+    }
     final bool firstTime = p.status != PhotoStatus.ok;
     p
       ..stampedFile = stampedRel
@@ -205,11 +239,15 @@ class CapturePipeline {
     if (firstTime && !settings.keepOriginal) {
       await store.delete(p.originalFile);
     }
+    if (state.isGone(p)) {
+      // Se borró mientras se guardaba la ficha: nada va a la fototeca.
+      return StampOutcome(record: p, removed: true);
+    }
     String? galleryError;
     bool galleryDenied = false;
     if (copyToGallery && firstTime && settings.saveToGallery) {
       try {
-        await PhotoLibrary.put(stampedPath);
+        await _toPhotoLibrary(stampedPath);
       } on PhotoLibraryDenied catch (e) {
         galleryError = e.toString();
         galleryDenied = true;
@@ -218,6 +256,15 @@ class CapturePipeline {
       }
     }
     return StampOutcome(record: p, galleryError: galleryError, galleryDenied: galleryDenied);
+  }
+
+  /// Borra lo que dejó un sellado descartado.
+  Future<void> _discard(String relative) async {
+    try {
+      await store.delete(relative);
+    } catch (e) {
+      debugPrint('No se pudo descartar $relative: $e');
+    }
   }
 }
 

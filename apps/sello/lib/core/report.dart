@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
@@ -9,6 +11,7 @@ import 'package:pdf/widgets.dart' as pw;
 import '../geo/coords.dart';
 import '../model/models.dart';
 import '../stamp/composer.dart';
+import 'exports.dart';
 
 /// Informe PDF de un conjunto de fotos: resumen, tabla y una ficha por foto
 /// con su imagen sellada y todos los datos. Generado en el teléfono con el
@@ -16,6 +19,77 @@ import '../stamp/composer.dart';
 /// interfaz.
 class PdfReport {
   PdfReport._();
+
+  /// Ancho de las imágenes del informe: la ficha mide 215 × 162 puntos, así
+  /// que 640 px dan unos 210 ppp al imprimir y pesan unas cinco veces menos
+  /// que la foto a 900 px.
+  static const int reportImageWidth = 640;
+
+  /// Arma el informe en un isolate aparte y lo escribe en [outPath]. Ese
+  /// isolate lee cada foto de [imagePaths] (por id) y la reduce de a una:
+  /// ni las fotos ni el PDF pasan por la memoria de la interfaz, y nada se
+  /// copia entre isolates. [onProgress] recibe cuántas fotos van listas.
+  static Future<void> writeFile({
+    required String outPath,
+    required List<PhotoRecord> photos,
+    required Map<String, Project> projects,
+    required String title,
+    required Map<String, String> imagePaths,
+    bool spanish = true,
+    String author = '',
+    DateTime? now,
+    void Function(int done, int total)? onProgress,
+    ExportCancel? cancel,
+  }) async {
+    final ReceivePort port = ReceivePort();
+    final Completer<void> done = Completer<void>();
+    Isolate? isolate;
+    final StreamSubscription<dynamic> sub = port.listen((dynamic msg) {
+      if (msg is int) {
+        onProgress?.call(msg, photos.length);
+      } else if (msg == 'done') {
+        if (!done.isCompleted) {
+          done.complete();
+        }
+      } else if (msg is String && msg.startsWith('error:')) {
+        if (!done.isCompleted) {
+          done.completeError(StateError(msg.substring(6)));
+        }
+      } else if (msg == null && !done.isCompleted) {
+        done.completeError(StateError('El informe se interrumpió'));
+      }
+    });
+    cancel?.whenCancelled(() {
+      isolate?.kill(priority: Isolate.immediate);
+      if (!done.isCompleted) {
+        done.completeError(const ExportCancelled());
+      }
+    });
+    try {
+      final _PdfRequest request = _PdfRequest(port.sendPort, outPath, photos, projects, title, imagePaths, spanish, author, now ?? clock.now());
+      final Isolate spawned = await Isolate.spawn<_PdfRequest>(_pdfMain, request, onExit: port.sendPort, errorsAreFatal: true);
+      isolate = spawned;
+      if (cancel != null && cancel.cancelled) {
+        spawned.kill(priority: Isolate.immediate);
+        throw const ExportCancelled();
+      }
+      await done.future;
+    } catch (_) {
+      for (final String path in <String>[outPath, '$outPath.tmp-pdf']) {
+        try {
+          final File f = File(path);
+          if (await f.exists()) {
+            await f.delete();
+          }
+        } catch (_) {}
+      }
+      rethrow;
+    } finally {
+      cancel?.whenCancelled(null);
+      await sub.cancel();
+      port.close();
+    }
+  }
 
   /// Reduce un JPEG a [maxWidth] px para incrustarlo en el PDF. Decodifica
   /// directamente a tamaño reducido (1/2, 1/4 u 1/8) cuando se puede.
@@ -41,27 +115,16 @@ class PdfReport {
     return img.encodeJpg(small, quality: quality, chroma: img.JpegChroma.yuv420);
   }
 
-  /// Construye el PDF en un isolate. [images] tiene las miniaturas por id de
-  /// foto (las que falten se muestran como "Sin imagen").
-  static Future<Uint8List> build({
-    required List<PhotoRecord> photos,
-    required Map<String, Project> projects,
-    required String title,
-    required Map<String, Uint8List> images,
-    bool spanish = true,
-    String author = '',
-    DateTime? now,
-  }) {
-    final DateTime when = now ?? clock.now();
-    return Isolate.run(() => buildInCurrentIsolate(photos: photos, projects: projects, title: title, images: images, spanish: spanish, author: author, now: when));
-  }
-
-  /// Construye el PDF en el isolate actual (lo usan [build] y las pruebas).
+  /// Construye el PDF en el isolate actual (lo usan [writeFile] y las
+  /// pruebas). [images] tiene las miniaturas por id de foto (las que falten
+  /// se muestran como "Sin imagen"); [fileNames], el archivo de cada imagen,
+  /// y sin él la ficha no nombra ningún archivo: nunca uno que no exista.
   static Future<Uint8List> buildInCurrentIsolate({
     required List<PhotoRecord> photos,
     required Map<String, Project> projects,
     required String title,
     required Map<String, Uint8List> images,
+    Map<String, String> fileNames = const <String, String>{},
     bool spanish = true,
     String author = '',
     required DateTime now,
@@ -147,7 +210,7 @@ class PdfReport {
         for (final MapEntry<String, String> e in p.labeledFields(project)) <String>[e.key, e.value],
         if (p.notes.isNotEmpty) <String>[s('Notas', 'Notes'), p.notes],
         if (p.tags.isNotEmpty) <String>[s('Etiquetas', 'Tags'), p.tags.map((String x) => '#$x').join(' ')],
-        <String>[s('Archivo', 'File'), p.stampedFile.split('/').last],
+        if (fileNames[p.id] != null) <String>[s('Archivo', 'File'), fileNames[p.id]!],
       ];
       blocks.add(pw.Container(
         padding: const pw.EdgeInsets.symmetric(vertical: 8),
@@ -208,6 +271,34 @@ class PdfReport {
 
   static bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
 
+  static Future<void> _pdfMain(_PdfRequest r) async {
+    try {
+      final Map<String, Uint8List> images = <String, Uint8List>{};
+      final Map<String, String> names = <String, String>{};
+      int i = 0;
+      for (final PhotoRecord p in r.photos) {
+        final String? path = r.imagePaths[p.id];
+        if (path != null) {
+          try {
+            images[p.id] = thumbnailSync(File(path).readAsBytesSync(), maxWidth: reportImageWidth, quality: 72);
+            names[p.id] = path.split(Platform.pathSeparator).last.split('/').last;
+          } catch (_) {
+            // Sin imagen: la ficha lo dice y no nombra el archivo.
+          }
+        }
+        i++;
+        r.port.send(i);
+      }
+      final Uint8List pdf = await buildInCurrentIsolate(photos: r.photos, projects: r.projects, title: r.title, images: images, fileNames: names, spanish: r.spanish, author: r.author, now: r.now);
+      final File tmp = File('${r.outPath}.tmp-pdf');
+      tmp.writeAsBytesSync(pdf, flush: true);
+      tmp.renameSync(r.outPath);
+      r.port.send('done');
+    } catch (err) {
+      r.port.send('error:$err');
+    }
+  }
+
   static String _truncate(String s, int n) => s.length <= n ? s : '${s.substring(0, n - 1)}…';
 
   /// Las fuentes incorporadas del PDF (Helvetica) solo cubren Latin-1: se
@@ -224,4 +315,18 @@ class PdfReport {
     }
     return b.toString().replaceAll(RegExp(r'[ \t]+'), ' ').trim();
   }
+}
+
+class _PdfRequest {
+  const _PdfRequest(this.port, this.outPath, this.photos, this.projects, this.title, this.imagePaths, this.spanish, this.author, this.now);
+
+  final SendPort port;
+  final String outPath;
+  final List<PhotoRecord> photos;
+  final Map<String, Project> projects;
+  final String title;
+  final Map<String, String> imagePaths;
+  final bool spanish;
+  final String author;
+  final DateTime now;
 }

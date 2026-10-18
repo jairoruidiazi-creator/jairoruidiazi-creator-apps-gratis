@@ -44,7 +44,7 @@ class ProjectsScreen extends StatelessWidget {
                   selected: p.id == current.id,
                   title: Text('${p.emoji.isNotEmpty ? '${p.emoji} ' : ''}${p.name}'),
                   subtitle: Text(
-                    '${st.photos.where((PhotoRecord x) => x.projectId == p.id).length} ${t(context, 'fotos', 'photos')} · ${t(context, 'sello', 'stamp')}: ${st.templateForProject(p).name}${p.fields.isNotEmpty ? ' · ${p.fields.map((FieldDef f) => f.label).join(', ')}' : ''}',
+                    '${st.photos.where((PhotoRecord x) => x.projectId == p.id).length} ${t(context, 'fotos', 'photos')} · ${t(context, 'sello', 'stamp')}: ${st.templateForProject(p).displayName(spanish: s.settings.spanish)}${p.fields.isNotEmpty ? ' · ${p.fields.map((FieldDef f) => f.label).join(', ')}' : ''}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),

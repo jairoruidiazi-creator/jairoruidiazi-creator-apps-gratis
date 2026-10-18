@@ -212,4 +212,67 @@ void main() {
       loc.dispose();
     });
   });
+
+  group('Solo mientras se ve (M5, M6)', () {
+    test('Se lee mientras una pantalla la usa y la app está a la vista; si no, se detiene', () async {
+      final FakeLocationBackend backend = FakeLocationBackend()..permission = LocationPermission.whileInUse;
+      final LocationService loc = LocationService(backend: backend, systemAltitudeIsMsl: false, undulation: (double a, double b) => 20);
+      final Object camera = Object();
+      final Object map = Object();
+      expect(loc.wanted, isFalse);
+      loc.acquire(camera);
+      await settle();
+      expect(backend.positionsCtrl.hasListener, isTrue);
+      expect(backend.altitudesCtrl.hasListener, isTrue);
+      backend.positionsCtrl.add(at(4.711, -74.0721));
+      await settle();
+      expect(loc.status, 'ok');
+      // El mapa también la usa: al salir de la cámara sigue.
+      loc.acquire(map);
+      loc.release(camera);
+      await settle();
+      expect(backend.positionsCtrl.hasListener, isTrue);
+      // Nadie la usa: se detiene, pero se conserva la última posición.
+      loc.release(map);
+      await settle();
+      expect(backend.positionsCtrl.hasListener, isFalse);
+      expect(backend.altitudesCtrl.hasListener, isFalse);
+      expect(loc.status, 'off');
+      expect(loc.fix, isNotNull);
+      // En segundo plano tampoco se lee, aunque la cámara esté abierta.
+      loc.acquire(camera);
+      await settle();
+      expect(backend.positionsCtrl.hasListener, isTrue);
+      loc.foreground = false;
+      await settle();
+      expect(backend.positionsCtrl.hasListener, isFalse);
+      expect(loc.status, 'off');
+      loc.foreground = true;
+      await settle();
+      expect(backend.positionsCtrl.hasListener, isTrue);
+      expect(loc.status, 'searching');
+      await loc.stop();
+      loc.dispose();
+    });
+
+    test('Android: reintentar con las lecturas en marcha vuelve a abrir el canal de altitud', () async {
+      final FakeLocationBackend backend = FakeLocationBackend();
+      final LocationService loc = await started(backend);
+      backend.positionsCtrl.add(at(4.711, -74.0721));
+      await settle();
+      expect(loc.status, 'ok');
+      expect(backend.altitudeOpens, 1);
+      // El usuario pasó de ubicación aproximada a precisa en los ajustes.
+      await loc.retry();
+      expect(backend.altitudeOpens, 2);
+      expect(backend.altitudesCtrl.hasListener, isTrue);
+      backend.altitudesCtrl.add(GpsAltitude(ellipsoid: 2620, time: t0, accuracy: 4));
+      await settle();
+      backend.positionsCtrl.add(at(4.711, -74.0721));
+      await settle();
+      expect(loc.fix!.altitudeEllipsoid, 2620);
+      await loc.stop();
+      loc.dispose();
+    });
+  });
 }

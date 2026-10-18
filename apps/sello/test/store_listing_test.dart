@@ -29,6 +29,11 @@ void main() {
     // La posición del GPS no es milimétrica (lo es el cálculo de las proyecciones).
     RegExp(r'precisión milimétrica', caseSensitive: false),
     RegExp(r'millimet(er|re) accuracy', caseSensitive: false),
+    // El KML lleva solo los puntos; las fotos van en el KMZ (M13).
+    RegExp(r'KML y KMZ con las fotos', caseSensitive: false),
+    RegExp(r'KML and KMZ with the photos', caseSensitive: false),
+    RegExp(r'KML con (las )?fotos', caseSensitive: false),
+    RegExp(r'KML with (the )?photos', caseSensitive: false),
   ];
 
   test('Ninguna frase promete algo que la app no hace', () {

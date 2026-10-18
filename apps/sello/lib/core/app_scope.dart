@@ -7,15 +7,40 @@ import '../stamp/capture_pipeline.dart';
 import '../stamp/stamp_queue.dart';
 import 'app_state.dart';
 import 'capture_session.dart';
+import 'device_files.dart';
+import 'keep_awake.dart';
 import 'settings.dart';
 import 'storage.dart';
 
 class Services {
-  Services({required this.settings, required this.state, required this.store, required this.location, required this.heading, this.declinationLink, CaptureSession? session, CapturePipeline? pipeline, StampQueue? queue})
-      : session = session ?? CaptureSession(state: state, settings: settings),
-        pipeline = pipeline ?? CapturePipeline(store: store, state: state, settings: settings) {
+  Services({
+    required this.settings,
+    required this.state,
+    required this.store,
+    required this.location,
+    required this.heading,
+    this.declinationLink,
+    CaptureSession? session,
+    CapturePipeline? pipeline,
+    StampQueue? queue,
+    KeepAwake? keepAwake,
+    DeviceFiles? files,
+  })  : session = session ?? CaptureSession(state: state, settings: settings),
+        pipeline = pipeline ?? CapturePipeline(store: store, state: state, settings: settings),
+        keepAwake = keepAwake ?? const KeepAwake(),
+        files = files ?? const DeviceFiles() {
     this.queue = queue ?? StampQueue(pipeline: this.pipeline);
   }
+
+  /// Pantalla encendida con la cámara a la vista.
+  final KeepAwake keepAwake;
+
+  /// Espacio libre y documentos del sistema (copia completa en Android).
+  final DeviceFiles files;
+
+  /// Avisa a la pestaña activa cuando otra pantalla completa la tapa (la
+  /// cámara se libera mientras tanto).
+  final RouteObserver<PageRoute<dynamic>> routes = RouteObserver<PageRoute<dynamic>>();
 
   final AppSettings settings;
   final AppState state;

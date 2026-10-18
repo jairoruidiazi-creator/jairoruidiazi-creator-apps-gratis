@@ -197,7 +197,7 @@ class _TemplateEditorState extends State<TemplateEditor> {
               ),
             ),
             const SizedBox(height: 4),
-            Text(t(context, 'Vista previa con datos de ejemplo. El tamaño del texto es proporcional al ancho de la foto.', 'Preview with sample data. Text size is proportional to the photo width.'), style: tt.bodySmall),
+            Text(t(context, 'Vista previa con datos de ejemplo. El tamaño del texto es proporcional al lado corto de la foto (igual en vertical y en horizontal) y el sello nunca pasa de un cuarto del alto: si no cabe, se achica.', 'Preview with sample data. Text size is proportional to the short side of the photo (the same in portrait and landscape) and the stamp never takes more than a quarter of the height: if it does not fit, it shrinks.'), style: tt.bodySmall),
             const SizedBox(height: 12),
             TextField(controller: _name, decoration: InputDecoration(labelText: t(context, 'Nombre', 'Name'), border: const OutlineInputBorder())),
             const SizedBox(height: 16),

@@ -127,4 +127,30 @@ void main() {
     expect(live.name, 'Obra cambiada');
     expect(live.fields.single.label, 'Lote');
   });
+
+  test('Las notas y etiquetas no pasan de un proyecto a otro (M11)', () async {
+    final Project a = await st.addProject('A');
+    final Project b = await st.addProject('B');
+    settings.currentProjectId = a.id;
+    final CaptureSession s = CaptureSession(state: st, settings: settings, logoDecoder: (File f) async => null);
+    s.notes = 'Muro norte';
+    s.addTag('fisura');
+    // Mientras sigue el mismo proyecto se conservan entre disparos.
+    settings.refresh();
+    expect(s.notes, 'Muro norte');
+    expect(s.tags, <String>['fisura']);
+    // Por la hoja de datos.
+    await s.selectProject(b.id);
+    expect(s.notes, isEmpty);
+    expect(s.tags, isEmpty);
+    // Y desde la pestaña Proyectos.
+    s.notes = 'Fachada';
+    s.addTag('humedad');
+    settings.currentProjectId = a.id;
+    settings.refresh();
+    expect(s.project.id, a.id);
+    expect(s.notes, isEmpty);
+    expect(s.tags, isEmpty);
+    s.dispose();
+  });
 }

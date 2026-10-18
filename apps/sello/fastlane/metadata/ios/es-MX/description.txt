@@ -28,7 +28,7 @@ PROYECTOS Y GALERÍA
 • Mapa con tus fotos sobre OpenStreetMap, distancia hasta cada una y cómo llegar.
 
 EXPORTAR
-• CSV con todas las coordenadas y campos, listo para Excel en español; KML y KMZ con las fotos incluidas.
+• CSV con todas las coordenadas y campos, listo para Excel en español; KML con los puntos y KMZ con las fotos incluidas.
 • ZIP con fotos selladas u originales.
 • Informe PDF por proyecto con resumen, tabla y una ficha por foto.
 

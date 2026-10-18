@@ -16,7 +16,11 @@ import '../gallery/photo_detail_screen.dart';
 /// Mapa con las fotos (OpenStreetMap) y la posición actual. Se crea solo
 /// cuando se abre su pestaña (ver HomeShell): antes no pide teselas.
 class MapScreen extends StatefulWidget {
-  const MapScreen({super.key});
+  const MapScreen({super.key, this.active = true});
+
+  /// El mapa está a la vista: mientras tanto usa la ubicación (tu posición y
+  /// la distancia a cada foto); fuera de vista la suelta.
+  final bool active;
 
   /// Falso en pruebas: no se descargan teselas.
   static bool tilesEnabled = true;
@@ -42,9 +46,34 @@ class _MapScreenState extends State<MapScreen> {
   String? _projectId;
   bool _fitted = false;
   bool _ready = false;
+  LocationService? _location;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_location == null) {
+      _location = AppScope.of(context).location;
+      if (widget.active) {
+        _location!.acquire(this);
+      }
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant MapScreen old) {
+    super.didUpdateWidget(old);
+    if (old.active != widget.active) {
+      if (widget.active) {
+        _location?.acquire(this);
+      } else {
+        _location?.release(this);
+      }
+    }
+  }
 
   @override
   void dispose() {
+    _location?.release(this);
     _map.dispose();
     super.dispose();
   }
@@ -211,7 +240,7 @@ class _MapScreenState extends State<MapScreen> {
                             FloatingActionButton.small(
                               heroTag: null,
                               tooltip: t(context, 'Mi posición', 'My position'),
-                              onPressed: fix == null ? () => s.location.start() : () => _map.move(LatLng(fix.latitude, fix.longitude), 17),
+                              onPressed: fix == null ? () => s.location.retry() : () => _map.move(LatLng(fix.latitude, fix.longitude), 17),
                               child: Icon(fix == null ? Icons.location_searching : Icons.my_location),
                             ),
                           ],

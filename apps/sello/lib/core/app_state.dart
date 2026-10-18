@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
@@ -44,6 +46,41 @@ class AppState extends ChangeNotifier {
   /// Avisos de la última carga (recuperación del índice o de fotos sueltas).
   final List<LoadNotice> notices = <LoadNotice>[];
 
+  /// Fotos que se están borrando ahora mismo (ver [isGone]).
+  final Set<String> _deleting = <String>{};
+  final StreamController<Set<String>> _removed = StreamController<Set<String>>.broadcast();
+
+  /// Ids de las fotos que se empiezan a borrar. La cola de sellado los saca
+  /// de su fila: el borrado gana siempre.
+  Stream<Set<String>> get removedPhotos => _removed.stream;
+
+  /// La ficha [p] ya no es la de la galería: se borró, se está borrando o la
+  /// reemplazó otra. Lo que se estuviera haciendo con ella se descarta.
+  bool isGone(PhotoRecord p) => _deleting.contains(p.id) || !identical(photoById(p.id), p);
+
+  /// Lista de un JSON leído del disco, aunque traiga otra cosa (un índice
+  /// tocado a mano desde la app Archivos no debe impedir abrir la app).
+  static List<Map<String, dynamic>> _maps(Object? list) => list is List ? list.whereType<Map<String, dynamic>>().toList() : const <Map<String, dynamic>>[];
+
+  /// Convierte cada elemento y deja fuera los que no se pueden leer y los
+  /// que repiten un id ya leído (dos fichas con el mismo id confundirían la
+  /// galería y los menús).
+  static List<T> _parseAll<T>(Object? list, T Function(Map<String, dynamic> j) parse, String Function(T item) idOf) {
+    final List<T> out = <T>[];
+    final Set<String> seen = <String>{};
+    for (final Map<String, dynamic> j in _maps(list)) {
+      try {
+        final T item = parse(j);
+        if (seen.add(idOf(item))) {
+          out.add(item);
+        }
+      } catch (e) {
+        debugPrint('Ficha ilegible: $e');
+      }
+    }
+    return out;
+  }
+
   Future<void> load() async {
     notices.clear();
     final JsonRead p = await store.readJsonChecked('projects.json');
@@ -54,10 +91,10 @@ class AppState extends ChangeNotifier {
     }
     projects
       ..clear()
-      ..addAll(((p.data?['projects'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>().map(Project.fromJson));
+      ..addAll(_parseAll<Project>(p.data?['projects'], Project.fromJson, (Project x) => x.id));
     templates
       ..clear()
-      ..addAll(((p.data?['templates'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>().map(StampTemplate.fromJson));
+      ..addAll(_parseAll<StampTemplate>(p.data?['templates'], StampTemplate.fromJson, (StampTemplate x) => x.id));
     if (templates.every((StampTemplate t) => t.id != 'default')) {
       templates.insert(0, StampTemplate.defaultTemplate());
     }
@@ -70,9 +107,11 @@ class AppState extends ChangeNotifier {
     } else if (ph.outcome == ReadOutcome.lost) {
       notices.add(const LoadNotice(LoadNoticeKind.photosLost));
     }
+    // Una ficha con tipos inesperados se deja fuera; si su foto sigue en la
+    // carpeta, el reindexado de abajo la recupera con los datos de su EXIF.
     photos
       ..clear()
-      ..addAll(((ph.data?['photos'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>().map(PhotoRecord.fromJson));
+      ..addAll(_parseAll<PhotoRecord>(ph.data?['photos'], PhotoRecord.fromJson, (PhotoRecord x) => x.id));
     await store.cleanTemporaries('photos');
     final int recovered = await reindexPhotos();
     if (recovered > 0) {
@@ -274,22 +313,47 @@ class AppState extends ChangeNotifier {
   }
 
   /// Borra fotos: primero los archivos (así el reindexado nunca las
-  /// "resucita") y después sus fichas.
+  /// "resucita") y después sus fichas. El borrado gana siempre: se anuncia
+  /// antes de empezar, y si una de estas fotos se está sellando, el sellado
+  /// descarta lo que produzca (ver CapturePipeline.stamp).
   Future<void> deletePhotos(Iterable<PhotoRecord> list) async {
     final List<PhotoRecord> items = list.toList();
     final Set<String> ids = items.map((PhotoRecord p) => p.id).toSet();
-    for (final PhotoRecord p in items) {
-      await store.delete(p.originalFile);
-      if (p.stampedFile.isNotEmpty) {
-        await store.delete(p.stampedFile);
+    _deleting.addAll(ids);
+    _removed.add(ids);
+    try {
+      for (final PhotoRecord p in items) {
+        await store.delete(p.originalFile);
+        if (p.stampedFile.isNotEmpty) {
+          await store.delete(p.stampedFile);
+        }
       }
+      photos.removeWhere((PhotoRecord p) => ids.contains(p.id));
+      await savePhotos();
+    } finally {
+      _deleting.removeAll(ids);
     }
-    photos.removeWhere((PhotoRecord p) => ids.contains(p.id));
-    await savePhotos();
   }
 
-  /// Número consecutivo dentro de un proyecto (para nombres de archivo).
-  int nextNumber(String projectId) => photos.where((PhotoRecord p) => p.projectId == projectId).length + 1;
+  /// Número que tendrá la próxima foto de un proyecto (variable {n} del
+  /// nombre de archivo). Sale de un contador guardado en el proyecto que
+  /// nunca baja: borrar o mover fotos no hace que un número se repita.
+  int nextNumber(String projectId) {
+    final int inProject = photos.where((PhotoRecord p) => p.projectId == projectId).length;
+    final Project? project = projects.where((Project p) => p.id == projectId).firstOrNull;
+    return math.max(project?.photoCounter ?? 0, inProject) + 1;
+  }
+
+  /// Toma el número de la próxima foto y lo deja guardado.
+  Future<int> takeNumber(String projectId) async {
+    final int n = nextNumber(projectId);
+    final Project? project = projects.where((Project p) => p.id == projectId).firstOrNull;
+    if (project != null) {
+      project.photoCounter = n;
+      await saveProjects();
+    }
+    return n;
+  }
 
   Future<File> fileOf(String relative) async => File(await store.absolutePath(relative));
 
@@ -332,5 +396,11 @@ class AppState extends ChangeNotifier {
       s.addAll(p.tags);
     }
     return s;
+  }
+
+  @override
+  void dispose() {
+    unawaited(_removed.close());
+    super.dispose();
   }
 }

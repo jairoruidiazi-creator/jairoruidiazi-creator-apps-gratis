@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
@@ -227,7 +226,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
                         IconButton(tooltip: t(context, 'Seleccionar todas', 'Select all'), onPressed: () => setState(() => _selected.addAll(photos.map((PhotoRecord p) => p.id))), icon: const Icon(Icons.select_all)),
                         IconButton(tooltip: t(context, 'Editar en lote', 'Batch edit'), onPressed: _busy ? null : () => _batchEdit(st, photos), icon: const Icon(Icons.edit_outlined)),
                         Builder(
-                          builder: (BuildContext buttonContext) => IconButton(tooltip: t(context, 'Compartir', 'Share'), onPressed: _busy ? null : () => _share(st, photos, shareOriginOf(buttonContext)), icon: const Icon(Icons.share_outlined)),
+                          builder: (BuildContext buttonContext) => IconButton(tooltip: t(context, 'Compartir', 'Share'), onPressed: _busy ? null : () => _share(st, _targets(photos), shareOriginOf(buttonContext)), icon: const Icon(Icons.share_outlined)),
                         ),
                         IconButton(tooltip: t(context, 'Borrar', 'Delete'), onPressed: _busy ? null : () => _delete(st, photos), icon: const Icon(Icons.delete_outline)),
                       ],
@@ -288,17 +287,84 @@ class _GalleryScreenState extends State<GalleryScreen> {
     }
   }
 
-  /// Comparte las fotos (selladas; si una no está sellada, su original).
-  Future<void> _share(AppState st, List<PhotoRecord> visible, Rect origin) async {
-    final List<PhotoRecord> list = _targets(visible);
+  /// De [list], las fotos ya selladas. Las pendientes o fallidas no tienen
+  /// todavía su copia sellada: no se mezclan originales a escondidas en una
+  /// salida de "fotos selladas"; se avisa cuántas quedan fuera y se pregunta.
+  /// Null si no hay nada que exportar o el usuario cancela.
+  Future<List<PhotoRecord>?> _onlyStamped(List<PhotoRecord> list) async {
+    final List<PhotoRecord> stamped = list.where((PhotoRecord p) => p.status == PhotoStatus.ok).toList();
+    return _confirmSubset(
+      list,
+      stamped,
+      none: t(context, 'Ninguna de estas fotos está sellada todavía (se están sellando o el sellado falló).', 'None of these photos is stamped yet (they are being stamped or stamping failed).'),
+      left: (int missing, int total) => t(context, '$missing de las $total fotos todavía no están selladas (se están sellando o el sellado falló) y no van en la exportación.', '$missing of the $total photos are not stamped yet (they are being stamped or stamping failed) and are left out.'),
+    );
+  }
+
+  /// De [list], las fotos que conservan su original (sin "Conservar la foto
+  /// original", la original se borra al sellar). Null si no hay ninguna o el
+  /// usuario cancela.
+  Future<List<PhotoRecord>?> _onlyWithOriginals(AppState st, List<PhotoRecord> list) async {
+    final List<PhotoRecord> kept = <PhotoRecord>[];
+    for (final PhotoRecord p in list) {
+      if (p.originalFile.isNotEmpty && await (await st.fileOf(p.originalFile)).exists()) {
+        kept.add(p);
+      }
+    }
+    if (!mounted) {
+      return null;
+    }
+    return _confirmSubset(
+      list,
+      kept,
+      none: t(context, 'Ninguna de estas fotos conserva su original (se borra al sellar si "Conservar la foto original" está apagado).', 'None of these photos kept its original (it is deleted after stamping when "Keep the original photo" is off).'),
+      left: (int missing, int total) => t(context, '$missing de las $total fotos no conservan su original y no van en el ZIP.', '$missing of the $total photos did not keep their original and are left out of the ZIP.'),
+    );
+  }
+
+  Future<List<PhotoRecord>?> _confirmSubset(List<PhotoRecord> all, List<PhotoRecord> subset, {required String none, required String Function(int missing, int total) left}) async {
+    if (subset.length == all.length) {
+      return all;
+    }
+    if (subset.isEmpty) {
+      _toast(none);
+      return null;
+    }
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Text(t(context, 'Algunas fotos quedan fuera', 'Some photos are left out')),
+        content: Text(left(all.length - subset.length, all.length)),
+        actions: <Widget>[
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t(context, 'Cancelar', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text('${t(context, 'Seguir con', 'Continue with')} ${subset.length}')),
+        ],
+      ),
+    );
+    return ok == true ? subset : null;
+  }
+
+  /// Comparte las fotos selladas de [list] (las que no lo están quedan fuera,
+  /// con aviso).
+  Future<void> _share(AppState st, List<PhotoRecord> all, Rect origin) async {
+    final List<PhotoRecord>? list = await _onlyStamped(all);
+    if (list == null || !mounted) {
+      return;
+    }
     setState(() => _busy = true);
     try {
       final List<String> paths = <String>[];
       for (final PhotoRecord p in list) {
-        final File? f = await st.displayFile(p);
-        if (f != null) {
+        final File f = await st.fileOf(p.stampedFile);
+        if (p.stampedFile.isNotEmpty && await f.exists()) {
           paths.add(f.path);
         }
+      }
+      if (paths.isEmpty) {
+        if (mounted) {
+          _toast(t(context, 'No se encontraron los archivos de esas fotos.', 'The files of those photos were not found.'));
+        }
+        return;
       }
       await shareFiles(paths, origin: origin, text: list.length == 1 ? list.first.description : null);
     } catch (e) {
@@ -438,7 +504,18 @@ class _GalleryScreenState extends State<GalleryScreen> {
       return;
     }
     if (choice == 'photos') {
-      await _share(st, visible, origin);
+      await _share(st, list, origin);
+      return;
+    }
+    // Las salidas con fotos selladas (KMZ, ZIP, PDF) no llevan originales a
+    // escondidas; el ZIP con originales, solo las fotos que la conservan.
+    List<PhotoRecord>? chosen = list;
+    if (choice == 'kmz' || choice == 'zip' || choice == 'pdf') {
+      chosen = await _onlyStamped(list);
+    } else if (choice == 'zip-orig') {
+      chosen = await _onlyWithOriginals(st, list);
+    }
+    if (chosen == null || !mounted) {
       return;
     }
     final Services sv = AppScope.of(context);
@@ -446,7 +523,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
     setState(() => _busy = true);
     unawaited(showExportProgress(context, progress));
     try {
-      final String path = await runExport(choice, list, st, sv.store, spanish: sv.settings.spanish, title: _projectId == null ? 'Sello' : (st.projectMap[_projectId]?.name ?? 'Sello'), progress: progress);
+      final String path = await runExport(choice, chosen, st, sv.store, spanish: sv.settings.spanish, title: _projectId == null ? 'Sello' : (st.projectMap[_projectId]?.name ?? 'Sello'), progress: progress);
       progress.close();
       await shareFiles(<String>[path], origin: origin);
     } on ExportCancelled {
@@ -541,18 +618,25 @@ Future<String> runExport(String kind, List<PhotoRecord> list, AppState st, JsonS
   final Map<String, Project> projects = st.projectMap;
   final String stamp = _fileStamp(clock.now());
   Future<String> out(String name) => store.absolutePath('exports/$name');
+  // Archivos que de verdad están en el teléfono: ninguna salida nombra ni
+  // incluye otros (una foto sin sellar no tiene copia sellada, y sin
+  // "Conservar la foto original" la original se borra al sellar).
+  final Set<String> present = <String>{};
+  for (final PhotoRecord p in list) {
+    for (final String rel in <String>[p.originalFile, p.stampedFile]) {
+      if (rel.isNotEmpty && await (await st.fileOf(rel)).exists()) {
+        present.add(rel);
+      }
+    }
+  }
+  bool exists(String rel) => present.contains(rel);
+  // Fotos selladas (o, con [originals], las originales), sin mezclar unas con otras.
   Future<Map<String, String>> files({required bool originals}) async {
     final Map<String, String> m = <String, String>{};
     for (final PhotoRecord p in list) {
-      File? f;
-      if (originals) {
-        final File o = await st.fileOf(p.originalFile);
-        f = await o.exists() ? o : await st.displayFile(p);
-      } else {
-        f = await st.displayFile(p);
-      }
-      if (f != null) {
-        m[p.id] = f.path;
+      final String rel = originals ? p.originalFile : p.stampedFile;
+      if ((originals || p.status == PhotoStatus.ok) && present.contains(rel)) {
+        m[p.id] = (await st.fileOf(rel)).path;
       }
     }
     return m;
@@ -562,7 +646,7 @@ Future<String> runExport(String kind, List<PhotoRecord> list, AppState st, JsonS
   switch (kind) {
     case 'csv':
       {
-        await store.writeBytes('exports/sello_$stamp.csv', Exports.csvBytes(list, projects, spanish: spanish));
+        await store.writeBytes('exports/sello_$stamp.csv', Exports.csvBytes(list, projects, spanish: spanish, exists: exists));
         return out('sello_$stamp.csv');
       }
     case 'kml':
@@ -582,31 +666,23 @@ Future<String> runExport(String kind, List<PhotoRecord> list, AppState st, JsonS
         final bool originals = kind == 'zip-orig';
         final String name = originals ? 'sello_${stamp}_${k('originales', 'originals')}.zip' : 'sello_$stamp.zip';
         final String path = await out(name);
-        await writeZipFile(path, Exports.zipEntries(list, projects, title: title, files: await files(originals: originals), spanish: spanish), onProgress: onProgress, cancel: progress.cancel);
+        await writeZipFile(path, Exports.zipEntries(list, projects, title: title, files: await files(originals: originals), spanish: spanish, exists: exists), onProgress: onProgress, cancel: progress.cancel);
         return path;
       }
     case 'pdf':
       {
-        final Map<String, Uint8List> images = <String, Uint8List>{};
-        for (int i = 0; i < list.length; i++) {
-          if (progress.cancel.cancelled) {
-            throw const ExportCancelled();
-          }
-          progress.update(i, list.length, '${k('Preparando imagen', 'Preparing image')} ${i + 1} ${k('de', 'of')} ${list.length}');
-          final File? f = await st.displayFile(list[i]);
-          if (f != null) {
-            try {
-              images[list[i].id] = await PdfReport.thumbnail(await f.readAsBytes());
-            } catch (_) {}
-          }
-        }
-        progress.update(list.length, list.length, k('Armando el PDF…', 'Building the PDF…'));
-        final Uint8List pdf = await PdfReport.build(photos: list, projects: projects, title: title, images: images, spanish: spanish);
-        if (progress.cancel.cancelled) {
-          throw const ExportCancelled();
-        }
-        await store.writeBytes('exports/sello_$stamp.pdf', pdf);
-        return out('sello_$stamp.pdf');
+        final String path = await out('sello_$stamp.pdf');
+        await PdfReport.writeFile(
+          outPath: path,
+          photos: list,
+          projects: projects,
+          title: title,
+          imagePaths: await files(originals: false),
+          spanish: spanish,
+          onProgress: (int d, int tot) => progress.update(d, tot, d < tot ? '${k('Preparando imagen', 'Preparing image')} ${d + 1} ${k('de', 'of')} $tot' : k('Armando el PDF…', 'Building the PDF…')),
+          cancel: progress.cancel,
+        );
+        return path;
       }
   }
   throw ArgumentError.value(kind, 'kind');

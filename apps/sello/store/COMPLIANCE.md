@@ -57,7 +57,7 @@ Las fotos, proyectos y notas no salen del teléfono salvo que el usuario los com
 
 El permiso de micrófono que declara el complemento de cámara se elimina del manifiesto (`tools:node="remove"`) y la CI verifica que no aparezca.
 
-**Funciones de hardware:** cámara, enfoque automático, brújula y GPS se declaran con `android:required="false"` para que la ficha no excluya equipos sin alguna de ellas (la app funciona con lo que haya).
+**Funciones de hardware:** Sello es una cámara y Google Play solo la ofrece a equipos con cámara y ubicación: el APK exige `android.hardware.camera.any` (lo declara CameraX) y `android.hardware.location` (implícito en el permiso de ubicación), como muestra el badging de la CI. Lo demás se declara con `android:required="false"` para no excluir equipos por eso: cámara trasera, enfoque automático, brújula y GPS. Sin brújula la foto sale sin rumbo y sin GPS la posición se fija a mano en el mapa.
 
 ## App Store Connect
 
@@ -67,6 +67,6 @@ El permiso de micrófono que declara el complemento de cámara se elimina del ma
 
 **Cifrado (exportación):** `ITSAppUsesNonExemptEncryption = NO`: solo usa HTTPS del sistema.
 
-**Textos de permisos (Info.plist, español e inglés):** cámara, ubicación mientras se usa (también da el norte verdadero de la brújula), movimiento, fototeca y micrófono. De la fototeca solo se pide "agregar a Fotos" (sin álbum propio, porque crear un álbum exige acceso completo); el texto de acceso completo está porque la biblioteca `gal` enlaza esa API, pero la app nunca lo solicita. El del micrófono está porque el complemento de cámara enlaza la grabación de audio (sin el texto, App Store Connect devuelve ITMS-90683); la cámara se abre sin audio y Sello nunca lo pide. Para no necesitar el texto de ubicación "siempre", el iOS para la tienda debe compilarse con la variable de entorno `BYPASS_PERMISSION_LOCATION_ALWAYS=1` (`BYPASS_PERMISSION_LOCATION_ALWAYS=1 flutter build ipa`, y también en el `xcodebuild archive` de la firma), que quita del binario la petición de ese permiso en `geolocator_apple`; sin ella, App Store Connect devolvería ITMS-90683 por falta de ese texto.
+**Textos de permisos (Info.plist, español e inglés):** cámara, ubicación mientras se usa (también da el norte verdadero de la brújula), movimiento, fototeca y micrófono. De la fototeca solo se pide "agregar a Fotos" (sin álbum propio, porque crear un álbum exige acceso completo); el texto de acceso completo está porque la biblioteca `gal` enlaza esa API, pero la app nunca lo solicita. El del micrófono está porque el complemento de cámara enlaza la grabación de audio (sin el texto, App Store Connect devuelve ITMS-90683); la cámara se abre sin audio y Sello nunca lo pide. Para no necesitar el texto de ubicación "siempre", el iOS se compila con la variable de entorno `BYPASS_PERMISSION_LOCATION_ALWAYS=1` (así lo hacen la CI y el flujo de publicación, en `flutter build` y en el `xcodebuild archive` de la firma), que quita del binario la petición de ese permiso en `geolocator_apple`; sin ella, App Store Connect devolvería ITMS-90683 por falta de ese texto.
 
 **Notas para la revisión:** `fastlane/metadata/ios/review_information/notes.txt`.

@@ -11,6 +11,8 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image/image.dart' as img;
 import 'package:sello/core/app_state.dart';
+import 'package:sello/core/device_files.dart';
+import 'package:sello/core/keep_awake.dart';
 import 'package:sello/core/settings.dart';
 import 'package:sello/core/storage.dart';
 import 'package:sello/geo/location_service.dart';
@@ -90,8 +92,14 @@ class FakeLocationBackend implements LocationBackend {
   @override
   Stream<RawPosition> positions() => positionsCtrl.stream;
 
+  /// Veces que se abrió el canal de altitud del GPS (M6).
+  int altitudeOpens = 0;
+
   @override
-  Stream<GpsAltitude> gpsAltitudes() => altitudesCtrl.stream;
+  Stream<GpsAltitude> gpsAltitudes() {
+    altitudeOpens++;
+    return altitudesCtrl.stream;
+  }
 
   @override
   Future<List<Placemark>> placemarks(double latitude, double longitude, String localeIdentifier) async {
@@ -191,6 +199,10 @@ class FakeCameraPlatform extends CameraPlatform {
   @override
   Stream<CameraErrorEvent> onCameraError(int cameraId) => _errors.stream;
 
+  /// Simula un error de la cámara ya abierta (otra app la tomó, el sistema
+  /// la cerró…).
+  void emitError(String description) => _errors.add(CameraErrorEvent(_nextId - 1, description));
+
   @override
   Stream<DeviceOrientationChangedEvent> onDeviceOrientationChanged() => orientationCtrl.stream;
 
@@ -215,7 +227,7 @@ class FakeCameraPlatform extends CameraPlatform {
   }
 
   @override
-  Future<void> setFlashMode(int cameraId, FlashMode mode) async {}
+  Future<void> setFlashMode(int cameraId, FlashMode mode) async => _log('flash:${mode.name}');
 
   @override
   Future<void> setExposureMode(int cameraId, ExposureMode mode) async {}
@@ -298,6 +310,56 @@ class RecordingPipeline extends CapturePipeline {
     } finally {
       running--;
     }
+  }
+}
+
+/// Pantalla encendida simulada: anota si está pedida.
+class FakeKeepAwake extends KeepAwake {
+  bool on = false;
+
+  @override
+  Future<void> set(bool v) async => on = v;
+}
+
+/// Selector de documentos y espacio libre simulados (copia completa).
+class FakeDeviceFiles extends DeviceFiles {
+  FakeDeviceFiles({this.free, this.picker = true});
+
+  /// Bytes libres que informa (null: no se sabe).
+  int? free;
+
+  /// Usa el selector de documentos (Android) o la hoja de compartir (iOS).
+  bool picker;
+
+  /// Lo que se pidió guardar: ruta de origen y si existía en ese momento.
+  final List<String> saved = <String>[];
+  final List<int> savedSizes = <int>[];
+
+  /// ZIP que "elige" el usuario al restaurar (null: cancela).
+  String? toOpen;
+
+  @override
+  bool get usesDocumentPicker => picker;
+
+  @override
+  Future<int?> freeBytes() async => free;
+
+  @override
+  Future<bool> saveDocument(String sourcePath, String name, {String mime = 'application/zip'}) async {
+    saved.add(sourcePath);
+    savedSizes.add(File(sourcePath).lengthSync());
+    return true;
+  }
+
+  @override
+  Future<PickedDocument?> openDocument(String targetPath, {List<String> mimes = const <String>[]}) async {
+    final String? source = toOpen;
+    if (source == null) {
+      return null;
+    }
+    File(targetPath).parent.createSync(recursive: true);
+    File(source).copySync(targetPath);
+    return PickedDocument(path: targetPath, name: 'copia.zip', size: File(targetPath).lengthSync());
   }
 }
 

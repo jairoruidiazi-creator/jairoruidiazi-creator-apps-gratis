@@ -28,7 +28,7 @@ PROJECTS AND GALLERY
 • Map of your photos on OpenStreetMap, with the distance to each one and directions.
 
 EXPORT
-• CSV with every coordinate format and field (semicolons and decimal commas in Spanish, as Excel expects there), plus KML and KMZ with the photos included.
+• CSV with every coordinate format and field (semicolons and decimal commas in Spanish, as Excel expects there), plus KML with the points and KMZ with the photos included.
 • ZIP with stamped or original photos.
 • PDF report per project with a summary, a table and a card for each photo.
 

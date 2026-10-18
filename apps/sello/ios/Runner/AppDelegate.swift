@@ -17,6 +17,37 @@ import UIKit
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "SelloHeading") {
       SelloHeading.register(with: registrar)
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "SelloFiles") {
+      SelloFiles.register(with: registrar)
+    }
+  }
+}
+
+/// Espacio libre para la copia completa (canal co.appsgratis.sello/files).
+/// En iPhone la copia se ofrece con la hoja de compartir y se restaura con el
+/// selector de archivos, que ya trabajan en disco: aquí solo hace falta saber
+/// cuánto espacio queda.
+enum SelloFiles {
+  static func register(with registrar: FlutterPluginRegistrar) {
+    let channel = FlutterMethodChannel(name: "co.appsgratis.sello/files", binaryMessenger: registrar.messenger())
+    channel.setMethodCallHandler { call, result in
+      switch call.method {
+      case "freeBytes":
+        result(SelloFiles.freeBytes())
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+  }
+
+  static func freeBytes() -> NSNumber? {
+    guard let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first,
+      let values = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]),
+      let capacity = values.volumeAvailableCapacityForImportantUsage
+    else {
+      return nil
+    }
+    return NSNumber(value: capacity)
   }
 }
 

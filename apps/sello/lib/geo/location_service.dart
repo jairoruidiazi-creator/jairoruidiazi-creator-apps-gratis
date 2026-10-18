@@ -303,6 +303,65 @@ class LocationService extends ChangeNotifier {
   /// El usuario puede resolver el problema desde los ajustes del teléfono.
   bool get needsSettings => status == 'denied' || status == 'deniedForever' || status == 'disabled';
 
+  /// Pantallas que necesitan la ubicación ahora (la cámara o el mapa, a la
+  /// vista).
+  final Set<Object> _users = <Object>{};
+  bool _foreground = true;
+
+  /// La app está en primer plano. En segundo plano las lecturas se detienen
+  /// (Sello no usa la ubicación en segundo plano) y al volver se retoman si
+  /// alguna pantalla las necesita.
+  bool get foreground => _foreground;
+
+  set foreground(bool v) {
+    if (_foreground != v) {
+      _foreground = v;
+      _syncRunning();
+    }
+  }
+
+  /// Hay que leer la ubicación: la app está a la vista y una pantalla la usa.
+  bool get wanted => _foreground && _users.isNotEmpty;
+
+  /// [user] necesita la ubicación mientras se ve (la cámara después de abrir
+  /// su permiso; el mapa mientras su pestaña está a la vista).
+  void acquire(Object user) {
+    if (_users.add(user)) {
+      _syncRunning();
+    }
+  }
+
+  /// [user] dejó de verse: si nadie más la usa, se detienen las lecturas
+  /// (se conservan la última posición y la que se haya fijado).
+  void release(Object user) {
+    if (_users.remove(user)) {
+      _syncRunning();
+    }
+  }
+
+  void _syncRunning() {
+    if (wanted) {
+      if (_sub == null && !_starting) {
+        unawaited(start());
+      }
+    } else if (_sub != null || _starting) {
+      unawaited(_pause());
+    }
+  }
+
+  /// Detiene las lecturas sin olvidar la posición fijada ni la última en
+  /// vivo (un promedio en curso se cierra con lo que haya juntado).
+  Future<void> _pause() async {
+    final int generation = ++_generation;
+    _starting = false;
+    await _cancelStreams();
+    // Si mientras tanto alguien volvió a pedirla, ya se está arrancando.
+    if (generation == _generation) {
+      status = 'off';
+      notifyListeners();
+    }
+  }
+
   Future<void> start() async {
     if (_sub != null || _starting) {
       return;
@@ -350,12 +409,28 @@ class LocationService extends ChangeNotifier {
   /// atrás una petición de permiso que el sistema no contestó.
   Future<void> retry() async {
     if (_sub != null && status == 'ok') {
+      // Las lecturas siguen, pero el canal de altitud de Android pudo
+      // haberse abierto sin el permiso de ubicación precisa (que el usuario
+      // acaba de dar en los ajustes): se vuelve a abrir.
+      _resubscribeAltitude();
       return;
     }
     _generation++;
     _starting = false;
     await _cancelStreams();
     await start();
+  }
+
+  void _resubscribeAltitude() {
+    if (systemAltitudeIsMsl || _sub == null) {
+      return;
+    }
+    final StreamSubscription<GpsAltitude>? old = _altSub;
+    _altSub = null;
+    unawaited(old?.cancel());
+    _altSub = backend.gpsAltitudes().listen(_onGpsAltitude, onError: (Object e) {
+      debugPrint('Altitud del GPS: $e');
+    });
   }
 
   void _listen() {
@@ -633,6 +708,7 @@ class LocationService extends ChangeNotifier {
   @override
   void dispose() {
     _generation++;
+    _users.clear();
     unawaited(_cancelStreams());
     _averagingTimer?.cancel();
     super.dispose();

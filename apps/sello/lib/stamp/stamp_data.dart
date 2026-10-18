@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../geo/coords.dart';
 import '../model/models.dart';
 
@@ -244,6 +246,26 @@ class StampData {
 
   /// Texto plano con todos los datos (para EXIF, CSV y compartir).
   String summary(StampTemplate t) => lines(t).map((StampLine l) => l.text).join(' | ');
+
+  /// Con la plantilla [t], el sello de [other] se ve igual que este: mismas
+  /// líneas y la rosa de los vientos en el mismo grado. La vista previa solo
+  /// se vuelve a dibujar cuando algo cambia de verdad.
+  bool sameLookAs(StampData other, StampTemplate t) {
+    if (heading?.round() != other.heading?.round()) {
+      return false;
+    }
+    final List<StampLine> a = lines(t);
+    final List<StampLine> b = other.lines(t);
+    if (a.length != b.length) {
+      return false;
+    }
+    for (int i = 0; i < a.length; i++) {
+      if (a[i].text != b[i].text || a[i].strong != b[i].strong) {
+        return false;
+      }
+    }
+    return true;
+  }
 }
 
 class StampLine {
@@ -254,13 +276,42 @@ class StampLine {
   final bool strong;
 }
 
+/// Largo máximo, en bytes UTF-8, de la parte del nombre de archivo que sale
+/// de la plantilla. Al nombre se le suman el id de la foto, "-orig.jpg" y
+/// los sufijos de los temporales (unos 50 bytes); los sistemas de archivos
+/// de Android e iOS admiten 255 bytes por nombre.
+const int kMaxFileBaseBytes = 120;
+
+/// Largo máximo del nombre del proyecto dentro del nombre de archivo: así la
+/// fecha, la hora y el número caben aunque el contrato tenga un nombre largo.
+const int kMaxFileProjectBytes = 60;
+
+/// Recorta [s] a [maxBytes] bytes UTF-8 sin partir una letra y sin dejar
+/// guiones sueltos al final.
+String truncateUtf8(String s, int maxBytes) {
+  if (utf8.encode(s).length <= maxBytes) {
+    return s;
+  }
+  final StringBuffer b = StringBuffer();
+  int used = 0;
+  for (final int rune in s.runes) {
+    final int size = utf8.encode(String.fromCharCode(rune)).length;
+    if (used + size > maxBytes) {
+      break;
+    }
+    b.writeCharCode(rune);
+    used += size;
+  }
+  return b.toString().replaceAll(RegExp(r'[_\-]+$'), '');
+}
+
 /// Nombre de archivo según la plantilla del proyecto.
 String buildFileName(String pattern, {required String project, required DateTime time, double? lat, double? lon, required int n}) {
   String clean(String s) => s.replaceAll(RegExp(r'[^A-Za-z0-9ÁÉÍÓÚáéíóúÑñ_\-]+'), '_').replaceAll(RegExp(r'_+'), '_').replaceAll(RegExp(r'^_|_$'), '');
   String two(int v) => v.toString().padLeft(2, '0');
   final String out = pattern
-      .replaceAll('{proyecto}', clean(project.isEmpty ? 'foto' : project))
-      .replaceAll('{project}', clean(project.isEmpty ? 'photo' : project))
+      .replaceAll('{proyecto}', truncateUtf8(clean(project.isEmpty ? 'foto' : project), kMaxFileProjectBytes))
+      .replaceAll('{project}', truncateUtf8(clean(project.isEmpty ? 'photo' : project), kMaxFileProjectBytes))
       .replaceAll('{fecha}', '${time.year}${two(time.month)}${two(time.day)}')
       .replaceAll('{date}', '${time.year}${two(time.month)}${two(time.day)}')
       .replaceAll('{hora}', '${two(time.hour)}${two(time.minute)}${two(time.second)}')
@@ -268,6 +319,6 @@ String buildFileName(String pattern, {required String project, required DateTime
       .replaceAll('{lat}', lat == null ? 'x' : lat.toStringAsFixed(5))
       .replaceAll('{lon}', lon == null ? 'x' : lon.toStringAsFixed(5))
       .replaceAll('{n}', n.toString().padLeft(4, '0'));
-  final String c = clean(out.replaceAll('.', 'p'));
+  final String c = truncateUtf8(clean(out.replaceAll('.', 'p')), kMaxFileBaseBytes);
   return c.isEmpty ? 'foto_$n' : c;
 }

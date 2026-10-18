@@ -39,10 +39,14 @@ class StampEvent {
 /// ([resumePending]). Cada resultado se anuncia en [events] para que la
 /// interfaz avise si algo falló.
 class StampQueue extends ChangeNotifier {
-  StampQueue({required this.pipeline, Future<ui.Image?> Function(File file)? logoDecoder}) : _logoDecoder = logoDecoder ?? _decode;
+  StampQueue({required this.pipeline, Future<ui.Image?> Function(File file)? logoDecoder}) : _logoDecoder = logoDecoder ?? _decode {
+    // El borrado gana siempre: una foto borrada sale de la fila sin sellarse.
+    _removedSub = pipeline.state.removedPhotos.listen(forget);
+  }
 
   final CapturePipeline pipeline;
   final Future<ui.Image?> Function(File file) _logoDecoder;
+  late final StreamSubscription<Set<String>> _removedSub;
 
   static Future<ui.Image?> _decode(File f) async => decodeLogo(await f.readAsBytes());
 
@@ -161,6 +165,21 @@ class StampQueue extends ChangeNotifier {
   /// Olvida los logos cargados (por ejemplo, al cambiar el de una plantilla).
   void forgetLogos() => _logos.clear();
 
+  /// Saca de la fila las fotos borradas que todavía esperaban. La que se
+  /// está sellando la descarta el propio sellado al terminar.
+  void forget(Iterable<String> ids) {
+    final Set<String> gone = ids.toSet();
+    final List<_Job> dropped = _queue.where((_Job j) => gone.contains(j.id)).toList();
+    if (dropped.isEmpty) {
+      return;
+    }
+    _queue.removeWhere((_Job j) => gone.contains(j.id));
+    for (final _Job j in dropped) {
+      j.complete(false);
+    }
+    notifyListeners();
+  }
+
   Future<bool> _process(_Job job) async {
     final PhotoRecord? p = state.photoById(job.id);
     if (p == null) {
@@ -168,6 +187,11 @@ class StampQueue extends ChangeNotifier {
     }
     try {
       final StampOutcome out = await pipeline.stamp(p, logo: await _logoFor(p), copyToGallery: job.copyToGallery);
+      if (out.removed) {
+        // Se borró mientras esperaba o se sellaba: no queda nada y no hay
+        // nada que avisar.
+        return false;
+      }
       _events.add(StampEvent(StampEventKind.stamped, p));
       if (out.galleryDenied) {
         _events.add(StampEvent(StampEventKind.galleryDenied, p, out.galleryError ?? ''));
@@ -176,6 +200,9 @@ class StampQueue extends ChangeNotifier {
       }
       return true;
     } catch (e) {
+      if (state.isGone(p)) {
+        return false;
+      }
       debugPrint('No se pudo sellar ${p.id}: $e');
       // Una foto ya sellada que no se pudo volver a sellar conserva su copia.
       if (p.status != PhotoStatus.ok) {
@@ -193,6 +220,7 @@ class StampQueue extends ChangeNotifier {
 
   @override
   void dispose() {
+    unawaited(_removedSub.cancel());
     unawaited(_events.close());
     super.dispose();
   }

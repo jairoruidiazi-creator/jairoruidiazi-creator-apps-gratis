@@ -129,5 +129,69 @@ void main() {
       expect(again.notices.map((LoadNotice n) => n.kind), contains(LoadNoticeKind.projectsFromBackup));
       expect(again.projects.map((Project p) => p.name), contains('Obra 1'));
     });
+
+    test('Un índice con tipos inesperados no impide abrir la app (M10)', () async {
+      // JSON válido pero tocado a mano (en iOS la carpeta se ve en Archivos).
+      Directory('${tmp.path}/sello').createSync(recursive: true);
+      inStore('photos.json').writeAsStringSync(jsonEncode(<String, Object?>{
+        'photos': <Object?>[
+          <String, Object?>{
+            'id': 'ok1',
+            'projectId': 'general',
+            'originalFile': 'photos/general/a-orig.jpg',
+            'stampedFile': 'photos/general/a.jpg',
+            'takenAt': '2026-03-09T19:05:00.000Z',
+            'latitude': '4.7',
+            'longitude': -74.07,
+            'tags': 'muro',
+            'fields': <int>[1, 2],
+            'width': 'ancho',
+            'status': 7,
+            'heading': 'norte',
+          },
+          <String, Object?>{'id': 5, 'originalFile': 'photos/general/b-orig.jpg'},
+          'basura',
+          <String, Object?>{'id': 'ok1', 'originalFile': 'photos/general/repetida-orig.jpg'},
+          <String, Object?>{'id': 'sin-archivo'},
+        ],
+      }));
+      inStore('projects.json').writeAsStringSync(jsonEncode(<String, Object?>{
+        'projects': <Object?>[
+          <String, Object?>{'id': 'general', 'name': 'General', 'fields': 'ninguno', 'counter': 'mucho', 'templateId': 3},
+          <String, Object?>{'id': 'general', 'name': 'Repetido'},
+          42,
+        ],
+        'templates': <Object?>[
+          <String, Object?>{'id': 'x', 'name': 'Mía', 'items': 'todo', 'textScale': 'grande', 'backgroundOpacity': 7, 'textColor': 'blanco'},
+        ],
+      }));
+      final AppState st = await testState(tmp);
+      expect(st.loaded, isTrue);
+      expect(st.photos.map((PhotoRecord p) => p.id), <String>['ok1']);
+      final PhotoRecord p = st.photos.single;
+      expect(p.originalFile, 'photos/general/a-orig.jpg');
+      expect(p.latitude, isNull);
+      expect(p.longitude, isNull);
+      expect(p.heading, isNull);
+      expect(p.tags, isEmpty);
+      expect(p.fields, isEmpty);
+      expect(p.width, 0);
+      expect(p.status, PhotoStatus.ok);
+      expect(st.projects.map((Project x) => x.name), <String>['General']);
+      final Project g = st.projects.single;
+      expect(g.fields, isEmpty);
+      expect(g.photoCounter, 0);
+      expect(g.templateId, 'default');
+      final StampTemplate t = st.templates.firstWhere((StampTemplate x) => x.id == 'x');
+      expect(t.items, isEmpty);
+      expect(t.textScale, 1.0);
+      expect(t.backgroundOpacity, 1.0);
+      expect(t.textColor, 0xFFFFFFFF);
+      expect(st.templates.first.id, 'default');
+      // Guardar después no reescribe la basura: queda un índice limpio.
+      await st.savePhotos();
+      final AppState again = await testState(tmp);
+      expect(again.photos.map((PhotoRecord x) => x.id), <String>['ok1']);
+    });
   });
 }

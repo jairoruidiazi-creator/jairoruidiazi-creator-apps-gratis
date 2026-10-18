@@ -240,6 +240,7 @@ class HeadingService extends ChangeNotifier {
 
   Future<void> stop() async {
     _running = false;
+    _lastKey = null;
     await _accSub?.cancel();
     await _magSub?.cancel();
     await _sysSub?.cancel();
@@ -274,9 +275,21 @@ class HeadingService extends ChangeNotifier {
     }
     if (o != null) {
       _last = o;
+    }
+    // Se avisa solo cuando cambia algo que se ve (al grado) o la orientación
+    // física: con el teléfono quieto la cámara no se redibuja con cada uno
+    // de los ~40 eventos por segundo de los sensores. La foto siempre toma
+    // el último valor ([orientation]).
+    final String key = o == null
+        ? '-|${_physical.index}'
+        : '${o.cameraHeading.round()}|${o.deviceHeading.round()}|${o.pitch.round()}|${o.roll.round()}|${o.flat}|${o.trueNorth}|${o.accuracy?.round()}|${_physical.index}';
+    if (key != _lastKey) {
+      _lastKey = key;
       notifyListeners();
     }
   }
+
+  String? _lastKey;
 
   /// Rumbo del iPhone. Con el teléfono plano cuenta el borde superior; si
   /// no, el eje de la cámara. Al rumbo magnético se le suma la declinación

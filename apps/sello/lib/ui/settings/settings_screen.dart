@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:clock/clock.dart';
 import 'package:file_selector/file_selector.dart';
@@ -156,7 +158,7 @@ class SettingsScreen extends StatelessWidget {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(t(context, 'Altitud en el sello', 'Altitude on the stamp')),
-                subtitle: Text(t(context, 'Sobre el nivel del mar (la de los mapas y planos; se calcula con el geoide EGM96 sin internet) o sobre el elipsoide WGS84 (la cruda del GPS). En Colombia difieren entre 5 y 30 m.', 'Above mean sea level (as on maps; computed offline with the EGM96 geoid) or above the WGS84 ellipsoid (raw GPS).')),
+                subtitle: Text(t(context, 'Sobre el nivel del mar (la de los mapas y planos; se calcula con el geoide EGM96 sin internet) o sobre el elipsoide WGS84 (la cruda del GPS). En Colombia la diferencia va de unos −21 m en el norte de La Guajira a unos +28 m en Cauca y Nariño (Bogotá: +22 m); en la costa Caribe es negativa.', 'Above mean sea level (as on maps; computed offline with the EGM96 geoid) or above the WGS84 ellipsoid (raw GPS). In Colombia the difference ranges from about −21 m in northern La Guajira to about +28 m in Cauca and Nariño (Bogotá: +22 m).')),
               ),
               _left(SegmentedButton<String>(
                 segments: <ButtonSegment<String>>[
@@ -322,11 +324,11 @@ class SettingsScreen extends StatelessWidget {
         return t(context, '1280 × 720 (0,9 MP), 16:9. Archivos pequeños.', '1280 × 720 (0.9 MP), 16:9. Small files.');
       case 'veryHigh':
         return t(context, '1920 × 1080 (2 MP), 16:9.', '1920 × 1080 (2 MP), 16:9.');
-      case 'max':
-        return t(context, 'La mayor que dé la cámara (12 MP o más en la mayoría, 4:3). La copia sellada se limita a 26 MP; el original se guarda completo.', 'The largest the camera offers (12 MP or more on most phones, 4:3). The stamped copy is capped at 26 MP; the original is kept in full.');
       case 'ultraHigh':
+        return t(context, '3840 × 2160 (8 MP), 16:9: recorta arriba y abajo cerca de un cuarto de lo que ve el sensor.', '3840 × 2160 (8 MP), 16:9: crops about a quarter of what the sensor sees, top and bottom.');
+      case 'max':
       default:
-        return t(context, '3840 × 2160 (8 MP), 16:9.', '3840 × 2160 (8 MP), 16:9.');
+        return t(context, 'La mayor que dé la cámara, con todo el campo de visión (12 MP o más en la mayoría, 4:3). La copia sellada se limita a 26 MP; el original se guarda completo.', 'The largest the camera offers, with the full field of view (12 MP or more on most phones, 4:3). The stamped copy is capped at 26 MP; the original is kept in full.');
     }
   }
 }
@@ -336,94 +338,247 @@ String _backupStamp(DateTime d) {
   return '${d.year}${two(d.month)}${two(d.day)}_${two(d.hour)}${two(d.minute)}';
 }
 
-/// Arma la copia completa en un ZIP (en un isolate, con avance y cancelar)
-/// y la ofrece en la hoja de compartir, anclada en el botón pulsado.
+/// Margen de espacio libre que se deja además de la copia.
+const int kBackupSpareBytes = 50 * 1024 * 1024;
+
+/// Tamaño, en bytes, que tendrá un ZIP con [entries] (las fotos van sin
+/// comprimir: un JPEG ya lo está).
+Future<int> estimateZipBytes(List<ArchiveEntry> entries) async {
+  int total = 22;
+  for (final ArchiveEntry e in entries) {
+    final String? path = e.path;
+    if (path != null) {
+      try {
+        total += await File(path).length();
+      } catch (_) {}
+    } else {
+      total += e.bytes?.length ?? 0;
+    }
+    // Cabeceras local y central de cada entrada.
+    total += 2 * (46 + utf8.encode(e.name).length);
+  }
+  return total;
+}
+
+/// "350 MB", "1,2 GB" (coma decimal en español).
+String formatBytes(int bytes, {required bool spanish}) {
+  final double mb = bytes / (1024 * 1024);
+  String n(double v) {
+    final String text = v.toStringAsFixed(1);
+    return spanish ? text.replaceAll('.', ',') : text;
+  }
+
+  if (mb >= 1024) {
+    return '${n(mb / 1024)} GB';
+  }
+  if (mb >= 10) {
+    return '${mb.round()} MB';
+  }
+  return '${n(mb < 0.1 ? 0.1 : mb)} MB';
+}
+
+/// Diálogo de espera que no se puede cerrar (se cierra con
+/// `Navigator.of(context, rootNavigator: true).pop()`).
+Future<void> showBusyDialog(BuildContext context, String text) => showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (BuildContext context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: <Widget>[
+              const SizedBox(width: 28, height: 28, child: CircularProgressIndicator()),
+              const SizedBox(width: 16),
+              Expanded(child: Text(text)),
+            ],
+          ),
+        ),
+      ),
+    );
+
+/// Arma la copia completa en un ZIP (en un isolate, con avance y cancelar).
+/// Antes dice cuánto ocupará y cuánto espacio hay. En Android la guarda
+/// donde el usuario elija con el selector de documentos del sistema (la
+/// copia pasa de a 1 MB, nunca entera por la memoria) y borra la de la app;
+/// en iPhone la ofrece en la hoja de compartir, anclada en el botón pulsado.
 Future<void> createBackup(BuildContext buttonContext) async {
   final Services s = AppScope.of(buttonContext);
   final Rect origin = shareOriginOf(buttonContext);
   final ScaffoldMessengerState messenger = ScaffoldMessenger.of(buttonContext);
   final bool spanish = s.settings.spanish;
+  final bool picker = s.files.usesDocumentPicker;
   String k(String es, String en) => spanish ? es : en;
+  String size(int b) => formatBytes(b, spanish: spanish);
+  final List<ArchiveEntry> entries = await Backup.entries(s.state);
+  final int needed = await estimateZipBytes(entries);
+  final int? free = await s.files.freeBytes();
+  if (!buttonContext.mounted) {
+    return;
+  }
+  final bool enough = free == null || free >= needed + kBackupSpareBytes;
+  final String where = picker
+      ? k(' Después eliges dónde guardarla (Drive, una memoria USB, Descargas…); si la guardas en este mismo teléfono, ocupará otro tanto.', ' Then you choose where to save it (Drive, a USB drive, Downloads…); if you save it on this same phone, it takes as much again.')
+      : k(' Después eliges dónde guardarla o a quién enviarla.', ' Then you choose where to save it or whom to send it to.');
+  final bool? go = await showDialog<bool>(
+    context: buttonContext,
+    builder: (BuildContext context) => AlertDialog(
+      title: Text(k('Crear copia completa', 'Create full backup')),
+      content: Text(
+        '${s.state.photos.length} ${k('fotos con sus datos, proyectos, plantillas y logos: unos', 'photos with their data, projects, templates and logos: about')} ${size(needed)}. '
+        '${k('Se arma primero en el teléfono, así que hacen falta unos', 'It is built on the phone first, so it needs about')} ${size(needed)} ${k('libres', 'free')}'
+        '${free == null ? '' : ' (${k('hay', 'there are')} ${size(free)})'}.$where'
+        '${enough ? '' : '\n\n${k('No hay espacio suficiente. Libera espacio en el teléfono e inténtalo de nuevo.', 'There is not enough space. Free up space on the phone and try again.')}'}',
+      ),
+      actions: <Widget>[
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(k('Cancelar', 'Cancel'))),
+        if (enough) FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(k('Crear', 'Create'))),
+      ],
+    ),
+  );
+  if (go != true || !buttonContext.mounted) {
+    return;
+  }
   final ExportProgress progress = ExportProgress();
   unawaited(showExportProgress(buttonContext, progress, title: k('Creando la copia', 'Creating the backup')));
+  final String name = 'sello_${k('copia', 'backup')}_${_backupStamp(clock.now())}.zip';
+  final String path = await s.store.absolutePath('exports/$name');
   try {
-    final List<ArchiveEntry> entries = await Backup.entries(s.state);
-    final String path = await s.store.absolutePath('exports/sello_${k('copia', 'backup')}_${_backupStamp(clock.now())}.zip');
     await writeZipFile(path, entries, onProgress: (int d, int tot) => progress.update(d, tot, '${k('Guardando', 'Saving')} $d ${k('de', 'of')} $tot'), cancel: progress.cancel);
     progress.close();
-    await shareFiles(<String>[path], origin: origin, subject: k('Copia de Sello', 'Sello backup'));
+    if (picker) {
+      if (!buttonContext.mounted) {
+        return;
+      }
+      // Queda debajo del selector y se ve mientras se copia.
+      final NavigatorState nav = Navigator.of(buttonContext, rootNavigator: true);
+      unawaited(showBusyDialog(buttonContext, k('Guardando la copia donde elegiste…', 'Saving the backup where you chose…')));
+      bool saved;
+      try {
+        saved = await s.files.saveDocument(path, name);
+      } finally {
+        if (nav.mounted && nav.canPop()) {
+          nav.pop();
+        }
+      }
+      messenger.showSnackBar(SnackBar(content: Text(saved ? k('Copia guardada.', 'Backup saved.') : k('No se guardó la copia.', 'The backup was not saved.'))));
+    } else {
+      await shareFiles(<String>[path], origin: origin, subject: k('Copia de Sello', 'Sello backup'));
+    }
   } on ExportCancelled {
     progress.close();
   } catch (e) {
     progress.close();
     messenger.showSnackBar(SnackBar(content: Text('${k('No se pudo crear la copia', 'Could not create the backup')}: $e')));
+  } finally {
+    // En Android la copia ya quedó donde se eligió: la de la app sobra. En
+    // iPhone la hoja de compartir la necesita; se borra al abrir la app.
+    if (picker) {
+      await _deleteQuietly(path);
+    }
   }
 }
 
-/// Elige un ZIP de copia y agrega lo que falte en este teléfono.
+Future<void> _deleteQuietly(String path) async {
+  try {
+    final File f = File(path);
+    if (await f.exists()) {
+      await f.delete();
+    }
+  } catch (_) {}
+}
+
+/// Elige un ZIP de copia y agrega lo que falte en este teléfono. En Android
+/// el documento elegido se copia a la app de a 1 MB en un hilo aparte (nunca
+/// entero en la memoria) y desde esa copia se descomprime.
 Future<void> restoreBackup(BuildContext context) async {
   final Services s = AppScope.of(context);
   final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
   final bool spanish = s.settings.spanish;
+  final bool picker = s.files.usesDocumentPicker;
   String k(String es, String en) => spanish ? es : en;
-  const XTypeGroup zip = XTypeGroup(label: 'ZIP', extensions: <String>['zip'], mimeTypes: <String>['application/zip', 'application/x-zip-compressed'], uniformTypeIdentifiers: <String>['public.zip-archive']);
-  XFile? file;
-  try {
-    file = await openFile(acceptedTypeGroups: <XTypeGroup>[zip]);
-  } catch (e) {
-    messenger.showSnackBar(SnackBar(content: Text('${k('No se pudo abrir el selector', 'Could not open the picker')}: $e')));
-    return;
-  }
-  if (file == null || !context.mounted) {
-    return;
-  }
-  final bool? ok = await showDialog<bool>(
-    context: context,
-    builder: (BuildContext context) => AlertDialog(
-      title: Text(k('Restaurar copia', 'Restore backup')),
-      content: Text(k('Se agregan las fotos, proyectos y plantillas de la copia que no estén en este teléfono. No se borra ni se reemplaza nada.', 'The backup\'s photos, projects and templates that are not on this phone are added. Nothing is deleted or replaced.')),
-      actions: <Widget>[
-        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(k('Cancelar', 'Cancel'))),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(k('Restaurar', 'Restore'))),
-      ],
-    ),
-  );
-  if (ok != true || !context.mounted) {
-    return;
-  }
   final NavigatorState nav = Navigator.of(context, rootNavigator: true);
-  unawaited(showDialog<void>(
-    context: context,
-    barrierDismissible: false,
-    useRootNavigator: true,
-    builder: (BuildContext context) => PopScope(
-      canPop: false,
-      child: AlertDialog(
-        content: Row(
-          children: <Widget>[
-            const SizedBox(width: 28, height: 28, child: CircularProgressIndicator()),
-            const SizedBox(width: 16),
-            Expanded(child: Text(k('Restaurando la copia…', 'Restoring the backup…'))),
-          ],
-        ),
-      ),
-    ),
-  ));
-  String message;
+  String? zipPath;
+  if (picker) {
+    final String target = await s.store.absolutePath('exports/restaurar_copia.zip');
+    if (!context.mounted) {
+      return;
+    }
+    unawaited(showBusyDialog(context, k('Preparando la copia elegida…', 'Preparing the chosen backup…')));
+    try {
+      zipPath = (await s.files.openDocument(target))?.path;
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('${k('No se pudo abrir la copia', 'Could not open the backup')}: $e')));
+      return;
+    } finally {
+      if (nav.mounted && nav.canPop()) {
+        nav.pop();
+      }
+    }
+  } else {
+    const XTypeGroup zip = XTypeGroup(label: 'ZIP', extensions: <String>['zip'], mimeTypes: <String>['application/zip', 'application/x-zip-compressed'], uniformTypeIdentifiers: <String>['public.zip-archive']);
+    try {
+      zipPath = (await openFile(acceptedTypeGroups: <XTypeGroup>[zip]))?.path;
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('${k('No se pudo abrir el selector', 'Could not open the picker')}: $e')));
+      return;
+    }
+  }
+  if (zipPath == null) {
+    return;
+  }
+  final String path = zipPath;
   try {
-    final RestoreSummary r = await Backup.restore(file.path, s.state);
-    // Fotos que en el otro teléfono quedaron sin sellar.
-    s.queue.resumePending();
-    message = '${k('Copia restaurada', 'Backup restored')}: ${r.photos} ${k('fotos', 'photos')}, ${r.projects} ${k('proyectos', 'projects')}, ${r.templates} ${k('plantillas', 'templates')}.';
-  } on NotABackup {
-    message = k('Ese archivo no es una copia de Sello.', 'That file is not a Sello backup.');
-  } catch (e) {
-    message = '${k('No se pudo restaurar', 'Could not restore')}: $e';
+    // Las fotos de la copia van sin comprimir: ocupan casi lo que pesa el ZIP.
+    int zipBytes = 0;
+    try {
+      zipBytes = await File(path).length();
+    } catch (_) {}
+    final int? free = await s.files.freeBytes();
+    if (!context.mounted) {
+      return;
+    }
+    final bool enough = free == null || free >= zipBytes + kBackupSpareBytes;
+    final String sizes = '${k('La copia pesa', 'The backup weighs')} ${formatBytes(zipBytes, spanish: spanish)}${free == null ? '' : '; ${k('hay', 'there are')} ${formatBytes(free, spanish: spanish)} ${k('libres', 'free')}'}.';
+    final bool? ok = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Text(k('Restaurar copia', 'Restore backup')),
+        content: Text(
+          '${k('Se agregan las fotos, proyectos y plantillas de la copia que no estén en este teléfono. No se borra ni se reemplaza nada.', 'The backup\'s photos, projects and templates that are not on this phone are added. Nothing is deleted or replaced.')} $sizes'
+          '${enough ? '' : '\n\n${k('No hay espacio suficiente para las fotos de la copia. Libera espacio e inténtalo de nuevo.', 'There is not enough space for the backup\'s photos. Free up space and try again.')}'}',
+        ),
+        actions: <Widget>[
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(k('Cancelar', 'Cancel'))),
+          if (enough) FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(k('Restaurar', 'Restore'))),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) {
+      return;
+    }
+    unawaited(showBusyDialog(context, k('Restaurando la copia…', 'Restoring the backup…')));
+    String message;
+    try {
+      final RestoreSummary r = await Backup.restore(path, s.state);
+      // Fotos que en el otro teléfono quedaron sin sellar.
+      s.queue.resumePending();
+      message = '${k('Copia restaurada', 'Backup restored')}: ${r.photos} ${k('fotos', 'photos')}, ${r.projects} ${k('proyectos', 'projects')}, ${r.templates} ${k('plantillas', 'templates')}.';
+    } on NotABackup {
+      message = k('Ese archivo no es una copia de Sello.', 'That file is not a Sello backup.');
+    } catch (e) {
+      message = '${k('No se pudo restaurar', 'Could not restore')}: $e';
+    }
+    if (nav.mounted && nav.canPop()) {
+      nav.pop();
+    }
+    messenger.showSnackBar(SnackBar(content: Text(message)));
+  } finally {
+    // La copia que se trajo a la app (Android) ya no hace falta.
+    if (picker) {
+      await _deleteQuietly(path);
+    }
   }
-  if (nav.mounted && nav.canPop()) {
-    nav.pop();
-  }
-  messenger.showSnackBar(SnackBar(content: Text(message)));
 }
 
 class _Section extends StatelessWidget {

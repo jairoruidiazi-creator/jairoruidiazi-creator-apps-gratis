@@ -1,6 +1,6 @@
 # Fotos de ejemplo de las capturas de tienda
 
-Fotos de Wikimedia Commons en dominio público o con dedicación CC0 (no exigen atribución). Se listan por transparencia. Las coordenadas, direcciones y proyectos que aparecen en las capturas son de ejemplo y no corresponden a estos lugares.
+Fotos de Wikimedia Commons en dominio público o con dedicación CC0 (no exigen atribución). Se listan por transparencia. valle-obra, via-curva, via-puente y volqueta se recortaron al centro de 16:9 a 4:3 (1200 × 900), la proporción de la foto que la app toma por defecto (resolución «Máxima»). Las coordenadas, direcciones y proyectos que aparecen en las capturas son de ejemplo y no corresponden a estos lugares.
 
 | Archivo | Licencia | Autor | Origen |
 | --- | --- | --- | --- |

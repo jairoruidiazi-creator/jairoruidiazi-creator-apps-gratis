@@ -7,7 +7,6 @@ import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../core/app_scope.dart';
 import '../../core/capture_session.dart';
@@ -32,7 +31,9 @@ class CameraScreen extends StatefulWidget {
   /// Falso en pruebas sin cámara: no se abre la cámara ni se piden permisos.
   final bool enabled;
 
-  /// La pestaña de la cámara es la visible.
+  /// La cámara está a la vista: es la pestaña elegida y ninguna otra
+  /// pantalla la tapa. Si no, se liberan la cámara (y la linterna), la
+  /// brújula y la ubicación, y la pantalla puede apagarse.
   final bool active;
 
   @override
@@ -45,6 +46,9 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   CameraController? _controller;
   int _cameraIndex = 0;
   String? _error;
+
+  /// Error de la cámara ya abierta (otra app la tomó, el sistema la cerró…).
+  String? _runtimeError;
   Future<void>? _initFuture;
   String? _activeResolution;
   double _zoom = 1;
@@ -115,10 +119,45 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     s.heading.start();
     _applyWakelock();
     await _initCamera();
-    if (!mounted) {
+    if (!mounted || !widget.active) {
       return;
     }
-    await s.location.start();
+    s.location.acquire(this);
+  }
+
+  /// La cámara vuelve a estar a la vista.
+  void _activate() {
+    final Services? s = _services;
+    if (s == null) {
+      return;
+    }
+    if (!_started) {
+      unawaited(_start());
+      return;
+    }
+    s.heading.start();
+    _applyWakelock();
+    unawaited(_initCamera().then((_) {
+      if (mounted && widget.active) {
+        s.location.acquire(this);
+      }
+    }));
+  }
+
+  /// La cámara dejó de verse (otra pestaña u otra pantalla encima): se
+  /// libera del todo, también la linterna (que no vuelve sola), y se
+  /// detienen la brújula y la ubicación. En iPhone una cámara solo pausada
+  /// seguía capturando con el indicador de cámara en uso.
+  void _deactivate() {
+    final Services? s = _services;
+    _cancelCountdown();
+    if (_flash == FlashMode.torch) {
+      _flash = FlashMode.off;
+    }
+    unawaited(_releaseCamera());
+    unawaited(s?.heading.stop());
+    s?.location.release(this);
+    _applyWakelock();
   }
 
   void _onSettings() {
@@ -143,7 +182,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     final bool on = widget.active && _appResumed && s.settings.keepAwake;
     if (on != _wakelockOn) {
       _wakelockOn = on;
-      WakelockPlus.toggle(enable: on).catchError((Object e) {});
+      s.keepAwake.set(on).catchError((Object e) {});
     }
   }
 
@@ -162,7 +201,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     } else if (state == AppLifecycleState.resumed) {
       _appResumed = true;
       // Por si el permiso de ubicación quedó sin respuesta o se dio en los ajustes.
-      if (_started) {
+      if (_started && widget.active) {
         unawaited(s?.location.retry());
       }
       // Solo se reabren la cámara y los sensores si la pestaña está a la vista.
@@ -183,6 +222,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       return;
     }
     _error = null;
+    _runtimeError = null;
     _refresh();
     try {
       if (_cameras.isEmpty) {
@@ -215,15 +255,14 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
           await c.lockCaptureOrientation(DeviceOrientation.portraitUp);
         } catch (_) {}
       }
-      if (!mounted || !_appResumed) {
+      // Si mientras se abría la cámara dejó de verse, se cierra en el acto.
+      if (!mounted || !_appResumed || !widget.active) {
         await c.dispose();
         return;
       }
       _controller = c;
       _activeResolution = resolution;
-      if (!widget.active) {
-        await c.pausePreview().catchError((Object e) {});
-      }
+      c.addListener(_onControllerValue);
     } on CameraException catch (e) {
       _error = e.code.startsWith('CameraAccess') || e.code == 'cameraPermission' ? 'denied' : (e.description ?? e.code);
     } catch (e) {
@@ -237,7 +276,32 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     final CameraController? c = _controller;
     _controller = null;
     _refresh();
+    c?.removeListener(_onControllerValue);
     await c?.dispose();
+  }
+
+  /// Un error de la cámara ya abierta (otra app la tomó en pantalla
+  /// dividida, el sistema la cerró, se interrumpió la sesión…) dejaba la
+  /// vista congelada y el obturador sin responder. Ahora se libera y se
+  /// ofrece reintentar.
+  void _onControllerValue() {
+    final CameraController? c = _controller;
+    if (c == null || !mounted) {
+      return;
+    }
+    final String? err = c.value.errorDescription;
+    if (err != null && _runtimeError == null) {
+      _runtimeError = err;
+      _error = 'runtime';
+      _cancelCountdown();
+      // Fuera de este aviso: no se puede liberar un controlador mientras
+      // está avisando a sus oyentes.
+      scheduleMicrotask(() {
+        if (identical(_controller, c)) {
+          unawaited(_releaseCamera());
+        }
+      });
+    }
   }
 
   Future<void> _restartCamera() async {
@@ -252,10 +316,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
         return ResolutionPreset.high;
       case 'veryHigh':
         return ResolutionPreset.veryHigh;
-      case 'max':
-        return ResolutionPreset.max;
-      default:
+      case 'ultraHigh':
         return ResolutionPreset.ultraHigh;
+      default:
+        return ResolutionPreset.max;
     }
   }
 
@@ -450,11 +514,13 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     WidgetsBinding.instance.removeObserver(this);
     _countdownTimer?.cancel();
     _focusTimer?.cancel();
+    _controller?.removeListener(_onControllerValue);
     unawaited(_controller?.dispose());
-    if (widget.enabled && _wakelockOn) {
-      WakelockPlus.disable().catchError((Object e) {});
-    }
     final Services? s = _services;
+    if (widget.enabled && _wakelockOn) {
+      s?.keepAwake.set(false).catchError((Object e) {});
+    }
+    s?.location.release(this);
     s?.location.removeListener(_refresh);
     s?.heading.removeListener(_refresh);
     s?.settings.removeListener(_onSettings);
@@ -470,23 +536,11 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     if (!widget.enabled || old.active == widget.active) {
       return;
     }
-    // Al salir de la pestaña se pausan la vista previa y los sensores de
-    // orientación; la ubicación sigue para que el mapa y la galería la usen.
     if (widget.active) {
-      if (!_started) {
-        unawaited(_start());
-      } else if (_controller == null) {
-        unawaited(_initCamera());
-      } else {
-        _controller?.resumePreview().catchError((Object e) {});
-      }
-      _services?.heading.start();
+      _activate();
     } else {
-      _cancelCountdown();
-      _controller?.pausePreview().catchError((Object e) {});
-      unawaited(_services?.heading.stop());
+      _deactivate();
     }
-    _applyWakelock();
   }
 
   DeviceOrientation _computeUiOrientation(BuildContext context, HeadingService heading) {
@@ -575,10 +629,18 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
                 Text(
                   _error == 'denied'
                       ? t(context, 'Sin permiso de cámara. Actívalo en los ajustes del teléfono.', 'Camera permission denied. Enable it in the phone settings.')
-                      : (_error == 'no-camera' ? t(context, 'Este equipo no tiene cámara.', 'This device has no camera.') : '${t(context, 'Error de cámara', 'Camera error')}: $_error'),
+                      : (_error == 'no-camera'
+                          ? t(context, 'Este equipo no tiene cámara.', 'This device has no camera.')
+                          : (_error == 'runtime'
+                              ? t(context, 'La cámara dejó de responder; puede que otra app la esté usando. Toca Reintentar.', 'The camera stopped responding; another app may be using it. Tap Retry.')
+                              : '${t(context, 'Error de cámara', 'Camera error')}: $_error')),
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.white),
                 ),
+                if (_error == 'runtime' && (_runtimeError ?? '').isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 6),
+                  Text(_runtimeError!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                ],
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 8,

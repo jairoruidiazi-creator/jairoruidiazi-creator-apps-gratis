@@ -15,8 +15,8 @@ import 'settings.dart';
 /// Sigue a los ajustes y al estado, así que no importa por dónde cambien:
 /// - al cambiar de proyecto (en la hoja de datos de la cámara, en la
 ///   pestaña Proyectos, al crear uno nuevo o al borrar el activo) los campos
-///   vuelven a los valores iniciales del nuevo proyecto y nunca pasan los
-///   del anterior;
+///   vuelven a los valores iniciales del nuevo proyecto y las notas y
+///   etiquetas se vacían: nunca pasan las del anterior;
 /// - si se agregan o quitan campos al proyecto, se agregan con su valor
 ///   inicial o se quitan;
 /// - si cambia el logo de la plantilla (o la plantilla del proyecto), el
@@ -99,6 +99,9 @@ class CaptureSession extends ChangeNotifier {
         ..clear()
         ..addAll(<String, String>{for (final FieldDef f in p.fields) f.key: f.defaultValue});
       _fieldDefs = List<FieldDef>.of(p.fields);
+      // Las notas y etiquetas eran del proyecto anterior: no pasan al nuevo.
+      _notes = '';
+      tags.clear();
       changed = true;
     } else if (!_sameDefs(_fieldDefs, p.fields)) {
       final Map<String, FieldDef> before = <String, FieldDef>{for (final FieldDef f in _fieldDefs) f.key: f};

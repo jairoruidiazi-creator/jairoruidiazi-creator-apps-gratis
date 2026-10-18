@@ -256,8 +256,9 @@ void main() {
       final StampData d = StampData(time: DateTime(2026, 3, 9, 14, 5), latitude: 4.711, longitude: -74.0721, accuracy: 4, altitude: 2600, heading: 135, projectName: 'Obra', notes: 'Columna C-3');
       final StampOverlay o = (await renderStampOverlay(t, d, width: 4000, height: 3000))!;
       final StampLayout l = StampPainter.layout(const Size(4000, 3000), t, d);
-      // El texto mide en píxeles de la foto (1 % del ancho = 40 px): nada se amplía después.
-      expect(l.unit, 40);
+      // El texto mide en píxeles de la foto (1 % del lado corto = 30 px): nada
+      // se amplía después.
+      expect(l.unit, 30);
       expect(o.width, lessThan(4000));
       expect(o.height, lessThan(3000));
       expect(o.left + o.width, lessThanOrEqualTo(4000));
@@ -265,6 +266,44 @@ void main() {
       final img.Image png = img.decodePng(o.png)!;
       expect(png.width, o.width);
       expect(png.height, o.height);
+    });
+
+    test('En horizontal el sello mide lo mismo que en vertical y nunca pasa de un cuarto del alto (G4)', () {
+      // La plantilla por defecto con todos los datos posibles.
+      final StampTemplate t = StampTemplate.defaultTemplate()..items = StampItem.values.toSet();
+      final StampData d = StampData(
+        time: DateTime(2026, 3, 9, 14, 5),
+        latitude: 4.711,
+        longitude: -74.0721,
+        accuracy: 4,
+        altitude: 2600,
+        heading: 135,
+        pitch: 3,
+        speed: 2,
+        address: 'Carrera 7 # 72-41, Chapinero, Bogotá, Colombia',
+        projectName: 'Edificio Mirador · Interventoría',
+        fields: const <String, String>{'k1': 'Grúa torre G-1', 'k2': 'M. Peña'},
+        fieldLabels: const <String, String>{'k1': 'Elemento', 'k2': 'Inspector'},
+        notes: 'Montaje de la grúa torre, costado norte',
+      );
+      for (final List<double> wh in <List<double>>[
+        <double>[2160, 3840],
+        <double>[3840, 2160],
+        <double>[3000, 4000],
+        <double>[4000, 3000],
+      ]) {
+        final Size size = Size(wh[0], wh[1]);
+        final StampLayout l = StampPainter.layout(size, t, d);
+        expect(l.block!.height, lessThanOrEqualTo(size.height * StampPainter.maxBlockFraction + 1), reason: '$size');
+        expect(l.unit, lessThanOrEqualTo(size.shortestSide / 100 + 1e-9), reason: '$size');
+      }
+      // Con pocas líneas el tamaño es el mismo en vertical y en horizontal.
+      final StampTemplate small = StampTemplate.defaultTemplate()..items = <StampItem>{StampItem.coords};
+      final StampLayout portrait = StampPainter.layout(const Size(2160, 3840), small, d);
+      final StampLayout landscape = StampPainter.layout(const Size(3840, 2160), small, d);
+      expect(portrait.unit, closeTo(21.6, 1e-9));
+      expect(landscape.unit, closeTo(21.6, 1e-9));
+      expect(landscape.block!.height, closeTo(portrait.block!.height, 1));
     });
 
     test('El logo queda dentro de la foto y fuera del texto, también con el sello arriba (M10)', () async {
@@ -324,7 +363,11 @@ void main() {
       expect(lines.first, endsWith(';Lote;Inspector'));
       expect(csv, isNot(contains('mgx3k')));
       final String rowA = csv.split('\nb;').first.split('\na;').last;
-      expect(rowA, contains('2026-03-09 14:05:07;-05:00;2026-03-09T19:05:07Z;4,7110000;-74,0721000;4,2;2601,5'));
+      // El desfase va como texto ("UTC-05:00"): "-05:00" se abría como una
+      // duración negativa en la hoja de cálculo (M2).
+      expect(rowA, contains('2026-03-09 14:05:07;UTC-05:00;2026-03-09T19:05:07Z;4,7110000;-74,0721000;4,2;2601,5'));
+      // Sin saber qué archivos hay, el CSV nombra los de la ficha.
+      expect(rowA, contains(';a-orig.jpg;a.jpg'));
       expect(rowA, contains('"Cra 7 ""La Séptima""; Bogotá"'));
       expect(rowA, contains('"Columna\nC-3"'));
       expect(rowA, contains('18NXL0291020787'));
@@ -336,10 +379,25 @@ void main() {
       expect(lines.last, contains("'@ojo sin gps"));
     });
 
+    test('El CSV nunca nombra un archivo que no existe (M3)', () {
+      final List<PhotoRecord> list = photos();
+      // "b" no se ha sellado todavía y "a" no conservó su original.
+      list[1].status = PhotoStatus.pending;
+      final Set<String> present = <String>{'photos/p1/a.jpg', 'photos/p1/b-orig.jpg'};
+      final String csv = Exports.csv(list, projects, exists: present.contains);
+      final String rowA = csv.split('\nb;').first.split('\na;').last;
+      final String rowB = csv.split('\nb;').last;
+      expect(rowA, contains(';;a.jpg'));
+      expect(rowA, isNot(contains('a-orig.jpg')));
+      expect(rowB, contains('b-orig.jpg'));
+      expect(rowB, isNot(contains('b.jpg')));
+    });
+
     test('CSV en inglés: coma y punto decimal; con BOM al compartir', () {
       final String csv = Exports.csv(photos(), projects, spanish: false);
       expect(csv, startsWith('id,project,datetime,utc_offset,utc,latitude,longitude'));
       expect(csv, contains('4.7110000,-74.0721000,4.2,2601.5'));
+      expect(csv, contains(',UTC-05:00,'));
       final Uint8List bytes = Exports.csvBytes(photos(), projects, spanish: false);
       expect(bytes.sublist(0, 3), <int>[0xEF, 0xBB, 0xBF]);
       expect(Exports.neutralizeFormula('-74.07'), '-74.07');
@@ -362,6 +420,21 @@ void main() {
       expect(en, contains('<Data name="datetime">'));
       expect(en, contains('<Data name="address">'));
       expect(en, isNot(contains('<Data name="direccion">')));
+    });
+
+    test('Un rótulo con comillas no rompe el KML (M1)', () {
+      final Project tubos = Project(id: 'p1', name: 'Red "Norte" & <Sur>', fields: <FieldDef>[const FieldDef('k1', 'Tubería 1/2"')]);
+      final PhotoRecord p = PhotoRecord(id: 'a', projectId: 'p1', originalFile: 'o', stampedFile: 's', takenAt: DateTime.utc(2026, 3, 9), latitude: 4.7, longitude: -74.1, fields: <String, String>{'k1': 'PVC "presión"'}, fieldLabels: <String, String>{'k1': 'Tubería 1/2"'});
+      final String kml = Exports.kml(<PhotoRecord>[p], <String, Project>{'p1': tubos}, title: 'T', photoHref: (PhotoRecord _) => 'fotos/a"b.jpg');
+      // Las comillas de un atributo se escapan; en el texto no hace falta.
+      expect(kml, contains('<Data name="Tubería 1/2&quot;"><value>PVC "presión"</value></Data>'));
+      expect(kml, isNot(contains('1/2""')));
+      expect(kml, contains('<img src="fotos/a&quot;b.jpg"'));
+      expect(kml, contains('<Folder><name>Red "Norte" &amp; &lt;Sur&gt;</name>'));
+      // Toda comilla dentro de una etiqueta abre y cierra un atributo.
+      for (final RegExpMatch tag in RegExp(r'<[^<>!?]+>').allMatches(kml.replaceAll(RegExp(r'<!\[CDATA\[[\s\S]*?\]\]>'), ''))) {
+        expect('"'.allMatches(tag.group(0)!).length.isEven, isTrue, reason: tag.group(0));
+      }
     });
 
     test('ZIP y KMZ: enlaces que coinciden con los archivos, CSV con BOM y nombres en el idioma (G9, G10, M5, M6)', () async {
@@ -417,6 +490,27 @@ void main() {
   });
 
   group('Informe PDF', () {
+    test('Se arma en un isolate desde los archivos y solo nombra los que existen (M17, M3)', () async {
+      final Project obra = Project(id: 'p1', name: 'Obra');
+      final File a = File('${tmp.path}/a_sellada.jpg')..writeAsBytesSync(syntheticJpeg(1600, 1200));
+      final List<PhotoRecord> list = <PhotoRecord>[
+        PhotoRecord(id: 'a', projectId: 'p1', originalFile: 'x/a-orig.jpg', stampedFile: 'x/a_sellada.jpg', takenAt: DateTime.utc(2026, 3, 9, 19), notes: 'Con imagen'),
+        PhotoRecord(id: 'b', projectId: 'p1', originalFile: 'x/b-orig.jpg', stampedFile: 'x/b_sellada.jpg', takenAt: DateTime.utc(2026, 3, 9, 20), notes: 'Sin imagen'),
+      ];
+      final List<int> progress = <int>[];
+      final String out = '${tmp.path}/informe.pdf';
+      await PdfReport.writeFile(outPath: out, photos: list, projects: <String, Project>{'p1': obra}, title: 'Informe', imagePaths: <String, String>{'a': a.path}, onProgress: (int d, int t) => progress.add(d), now: DateTime(2026, 3, 11));
+      expect(progress.last, 2);
+      final Uint8List pdf = File(out).readAsBytesSync();
+      expect(String.fromCharCodes(pdf.take(5)), '%PDF-');
+      final String text = pdfText(pdf);
+      expect(text, contains('/Subtype/Image'));
+      // La foto con imagen nombra su archivo; la otra no nombra ninguno.
+      expect(text, contains('a_sellada.jpg'));
+      expect(text, isNot(contains('b_sellada.jpg')));
+      expect(File('$out.tmp-pdf').existsSync(), isFalse);
+    });
+
     test('Orden cronológico, imagen incrustada y rótulos en inglés (M6, M21)', () async {
       final Project obra = Project(id: 'p1', name: 'Obra Calle 80 🏗️', fields: <FieldDef>[const FieldDef('k1', 'Lote')]);
       final List<PhotoRecord> list = <PhotoRecord>[

@@ -50,6 +50,8 @@ class SelloApp extends StatelessWidget {
           return MaterialApp(
             title: 'Sello',
             debugShowCheckedModeBanner: false,
+            // Para saber cuándo una pantalla completa tapa la pestaña activa.
+            navigatorObservers: <NavigatorObserver>[services.routes],
             theme: theme(Brightness.light),
             darkTheme: theme(Brightness.dark),
             themeMode: mode == 'light' ? ThemeMode.light : (mode == 'dark' ? ThemeMode.dark : ThemeMode.system),
@@ -80,7 +82,7 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver, RouteAware {
   late int _index = widget.initialIndex;
 
   /// El mapa se crea la primera vez que se abre su pestaña: antes no hay
@@ -89,21 +91,64 @@ class _HomeShellState extends State<HomeShell> {
   StreamSubscription<StampEvent>? _events;
   bool _galleryNoticeShown = false;
   bool _noticesShown = false;
+  Services? _services;
+  PageRoute<dynamic>? _route;
+
+  /// Otra pantalla completa (Ajustes, el detalle de una foto, un editor…)
+  /// tapa las pestañas: la cámara y el mapa se tratan como fuera de vista.
+  bool _covered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final Services s = AppScope.of(context);
     if (_events == null) {
-      final Services s = AppScope.of(context);
+      _services = s;
       _events = s.queue.events.listen(_onStampEvent);
       WidgetsBinding.instance.addPostFrameCallback((_) => _showLoadNotices());
+    }
+    final ModalRoute<dynamic>? route = ModalRoute.of(context);
+    if (route is PageRoute<dynamic> && !identical(route, _route)) {
+      s.routes.unsubscribe(this);
+      s.routes.subscribe(this, route);
+      _route = route;
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _services?.routes.unsubscribe(this);
     unawaited(_events?.cancel());
     super.dispose();
+  }
+
+  @override
+  void didPushNext() => setState(() => _covered = true);
+
+  @override
+  void didPopNext() => setState(() => _covered = false);
+
+  /// En segundo plano se detiene la ubicación (Sello no la usa en segundo
+  /// plano) y al volver se retoma si la cámara o el mapa están a la vista.
+  /// "inactive" no cuenta: lo provocan los diálogos de permiso.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final Services? s = _services;
+    if (s == null) {
+      return;
+    }
+    if (state == AppLifecycleState.resumed) {
+      s.location.foreground = true;
+    } else if (state == AppLifecycleState.hidden || state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      s.location.foreground = false;
+    }
   }
 
   void _snack(String text, {SnackBarAction? action}) {
@@ -183,9 +228,9 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final List<Widget> pages = <Widget>[
-      CameraScreen(enabled: widget.cameraEnabled, active: _index == 0),
+      CameraScreen(enabled: widget.cameraEnabled, active: _index == 0 && !_covered),
       const GalleryScreen(),
-      if (_mapBuilt) const MapScreen() else const SizedBox.shrink(),
+      if (_mapBuilt) MapScreen(active: _index == 2 && !_covered) else const SizedBox.shrink(),
       const ProjectsScreen(),
     ];
     return Scaffold(

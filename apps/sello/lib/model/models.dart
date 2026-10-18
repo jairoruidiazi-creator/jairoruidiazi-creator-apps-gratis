@@ -12,6 +12,25 @@ String newId() {
   return '${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${_idCounter.toRadixString(36).padLeft(4, '0')}${_idRandom.nextInt(46656).toRadixString(36)}';
 }
 
+// Lectura tolerante de lo guardado en JSON: un valor de otro tipo (por
+// ejemplo, un índice editado a mano desde la app Archivos) se toma como
+// ausente en vez de impedir abrir la app.
+String? _str(Object? v) => v is String ? v : null;
+
+double? _dbl(Object? v) => v is num && v.isFinite ? v.toDouble() : null;
+
+int? _int(Object? v) => v is num && v.isFinite ? v.toInt() : null;
+
+bool? _bool(Object? v) => v is bool ? v : null;
+
+List<Object?> _list(Object? v) => v is List ? v : const <Object?>[];
+
+Map<String, String> _strMap(Object? v) => <String, String>{
+      if (v is Map)
+        for (final MapEntry<Object?, Object?> e in v.entries)
+          if (e.key is String && e.value != null) e.key! as String: e.value.toString(),
+    };
+
 /// Posición del sello dentro de la foto.
 enum StampPosition { bottomLeft, bottomRight, topLeft, topRight, bottomBar }
 
@@ -76,22 +95,22 @@ class StampTemplate {
       };
 
   static StampTemplate fromJson(Map<String, dynamic> j) => StampTemplate(
-        id: j['id'] as String? ?? newId(),
-        name: j['name'] as String? ?? '',
-        items: ((j['items'] as List<dynamic>?) ?? <dynamic>[]).map((dynamic n) => StampItem.values.where((StampItem i) => i.name == n).firstOrNull).whereType<StampItem>().toSet(),
+        id: _str(j['id']) ?? newId(),
+        name: _str(j['name']) ?? '',
+        items: _list(j['items']).map((Object? n) => StampItem.values.where((StampItem i) => i.name == n).firstOrNull).whereType<StampItem>().toSet(),
         position: StampPosition.values.firstWhere((StampPosition p) => p.name == j['position'], orElse: () => StampPosition.bottomLeft),
         coordFormat: CoordFormat.values.firstWhere((CoordFormat f) => f.name == j['coordFormat'], orElse: () => CoordFormat.dd),
         coordFormat2: CoordFormat.values.firstWhere((CoordFormat f) => f.name == j['coordFormat2'], orElse: () => CoordFormat.utm),
-        dateFormat: j['dateFormat'] as String? ?? 'dd/MM/yyyy HH:mm:ss',
-        textScale: (j['textScale'] as num?)?.toDouble() ?? 1.0,
-        textColor: (j['textColor'] as num?)?.toInt() ?? 0xFFFFFFFF,
-        backgroundColor: (j['backgroundColor'] as num?)?.toInt() ?? 0xFF000000,
-        backgroundOpacity: (j['backgroundOpacity'] as num?)?.toDouble() ?? 0.55,
-        logoPath: j['logoPath'] as String?,
-        logoScale: (j['logoScale'] as num?)?.toDouble() ?? 1.0,
-        logoOpacity: (j['logoOpacity'] as num?)?.toDouble() ?? 1.0,
+        dateFormat: _str(j['dateFormat']) ?? 'dd/MM/yyyy HH:mm:ss',
+        textScale: (_dbl(j['textScale']) ?? 1.0).clamp(0.5, 3.0),
+        textColor: _int(j['textColor']) ?? 0xFFFFFFFF,
+        backgroundColor: _int(j['backgroundColor']) ?? 0xFF000000,
+        backgroundOpacity: (_dbl(j['backgroundOpacity']) ?? 0.55).clamp(0.0, 1.0),
+        logoPath: _str(j['logoPath']),
+        logoScale: (_dbl(j['logoScale']) ?? 1.0).clamp(0.2, 4.0),
+        logoOpacity: (_dbl(j['logoOpacity']) ?? 1.0).clamp(0.0, 1.0),
         logoPosition: StampPosition.values.firstWhere((StampPosition p) => p.name == j['logoPosition'], orElse: () => StampPosition.topRight),
-        showLabels: j['showLabels'] as bool? ?? true,
+        showLabels: _bool(j['showLabels']) ?? true,
       );
 
   static StampTemplate defaultTemplate() => StampTemplate(id: 'default', name: 'Estándar');
@@ -118,12 +137,12 @@ class FieldDef {
 
   Map<String, dynamic> toJson() => <String, dynamic>{'key': key, 'label': label, 'default': defaultValue};
 
-  static FieldDef fromJson(Map<String, dynamic> j) => FieldDef(j['key'] as String? ?? newId(), j['label'] as String? ?? '', defaultValue: j['default'] as String? ?? '');
+  static FieldDef fromJson(Map<String, dynamic> j) => FieldDef(_str(j['key']) ?? newId(), _str(j['label']) ?? '', defaultValue: _str(j['default']) ?? '');
 }
 
 /// Proyecto: agrupa fotos, define campos y la plantilla del sello.
 class Project {
-  Project({required this.id, required this.name, List<FieldDef>? fields, this.templateId = 'default', this.notes = '', this.fileNamePattern = '{proyecto}_{fecha}_{hora}', this.emoji = ''}) : fields = fields ?? <FieldDef>[];
+  Project({required this.id, required this.name, List<FieldDef>? fields, this.templateId = 'default', this.notes = '', this.fileNamePattern = '{proyecto}_{fecha}_{hora}', this.emoji = '', this.photoCounter = 0}) : fields = fields ?? <FieldDef>[];
 
   final String id;
   String name;
@@ -134,6 +153,10 @@ class Project {
   /// Plantilla del nombre de archivo: {proyecto} {fecha} {hora} {lat} {lon} {n}.
   String fileNamePattern;
   String emoji;
+
+  /// Último número {n} entregado a una foto del proyecto. Nunca baja, así
+  /// que borrar o mover fotos no hace que se repita (no lo cambia el editor).
+  int photoCounter;
 
   /// Rótulo de un campo por su clave, o null si el proyecto ya no lo tiene.
   String? labelOf(String key) {
@@ -168,16 +191,18 @@ class Project {
         'notes': notes,
         'fileNamePattern': fileNamePattern,
         'emoji': emoji,
+        'counter': photoCounter,
       };
 
   static Project fromJson(Map<String, dynamic> j) => Project(
-        id: j['id'] as String? ?? newId(),
-        name: j['name'] as String? ?? '',
-        fields: ((j['fields'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>().map(FieldDef.fromJson).toList(),
-        templateId: j['templateId'] as String? ?? 'default',
-        notes: j['notes'] as String? ?? '',
-        fileNamePattern: j['fileNamePattern'] as String? ?? '{proyecto}_{fecha}_{hora}',
-        emoji: j['emoji'] as String? ?? '',
+        id: _str(j['id']) ?? newId(),
+        name: _str(j['name']) ?? '',
+        fields: _list(j['fields']).whereType<Map<String, dynamic>>().map(FieldDef.fromJson).toList(),
+        templateId: _str(j['templateId']) ?? 'default',
+        notes: _str(j['notes']) ?? '',
+        fileNamePattern: _str(j['fileNamePattern']) ?? '{proyecto}_{fecha}_{hora}',
+        emoji: _str(j['emoji']) ?? '',
+        photoCounter: math.max(0, _int(j['counter']) ?? 0),
       );
 }
 
@@ -379,42 +404,54 @@ class PhotoRecord {
         'version': version,
       };
 
+  /// Ficha guardada. Sin id o sin archivo no es una ficha: lanza
+  /// [FormatException] y la carga la deja fuera (el reindexado recupera su
+  /// foto de la carpeta, si está).
   static PhotoRecord fromJson(Map<String, dynamic> j) {
-    final DateTime taken = DateTime.tryParse(j['takenAt'] as String? ?? '') ?? DateTime.now();
+    final String? id = _str(j['id']);
+    final String original = _str(j['originalFile']) ?? '';
+    final String stamped = _str(j['stampedFile']) ?? '';
+    if (id == null || id.isEmpty || (original.isEmpty && stamped.isEmpty)) {
+      throw const FormatException('Ficha de foto sin id o sin archivo');
+    }
+    final DateTime taken = DateTime.tryParse(_str(j['takenAt']) ?? '') ?? DateTime.now();
+    final double? lat = _dbl(j['latitude']);
+    final double? lon = _dbl(j['longitude']);
+    final bool located = lat != null && lon != null && lat.abs() <= 90 && lon.abs() <= 180;
     return PhotoRecord(
-      id: j['id'] as String? ?? newId(),
-      projectId: j['projectId'] as String? ?? '',
-      originalFile: j['originalFile'] as String? ?? '',
-      stampedFile: j['stampedFile'] as String? ?? '',
+      id: id,
+      projectId: _str(j['projectId']) ?? '',
+      originalFile: original,
+      stampedFile: stamped,
       takenAt: taken,
       // Sin desfase guardado se usa el de la zona actual en ese instante.
-      utcOffsetMinutes: (j['utcOffset'] as num?)?.toInt() ?? taken.toLocal().timeZoneOffset.inMinutes,
-      latitude: (j['latitude'] as num?)?.toDouble(),
-      longitude: (j['longitude'] as num?)?.toDouble(),
-      accuracy: (j['accuracy'] as num?)?.toDouble(),
-      altitude: (j['altitude'] as num?)?.toDouble(),
-      altitudeReference: j['altitudeReference'] as String? ?? 'msl',
-      altitudeMsl: (j['altitudeMsl'] as num?)?.toDouble(),
-      heading: (j['heading'] as num?)?.toDouble(),
-      headingTrue: j['headingTrue'] as bool? ?? true,
-      pitch: (j['pitch'] as num?)?.toDouble(),
-      speed: (j['speed'] as num?)?.toDouble(),
+      utcOffsetMinutes: _int(j['utcOffset']) ?? taken.toLocal().timeZoneOffset.inMinutes,
+      latitude: located ? lat : null,
+      longitude: located ? lon : null,
+      accuracy: _dbl(j['accuracy']),
+      altitude: _dbl(j['altitude']),
+      altitudeReference: _str(j['altitudeReference']) ?? 'msl',
+      altitudeMsl: _dbl(j['altitudeMsl']),
+      heading: _dbl(j['heading']),
+      headingTrue: _bool(j['headingTrue']) ?? true,
+      pitch: _dbl(j['pitch']),
+      speed: _dbl(j['speed']),
       positionSource: PositionSource.values.firstWhere((PositionSource s) => s.name == j['positionSource'], orElse: () => PositionSource.gps),
-      averagedSamples: (j['averagedSamples'] as num?)?.toInt() ?? 0,
-      fixAgeSeconds: (j['fixAgeSeconds'] as num?)?.toInt() ?? 0,
-      address: j['address'] as String? ?? '',
-      fields: ((j['fields'] as Map<String, dynamic>?) ?? <String, dynamic>{}).map((String k, dynamic v) => MapEntry<String, String>(k, v.toString())),
-      fieldLabels: ((j['fieldLabels'] as Map<String, dynamic>?) ?? <String, dynamic>{}).map((String k, dynamic v) => MapEntry<String, String>(k, v.toString())),
-      notes: j['notes'] as String? ?? '',
-      tags: ((j['tags'] as List<dynamic>?) ?? <dynamic>[]).map((dynamic e) => e.toString()).toList(),
-      description: j['description'] as String? ?? '',
-      width: (j['width'] as num?)?.toInt() ?? 0,
-      height: (j['height'] as num?)?.toInt() ?? 0,
+      averagedSamples: _int(j['averagedSamples']) ?? 0,
+      fixAgeSeconds: _int(j['fixAgeSeconds']) ?? 0,
+      address: _str(j['address']) ?? '',
+      fields: _strMap(j['fields']),
+      fieldLabels: _strMap(j['fieldLabels']),
+      notes: _str(j['notes']) ?? '',
+      tags: _list(j['tags']).whereType<Object>().map((Object e) => e.toString()).toList(),
+      description: _str(j['description']) ?? '',
+      width: _int(j['width']) ?? 0,
+      height: _int(j['height']) ?? 0,
       status: PhotoStatus.values.firstWhere((PhotoStatus s) => s.name == j['status'], orElse: () => PhotoStatus.ok),
-      error: j['error'] as String? ?? '',
-      templateId: j['templateId'] as String?,
-      frontCamera: j['frontCamera'] as bool? ?? false,
-      version: (j['version'] as num?)?.toInt() ?? 0,
+      error: _str(j['error']) ?? '',
+      templateId: _str(j['templateId']),
+      frontCamera: _bool(j['frontCamera']) ?? false,
+      version: _int(j['version']) ?? 0,
     );
   }
 }

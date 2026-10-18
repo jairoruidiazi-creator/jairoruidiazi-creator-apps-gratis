@@ -13,8 +13,10 @@ import 'package:sello/geo/heading.dart';
 import 'package:sello/geo/location_service.dart';
 import 'package:sello/model/models.dart';
 import 'package:sello/ui/gallery/gallery_screen.dart';
+import 'package:sello/ui/gallery/photo_detail_screen.dart';
 import 'package:sello/ui/map/map_screen.dart';
 import 'package:sello/ui/projects/project_editor.dart';
+import 'package:sello/ui/projects/projects_screen.dart';
 import 'package:sello/ui/projects/template_editor.dart';
 import 'package:sello/ui/settings/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -306,8 +308,68 @@ void main() {
     expect(keys.any(imageCache.containsKey), isFalse);
   });
 
+  testWidgets('La plantilla de fábrica se nombra en el idioma de la app (M7)', (WidgetTester tester) async {
+    services.settings.language = 'en';
+    await tester.pumpWidget(AppScope(services: services, child: const MaterialApp(home: ProjectsScreen())));
+    await tester.pump();
+    expect(find.textContaining('stamp: Standard'), findsOneWidget);
+    expect(find.textContaining('Estándar'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Editar datos: al cambiar de proyecto se llenan y guardan los campos del nuevo (M18)', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2160);
+    tester.view.devicePixelRatio = 2.5;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    late Project b;
+    late PhotoRecord p;
+    await tester.runAsync(() async {
+      final Project a = services.state.projectById('general');
+      a.fields.add(const FieldDef('k1', 'Lote', defaultValue: '1'));
+      b = await services.state.addProject('Obra B');
+      b.fields.add(const FieldDef('k2', 'Inspector', defaultValue: 'Ana'));
+      await services.state.saveProjects();
+      await services.store.writeBytes('photos/general/a.jpg', syntheticJpeg(32, 24));
+      p = PhotoRecord(id: 'a', projectId: 'general', originalFile: '', stampedFile: 'photos/general/a.jpg', takenAt: DateTime.utc(2026, 3, 9, 19, 5), fields: <String, String>{'k1': '7'}, fieldLabels: <String, String>{'k1': 'Lote'}, width: 32, height: 24);
+      await services.state.addPhoto(p);
+    });
+    await tester.pumpWidget(AppScope(services: services, child: const MaterialApp(home: PhotoDetailScreen(photoId: 'a'))));
+    await tester.pump();
+    await tester.tap(find.byTooltip('Más opciones'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Editar datos'));
+    await tester.pumpAndSettle();
+    // Con el proyecto de la foto se ve su campo con lo que la foto tenía.
+    expect(find.byKey(const ValueKey<String>('campo-k1')), findsOneWidget);
+    expect(find.widgetWithText(TextField, '7'), findsOneWidget);
+    await tester.tap(find.byWidgetPredicate((Widget w) => w is DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Obra B').last);
+    await tester.pumpAndSettle();
+    // Aparecen los del nuevo proyecto, con su valor inicial.
+    expect(find.byKey(const ValueKey<String>('campo-k1')), findsNothing);
+    final Finder inspector = find.byKey(const ValueKey<String>('campo-k2'));
+    expect(inspector, findsOneWidget);
+    expect(find.descendant(of: inspector, matching: find.text('Ana')), findsOneWidget);
+    await tester.enterText(inspector, 'Luis');
+    await tester.tap(find.text('Guardar'));
+    await tester.pumpAndSettle();
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+    expect(p.projectId, b.id);
+    expect(p.fields['k2'], 'Luis');
+    expect(p.fieldLabels['k2'], 'Inspector');
+    // Lo del proyecto anterior queda como dato de la foto, con su rótulo.
+    expect(p.fields['k1'], '7');
+    expect(p.fieldLabels['k1'], 'Lote');
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   test('Los ajustes se guardan en preferencias', () async {
     final AppSettings s = services.settings;
+    // Sin ajuste guardado, la resolución máxima (M15).
+    expect(s.resolution, 'max');
     s.language = 'en';
     s.jpegQuality = 80;
     s.autoDeclination = false;

@@ -38,6 +38,10 @@ class Exports {
 
   static String _esc(String s) => const HtmlEscape(HtmlEscapeMode.element).convert(s);
 
+  /// Escape para valores de atributos XML (entre comillas dobles): además de
+  /// & < >, las comillas. Un rótulo como «Tubería 1/2"» no debe romper el KML.
+  static String _attr(String s) => const HtmlEscape(HtmlEscapeMode.attribute).convert(s);
+
   static final RegExp _plainNumber = RegExp(r'^[-+]?\d+([.,]\d+)?$');
 
   /// Texto seguro para una hoja de cálculo: una celda que empiece por
@@ -89,8 +93,12 @@ class Exports {
 
   /// CSV con una fila por foto. En español usa punto y coma y coma decimal
   /// (lo que espera Excel con la configuración de Colombia); en inglés,
-  /// coma y punto decimal.
-  static String csv(List<PhotoRecord> photos, Map<String, Project> projects, {bool spanish = true}) {
+  /// coma y punto decimal. [exists] dice qué archivos (rutas relativas) hay
+  /// en el teléfono: el CSV nunca nombra uno que no exista (una foto sin
+  /// sellar no tiene copia sellada; sin "Conservar el original", la original
+  /// se borra al sellar).
+  static String csv(List<PhotoRecord> photos, Map<String, Project> projects, {bool spanish = true, bool Function(String relativePath)? exists}) {
+    bool has(String rel) => rel.isNotEmpty && (exists?.call(rel) ?? true);
     final String sep = spanish ? ';' : ',';
     String n(double? v, int decimals) {
       if (v == null || !v.isFinite) {
@@ -115,7 +123,9 @@ class Exports {
         _Cell(p.id),
         _Cell(projects[p.projectId]?.name ?? ''),
         _Cell(formatDate(p.wallTime, 'yyyy-MM-dd HH:mm:ss'), numeric: true),
-        _Cell(exifUtcOffset(p.utcOffsetMinutes), numeric: true),
+        // "UTC-05:00" y no "-05:00": la hoja de cálculo convertía el desfase
+        // en una duración (y "+05:30" en una hora, sin el signo).
+        _Cell('UTC${exifUtcOffset(p.utcOffsetMinutes)}', numeric: true),
         _Cell('${formatDate(p.takenAt, 'yyyy-MM-ddTHH:mm:ss')}Z', numeric: true),
         _Cell(loc ? n(p.latitude, 7) : '', numeric: true),
         _Cell(loc ? n(p.longitude, 7) : '', numeric: true),
@@ -138,8 +148,8 @@ class Exports {
         _Cell(p.address),
         _Cell(p.notes),
         _Cell(p.tags.join(' ')),
-        _Cell(p.originalFile.split('/').last),
-        _Cell(p.stampedFile.split('/').last),
+        _Cell(has(p.originalFile) ? p.originalFile.split('/').last : ''),
+        _Cell(p.status == PhotoStatus.ok && has(p.stampedFile) ? p.stampedFile.split('/').last : ''),
         for (final String l in labels) _Cell(fields[l] ?? ''),
       ];
       b.writeln(row.map((_Cell c) => _csvCell(c, sep)).join(sep));
@@ -149,7 +159,8 @@ class Exports {
 
   /// El CSV en UTF-8 con BOM (para que Excel lea bien las tildes), igual
   /// para compartirlo suelto o dentro del ZIP.
-  static Uint8List csvBytes(List<PhotoRecord> photos, Map<String, Project> projects, {bool spanish = true}) => Uint8List.fromList(<int>[0xEF, 0xBB, 0xBF, ...utf8.encode(csv(photos, projects, spanish: spanish))]);
+  static Uint8List csvBytes(List<PhotoRecord> photos, Map<String, Project> projects, {bool spanish = true, bool Function(String relativePath)? exists}) =>
+      Uint8List.fromList(<int>[0xEF, 0xBB, 0xBF, ...utf8.encode(csv(photos, projects, spanish: spanish, exists: exists))]);
 
   /// Nombre del origen de la posición, para exportaciones e informes.
   static String positionSourceName(PositionSource s, {required bool spanish}) {
@@ -200,7 +211,7 @@ class Exports {
         final List<MapEntry<String, String>> fields = p.labeledFields(project);
         final StringBuffer desc = StringBuffer();
         if (href.isNotEmpty) {
-          desc.write('<img src="${_esc(href)}" width="400"/><br/>');
+          desc.write('<img src="${_attr(href)}" width="400"/><br/>');
         }
         desc.write('${_esc(formatDate(p.wallTime, 'dd/MM/yyyy HH:mm:ss'))} ${_esc(p.offsetLabel)}<br/>');
         if (p.address.isNotEmpty) {
@@ -219,7 +230,7 @@ class Exports {
         b.writeln('<ExtendedData>');
         void data(String key, String v) {
           if (v.isNotEmpty) {
-            b.writeln('<Data name="${_esc(key)}"><value>${_esc(v)}</value></Data>');
+            b.writeln('<Data name="${_attr(key)}"><value>${_esc(v)}</value></Data>');
           }
         }
 
@@ -291,7 +302,7 @@ class Exports {
 
   /// Entradas del ZIP: las fotos dadas en [files] (selladas u originales),
   /// el CSV (con BOM) y el KML, que enlaza los mismos nombres que el ZIP.
-  static List<ArchiveEntry> zipEntries(List<PhotoRecord> photos, Map<String, Project> projects, {required String title, required Map<String, String> files, bool spanish = true}) {
+  static List<ArchiveEntry> zipEntries(List<PhotoRecord> photos, Map<String, Project> projects, {required String title, required Map<String, String> files, bool spanish = true, bool Function(String relativePath)? exists}) {
     final String folder = spanish ? 'fotos' : 'photos';
     final Set<String> used = <String>{};
     final Map<String, String> hrefs = <String, String>{};
@@ -305,7 +316,7 @@ class Exports {
       hrefs[p.id] = name;
       entries.add(ArchiveEntry.file(name, path));
     }
-    entries.add(ArchiveEntry.bytes(spanish ? 'datos.csv' : 'data.csv', csvBytes(photos, projects, spanish: spanish)));
+    entries.add(ArchiveEntry.bytes(spanish ? 'datos.csv' : 'data.csv', csvBytes(photos, projects, spanish: spanish, exists: exists)));
     entries.add(ArchiveEntry.bytes(spanish ? 'mapa.kml' : 'map.kml', utf8.encode(kml(photos, projects, title: title, spanish: spanish, photoHref: (PhotoRecord p) => hrefs[p.id] ?? ''))));
     return entries;
   }
@@ -334,6 +345,10 @@ class ExportCancel {
   void Function()? _onCancel;
 
   bool get cancelled => _cancelled;
+
+  /// Qué hacer al cancelar (detener el isolate que está trabajando); null
+  /// lo quita.
+  void whenCancelled(void Function()? f) => _onCancel = f;
 
   void cancel() {
     _cancelled = true;

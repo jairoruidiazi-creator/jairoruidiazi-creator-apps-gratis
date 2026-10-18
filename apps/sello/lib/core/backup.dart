@@ -83,19 +83,31 @@ class Backup {
     int projects = 0;
     int templates = 0;
     int photos = 0;
+    // Lectura tolerante: una ficha ilegible de la copia se deja fuera (sus
+    // fotos igual se copiaron y el reindexado las recupera) en vez de
+    // impedir restaurar las demás.
+    Iterable<Map<String, dynamic>> maps(Object? list) => list is List ? list.whereType<Map<String, dynamic>>() : const <Map<String, dynamic>>[];
+    T? parse<T>(Map<String, dynamic> j, T Function(Map<String, dynamic>) f) {
+      try {
+        return f(j);
+      } catch (_) {
+        return null;
+      }
+    }
+
     if (ex.projectsJson != null) {
-      final Object? decoded = jsonDecode(ex.projectsJson!);
+      final Object? decoded = _decode(ex.projectsJson!);
       if (decoded is Map<String, dynamic>) {
-        for (final Map<String, dynamic> j in ((decoded['projects'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>()) {
-          final Project p = Project.fromJson(j);
-          if (!state.projects.any((Project x) => x.id == p.id)) {
+        for (final Map<String, dynamic> j in maps(decoded['projects'])) {
+          final Project? p = parse(j, Project.fromJson);
+          if (p != null && !state.projects.any((Project x) => x.id == p.id)) {
             state.projects.add(p);
             projects++;
           }
         }
-        for (final Map<String, dynamic> j in ((decoded['templates'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>()) {
-          final StampTemplate tpl = StampTemplate.fromJson(j);
-          if (!state.templates.any((StampTemplate x) => x.id == tpl.id)) {
+        for (final Map<String, dynamic> j in maps(decoded['templates'])) {
+          final StampTemplate? tpl = parse(j, StampTemplate.fromJson);
+          if (tpl != null && !state.templates.any((StampTemplate x) => x.id == tpl.id)) {
             state.templates.add(tpl);
             templates++;
           }
@@ -103,11 +115,11 @@ class Backup {
       }
     }
     if (ex.photosJson != null) {
-      final Object? decoded = jsonDecode(ex.photosJson!);
+      final Object? decoded = _decode(ex.photosJson!);
       if (decoded is Map<String, dynamic>) {
-        for (final Map<String, dynamic> j in ((decoded['photos'] as List<dynamic>?) ?? <dynamic>[]).whereType<Map<String, dynamic>>()) {
-          final PhotoRecord p = PhotoRecord.fromJson(j);
-          if (state.photoById(p.id) == null) {
+        for (final Map<String, dynamic> j in maps(decoded['photos'])) {
+          final PhotoRecord? p = parse(j, PhotoRecord.fromJson);
+          if (p != null && state.photoById(p.id) == null) {
             if (!state.projects.any((Project x) => x.id == p.projectId)) {
               p.projectId = state.projects.first.id;
             }
@@ -122,6 +134,14 @@ class Backup {
     await state.saveProjects();
     await state.savePhotos();
     return RestoreSummary(photos: photos, projects: projects, templates: templates, files: ex.files);
+  }
+}
+
+Object? _decode(String text) {
+  try {
+    return jsonDecode(text);
+  } on FormatException {
+    return null;
   }
 }
 

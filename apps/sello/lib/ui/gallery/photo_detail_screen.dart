@@ -255,13 +255,20 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
   }
 
   Future<void> _edit(AppState st, PhotoRecord p) async {
-    final Project project = st.projectById(p.projectId);
     final TextEditingController notes = TextEditingController(text: p.notes);
     final TextEditingController tags = TextEditingController(text: p.tags.join(' '));
-    final Map<String, TextEditingController> fieldCtrls = <String, TextEditingController>{
-      for (final FieldDef f in project.fields) f.key: TextEditingController(text: p.fields[f.key] ?? ''),
-    };
+    // Cuadros de los campos del proyecto elegido: si se cambia de proyecto
+    // aparecen los del nuevo (con lo que la foto ya tuviera o el valor
+    // inicial), y al guardar se graban esos.
+    final Map<String, TextEditingController> fieldCtrls = <String, TextEditingController>{};
+    void ensureFields(Project pr) {
+      for (final FieldDef f in pr.fields) {
+        fieldCtrls.putIfAbsent(f.key, () => TextEditingController(text: p.fields[f.key] ?? (pr.id == p.projectId ? '' : f.defaultValue)));
+      }
+    }
+
     String projectId = p.projectId;
+    ensureFields(st.projectById(projectId));
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) => StatefulBuilder(
@@ -276,9 +283,12 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
                   initialValue: projectId,
                   decoration: InputDecoration(labelText: t(context, 'Proyecto', 'Project')),
                   items: <DropdownMenuItem<String>>[for (final Project pr in st.projects) DropdownMenuItem<String>(value: pr.id, child: Text(pr.name))],
-                  onChanged: (String? v) => setLocal(() => projectId = v ?? projectId),
+                  onChanged: (String? v) => setLocal(() {
+                    projectId = v ?? projectId;
+                    ensureFields(st.projectById(projectId));
+                  }),
                 ),
-                for (final FieldDef f in project.fields) TextField(controller: fieldCtrls[f.key], decoration: InputDecoration(labelText: f.label)),
+                for (final FieldDef f in st.projectById(projectId).fields) TextField(key: ValueKey<String>('campo-${f.key}'), controller: fieldCtrls[f.key], decoration: InputDecoration(labelText: f.label)),
                 TextField(controller: notes, decoration: InputDecoration(labelText: t(context, 'Notas', 'Notes')), maxLines: 3, minLines: 1),
                 TextField(controller: tags, decoration: InputDecoration(labelText: t(context, 'Etiquetas (separadas por espacio)', 'Tags (space separated)'))),
                 const SizedBox(height: 8),
@@ -299,7 +309,9 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
         ..clear()
         ..addAll(tags.text.split(RegExp(r'[\s,]+')).map((String x) => x.trim().replaceAll('#', '')).where((String x) => x.isNotEmpty));
       p.projectId = projectId;
-      for (final FieldDef f in project.fields) {
+      // Los campos del proyecto elegido; los de otro proyecto que la foto ya
+      // tuviera se conservan con su rótulo (son datos de la foto).
+      for (final FieldDef f in st.projectById(projectId).fields) {
         p.fields[f.key] = fieldCtrls[f.key]!.text.trim();
         p.fieldLabels[f.key] = f.label;
       }

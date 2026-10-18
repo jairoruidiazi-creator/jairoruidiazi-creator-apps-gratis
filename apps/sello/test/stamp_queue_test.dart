@@ -8,6 +8,7 @@ import 'package:sello/core/settings.dart';
 import 'package:sello/geo/location_service.dart';
 import 'package:sello/model/models.dart';
 import 'package:sello/stamp/capture_pipeline.dart';
+import 'package:sello/stamp/composer.dart';
 import 'package:sello/stamp/stamp_queue.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -113,6 +114,7 @@ void main() {
       final CapturePipeline pipeline = CapturePipeline(store: state.store, state: state, settings: settings);
       final PhotoRecord r = await shoot(pipeline);
       final StampOutcome out = await pipeline.stamp(r);
+      expect(out.removed, isFalse);
       expect(out.record.status, PhotoStatus.ok);
       expect(out.record.width, 64);
       expect(out.record.height, 48);
@@ -120,8 +122,109 @@ void main() {
       expect(File(await state.store.absolutePath(r.stampedFile)).existsSync(), isTrue);
       // Sin original no hay cómo sellar: excepción con su código y la ficha intacta.
       await state.store.delete(r.originalFile);
-      final PhotoRecord copy = PhotoRecord.fromJson(r.toJson());
-      await expectLater(pipeline.stamp(copy), throwsA(isA<StampException>().having((StampException e) => e.code, 'code', StampException.missingOriginal)));
+      await expectLater(pipeline.stamp(r), throwsA(isA<StampException>().having((StampException e) => e.code, 'code', StampException.missingOriginal)));
+      expect(r.status, PhotoStatus.ok);
+      expect(r.version, 1);
     });
+  });
+
+  group('El borrado gana siempre (G1)', () {
+    /// Tubería real con la composición detenida hasta abrir [gate] y la
+    /// fototeca simulada.
+    CapturePipeline gated({required Completer<void> gate, required List<String> composing, required List<String> library, bool composeFirst = false}) {
+      settings.saveToGallery = true;
+      return CapturePipeline(
+        store: state.store,
+        state: state,
+        settings: settings,
+        compose: (ComposeJob job) async {
+          composing.add(job.outputPath);
+          if (composeFirst) {
+            // El archivo sellado ya quedó escrito cuando llega el borrado.
+            final ComposeResult r = composeStampedSync(job);
+            await gate.future;
+            return r;
+          }
+          await gate.future;
+          return composeStampedSync(job);
+        },
+        toPhotoLibrary: (String path) async => library.add(path),
+      );
+    }
+
+    Future<void> waitFor(bool Function() done) async {
+      for (int i = 0; i < 200 && !done(); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+    }
+
+    for (final bool composeFirst in <bool>[false, true]) {
+      test(composeFirst ? 'Borrada después de componer: se descarta la copia escrita' : 'Borrada antes de que se lea el original: no queda nada', () async {
+        final Completer<void> gate = Completer<void>();
+        final List<String> composing = <String>[];
+        final List<String> library = <String>[];
+        final CapturePipeline pipeline = gated(gate: gate, composing: composing, library: library, composeFirst: composeFirst);
+        final StampQueue queue = StampQueue(pipeline: pipeline);
+        final List<StampEvent> events = <StampEvent>[];
+        final StreamSubscription<StampEvent> sub = queue.events.listen(events.add);
+        final PhotoRecord first = await shoot(pipeline);
+        final PhotoRecord second = await shoot(pipeline, n: 1);
+        queue.enqueue(first.id);
+        queue.enqueue(second.id);
+        await waitFor(() => composing.isNotEmpty);
+        expect(queue.currentId, first.id);
+        // Se borran las dos: la que se está sellando y la que espera.
+        await state.deletePhotos(<PhotoRecord>[first, second]);
+        await pumpEventQueue();
+        // La que esperaba salió de la fila sin sellarse.
+        expect(queue.contains(second.id), isFalse);
+        gate.complete();
+        await queue.idle();
+        await pumpEventQueue();
+        expect(composing, hasLength(1));
+        // Ni copia sellada en la carpeta, ni copia en la fototeca, ni aviso.
+        expect(File(await state.store.absolutePath(first.stampedFile)).existsSync(), isFalse);
+        expect(File(await state.store.absolutePath(first.originalFile)).existsSync(), isFalse);
+        expect(library, isEmpty);
+        expect(events, isEmpty);
+        expect(state.photos, isEmpty);
+        // Al abrir de nuevo no se "resucita" nada de la carpeta.
+        final AppState reopened = await testState(tmp);
+        expect(reopened.photos, isEmpty);
+        expect(reopened.notices, isEmpty);
+        await sub.cancel();
+        queue.dispose();
+      });
+    }
+
+    test('Sin borrar, la misma tubería sella y copia a la fototeca', () async {
+      final Completer<void> gate = Completer<void>()..complete();
+      final List<String> composing = <String>[];
+      final List<String> library = <String>[];
+      final CapturePipeline pipeline = gated(gate: gate, composing: composing, library: library);
+      final StampQueue queue = StampQueue(pipeline: pipeline);
+      final PhotoRecord r = await shoot(pipeline);
+      queue.enqueue(r.id);
+      await queue.idle();
+      expect(state.photoById(r.id)!.status, PhotoStatus.ok);
+      expect(library, <String>[await state.store.absolutePath(r.stampedFile)]);
+      queue.dispose();
+    });
+  });
+
+  test('El número {n} del nombre de archivo no se repite al borrar fotos (M8)', () async {
+    final RecordingPipeline pipeline = RecordingPipeline(store: state.store, state: state, settings: settings);
+    final Project p = state.projectById('general')..fileNamePattern = '{proyecto}_{n}';
+    final PhotoRecord a = await shoot(pipeline);
+    final PhotoRecord b = await shoot(pipeline, n: 1);
+    expect(a.originalFile, contains('_0001_'));
+    expect(b.originalFile, contains('_0002_'));
+    await state.deletePhotos(<PhotoRecord>[b]);
+    final PhotoRecord c = await shoot(pipeline, n: 2);
+    expect(c.originalFile, contains('_0003_'));
+    // El contador queda guardado con el proyecto.
+    final AppState reopened = await testState(tmp);
+    expect(reopened.projectById(p.id).photoCounter, 3);
+    expect(reopened.nextNumber(p.id), 4);
   });
 }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -24,7 +25,8 @@ class StampLayout {
   final Offset? compassCenter;
   final double compassRadius;
 
-  /// 1 % del ancho del lienzo.
+  /// Unidad del sello: el 1 % del lado corto del lienzo (menos si hubo que
+  /// achicarlo para que no pase del alto máximo).
   final double unit;
   final double pad;
 
@@ -41,22 +43,36 @@ class StampLayout {
 }
 
 /// Dibuja el sello (texto, fondo, brújula y logo). Se usa igual para la
-/// vista previa en pantalla y para la copia sellada: el mismo código,
-/// distinta escala (la unidad es el 1 % del ancho).
+/// vista previa en pantalla, el editor de plantillas y la copia sellada: el
+/// mismo código, distinta escala.
+///
+/// La unidad es el 1 % del lado corto de la foto, así que el sello mide lo
+/// mismo en una foto vertical que en una horizontal (con el 1 % del ancho,
+/// en horizontal tapaba casi la mitad de la foto). Y el bloque nunca pasa de
+/// [maxBlockFraction] del alto: con muchas líneas o letra grande, se achica.
 class StampPainter extends CustomPainter {
-  StampPainter({required this.template, required this.data, this.logo});
+  StampPainter({required this.template, required this.data, this.logo}) : _templateKey = jsonEncode(template.toJson());
 
   final StampTemplate template;
   final StampData data;
   final ui.Image? logo;
+
+  /// La plantilla se edita en el lugar (el mismo objeto): se compara su
+  /// contenido, no su identidad.
+  final String _templateKey;
+
+  /// Parte del alto de la foto que el sello puede ocupar como máximo.
+  static const double maxBlockFraction = 0.25;
 
   @override
   void paint(Canvas canvas, Size size) {
     paintStamp(canvas, size, template, data, logo: logo);
   }
 
+  /// Solo se vuelve a dibujar si cambia algo que se ve: la plantilla, el
+  /// logo o el texto (el maquetado del texto es lo caro).
   @override
-  bool shouldRepaint(covariant StampPainter old) => true;
+  bool shouldRepaint(covariant StampPainter old) => old._templateKey != _templateKey || old.logo != logo || !data.sameLookAs(old.data, template);
 
   /// Dibujo del sello sobre un lienzo de [size] píxeles.
   static void paintStamp(Canvas canvas, Size size, StampTemplate t, StampData d, {ui.Image? logo}) {
@@ -65,7 +81,21 @@ class StampPainter extends CustomPainter {
 
   /// Calcula dónde va cada parte, sin dibujar.
   static StampLayout layout(Size size, StampTemplate t, StampData d, {ui.Image? logo}) {
-    final double unit = size.width / 100; // 1 % del ancho
+    StampLayout l = _layoutWithUnit(size, t, d, logo, math.min(size.width, size.height) / 100);
+    // Si el bloque pasa del máximo se achica en proporción (al achicar la
+    // letra pueden caber más palabras por línea; dos vueltas más bastan).
+    for (int i = 0; i < 3; i++) {
+      final Rect? b = l.block;
+      final double maxHeight = size.height * maxBlockFraction;
+      if (b == null || b.height <= maxHeight + 0.5) {
+        break;
+      }
+      l = _layoutWithUnit(size, t, d, logo, l.unit * maxHeight / b.height);
+    }
+    return l;
+  }
+
+  static StampLayout _layoutWithUnit(Size size, StampTemplate t, StampData d, ui.Image? logo, double unit) {
     final double fontSize = unit * 2.1 * t.textScale;
     final double pad = unit * 1.6;
     final double margin = unit * 1.5;
