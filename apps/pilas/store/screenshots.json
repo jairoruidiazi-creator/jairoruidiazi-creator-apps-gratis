@@ -4,7 +4,7 @@
   "brand": {"background": ["#3949AB", "#1F2954"], "text": "#FFFFFF", "accent": "#FFD166"},
   "feature": {"es": "Juegos para aprender de 3 a 11 años"},
   "shots": [
-    {"id": "01-inicio", "es": "26 juegos que se ajustan a su edad"},
+    {"id": "01-inicio", "es": "26 juegos: cada niño ve los de su edad"},
     {"id": "02-tienda", "es": "Cuentas con monedas y billetes"},
     {"id": "03-letras", "es": "Letras, sonidos y cuentos con voz"},
     {"id": "04-colorear", "es": "Colorear, dibujar y crear"},

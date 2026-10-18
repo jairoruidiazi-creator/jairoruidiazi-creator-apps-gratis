@@ -1,27 +1,31 @@
-Pilas reúne 26 juegos didácticos para niños de 3 a 11 años, con una voz que lee las instrucciones y los cuentos. Cada juego se ajusta a la edad del niño y sube de nivel según cómo le va. Es gratis, sin anuncios, sin compras, sin cuenta y sin internet.
+Pilas reúne 26 juegos didácticos para niños de 3 a 11 años, con una voz que lee las instrucciones y los cuentos. Cada niño ve los juegos de su edad, y los niveles suben según sus aciertos al primer intento. Es gratis, sin anuncios, sin compras, sin cuenta y sin internet.
 
 LOS 26 JUEGOS
-• Razonamiento y lógica: parejas y memoria, ¿qué sigue?, el intruso, laberintos, tangram y rompecabezas, sudoku de figuras.
-• Matemáticas: la tienda con monedas y billetes, carrera de cálculo, el reloj, cocina de medidas, constructor de figuras.
+• Razonamiento y lógica: parejas y memoria, ¿qué sigue?, el intruso, laberintos, rompecabezas y sudoku.
+• Matemáticas: la tienda con monedas y billetes, carrera de cálculo, el reloj, cocina de medidas, figuras y medidas.
 • Lenguaje y lectura: sonidos y letras, trazo de letras, cuentos con voz, arma la palabra, ordena la oración.
-• Ciencias y entorno: clasifica seres vivos, arma el cuerpo, laboratorio guiado.
-• Creatividad: colorear, colorear por números, dibujo con sellos, pixel art.
+• Ciencias y entorno: clasifica seres vivos, el cuerpo humano, laboratorio guiado.
+• Creatividad: colorear, colorear por números, dibujo y sellos, pixel art.
 • Emociones y hábitos: ¿qué siento?, tablero de rutinas, historias con decisiones.
+
+De 3 a 4 años hay 17 juegos; de 5 a 6, 25; de 7 a 8, 23, y de 9 a 11, 21.
 
 HECHA PARA CADA NIÑO
 • Un perfil por niño, con su avatar y su propio avance.
-• Cuatro niveles por edad (3-4, 5-6, 7-8 y 9-11 años) que el adulto puede fijar a mano.
-• Pegatinas como recompensa por practicar.
-• Modo para zurdos, texto grande, alto contraste y una tipografía pensada para la dislexia.
+• Cuatro tramos de edad (3-4, 5-6, 7-8 y 9-11 años) que un adulto puede fijar a mano.
+• Solo cuentan los aciertos al primer intento: la pista ayuda a aprender, pero no regala niveles.
+• Pegatinas por cada nivel completado.
+• Modo zurdo, texto grande, alto contraste y una tipografía pensada para la dislexia.
 
 PARA PAPÁS, MAMÁS Y DOCENTES
-• Panel de adultos protegido con una puerta parental.
-• Informe por niño con las habilidades logradas y un PDF para compartir.
+• Panel de adultos protegido con una puerta para adultos.
+• Informe por niño con las habilidades logradas de su edad y un PDF para compartir.
 • Cada juego trae una actividad para seguir en casa sin pantalla y una pregunta para conversar.
-• Límite de tiempo por sesión.
-• Modo docente con grupos, tabla del curso, exportación a CSV e informe del grupo.
+• Tiempo por sesión para cada niño, con un descanso de 10 minutos que no se salta cerrando la app.
+• Modo docente con grupos, tabla del curso en CSV, informe del grupo y copia de los datos para pasarlos a otra tableta.
+• Guía para familias dentro de la app.
 
 SEGURA PARA NIÑOS
-Pilas no tiene anuncios, ni compras, ni enlaces que lleven fuera de la app, ni herramientas de analítica o rastreo. No pide permisos de cámara, micrófono ni ubicación y no se conecta a internet. Los perfiles, el avance y los dibujos se guardan en el dispositivo, y solo un adulto puede compartirlos. La voz es la del sistema del dispositivo.
+Pilas no tiene anuncios, ni compras, ni enlaces que lleven fuera de la app, ni herramientas de analítica o rastreo. No pide permisos de cámara, micrófono ni ubicación y no se conecta a internet. Los perfiles, el avance y los dibujos se guardan en el dispositivo, y solo un adulto puede compartirlos. La voz es la del sistema del dispositivo y nunca recibe el nombre del niño.
 
 Los contenidos toman como referencia los Derechos Básicos de Aprendizaje del Ministerio de Educación Nacional de Colombia. Pilas es de código abierto.

@@ -1,4 +1,6 @@
-Pilas is an educational app for children aged 3 to 11, in Spanish. It has no ads, no in-app purchases, no analytics or tracking SDKs, no account and no network access.
-Adult areas (settings, reports, teacher mode, sharing, extra session time and the privacy policy) are behind a parental gate: a multiplication with a typed answer that a young child cannot solve.
-To try it: on the first screen tap "Nuevo perfil" (it asks the parental gate) to create a child profile, then pick any game. The adult panel opens from "Soy adulto".
-Instructions and stories are read with the system text-to-speech voice; if no Spanish voice is installed the text is shown instead.
+Pilas is an educational app for children aged 3 to 11, in Spanish only. It has no ads, no in-app purchases, no analytics or tracking SDKs, no account and no network access.
+Adult areas are behind a parental gate: the adult must type the result of a two-digit by two-digit multiplication written in words (for example "¿Cuánto es veintitrés por diecisiete?" = 391). After two wrong answers the gate waits 60 s, then 120 s, and so on. The gate protects the adult panel (settings, reports, teacher mode, family guide, privacy policy), creating, editing or deleting profiles, sharing, importing data, giving extra play time and switching players while another child is on a break.
+To try it: on the first screen tap "Nuevo perfil", pass the gate and create a child profile; then tap the profile and pick any game. The adult panel opens from "Soy adulto".
+The play-time limit (Ajustes > Tiempo por sesión de cada niño, 20 minutes by default) shows a 10-minute break screen that the back gesture does not dismiss; an adult can add 10 minutes through the gate.
+Instructions and stories are read with the system text-to-speech voice; if no Spanish voice is installed, the text is shown and the child's home screen says so.
+The photo library add permission only appears if an adult, after passing the gate and sharing a drawing, chooses "Save Image" in the system share sheet. The app never reads the photo library.

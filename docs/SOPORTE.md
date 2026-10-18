@@ -15,9 +15,11 @@ Las cinco apps son gratuitas, de código abierto y funcionan sin cuenta. Como no
 
 ### Pilas
 
-- **¿Cómo entro al panel de adultos?** En la primera pantalla toca «Soy adulto» y resuelve la operación. Allí están los ajustes, los informes, el modo docente y la política de privacidad.
-- **La voz no lee las instrucciones.** Pilas usa la voz del sistema. Instala una voz en español en los ajustes de texto a voz del teléfono; mientras tanto, el texto se muestra en pantalla.
-- **¿Puedo limitar el tiempo de juego?** Sí: Panel de adultos › Ajustes › Tiempo por sesión.
+- **¿Cómo entro al panel de adultos?** En la primera pantalla toca «Soy adulto» y escribe el resultado de la multiplicación, que está escrita en palabras. Allí están los ajustes, los informes, el modo docente, la guía para familias y la política de privacidad. Después de dos errores seguidos hay que esperar un minuto (y más tiempo si se sigue fallando).
+- **La voz no lee las instrucciones.** Pilas usa la voz del sistema. Instala una voz en español en los ajustes de texto a voz del teléfono; mientras tanto, el texto se muestra en pantalla y el inicio de los niños pequeños lo avisa.
+- **¿Cómo funciona el límite de tiempo?** Se elige en Panel de adultos › Ajustes › Tiempo por sesión de cada niño. Cada niño tiene su propio tiempo, que solo cuenta con Pilas abierta en pantalla; si pasan 10 minutos sin jugar, la siguiente sesión empieza de cero. Al cumplirse el tiempo aparece un descanso de 10 minutos que no se salta cerrando la app ni cambiando de jugador; un adulto puede dar 10 minutos más desde la pantalla del descanso.
+- **¿Cómo paso los datos a otra tableta?** En la tableta de origen: Panel de adultos › Modo docente › Exportar datos, y envía el archivo. En la otra: Panel de adultos › Modo docente › Importar datos y elige el archivo. Lo importado se junta con lo que ya hay, sin borrar nada, y repetir la importación no duplica el avance.
+- **El panel de adultos muestra un aviso de un archivo dañado.** Pilas guarda una copia de respaldo de cada archivo y la usa si el original se daña. Si también la copia estaba dañada, el archivo queda guardado aparte (no se borra) y ese avance empieza de cero; los demás niños no se afectan.
 
 ### Clave
 
