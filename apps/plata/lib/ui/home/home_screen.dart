@@ -273,7 +273,7 @@ class HomeScreen extends StatelessWidget {
             if (daysLeft > 0 && totals.netMinor > 0) Padding(padding: const EdgeInsets.only(top: 4), child: Text('${daysLeft == 1 ? t(context, 'Te queda 1 día', '1 day left') : t(context, 'Te quedan $daysLeft días', '$daysLeft days left')} · ${money(context, perDay, l.baseCurrency)}/${t(context, 'día', 'day')}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))),
             if (budgets.isNotEmpty) ...<Widget>[
               const Divider(height: 18),
-              for (final BudgetProgress p in budgets.take(3)) _BudgetLine(progress: p, onTap: () => onGoTo(2)),
+              for (final BudgetProgress p in budgets.take(3)) _BudgetLine(progress: p, homePeriod: period, onTap: () => onGoTo(2)),
             ],
           ],
         ),
@@ -435,9 +435,13 @@ class _AccountCard extends StatelessWidget {
 }
 
 class _BudgetLine extends StatelessWidget {
-  const _BudgetLine({required this.progress, required this.onTap});
+  const _BudgetLine({required this.progress, required this.homePeriod, required this.onTap});
 
   final BudgetProgress progress;
+
+  /// Periodo de la tarjeta de Inicio: si el del presupuesto es otro (una
+  /// quincena), se dice cuál, para no mezclarlo con el mes sin aviso.
+  final Period homePeriod;
   final VoidCallback onTap;
 
   @override
@@ -453,7 +457,7 @@ class _BudgetLine extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                Expanded(child: Text(progress.budget.name, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                Expanded(child: Text(progress.period == homePeriod ? progress.budget.name : '${progress.budget.name} · ${progress.period.start.day}–${progress.period.lastDay.day} ${formatDate(progress.period.lastDay, 'MMM', spanish: l.spanish)}', maxLines: 1, overflow: TextOverflow.ellipsis)),
                 Text('${money(context, progress.spentMinor, l.baseCurrency, compact: true)} / ${money(context, progress.limitMinor, l.baseCurrency, compact: true)}', style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
               ],
             ),
