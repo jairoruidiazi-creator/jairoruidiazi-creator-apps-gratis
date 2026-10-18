@@ -12,7 +12,7 @@ Clave es una app gratuita y de código abierto publicada por el equipo de apps-g
 
 ## Qué información maneja la app y dónde queda
 
-- **Sonido del micrófono.** El afinador escucha el micrófono para calcular la nota que tocas. Ese sonido se procesa en tiempo real, en el teléfono, y no se guarda ni se envía.
+- **Sonido del micrófono.** El afinador escucha el micrófono para calcular la nota que tocas, solo mientras su pestaña está a la vista y la app al frente. Ese sonido se procesa en tiempo real, en el teléfono, y no se guarda ni se envía.
 - **Grabaciones.** Cuando grabas una toma, el audio se guarda como archivo en el almacenamiento privado de la app, con el nombre, la carpeta, las notas, el instrumento y el tempo que tú le pongas.
 - **Preajustes y setlists** del metrónomo.
 - **Registro de práctica:** cuándo y cuánto tiempo usaste cada herramienta, para mostrarte tus minutos, metas y racha.
@@ -22,9 +22,10 @@ Todo esto vive en tu dispositivo. Nosotros no lo recibimos, no lo vemos y no lo 
 
 ## Permisos
 
-- **Micrófono:** solo para el afinador y la grabadora. Si no lo das, el resto de la app funciona igual.
+- **Micrófono:** solo para el afinador y la grabadora. La app te explica para qué lo usa antes de que el sistema te lo pida. Si no lo das, el resto de la app funciona igual.
 - **Vibración:** para marcar el pulso del metrónomo, si lo activas.
-- **Audio en segundo plano (iOS)** y mantener la pantalla encendida: para que el metrónomo y el tono sigan sonando mientras practicas.
+- **Audio en segundo plano (solo iOS):** para que el metrónomo, el tono y una grabación en curso sigan con la pantalla bloqueada. En Android se detienen al salir de la app, y la toma que se estaba grabando queda guardada.
+- **Mantener la pantalla encendida:** mientras usas el afinador, el metrónomo o el tono, o mientras grabas, si lo dejas activado en los ajustes.
 
 ## Lo que no hace la app
 
@@ -36,7 +37,7 @@ El conteo hablado del metrónomo usa la voz del sistema del dispositivo, que gen
 
 ## Compartir, exportar e importar
 
-Tú decides cuándo compartir una grabación o exportar tus preajustes: la app usa la hoja de compartir del sistema y tú eliges a qué app o persona enviarlos. También puedes importar preajustes desde un archivo que elijas. Lo que compartes queda sujeto a las condiciones de quien lo recibe. La app borra su propio ejemplar de los preajustes exportados la siguiente vez que la abres.
+Tú decides cuándo compartir una grabación o exportar tus preajustes: la app usa la hoja de compartir del sistema y tú eliges a qué app o persona enviarlos. También puedes importar preajustes desde un archivo que elijas. Lo que compartes queda sujeto a las condiciones de quien lo recibe. Para compartir, la app prepara una copia con el nombre que le diste (de los preajustes o de la grabación) y la borra la siguiente vez que la abres.
 
 ## Niños
 
@@ -60,4 +61,4 @@ Si la app cambia la forma en que maneja la información, actualizaremos esta pol
 
 ## Contacto
 
-Escríbenos abriendo un reporte en github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/issues o al correo de contacto del desarrollador que aparece en la ficha de la app.
+Para preguntas, problemas o solicitudes sobre esta política, consulta la página de soporte en https://github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/blob/main/docs/SOPORTE.md, donde se explica cómo comunicarte con nosotros. También puedes abrir un reporte en github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/issues.

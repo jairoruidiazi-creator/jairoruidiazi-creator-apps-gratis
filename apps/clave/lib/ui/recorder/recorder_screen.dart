@@ -2,33 +2,97 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
-import 'package:clock/clock.dart';
+import 'package:file_selector/file_selector.dart' show XFile;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:record/record.dart';
-import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart' hide XFile;
 
+import '../../audio/take_recorder.dart';
 import '../../core/app_scope.dart';
 import '../../core/app_state.dart';
+import '../../core/platform_actions.dart';
 import '../../core/theme.dart';
 import '../../model/models.dart';
 import '../../music/instruments.dart';
 import '../widgets/adaptive.dart';
 
 /// Grabadora: tomas ilimitadas con carpetas, búsqueda, notas y reproducción
-/// a velocidad variable.
+/// a velocidad variable. La toma la graba [TakeRecorder] (sigue aunque se
+/// cambie de pestaña); esta pantalla la muestra y la reproduce.
 class RecorderScreen extends StatefulWidget {
-  const RecorderScreen({super.key});
+  const RecorderScreen({super.key, this.active = true});
+
+  /// Si la pestaña está a la vista: solo entonces se redibuja con el nivel
+  /// de entrada.
+  final bool active;
 
   @override
   State<RecorderScreen> createState() => _RecorderScreenState();
 }
 
-class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAliveClientMixin {
-  Services? _services;
-  AudioRecorder? _recorderInstance;
-  AudioPlayer? _playerInstance;
+/// Velocidades de reproducción.
+const List<double> kPlaybackSpeeds = <double>[0.5, 0.75, 1.0, 1.25, 1.5];
 
-  AudioRecorder get _recorder => _recorderInstance ??= AudioRecorder();
+/// "0,75" / "0.75" y "1" sin decimales.
+String formatSpeed(double v, {required bool spanish}) {
+  String s = v.toString();
+  if (s.endsWith('.0')) {
+    s = s.substring(0, s.length - 2);
+  }
+  return spanish ? s.replaceAll('.', ',') : s;
+}
+
+/// Tipo MIME de cada formato de toma.
+String mimeForFormat(String format) {
+  switch (format) {
+    case 'wav':
+      return 'audio/wav';
+    case 'flac':
+      return 'audio/flac';
+    default:
+      return 'audio/mp4';
+  }
+}
+
+/// Nombre de archivo para compartir una toma: su nombre sin caracteres que
+/// los sistemas de archivos no aceptan.
+String shareFileName(String name, String file) {
+  final String ext = file.contains('.') ? file.split('.').last : 'm4a';
+  String base = name.replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F]'), '_').trim();
+  if (base.length > 60) {
+    base = base.substring(0, 60).trim();
+  }
+  if (base.isEmpty || base.startsWith('.')) {
+    base = 'Clave';
+  }
+  return '$base.$ext';
+}
+
+class _RecorderScreenState extends State<RecorderScreen> with WidgetsBindingObserver {
+  Services? _services;
+  AudioPlayer? _playerInstance;
+  final List<StreamSubscription<dynamic>> _playerSubs = <StreamSubscription<dynamic>>[];
+  String _query = '';
+  String? _folder;
+  Recording? _playing;
+  final ValueNotifier<Duration> _position = ValueNotifier<Duration>(Duration.zero);
+  Duration _duration = Duration.zero;
+  double _speed = 1.0;
+  bool _isPlaying = false;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _services = AppScope.of(context);
+  }
 
   /// El reproductor se crea la primera vez que se escucha una toma: abrir la
   /// pestaña no reserva recursos de audio.
@@ -38,142 +102,160 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
       return existing;
     }
     final AudioPlayer p = AudioPlayer();
-    _posSub = p.onPositionChanged.listen((Duration d) => setState(() => _pos = d));
-    _durSub = p.onDurationChanged.listen((Duration d) => setState(() => _dur = d));
-    _stateSub = p.onPlayerStateChanged.listen((PlayerState st) => setState(() => _isPlaying = st == PlayerState.playing));
+    _playerSubs.addAll(<StreamSubscription<dynamic>>[
+      p.onPositionChanged.listen((Duration d) => _position.value = d),
+      p.onDurationChanged.listen(_onDuration),
+      p.onPlayerStateChanged.listen((PlayerState st) {
+        if (mounted) {
+          setState(() => _isPlaying = st == PlayerState.playing);
+        }
+      }),
+      p.onPlayerComplete.listen((_) {
+        _position.value = Duration.zero;
+        if (mounted) {
+          setState(() => _isPlaying = false);
+        }
+      }),
+    ]);
     return _playerInstance = p;
   }
-  bool _recording = false;
-  DateTime? _recStart;
-  Timer? _recTimer;
-  double _level = 0;
-  StreamSubscription<Amplitude>? _ampSub;
-  String? _recordingPath;
-  String? _recordingFile;
-  String _recordingFormat = 'aac';
-  String _query = '';
-  String? _folder;
-  Recording? _playing;
-  Duration _pos = Duration.zero;
-  Duration _dur = Duration.zero;
-  double _speed = 1.0;
-  bool _isPlaying = false;
-  StreamSubscription<Duration>? _posSub;
-  StreamSubscription<Duration>? _durSub;
-  StreamSubscription<PlayerState>? _stateSub;
+
+  /// La duración que da el reproductor corrige la guardada (las tomas
+  /// rescatadas no la traen).
+  void _onDuration(Duration d) {
+    final Recording? r = _playing;
+    if (d <= Duration.zero || r == null) {
+      return;
+    }
+    if (mounted) {
+      setState(() => _duration = d);
+    }
+    if ((r.durationMs - d.inMilliseconds).abs() > 500) {
+      unawaited(_services?.state.setDuration(r, d.inMilliseconds));
+    }
+  }
 
   @override
-  bool get wantKeepAlive => true;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _services ??= AppScope.of(context);
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Android no deja sonar en segundo plano sin un servicio en primer plano:
+    // la toma que se escucha se pausa al salir (en iOS sigue sonando).
+    if (defaultTargetPlatform == TargetPlatform.android && (state == AppLifecycleState.hidden || state == AppLifecycleState.paused) && _isPlaying) {
+      unawaited(_playerInstance?.pause());
+    }
   }
 
   @override
   void dispose() {
-    _recTimer?.cancel();
-    unawaited(_ampSub?.cancel());
-    unawaited(_posSub?.cancel());
-    unawaited(_durSub?.cancel());
-    unawaited(_stateSub?.cancel());
-    final AudioRecorder? rec = _recorderInstance;
-    if (rec != null) {
-      unawaited(rec.dispose());
+    WidgetsBinding.instance.removeObserver(this);
+    for (final StreamSubscription<dynamic> sub in _playerSubs) {
+      unawaited(sub.cancel());
     }
     final AudioPlayer? player = _playerInstance;
     if (player != null) {
       unawaited(player.dispose());
     }
+    _position.dispose();
     super.dispose();
   }
 
   // ------------------------------------------------------------ grabar
 
   Future<void> _toggleRecord() async {
-    if (_recording) {
-      await _stopRecording();
-    } else {
-      await _startRecording();
-    }
-  }
-
-  Future<void> _startRecording() async {
     final Services s = _services!;
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-    final String noPerm = t(context, 'Sin permiso de micrófono.', 'Microphone permission denied.');
-    final String cannotRecord = t(context, 'No se pudo grabar', 'Could not record');
-    if (!await _recorder.hasPermission()) {
-      messenger.showSnackBar(SnackBar(content: Text(noPerm)));
+    if (_busy) {
       return;
     }
-    // El afinador suelta el micrófono mientras se graba.
-    await s.tuner.stop();
-    await _playerInstance?.stop();
-    _recordingFormat = s.settings.recordingFormat;
-    final AudioEncoder enc = _recordingFormat == 'wav' ? AudioEncoder.wav : (_recordingFormat == 'flac' ? AudioEncoder.flac : AudioEncoder.aacLc);
-    final String ext = _recordingFormat == 'wav' ? 'wav' : (_recordingFormat == 'flac' ? 'flac' : 'm4a');
-    final String rel = 'recordings/${clock.now().millisecondsSinceEpoch}.$ext';
-    final String path = await s.store.absolutePath(rel);
-    await File(path).parent.create(recursive: true);
+    _busy = true;
     try {
-      await _recorder.start(RecordConfig(encoder: enc, sampleRate: 44100, numChannels: 1, bitRate: 160000), path: path);
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('$cannotRecord: $e')));
-      return;
-    }
-    _recordingPath = path;
-    _recordingFile = rel;
-    _recStart = clock.now();
-    _ampSub = _recorder.onAmplitudeChanged(const Duration(milliseconds: 120)).listen((Amplitude a) {
-      // dBFS de -60 a 0 → 0 a 1
-      final double v = ((a.current + 60) / 60).clamp(0.0, 1.0);
-      if (mounted) {
-        setState(() => _level = v);
+      if (s.recorder.recording) {
+        await _stopRecording(s);
+      } else {
+        await _startRecording(s);
       }
-    });
-    _recTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
+    } finally {
+      _busy = false;
       if (mounted) {
+        // Los botones de reproducir dependen de si se graba.
         setState(() {});
       }
-      s.state.touchPractice('grabadora', s.settings.instrumentId);
-    });
-    setState(() => _recording = true);
+    }
   }
 
-  Future<void> _stopRecording() async {
-    final Services s = _services!;
-    final String takeWord = t(context, 'Toma', 'Take');
-    _recTimer?.cancel();
-    await _ampSub?.cancel();
-    _ampSub = null;
-    String? path;
-    try {
-      path = await _recorder.stop();
-    } catch (_) {}
-    final int ms = _recStart == null ? 0 : clock.now().difference(_recStart!).inMilliseconds;
-    setState(() {
-      _recording = false;
-      _level = 0;
-    });
-    final String? rel = _recordingFile;
-    if ((path ?? _recordingPath) == null || rel == null) {
+  /// Pide el permiso con una explicación antes del diálogo del sistema; si
+  /// está negado, ofrece abrir los ajustes.
+  Future<bool> _ensurePermission(Services s) async {
+    if (await s.recorder.hasPermission(request: false)) {
+      return true;
+    }
+    if (!mounted) {
+      return false;
+    }
+    if (!s.settings.micAsked) {
+      final bool? go = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) => AlertDialog(
+          icon: const Icon(Icons.mic_rounded),
+          title: Text(t(context, 'Micrófono', 'Microphone')),
+          content: Text(t(
+            context,
+            'Para grabar tus tomas, Clave usa el micrófono. Las tomas se guardan solo en este teléfono y solo salen de él si tú las compartes.',
+            'To record your takes, Clave uses the microphone. Takes are stored only on this phone and leave it only if you share them.',
+          )),
+          actions: <Widget>[
+            TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t(context, 'Ahora no', 'Not now'))),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(t(context, 'Continuar', 'Continue'))),
+          ],
+        ),
+      );
+      if (go != true) {
+        return false;
+      }
+    }
+    s.settings.micAsked = true;
+    unawaited(s.settings.save());
+    s.tuner.permissionAsked = true;
+    if (await s.recorder.hasPermission()) {
+      return true;
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(t(context, 'Clave no tiene permiso para usar el micrófono.', 'Clave has no permission to use the microphone.')),
+        action: SnackBarAction(label: t(context, 'Abrir ajustes', 'Open settings'), onPressed: () => unawaited(s.platform.openAppSettings())),
+      ));
+    }
+    return false;
+  }
+
+  Future<void> _startRecording(Services s) async {
+    if (!await _ensurePermission(s) || !mounted) {
       return;
     }
-    final int n = s.state.recordings.length + 1;
-    final Recording r = Recording(
-      id: newId(),
-      name: '$takeWord $n',
-      file: rel,
-      format: _recordingFormat,
-      durationMs: ms,
-      createdAt: clock.now(),
-      folder: _folder ?? '',
-      instrumentId: s.settings.instrumentId,
-      bpm: s.metronome.running ? s.metronome.currentBpm : null,
-    );
-    await s.state.addRecording(r);
+    final String cannotRecord = t(context, 'No se pudo empezar a grabar. Puede que otra app esté usando el micrófono.', 'Could not start recording. Another app may be using the microphone.');
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    await _stopPlayback();
+    try {
+      await s.recorder.start(
+        format: s.settings.recordingFormat,
+        folder: _folder ?? '',
+        instrumentId: s.settings.instrumentId,
+        bpm: s.metronome.running ? s.metronome.currentBpm : null,
+      );
+    } catch (e) {
+      debugPrint('No se pudo grabar: $e');
+      messenger.showSnackBar(SnackBar(content: Text(cannotRecord)));
+    }
+  }
+
+  Future<void> _stopRecording(Services s) async {
+    final String takeWord = t(context, 'Toma', 'Take');
+    final String notSaved = t(context, 'La toma no se pudo guardar.', 'The take could not be saved.');
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    final TakeResult? result = await s.recorder.stop();
+    if (result == null) {
+      messenger.showSnackBar(SnackBar(content: Text(notSaved)));
+      return;
+    }
+    final Recording r = await s.state.addTake(result, takeWord: takeWord);
     if (mounted) {
       await _edit(r, isNew: true);
     }
@@ -183,37 +265,64 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
 
   Future<void> _play(Recording r) async {
     final Services s = _services!;
+    if (s.recorder.recording) {
+      return;
+    }
     if (_playing?.id == r.id && _isPlaying) {
       await _player.pause();
       return;
     }
-    if (_playing?.id == r.id && !_isPlaying && _pos > Duration.zero) {
+    if (_playing?.id == r.id && !_isPlaying && _position.value > Duration.zero) {
       await _player.resume();
       return;
     }
-    await s.tuner.stop();
+    final String failed = t(context, 'No se pudo reproducir la toma.', 'Could not play the take.');
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     final String path = await s.store.absolutePath(r.file);
+    if (!await File(path).exists()) {
+      messenger.showSnackBar(SnackBar(content: Text(failed)));
+      return;
+    }
     setState(() {
       _playing = r;
-      _pos = Duration.zero;
-      _dur = Duration(milliseconds: r.durationMs);
+      _duration = Duration(milliseconds: r.durationMs);
     });
+    _position.value = Duration.zero;
     try {
+      await _player.stop();
       await _player.setPlaybackRate(_speed);
       await _player.play(DeviceFileSource(path));
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'No se pudo reproducir', 'Could not play')}: $e')));
-      }
+      debugPrint('No se pudo reproducir: $e');
+      messenger.showSnackBar(SnackBar(content: Text(failed)));
     }
   }
 
+  Future<void> _stopPlayback() async {
+    final AudioPlayer? p = _playerInstance;
+    if (p != null) {
+      try {
+        await p.stop();
+      } catch (e) {
+        debugPrint('Reproductor: $e');
+      }
+    }
+    if (mounted && _playing != null) {
+      setState(() {
+        _playing = null;
+        _isPlaying = false;
+      });
+    }
+    _position.value = Duration.zero;
+  }
+
   Future<void> _setSpeed(double v) async {
-    _speed = v;
+    setState(() => _speed = v);
     try {
-      await _player.setPlaybackRate(v);
-    } catch (_) {}
-    setState(() {});
+      await _playerInstance?.setPlaybackRate(v);
+    } catch (e) {
+      debugPrint('Velocidad: $e');
+    }
   }
 
   // ------------------------------------------------------------ editar
@@ -221,27 +330,37 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
   Future<void> _edit(Recording r, {bool isNew = false}) async {
     final Services s = _services!;
     final TextEditingController name = TextEditingController(text: r.name);
-    final TextEditingController folder = TextEditingController(text: r.folder);
     final TextEditingController notes = TextEditingController(text: r.notes);
-    String instrument = r.instrumentId.isEmpty ? s.settings.instrumentId : r.instrumentId;
+    String folderText = r.folder;
+    String instrument = Instruments.maybeById(r.instrumentId)?.id ?? s.settings.instrumentId;
     final bool spanish = s.settings.spanish;
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) => StatefulBuilder(
         builder: (BuildContext context, void Function(void Function()) setDialog) => AlertDialog(
-          title: Text(isNew ? t(context, 'Grabación guardada', 'Recording saved') : t(context, 'Editar grabación', 'Edit recording')),
+          title: Text(isNew ? t(context, 'Toma guardada', 'Take saved') : t(context, 'Editar toma', 'Edit take')),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
-                TextField(controller: name, decoration: InputDecoration(labelText: t(context, 'Nombre', 'Name')), textCapitalization: TextCapitalization.sentences),
+                TextField(
+                  controller: name,
+                  decoration: InputDecoration(labelText: t(context, 'Nombre', 'Name')),
+                  textCapitalization: TextCapitalization.sentences,
+                  inputFormatters: <TextInputFormatter>[LengthLimitingTextInputFormatter(Preset.maxName)],
+                ),
                 Autocomplete<String>(
                   initialValue: TextEditingValue(text: r.folder),
                   optionsBuilder: (TextEditingValue v) => s.state.folders.where((String f) => f.toLowerCase().contains(v.text.toLowerCase())),
-                  onSelected: (String v) => folder.text = v,
+                  onSelected: (String v) => folderText = v,
                   fieldViewBuilder: (BuildContext context, TextEditingController c, FocusNode f, VoidCallback onSubmit) {
-                    c.addListener(() => folder.text = c.text);
-                    return TextField(controller: c, focusNode: f, decoration: InputDecoration(labelText: t(context, 'Carpeta', 'Folder')));
+                    return TextField(
+                      controller: c,
+                      focusNode: f,
+                      onChanged: (String v) => folderText = v,
+                      inputFormatters: <TextInputFormatter>[LengthLimitingTextInputFormatter(60)],
+                      decoration: InputDecoration(labelText: t(context, 'Carpeta', 'Folder')),
+                    );
                   },
                 ),
                 DropdownButtonFormField<String>(
@@ -251,7 +370,12 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
                   items: <DropdownMenuItem<String>>[for (final Instrument i in Instruments.all) DropdownMenuItem<String>(value: i.id, child: Text(i.name(spanish)))],
                   onChanged: (String? v) => setDialog(() => instrument = v ?? instrument),
                 ),
-                TextField(controller: notes, decoration: InputDecoration(labelText: t(context, 'Notas', 'Notes')), maxLines: 3),
+                TextField(
+                  controller: notes,
+                  decoration: InputDecoration(labelText: t(context, 'Notas', 'Notes')),
+                  maxLines: 3,
+                  inputFormatters: <TextInputFormatter>[LengthLimitingTextInputFormatter(Preset.maxNotes)],
+                ),
               ],
             ),
           ),
@@ -264,17 +388,34 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
     );
     if (ok == true) {
       r.name = name.text.trim().isEmpty ? r.name : name.text.trim();
-      r.folder = folder.text.trim();
+      r.folder = folderText.trim();
       r.notes = notes.text.trim();
       r.instrumentId = instrument;
       await s.state.saveRecordings();
     }
-    disposeLater(<ChangeNotifier>[name, folder, notes]);
+    disposeLater(<ChangeNotifier>[name, notes]);
   }
 
-  Future<void> _share(Recording r) async {
-    final String path = await _services!.store.absolutePath(r.file);
-    await SharePlus.instance.share(ShareParams(files: <XFile>[XFile(path)], subject: r.name));
+  /// Comparte la toma con su nombre como nombre de archivo (copia en
+  /// export/, que se vacía al abrir la app).
+  Future<void> _share(Recording r, Rect? origin) async {
+    final Services s = _services!;
+    final String failed = t(context, 'No se pudo compartir la toma.', 'Could not share the take.');
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    try {
+      final String src = await s.store.absolutePath(r.file);
+      final String dst = await s.store.absolutePath('export/${shareFileName(r.name, r.file)}');
+      await File(dst).parent.create(recursive: true);
+      await File(src).copy(dst);
+      await s.platform.share(ShareParams(
+        files: <XFile>[XFile(dst, mimeType: mimeForFormat(r.format))],
+        subject: r.name,
+        sharePositionOrigin: origin,
+      ));
+    } catch (e) {
+      debugPrint('Compartir toma: $e');
+      messenger.showSnackBar(SnackBar(content: Text(failed)));
+    }
   }
 
   Future<void> _delete(Recording r) async {
@@ -282,7 +423,7 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
-        title: Text(t(context, '¿Borrar la grabación?', 'Delete recording?')),
+        title: Text(t(context, '¿Borrar la toma?', 'Delete the take?')),
         content: Text(r.name),
         actions: <Widget>[
           TextButton(onPressed: () => Navigator.pop(context, false), child: Text(t(context, 'Cancelar', 'Cancel'))),
@@ -292,24 +433,27 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
     );
     if (ok == true) {
       if (_playing?.id == r.id) {
-        await _player.stop();
-        _playing = null;
+        await _stopPlayback();
       }
       await s.state.deleteRecording(r);
     }
   }
 
+  // ------------------------------------------------------------ pantalla
+
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     final Services s = AppScope.of(context);
     final AppState st = s.state;
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    final bool spanish = s.settings.spanish;
+    final bool spanish = isSpanish(context);
     return ListenableBuilder(
       listenable: st,
       builder: (BuildContext context, Widget? _) {
         final String q = _query.trim().toLowerCase();
+        final List<String> folders = st.folders;
+        if (_folder != null && !folders.contains(_folder)) {
+          _folder = null;
+        }
         final List<Recording> shown = st.recordings.where((Recording r) {
           if (_folder != null && r.folder != _folder) {
             return false;
@@ -317,156 +461,249 @@ class _RecorderScreenState extends State<RecorderScreen> with AutomaticKeepAlive
           if (q.isEmpty) {
             return true;
           }
-          return r.name.toLowerCase().contains(q) || r.notes.toLowerCase().contains(q) || r.folder.toLowerCase().contains(q) || Instruments.byId(r.instrumentId).name(spanish).toLowerCase().contains(q);
+          final String instrument = Instruments.maybeById(r.instrumentId)?.name(spanish).toLowerCase() ?? '';
+          return r.name.toLowerCase().contains(q) || r.notes.toLowerCase().contains(q) || r.folder.toLowerCase().contains(q) || instrument.contains(q);
         }).toList();
-        final int elapsed = _recStart == null ? 0 : clock.now().difference(_recStart!).inMilliseconds;
         return ReadableWidth(
           child: Column(
-          children: <Widget>[
-            // Panel de grabación
-            Container(
-              margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: _recording ? cs.errorContainer : cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(16)),
-              child: Row(
-                children: <Widget>[
-                  FilledButton(
-                    onPressed: _toggleRecord,
-                    style: FilledButton.styleFrom(shape: const CircleBorder(), minimumSize: const Size(64, 64), backgroundColor: _recording ? cs.error : ClaveColors.lejos),
-                    child: Icon(_recording ? Icons.stop_rounded : Icons.fiber_manual_record_rounded, size: 30, color: Colors.white),
+            children: <Widget>[
+              _RecordPanel(active: widget.active, folder: _folder, onToggle: _toggleRecord),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: TextField(
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    hintText: t(context, 'Buscar por nombre, notas o instrumento', 'Search by name, notes or instrument'),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(_recording ? '${t(context, 'Grabando', 'Recording')} · ${formatClock(elapsed)}' : t(context, 'Lista para grabar', 'Ready to record'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 6),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(value: _recording ? _level : 0, minHeight: 8, backgroundColor: cs.surface, color: _level > 0.9 ? ClaveColors.lejos : ClaveColors.afinado),
-                        ),
-                        const SizedBox(height: 4),
-                        Text('${s.settings.recordingFormat.toUpperCase()} · 44,1 kHz · ${t(context, 'mono', 'mono')}${_folder != null ? ' · ${t(context, 'carpeta', 'folder')}: $_folder' : ''}', style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.65))),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Búsqueda y carpetas
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: TextField(
-                decoration: InputDecoration(prefixIcon: const Icon(Icons.search_rounded), hintText: t(context, 'Buscar por nombre, notas o instrumento', 'Search by name, notes or instrument'), isDense: true, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-                onChanged: (String v) => setState(() => _query = v),
-              ),
-            ),
-            if (st.folders.isNotEmpty)
-              SizedBox(
-                height: 48,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  children: <Widget>[
-                    ChoiceChip(label: Text(t(context, 'Todas', 'All')), selected: _folder == null, onSelected: (_) => setState(() => _folder = null)),
-                    for (final String f in st.folders) ...<Widget>[
-                      const SizedBox(width: 6),
-                      ChoiceChip(label: Text(f), selected: _folder == f, onSelected: (_) => setState(() => _folder = _folder == f ? null : f)),
-                    ],
-                  ],
+                  onChanged: (String v) => setState(() => _query = v),
                 ),
               ),
-            Expanded(
-              child: shown.isEmpty
-                  ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Text(t(context, 'Sin grabaciones todavía. Toca el botón rojo para grabar una toma.', 'No recordings yet. Tap the red button to record a take.'), textAlign: TextAlign.center)))
-                  : ListView.builder(
-                      padding: const EdgeInsets.only(bottom: 120),
-                      itemCount: shown.length,
-                      itemBuilder: (BuildContext context, int i) {
-                        final Recording r = shown[i];
-                        final bool current = _playing?.id == r.id;
-                        return ListTile(
-                          leading: IconButton.filledTonal(
-                            onPressed: () => _play(r),
-                            icon: Icon(current && _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
+              if (folders.isNotEmpty)
+                SizedBox(
+                  height: 56,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    children: <Widget>[
+                      ChoiceChip(label: Text(t(context, 'Todas', 'All')), selected: _folder == null, onSelected: (_) => setState(() => _folder = null)),
+                      for (final String f in folders) ...<Widget>[
+                        const SizedBox(width: 6),
+                        ChoiceChip(label: Text(f), selected: _folder == f, onSelected: (_) => setState(() => _folder = _folder == f ? null : f)),
+                      ],
+                    ],
+                  ),
+                ),
+              Expanded(
+                child: shown.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            st.recordings.isEmpty
+                                ? t(context, 'Sin grabaciones todavía. Toca el botón rojo para grabar una toma.', 'No recordings yet. Tap the red button to record a take.')
+                                : t(context, 'Ninguna toma coincide con la búsqueda.', 'No take matches the search.'),
+                            textAlign: TextAlign.center,
                           ),
-                          title: Text(r.name, style: TextStyle(fontWeight: current ? FontWeight.w700 : FontWeight.w500)),
-                          subtitle: Text(
-                            '${formatClock(r.durationMs)} · ${_date(r.createdAt)} · ${Instruments.byId(r.instrumentId).name(spanish)}${r.folder.isNotEmpty ? ' · ${r.folder}' : ''}${r.bpm != null ? ' · ${r.bpm!.toStringAsFixed(0)} BPM' : ''}${r.notes.isNotEmpty ? '\n${r.notes}' : ''}',
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          isThreeLine: r.notes.isNotEmpty,
-                          trailing: PopupMenuButton<String>(
-                            onSelected: (String v) {
-                              if (v == 'edit') {
-                                _edit(r);
-                              } else if (v == 'share') {
-                                _share(r);
-                              } else if (v == 'delete') {
-                                _delete(r);
-                              }
-                            },
-                            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                              PopupMenuItem<String>(value: 'edit', child: Text(t(context, 'Editar', 'Edit'))),
-                              PopupMenuItem<String>(value: 'share', child: Text(t(context, 'Compartir', 'Share'))),
-                              PopupMenuItem<String>(value: 'delete', child: Text(t(context, 'Borrar', 'Delete'))),
-                            ],
-                          ),
-                          onTap: () => _play(r),
-                        );
-                      },
-                    ),
-            ),
-            if (_playing != null) _playerBar(context, cs),
-          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 24),
+                        itemCount: shown.length,
+                        itemBuilder: (BuildContext context, int i) => _tile(context, s, shown[i], spanish),
+                      ),
+              ),
+              if (_playing != null) _playerBar(context, spanish),
+            ],
           ),
         );
       },
     );
   }
 
-  Widget _playerBar(BuildContext context, ColorScheme cs) {
-    final Recording r = _playing!;
-    final double total = _dur.inMilliseconds <= 0 ? r.durationMs.toDouble() : _dur.inMilliseconds.toDouble();
-    return Material(
-      color: cs.surfaceContainerHigh,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                IconButton.filled(onPressed: () => _play(r), icon: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded)),
-                const SizedBox(width: 8),
-                Expanded(child: Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600))),
-                Text('${formatClock(_pos.inMilliseconds)} / ${formatClock(total.toInt())}', style: const TextStyle(fontFeatures: <FontFeature>[FontFeature.tabularFigures()])),
-                IconButton(onPressed: () async { await _player.stop(); setState(() => _playing = null); }, icon: const Icon(Icons.close_rounded)),
-              ],
-            ),
-            Slider(
-              min: 0,
-              max: total <= 0 ? 1 : total,
-              value: _pos.inMilliseconds.toDouble().clamp(0, total <= 0 ? 1 : total),
-              onChanged: (double v) => _player.seek(Duration(milliseconds: v.toInt())),
-            ),
-            Wrap(
-              spacing: 6,
-              runSpacing: 2,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: <Widget>[
-                Text(t(context, 'Velocidad', 'Speed')),
-                for (final double v in <double>[0.5, 0.75, 1.0, 1.25, 1.5])
-                  ChoiceChip(label: Text('${v}x'), selected: _speed == v, onSelected: (_) => _setSpeed(v), visualDensity: VisualDensity.compact),
-              ],
-            ),
+  Widget _tile(BuildContext context, Services s, Recording r, bool spanish) {
+    final bool current = _playing?.id == r.id;
+    final bool playingThis = current && _isPlaying;
+    final String? instrument = Instruments.maybeById(r.instrumentId)?.name(spanish);
+    final String duration = r.durationMs > 0 ? formatClock(r.durationMs) : t(context, 'duración por conocer', 'duration unknown');
+    final List<String> parts = <String>[
+      duration,
+      formatDateTime(context, r.createdAt),
+      if (instrument != null) instrument,
+      if (r.folder.isNotEmpty) r.folder,
+      if (r.bpm != null) '${r.bpm!.toStringAsFixed(0)} BPM',
+      if (r.recovered) t(context, 'rescatada', 'recovered'),
+    ];
+    return ListTile(
+      leading: IconButton.filledTonal(
+        tooltip: playingThis ? '${t(context, 'Pausar', 'Pause')} ${r.name}' : '${t(context, 'Reproducir', 'Play')} ${r.name}',
+        onPressed: s.recorder.recording ? null : () => _play(r),
+        icon: Icon(playingThis ? Icons.pause_rounded : Icons.play_arrow_rounded),
+      ),
+      title: Text(r.name, style: TextStyle(fontWeight: current ? FontWeight.w700 : FontWeight.w500)),
+      subtitle: Text(
+        '${parts.join(' · ')}${r.notes.isNotEmpty ? '\n${r.notes}' : ''}',
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+      ),
+      isThreeLine: r.notes.isNotEmpty,
+      trailing: Builder(
+        builder: (BuildContext menuContext) => PopupMenuButton<String>(
+          tooltip: '${t(context, 'Opciones de', 'Options for')} ${r.name}',
+          onSelected: (String v) {
+            if (v == 'edit') {
+              unawaited(_edit(r));
+            } else if (v == 'share') {
+              unawaited(_share(r, shareOriginOf(menuContext)));
+            } else if (v == 'delete') {
+              unawaited(_delete(r));
+            }
+          },
+          itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+            PopupMenuItem<String>(value: 'edit', child: Text(t(context, 'Editar', 'Edit'))),
+            PopupMenuItem<String>(value: 'share', child: Text(t(context, 'Compartir', 'Share'))),
+            PopupMenuItem<String>(value: 'delete', child: Text(t(context, 'Borrar', 'Delete'))),
           ],
         ),
       ),
     );
   }
 
-  String _date(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year} ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+  Widget _playerBar(BuildContext context, bool spanish) {
+    final Recording r = _playing!;
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final int knownMs = _duration.inMilliseconds > 0 ? _duration.inMilliseconds : r.durationMs;
+    return Material(
+      color: cs.surfaceContainerHigh,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+          child: ValueListenableBuilder<Duration>(
+            valueListenable: _position,
+            builder: (BuildContext context, Duration pos, Widget? _) {
+              final double total = (knownMs > 0 ? knownMs : pos.inMilliseconds).toDouble();
+              final double max = total <= 0 ? 1 : total;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      IconButton.filled(
+                        tooltip: _isPlaying ? t(context, 'Pausar', 'Pause') : t(context, 'Reproducir', 'Play'),
+                        onPressed: () => _play(r),
+                        icon: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(r.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600))),
+                      Text(
+                        '${formatClock(pos.inMilliseconds)} / ${knownMs > 0 ? formatClock(knownMs) : '--:--'}',
+                        style: const TextStyle(fontFeatures: <FontFeature>[FontFeature.tabularFigures()]),
+                      ),
+                      IconButton(tooltip: t(context, 'Cerrar el reproductor', 'Close the player'), onPressed: _stopPlayback, icon: const Icon(Icons.close_rounded)),
+                    ],
+                  ),
+                  Slider(
+                    min: 0,
+                    max: max,
+                    value: pos.inMilliseconds.toDouble().clamp(0.0, max),
+                    semanticFormatterCallback: (double v) => '${formatClock(v.toInt())} ${t(context, 'de', 'of')} ${knownMs > 0 ? formatClock(knownMs) : '--:--'}',
+                    onChanged: (double v) {
+                      _position.value = Duration(milliseconds: v.toInt());
+                    },
+                    onChangeEnd: (double v) => unawaited(_playerInstance?.seek(Duration(milliseconds: v.toInt()))),
+                  ),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 2,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      Text(t(context, 'Velocidad', 'Speed')),
+                      for (final double v in kPlaybackSpeeds)
+                        ChoiceChip(
+                          label: Text('${formatSpeed(v, spanish: spanish)}×', semanticsLabel: '${t(context, 'Velocidad', 'Speed')} ${formatSpeed(v, spanish: spanish)}'),
+                          selected: _speed == v,
+                          onSelected: (_) => _setSpeed(v),
+                        ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Panel de grabación: botón, tiempo, nivel y formato. Con la pestaña oculta
+/// no escucha a la grabadora (no se redibuja con cada nivel).
+class _RecordPanel extends StatelessWidget {
+  const _RecordPanel({required this.active, required this.folder, required this.onToggle});
+
+  final bool active;
+  final String? folder;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final Services s = AppScope.of(context);
+    if (!active) {
+      return _build(context, s);
+    }
+    return ListenableBuilder(listenable: s.recorder, builder: (BuildContext context, Widget? _) => _build(context, s));
+  }
+
+  Widget _build(BuildContext context, Services s) {
+    final TakeRecorder rec = s.recorder;
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final ClavePalette pal = ClavePalette.of(context);
+    final bool spanish = isSpanish(context);
+    final bool recording = rec.recording;
+    final double level = recording ? rec.level : 0;
+    final Color onPanel = recording ? cs.onErrorContainer : cs.onSurface;
+    final Color secondary = recording ? cs.onErrorContainer : cs.onSurfaceVariant;
+    final String format = (recording ? rec.format : s.settings.recordingFormat).toUpperCase();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: recording ? cs.errorContainer : cs.surfaceContainerHighest, borderRadius: BorderRadius.circular(16)),
+      child: Row(
+        children: <Widget>[
+          IconButton.filled(
+            tooltip: recording ? t(context, 'Detener y guardar la toma', 'Stop and save the take') : t(context, 'Grabar una toma', 'Record a take'),
+            onPressed: onToggle,
+            iconSize: 30,
+            style: IconButton.styleFrom(minimumSize: const Size(64, 64), backgroundColor: pal.record, foregroundColor: pal.onRecord),
+            icon: Icon(recording ? Icons.stop_rounded : Icons.fiber_manual_record_rounded),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  recording ? '${t(context, 'Grabando', 'Recording')} · ${formatClock(rec.elapsed.inMilliseconds)}' : t(context, 'Lista para grabar', 'Ready to record'),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: onPanel),
+                ),
+                const SizedBox(height: 6),
+                ExcludeSemantics(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(value: level, minHeight: 8, backgroundColor: cs.surface, color: level > 0.9 ? pal.far : pal.inTune),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$format · ${formatDecimal(44.1, spanish: spanish)} kHz · ${t(context, 'mono', 'mono')}${folder != null ? ' · ${t(context, 'carpeta', 'folder')}: $folder' : ''}',
+                  style: TextStyle(fontSize: 12, color: secondary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

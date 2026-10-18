@@ -19,8 +19,9 @@ class Notes {
   static const List<String> germanFlat = <String>['C', 'Des', 'D', 'Es', 'E', 'F', 'Ges', 'G', 'As', 'A', 'B', 'H'];
   static const List<String> indian = <String>['Sa', 're', 'Re', 'ga', 'Ga', 'Ma', 'Ma♯', 'Pa', 'dha', 'Dha', 'ni', 'Ni'];
 
-  /// Nombre de una clase de altura (0 = Do ... 11 = Si).
-  static String name(int pitchClass, Notation notation, {bool flats = false}) {
+  /// Nombre de una clase de altura (0 = Do ... 11 = Si). En la notación
+  /// india, Sa es la tónica [indianTonic] (clase de altura, Do por defecto).
+  static String name(int pitchClass, Notation notation, {bool flats = false, int indianTonic = 0}) {
     final int pc = ((pitchClass % 12) + 12) % 12;
     switch (notation) {
       case Notation.solfeo:
@@ -30,7 +31,7 @@ class Notes {
       case Notation.german:
         return (flats ? germanFlat : germanSharp)[pc];
       case Notation.indian:
-        return indian[pc];
+        return indian[((pc - indianTonic) % 12 + 12) % 12];
     }
   }
 
@@ -120,12 +121,13 @@ class PitchSettings {
     this.capo = 0,
     this.notation = Notation.solfeo,
     this.flats = false,
+    this.indianTonic = 0,
   });
 
   final double a4;
   final Temperament temperament;
 
-  /// Tónica del temperamento (clase de altura).
+  /// Tónica del temperamento (clase de altura sonante).
   final int temperamentRoot;
   final List<double>? custom;
 
@@ -133,12 +135,16 @@ class PitchSettings {
   /// (un Do escrito suena Si♭; el afinador muestra Do cuando oye Si♭).
   final int transposition;
 
-  /// Traste del capo: el nombre mostrado baja esos semitonos.
+  /// Traste del capo: las cuerdas al aire suben esos semitonos (las metas y
+  /// los nombres de las cuerdas suben con él; la nota oída se nombra igual).
   final int capo;
   final Notation notation;
   final bool flats;
 
-  PitchSettings copyWith({double? a4, Temperament? temperament, int? temperamentRoot, List<double>? custom, int? transposition, int? capo, Notation? notation, bool? flats}) {
+  /// Sa de la notación india (clase de altura escrita).
+  final int indianTonic;
+
+  PitchSettings copyWith({double? a4, Temperament? temperament, int? temperamentRoot, List<double>? custom, int? transposition, int? capo, Notation? notation, bool? flats, int? indianTonic}) {
     return PitchSettings(
       a4: a4 ?? this.a4,
       temperament: temperament ?? this.temperament,
@@ -148,8 +154,12 @@ class PitchSettings {
       capo: capo ?? this.capo,
       notation: notation ?? this.notation,
       flats: flats ?? this.flats,
+      indianTonic: indianTonic ?? this.indianTonic,
     );
   }
+
+  /// Frecuencia de una nota sonante en el temperamento vigente.
+  double frequencyOf(int midi) => Notes.frequency(midi, a4: a4, temperament: temperament, root: temperamentRoot, custom: custom);
 
   /// Interpreta [hz] como la nota más cercana del temperamento.
   NoteReading read(double hz) {
@@ -173,18 +183,36 @@ class PitchSettings {
     return NoteReading(midi: best, cents: bestCents, targetHz: bestTarget, hz: hz);
   }
 
-  /// Nombre que se muestra para un número MIDI sonante, aplicando
-  /// transposición y capo.
-  String displayName(int midi) {
-    final int shown = midi + transposition - capo;
-    return Notes.name(Notes.pitchClassOf(shown), notation, flats: flats);
-  }
+  /// Altura escrita (la que lee el músico) de una nota sonante.
+  int writtenMidi(int sounding) => sounding + transposition;
 
-  int displayOctave(int midi) => Notes.octaveOf(midi + transposition - capo);
+  /// Altura sonante de una nota escrita.
+  int soundingMidi(int written) => written - transposition;
+
+  /// Nombre que se muestra para un número MIDI sonante, aplicando la
+  /// transposición del instrumento.
+  String displayName(int midi) => nameOfWritten(writtenMidi(midi));
+
+  /// Nombre de una altura ya escrita (sin transponer).
+  String nameOfWritten(int written) => Notes.name(Notes.pitchClassOf(written), notation, flats: flats, indianTonic: indianTonic);
+
+  int displayOctave(int midi) => Notes.octaveOf(writtenMidi(midi));
+
+  /// Nombre y octava juntos, por ejemplo "La4".
+  String displayFull(int midi) => '${displayName(midi)}${displayOctave(midi)}';
 }
 
 /// Formato de frecuencia con un decimal y coma decimal (es) o punto (en).
 String formatHz(double hz, {bool comma = true}) {
   final String s = hz.toStringAsFixed(1);
   return comma ? s.replaceAll('.', ',') : s;
+}
+
+/// Cents redondeados con signo: "+3", "−12" y "0" (nunca "−0").
+String formatCents(double cents) {
+  final int r = cents.round();
+  if (r == 0) {
+    return '0';
+  }
+  return r > 0 ? '+$r' : '−${-r}';
 }

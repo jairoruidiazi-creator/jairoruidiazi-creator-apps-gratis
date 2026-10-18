@@ -12,7 +12,7 @@ Clave is a free, open-source app published by the apps-gratis team under the dev
 
 ## What information the app handles and where it stays
 
-- **Microphone sound.** The tuner listens to the microphone to work out the note you play. That sound is processed in real time, on the phone, and is neither stored nor sent.
+- **Microphone sound.** The tuner listens to the microphone to work out the note you play, only while its tab is on screen and the app is in the foreground. That sound is processed in real time, on the phone, and is neither stored nor sent.
 - **Recordings.** When you record a take, the audio is saved as a file in the app's private storage, with the name, folder, notes, instrument and tempo you give it.
 - **Metronome presets and setlists.**
 - **Practice log:** when and for how long you used each tool, to show your minutes, goals and streak.
@@ -22,9 +22,10 @@ All of this lives on your device. We do not receive it, see it or have any way t
 
 ## Permissions
 
-- **Microphone:** only for the tuner and the recorder. If you don't grant it, the rest of the app works the same.
+- **Microphone:** only for the tuner and the recorder. The app explains what it is for before the system asks you. If you don't grant it, the rest of the app works the same.
 - **Vibration:** to mark the metronome beat, if you turn it on.
-- **Background audio (iOS)** and keeping the screen on: so the metronome and drone keep playing while you practice.
+- **Background audio (iOS only):** so the metronome, the drone and a recording in progress keep going with the screen locked. On Android they stop when you leave the app, and the take being recorded is saved.
+- **Keeping the screen on:** while you use the tuner, the metronome or the drone, or while you record, if you leave it on in the settings.
 
 ## What the app does not do
 
@@ -36,7 +37,7 @@ The metronome's spoken count-in uses the device's built-in system voice, which g
 
 ## Sharing, exporting and importing
 
-You decide when to share a recording or export your presets: the app uses the system share sheet and you choose which app or person receives them. You can also import presets from a file you pick. Whatever you share is subject to the terms of whoever receives it. The app deletes its own copy of exported presets the next time you open it.
+You decide when to share a recording or export your presets: the app uses the system share sheet and you choose which app or person receives them. You can also import presets from a file you pick. Whatever you share is subject to the terms of whoever receives it. To share, the app prepares a copy named as you named it (the presets or the recording) and deletes it the next time you open the app.
 
 ## Children
 
@@ -60,4 +61,4 @@ If the app changes how it handles information, we will update this policy and it
 
 ## Contact
 
-Write to us by opening an issue at github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/issues or at the developer contact email shown on the app's store listing.
+For questions, problems or requests about this policy, see the support page at https://github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/blob/main/docs/SOPORTE.md, which explains how to reach us. You can also open an issue at github.com/jairoruidiazi-creator/jairoruidiazi-creator-apps-gratis/issues.

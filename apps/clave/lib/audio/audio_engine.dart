@@ -5,6 +5,39 @@ import 'package:flutter_soloud/flutter_soloud.dart';
 /// Forma de onda de los tonos sostenidos.
 enum WaveShape { sine, triangle, saw, square }
 
+/// Forma que suena de verdad a [hz] para que no haya aliasing a 44,1 kHz.
+/// La sierra y la cuadrada del motor son series de Fourier de 14 y 11
+/// armónicos (hasta el 21.º en la cuadrada): por encima de 1500 Hz y 1000 Hz
+/// sus armónicos pasarían la frecuencia de Nyquist y se usa el seno. El
+/// triángulo (armónicos que caen 12 dB por octava) pasa a seno desde 3000 Hz.
+WaveShape bandLimitedShape(WaveShape shape, double hz) {
+  switch (shape) {
+    case WaveShape.sine:
+      return WaveShape.sine;
+    case WaveShape.triangle:
+      return hz < 3000 ? WaveShape.triangle : WaveShape.sine;
+    case WaveShape.saw:
+      return hz <= 1500 ? WaveShape.saw : WaveShape.sine;
+    case WaveShape.square:
+      return hz <= 1000 ? WaveShape.square : WaveShape.sine;
+  }
+}
+
+/// Ganancia relativa por forma de onda: la cuadrada y la sierra suenan más
+/// fuerte que el seno con la misma amplitud.
+double shapeGain(WaveShape shape) {
+  switch (shape) {
+    case WaveShape.sine:
+      return 1.0;
+    case WaveShape.triangle:
+      return 1.0;
+    case WaveShape.saw:
+      return 0.8;
+    case WaveShape.square:
+      return 0.65;
+  }
+}
+
 /// Identificador opaco de un flujo PCM abierto.
 class PcmStream {
   PcmStream({this.source, this.handle});
@@ -15,10 +48,14 @@ class PcmStream {
 
 /// Un tono sostenido en reproducción.
 class Tone {
-  Tone({this.source, this.handle});
+  Tone({this.source, this.handle, this.shape = WaveShape.sine, this.actual = WaveShape.sine});
 
   final AudioSource? source;
   final SoundHandle? handle;
+
+  /// Forma pedida y forma que suena (ver [bandLimitedShape]).
+  WaveShape shape;
+  WaveShape actual;
 }
 
 /// Capa fina sobre el motor de audio para que el resto de la app (y las
@@ -33,7 +70,8 @@ abstract class AudioEngine {
 
   void pushPcm(PcmStream stream, Uint8List bytes);
 
-  /// Segundos de audio ya consumidos (reproducidos) del flujo.
+  /// Segundos de audio ya consumidos por el mezclador (lo que se oye llega
+  /// un poco después: ese es el retraso del audio que se ajusta en Ajustes).
   double consumedSeconds(PcmStream stream);
 
   Future<void> closePcmStream(PcmStream stream);
@@ -42,7 +80,11 @@ abstract class AudioEngine {
 
   void setToneFrequency(Tone tone, double hz);
 
+  void setToneShape(Tone tone, WaveShape shape);
+
   void setToneVolume(Tone tone, double volume);
+
+  void fadeToneVolume(Tone tone, double volume, Duration time);
 
   Future<void> stopTone(Tone tone, {Duration fade = const Duration(milliseconds: 60)});
 
@@ -52,15 +94,20 @@ abstract class AudioEngine {
 /// Motor real sobre flutter_soloud.
 class SoLoudEngine implements AudioEngine {
   bool _ready = false;
+  Future<void>? _initializing;
 
   @override
   bool get ready => _ready;
 
   @override
-  Future<void> init() async {
+  Future<void> init() {
     if (_ready) {
-      return;
+      return Future<void>.value();
     }
+    return _initializing ??= _init().whenComplete(() => _initializing = null);
+  }
+
+  Future<void> _init() async {
     try {
       await SoLoud.instance.init(sampleRate: 44100, bufferSize: 1024);
       _ready = SoLoud.instance.isInitialized;
@@ -144,9 +191,9 @@ class SoLoudEngine implements AudioEngine {
       case WaveShape.triangle:
         return WaveForm.triangle;
       case WaveShape.saw:
-        return WaveForm.saw;
+        return WaveForm.fSaw;
       case WaveShape.square:
-        return WaveForm.square;
+        return WaveForm.fSquare;
     }
   }
 
@@ -159,12 +206,15 @@ class SoLoudEngine implements AudioEngine {
       }
     }
     try {
-      final AudioSource source = await SoLoud.instance.loadWaveform(_wave(shape), false, 1, 0);
+      final WaveShape actual = bandLimitedShape(shape, hz);
+      final AudioSource source = await SoLoud.instance.loadWaveform(_wave(actual), false, 1, 0);
       SoLoud.instance.setWaveformFreq(source, hz);
       final SoundHandle handle = SoLoud.instance.play(source, volume: 0);
       // Entrada suave para evitar el chasquido.
       SoLoud.instance.fadeVolume(handle, volume, const Duration(milliseconds: 40));
-      return Tone(source: source, handle: handle);
+      final Tone tone = Tone(source: source, handle: handle, shape: shape, actual: actual);
+      _lastHz[tone] = hz;
+      return tone;
     } catch (e) {
       debugPrint('No se pudo iniciar el tono: $e');
       return null;
@@ -178,9 +228,32 @@ class SoLoudEngine implements AudioEngine {
       return;
     }
     try {
+      final WaveShape actual = bandLimitedShape(tone.shape, hz);
+      if (actual != tone.actual) {
+        SoLoud.instance.setWaveform(source, _wave(actual));
+        tone.actual = actual;
+      }
       SoLoud.instance.setWaveformFreq(source, hz);
+      _lastHz[tone] = hz;
     } catch (_) {}
   }
+
+  @override
+  void setToneShape(Tone tone, WaveShape shape) {
+    final AudioSource? source = tone.source;
+    tone.shape = shape;
+    if (source == null) {
+      return;
+    }
+    try {
+      // La frecuencia no cambia: se recalcula la forma que puede sonar.
+      final WaveShape actual = bandLimitedShape(shape, _lastHz[tone] ?? 0);
+      SoLoud.instance.setWaveform(source, _wave(actual));
+      tone.actual = actual;
+    } catch (_) {}
+  }
+
+  final Expando<double> _lastHz = Expando<double>();
 
   @override
   void setToneVolume(Tone tone, double volume) {
@@ -190,6 +263,17 @@ class SoLoudEngine implements AudioEngine {
     }
     try {
       SoLoud.instance.setVolume(handle, volume);
+    } catch (_) {}
+  }
+
+  @override
+  void fadeToneVolume(Tone tone, double volume, Duration time) {
+    final SoundHandle? handle = tone.handle;
+    if (handle == null) {
+      return;
+    }
+    try {
+      SoLoud.instance.fadeVolume(handle, volume, time);
     } catch (_) {}
   }
 
@@ -221,13 +305,18 @@ class SoLoudEngine implements AudioEngine {
   }
 }
 
-/// Motor mudo para pruebas y para cuando el audio no está disponible.
+/// Motor mudo para pruebas y para cuando el audio no está disponible. Lleva
+/// la cuenta de los tonos para que las pruebas vean lo que sonaría.
 class SilentEngine implements AudioEngine {
   // Usa el reloj de `package:clock`, que las pruebas de widgets pueden
   // adelantar con el tiempo simulado.
   DateTime? _started;
   int _pushedBytes = 0;
   int _sampleRate = 44100;
+
+  /// Tonos que suenan, con su frecuencia, forma real y volumen.
+  final Map<Tone, double> frequencies = <Tone, double>{};
+  final Map<Tone, double> volumes = <Tone, double>{};
 
   @override
   bool get ready => true;
@@ -262,16 +351,42 @@ class SilentEngine implements AudioEngine {
   }
 
   @override
-  Future<Tone?> startTone(double hz, {WaveShape shape = WaveShape.sine, double volume = 0.5}) async => Tone();
+  Future<Tone?> startTone(double hz, {WaveShape shape = WaveShape.sine, double volume = 0.5}) async {
+    final Tone t = Tone(shape: shape, actual: bandLimitedShape(shape, hz));
+    frequencies[t] = hz;
+    volumes[t] = volume;
+    return t;
+  }
 
   @override
-  void setToneFrequency(Tone tone, double hz) {}
+  void setToneFrequency(Tone tone, double hz) {
+    if (frequencies.containsKey(tone)) {
+      frequencies[tone] = hz;
+      tone.actual = bandLimitedShape(tone.shape, hz);
+    }
+  }
 
   @override
-  void setToneVolume(Tone tone, double volume) {}
+  void setToneShape(Tone tone, WaveShape shape) {
+    tone.shape = shape;
+    tone.actual = bandLimitedShape(shape, frequencies[tone] ?? 0);
+  }
 
   @override
-  Future<void> stopTone(Tone tone, {Duration fade = const Duration(milliseconds: 60)}) async {}
+  void setToneVolume(Tone tone, double volume) {
+    if (volumes.containsKey(tone)) {
+      volumes[tone] = volume;
+    }
+  }
+
+  @override
+  void fadeToneVolume(Tone tone, double volume, Duration time) => setToneVolume(tone, volume);
+
+  @override
+  Future<void> stopTone(Tone tone, {Duration fade = const Duration(milliseconds: 60)}) async {
+    frequencies.remove(tone);
+    volumes.remove(tone);
+  }
 
   @override
   Future<void> dispose() async {}

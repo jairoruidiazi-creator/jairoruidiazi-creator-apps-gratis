@@ -1,528 +1,516 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 
 import '../../audio/audio_engine.dart';
+import '../../audio/drone.dart';
 import '../../core/app_scope.dart';
+import '../../core/settings.dart';
 import '../../core/theme.dart';
 import '../../music/notes.dart';
+import '../tuner/tuner_screen.dart' show spokenNoteName;
 import '../widgets/adaptive.dart';
 
 /// Bordón (tono de referencia sostenido), teclado de 8 octavas y acordes.
+///
+/// Todo se muestra en altura escrita (con la transposición del instrumento,
+/// igual que el afinador) y suena en altura real. El sonido vive en
+/// [DroneController]: cambiar de pestaña no lo corta.
 class DroneScreen extends StatefulWidget {
-  const DroneScreen({super.key});
+  const DroneScreen({super.key, this.active = true});
+
+  /// Si la pestaña está a la vista.
+  final bool active;
 
   @override
   State<DroneScreen> createState() => _DroneScreenState();
 }
 
-class _DroneScreenState extends State<DroneScreen> with AutomaticKeepAliveClientMixin {
-  Services? _services;
-  bool _started = false;
-
-  // Bordón
-  int _droneMidi = 57; // La3
-  bool _fifth = false;
-  WaveShape _shape = WaveShape.sine;
-  Tone? _droneTone;
-  Tone? _fifthTone;
-
-  // Teclado
-  int _octave = 4;
-  bool _sustain = false;
-  final Map<int, Tone> _keys = <int, Tone>{};
-  final List<Tone> _chordTones = <Tone>[];
+class _DroneScreenState extends State<DroneScreen> {
+  /// Raíz del acorde en altura escrita (octava de Do4: se oye bien también en
+  /// el altavoz del teléfono).
   int _chordRoot = 60;
   String _chordType = 'M';
 
   @override
-  bool get wantKeepAlive => true;
+  Widget build(BuildContext context) {
+    final Services s = AppScope.of(context);
+    return ListenableBuilder(
+      listenable: Listenable.merge(<Listenable>[s.drone, s.settings]),
+      builder: (BuildContext context, Widget? _) => _build(context, s),
+    );
+  }
+
+  Widget _build(BuildContext context, Services s) {
+    final DroneController d = s.drone;
+    final AppSettings st = s.settings;
+    final PitchSettings ps = st.pitch;
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final ClavePalette pal = ClavePalette.of(context);
+    final bool spanish = isSpanish(context);
+    final bool droneOn = d.droneOn;
+    final int written = ps.writtenMidi(d.droneMidi);
+    final String hz = formatHz(d.frequencyOf(d.droneMidi), comma: spanish);
+
+    // Las tarjetas ya dejan 12 dp a cada lado: el teclado aprovecha el ancho
+    // (en un teléfono de 360 dp caben 7 teclas blancas de 48 dp, una octava).
+    return ReadableWidth(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
+        children: <Widget>[
+          // ---------------------------------------------------------------- bordón
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      Expanded(child: Text(t(context, 'Bordón (tono de referencia)', 'Drone (reference tone)'), style: Theme.of(context).textTheme.titleMedium)),
+                      FilledButton.icon(
+                        onPressed: d.toggleDrone,
+                        icon: Icon(droneOn ? Icons.stop_rounded : Icons.play_arrow_rounded),
+                        label: Text(droneOn ? t(context, 'Parar', 'Stop') : t(context, 'Sonar', 'Play')),
+                        style: FilledButton.styleFrom(backgroundColor: droneOn ? cs.error : null, foregroundColor: droneOn ? cs.onError : null),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: <Widget>[
+                      IconButton(tooltip: t(context, 'Medio tono abajo', 'Half step down'), onPressed: () => d.setDroneMidi(d.droneMidi - 1), icon: const Icon(Icons.remove_circle_outline)),
+                      Expanded(
+                        child: Semantics(
+                          container: true,
+                          label: '${t(context, 'Bordón', 'Drone')}: ${spokenNoteName(ps.displayName(d.droneMidi), spanish: spanish)} ${ps.displayOctave(d.droneMidi)}, $hz Hz',
+                          excludeSemantics: true,
+                          child: Column(
+                            children: <Widget>[
+                              Text(ps.displayFull(d.droneMidi), style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: droneOn ? pal.accent : cs.onSurface)),
+                              Text(
+                                '$hz Hz${d.fifth ? ' + ${ps.displayName(d.droneMidi + 7)} (${t(context, 'quinta pura', 'pure fifth')})' : ''}',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: cs.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      IconButton(tooltip: t(context, 'Medio tono arriba', 'Half step up'), onPressed: () => d.setDroneMidi(d.droneMidi + 1), icon: const Icon(Icons.add_circle_outline)),
+                    ],
+                  ),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: <Widget>[
+                      for (int pc = 0; pc < 12; pc++)
+                        ChoiceChip(
+                          label: Text(ps.nameOfWritten(pc)),
+                          selected: Notes.pitchClassOf(written) == pc,
+                          onSelected: (_) => d.setDroneMidi(ps.soundingMidi((Notes.octaveOf(written) + 1) * 12 + pc)),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      Text(t(context, 'Octava', 'Octave')),
+                      for (final int o in <int>[2, 3, 4, 5])
+                        ChoiceChip(
+                          label: Text('$o'),
+                          tooltip: '${t(context, 'Octava', 'Octave')} $o',
+                          selected: Notes.octaveOf(written) == o,
+                          onSelected: (_) => d.setDroneMidi(ps.soundingMidi((o + 1) * 12 + Notes.pitchClassOf(written))),
+                        ),
+                      const SizedBox(width: 12),
+                      MergeSemantics(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Text(t(context, 'Quinta pura', 'Pure fifth')),
+                            Switch(value: d.fifth, onChanged: d.setFifth),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: <Widget>[
+                      Text(t(context, 'Onda', 'Wave')),
+                      for (final MapEntry<WaveShape, String> o in <WaveShape, String>{
+                        WaveShape.sine: t(context, 'Seno', 'Sine'),
+                        WaveShape.triangle: t(context, 'Triángulo', 'Triangle'),
+                        WaveShape.saw: t(context, 'Sierra', 'Saw'),
+                        WaveShape.square: t(context, 'Cuadrada', 'Square'),
+                      }.entries)
+                        ChoiceChip(label: Text(o.value), selected: d.shape == o.key, onSelected: (_) => d.setShape(o.key)),
+                    ],
+                  ),
+                  MergeSemantics(
+                    child: Row(
+                      children: <Widget>[
+                        Semantics(label: t(context, 'Volumen', 'Volume'), child: const ExcludeSemantics(child: Icon(Icons.volume_down_rounded))),
+                        Expanded(
+                          child: Slider(
+                            value: st.droneVolume.clamp(0.0, 1.0),
+                            semanticFormatterCallback: (double v) => formatPercent(v, spanish: spanish),
+                            onChanged: (double v) {
+                              st.droneVolume = v;
+                              st.save();
+                            },
+                          ),
+                        ),
+                        const ExcludeSemantics(child: Icon(Icons.volume_up_rounded)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // ---------------------------------------------------------------- acordes
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(t(context, 'Acordes sostenidos', 'Sustained chords'), style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: <Widget>[
+                      for (int pc = 0; pc < 12; pc++)
+                        ChoiceChip(
+                          label: Text(ps.nameOfWritten(pc)),
+                          selected: Notes.pitchClassOf(_chordRoot) == pc,
+                          onSelected: (_) {
+                            setState(() => _chordRoot = 60 + pc);
+                            unawaited(d.playChord(ps.soundingMidi(_chordRoot), _chordType));
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: <Widget>[
+                      for (final String ty in kChordTypes.keys)
+                        ChoiceChip(
+                          label: Text(ty),
+                          tooltip: _chordName(context, ty),
+                          selected: _chordType == ty,
+                          onSelected: (_) {
+                            setState(() => _chordType = ty);
+                            unawaited(d.playChord(ps.soundingMidi(_chordRoot), _chordType));
+                          },
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: <Widget>[
+                      FilledButton.tonalIcon(onPressed: () => d.playChord(ps.soundingMidi(_chordRoot), _chordType), icon: const Icon(Icons.play_arrow_rounded), label: Text(t(context, 'Tocar acorde', 'Play chord'))),
+                      OutlinedButton.icon(onPressed: d.chordSounding || d.pressedKeys.isNotEmpty ? d.silenceKeysAndChord : null, icon: const Icon(Icons.stop_rounded), label: Text(t(context, 'Silenciar', 'Silence'))),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // ---------------------------------------------------------------- teclado
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(child: Text(t(context, 'Teclado', 'Keyboard'), style: Theme.of(context).textTheme.titleMedium)),
+                      FilterChip(
+                        label: Text(t(context, 'Sostener', 'Sustain')),
+                        selected: d.sustain,
+                        onSelected: d.setSustain,
+                      ),
+                    ],
+                  ),
+                ),
+                DroneKeyboard(controller: d, settings: ps, spanish: spanish),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+                  child: Text(t(context, 'Las notas siguen la referencia y el temperamento del afinador.', 'Notes follow the tuner reference and temperament.'), style: Theme.of(context).textTheme.bodySmall),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _chordName(BuildContext context, String ty) {
+    switch (ty) {
+      case 'M':
+        return t(context, 'Mayor', 'Major');
+      case 'm':
+        return t(context, 'Menor', 'Minor');
+      case '7':
+        return t(context, 'Séptima de dominante', 'Dominant seventh');
+      case 'M7':
+        return t(context, 'Séptima mayor', 'Major seventh');
+      case 'm7':
+        return t(context, 'Menor con séptima', 'Minor seventh');
+      case 'dim':
+        return t(context, 'Disminuido', 'Diminished');
+      case 'aug':
+        return t(context, 'Aumentado', 'Augmented');
+      case 'sus4':
+        return t(context, 'Cuarta suspendida', 'Suspended fourth');
+      case 'sus2':
+        return t(context, 'Segunda suspendida', 'Suspended second');
+      default:
+        return t(context, 'Quinta (power chord)', 'Fifth (power chord)');
+    }
+  }
+}
+
+/// Teclado de Do0 a Do8 (altura escrita) que muestra una ventana de teclas
+/// blancas de al menos [minWhite] dp, todas enteras.
+///
+/// Los botones mueven la ventana una octava (si cabe una entera) o la ventana
+/// menos una tecla: así la tecla negra que queda partida en un borde aparece
+/// entera en la ventana siguiente. Cada tecla entera tiene su nombre para el
+/// lector de pantalla y un área de al menos 48 × 48 dp, también las negras;
+/// con el lector, tocar una tecla la hace sonar un momento.
+class DroneKeyboard extends StatefulWidget {
+  const DroneKeyboard({super.key, required this.controller, required this.settings, required this.spanish});
+
+  final DroneController controller;
+  final PitchSettings settings;
+  final bool spanish;
+
+  static const int lowest = 12; // Do0 escrito
+  static const int highest = 108; // Do8 escrito
+  static const double minWhite = 48;
+  static const double height = 168;
+
+  static const List<int> _whitePcs = <int>[0, 2, 4, 5, 7, 9, 11];
+
+  static bool isWhite(int midi) => _whitePcs.contains(Notes.pitchClassOf(midi));
+
+  /// Teclas blancas del teclado (alturas escritas), de grave a agudo.
+  static final List<int> whites = <int>[
+    for (int m = lowest; m <= highest; m++)
+      if (isWhite(m)) m,
+  ];
+
+  /// Cuántas teclas blancas enteras caben en [width] dp.
+  static int visibleFor(double width) => math.max(1, (width / minWhite).floor());
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (!_started) {
-      _started = true;
-      _services = AppScope.of(context);
-      _services!.settings.addListener(_onSettings);
-    }
+  State<DroneKeyboard> createState() => _DroneKeyboardState();
+}
+
+class _DroneKeyboardState extends State<DroneKeyboard> {
+  /// Índice en [DroneKeyboard.whites] de la primera tecla a la vista (Do4).
+  int _start = DroneKeyboard.whites.indexOf(60);
+
+  int _maxStart(int n) => math.max(0, DroneKeyboard.whites.length - n);
+
+  int _next(int start, int n) {
+    final int target = n >= 7 ? (start ~/ 7 + 1) * 7 : start + math.max(1, n - 1);
+    return math.min(target, _maxStart(n));
   }
 
-  void _onSettings() {
-    final Services? s = _services;
-    if (s == null) {
-      return;
-    }
-    if (_droneTone != null) {
-      s.engine.setToneVolume(_droneTone!, s.settings.droneVolume);
-      s.engine.setToneFrequency(_droneTone!, _freq(_droneMidi));
-      if (_fifthTone != null) {
-        s.engine.setToneVolume(_fifthTone!, s.settings.droneVolume * 0.7);
-        s.engine.setToneFrequency(_fifthTone!, _freq(_droneMidi + 7));
-      }
-    }
-    if (mounted) {
-      setState(() {});
-    }
+  int _previous(int start, int n) {
+    final int target = n >= 7 ? ((start + 6) ~/ 7 - 1) * 7 : start - math.max(1, n - 1);
+    return math.max(target, 0);
   }
 
-  double _freq(int midi) {
-    final PitchSettings p = _services!.settings.pitch;
-    return Notes.frequency(midi, a4: p.a4, temperament: p.temperament, root: p.temperamentRoot, custom: p.custom);
-  }
+  String _name(int written) => '${widget.settings.nameOfWritten(written)}${Notes.octaveOf(written)}';
 
-  @override
-  void dispose() {
-    _services?.settings.removeListener(_onSettings);
-    unawaited(_stopAll());
-    super.dispose();
-  }
-
-  Future<void> _stopAll() async {
-    final AudioEngine e = _services!.engine;
-    final List<Tone> all = <Tone>[if (_droneTone != null) _droneTone!, if (_fifthTone != null) _fifthTone!, ..._keys.values, ..._chordTones];
-    _droneTone = null;
-    _fifthTone = null;
-    _keys.clear();
-    _chordTones.clear();
-    for (final Tone tn in all) {
-      await e.stopTone(tn);
-    }
-  }
-
-  Future<void> _toggleDrone() async {
-    final Services s = _services!;
-    if (_droneTone != null) {
-      final Tone d = _droneTone!;
-      final Tone? f = _fifthTone;
-      setState(() {
-        _droneTone = null;
-        _fifthTone = null;
-      });
-      await s.engine.stopTone(d, fade: const Duration(milliseconds: 200));
-      if (f != null) {
-        await s.engine.stopTone(f, fade: const Duration(milliseconds: 200));
-      }
-      return;
-    }
-    final Tone? d = await s.engine.startTone(_freq(_droneMidi), shape: _shape, volume: s.settings.droneVolume);
-    Tone? f;
-    if (_fifth) {
-      f = await s.engine.startTone(_freq(_droneMidi + 7), shape: _shape, volume: s.settings.droneVolume * 0.7);
-    }
-    if (!mounted) {
-      return;
-    }
-    setState(() {
-      _droneTone = d;
-      _fifthTone = f;
-    });
-    s.state.touchPractice('tono', s.settings.instrumentId);
-  }
-
-  Future<void> _setDroneMidi(int midi) async {
-    _droneMidi = midi.clamp(24, 96);
-    final Services s = _services!;
-    if (_droneTone != null) {
-      s.engine.setToneFrequency(_droneTone!, _freq(_droneMidi));
-      if (_fifthTone != null) {
-        s.engine.setToneFrequency(_fifthTone!, _freq(_droneMidi + 7));
-      }
-    }
-    setState(() {});
-  }
-
-  Future<void> _toggleFifth(bool v) async {
-    _fifth = v;
-    final Services s = _services!;
-    if (_droneTone != null) {
-      if (v && _fifthTone == null) {
-        _fifthTone = await s.engine.startTone(_freq(_droneMidi + 7), shape: _shape, volume: s.settings.droneVolume * 0.7);
-      } else if (!v && _fifthTone != null) {
-        final Tone f = _fifthTone!;
-        _fifthTone = null;
-        await s.engine.stopTone(f);
-      }
-    }
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  Future<void> _setShape(WaveShape sh) async {
-    _shape = sh;
-    if (_droneTone != null) {
-      // Reinicia el bordón con la nueva forma de onda.
-      await _toggleDrone();
-      await _toggleDrone();
-    } else {
-      setState(() {});
-    }
-  }
-
-  Future<void> _keyDown(int midi) async {
-    final Services s = _services!;
-    if (_keys.containsKey(midi)) {
-      return;
-    }
-    final Tone? tn = await s.engine.startTone(_freq(midi), shape: _shape, volume: 0.45);
-    if (tn == null) {
-      return;
-    }
-    if (!mounted) {
-      await s.engine.stopTone(tn);
-      return;
-    }
-    setState(() => _keys[midi] = tn);
-    s.state.touchPractice('tono', s.settings.instrumentId);
-  }
-
-  Future<void> _keyUp(int midi) async {
-    if (_sustain) {
-      return;
-    }
-    final Tone? tn = _keys.remove(midi);
-    if (tn != null) {
-      setState(() {});
-      await _services!.engine.stopTone(tn, fade: const Duration(milliseconds: 250));
-    }
-  }
-
-  Future<void> _releaseAllKeys() async {
-    final List<Tone> all = <Tone>[..._keys.values, ..._chordTones];
-    _keys.clear();
-    _chordTones.clear();
-    setState(() {});
-    for (final Tone tn in all) {
-      await _services!.engine.stopTone(tn, fade: const Duration(milliseconds: 250));
-    }
-  }
-
-  static const Map<String, List<int>> chords = <String, List<int>>{
-    'M': <int>[0, 4, 7],
-    'm': <int>[0, 3, 7],
-    '7': <int>[0, 4, 7, 10],
-    'M7': <int>[0, 4, 7, 11],
-    'm7': <int>[0, 3, 7, 10],
-    'dim': <int>[0, 3, 6],
-    'aug': <int>[0, 4, 8],
-    'sus4': <int>[0, 5, 7],
-    'sus2': <int>[0, 2, 7],
-    '5': <int>[0, 7, 12],
-  };
-
-  Future<void> _playChord() async {
-    final Services s = _services!;
-    final List<Tone> old = List<Tone>.from(_chordTones);
-    _chordTones.clear();
-    for (final Tone tn in old) {
-      unawaited(s.engine.stopTone(tn, fade: const Duration(milliseconds: 120)));
-    }
-    for (final int iv in chords[_chordType] ?? <int>[0, 4, 7]) {
-      final Tone? tn = await s.engine.startTone(_freq(_chordRoot + iv), shape: _shape, volume: 0.32);
-      if (tn != null) {
-        _chordTones.add(tn);
-      }
-    }
-    if (mounted) {
-      setState(() {});
-    }
-    s.state.touchPractice('tono', s.settings.instrumentId);
-  }
+  String _spoken(int written) => '${spokenNoteName(widget.settings.nameOfWritten(written), spanish: widget.spanish)} ${Notes.octaveOf(written)}';
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-    final Services s = AppScope.of(context);
-    final PitchSettings ps = s.settings.pitch;
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    final bool spanish = s.settings.spanish;
-    final bool droneOn = _droneTone != null;
-
-    return ReadableWidth(
-      child: ListView(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-      children: <Widget>[
-        // ---------------------------------------------------------------- bordón
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return LayoutBuilder(
+      builder: (BuildContext context, BoxConstraints c) {
+        final double width = c.maxWidth.isFinite ? c.maxWidth : 360;
+        final int n = math.min(DroneKeyboard.visibleFor(width), DroneKeyboard.whites.length);
+        final int start = _start.clamp(0, _maxStart(n));
+        final List<int> shown = DroneKeyboard.whites.sublist(start, start + n);
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
               children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Expanded(child: Text(t(context, 'Bordón (tono de referencia)', 'Drone (reference tone)'), style: Theme.of(context).textTheme.titleMedium)),
-                    FilledButton.icon(
-                      onPressed: _toggleDrone,
-                      icon: Icon(droneOn ? Icons.stop_rounded : Icons.play_arrow_rounded),
-                      label: Text(droneOn ? t(context, 'Parar', 'Stop') : t(context, 'Sonar', 'Play')),
-                      style: FilledButton.styleFrom(backgroundColor: droneOn ? cs.error : null),
+                IconButton(
+                  tooltip: t(context, 'Notas más graves', 'Lower notes'),
+                  onPressed: start > 0 ? () => setState(() => _start = _previous(start, n)) : null,
+                  icon: const Icon(Icons.chevron_left_rounded),
+                ),
+                Expanded(
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      '${_name(shown.first)} – ${_name(shown.last)}',
+                      semanticsLabel: '${_spoken(shown.first)} ${t(context, 'a', 'to')} ${_spoken(shown.last)}',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: <Widget>[
-                    IconButton(onPressed: () => _setDroneMidi(_droneMidi - 1), icon: const Icon(Icons.remove_circle_outline)),
-                    Expanded(
-                      child: Column(
-                        children: <Widget>[
-                          Text('${ps.displayName(_droneMidi)}${ps.displayOctave(_droneMidi)}', style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: droneOn ? ClaveColors.ambar : cs.onSurface)),
-                          Text('${formatHz(_freq(_droneMidi), comma: spanish)} Hz${_fifth ? ' + ${ps.displayName(_droneMidi + 7)}' : ''}', style: TextStyle(color: cs.onSurface.withValues(alpha: 0.65))),
-                        ],
-                      ),
-                    ),
-                    IconButton(onPressed: () => _setDroneMidi(_droneMidi + 1), icon: const Icon(Icons.add_circle_outline)),
-                  ],
-                ),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: <Widget>[
-                    for (int pc = 0; pc < 12; pc++)
-                      ChoiceChip(
-                        label: Text(Notes.name(pc, ps.notation, flats: ps.flats)),
-                        selected: Notes.pitchClassOf(_droneMidi) == pc,
-                        onSelected: (_) => _setDroneMidi((_droneMidi ~/ 12) * 12 + pc),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: <Widget>[
-                    Text(t(context, 'Octava', 'Octave')),
-                    for (final int o in <int>[2, 3, 4, 5])
-                      ChoiceChip(label: Text('$o'), selected: Notes.octaveOf(_droneMidi) == o, onSelected: (_) => _setDroneMidi((o + 1) * 12 + Notes.pitchClassOf(_droneMidi))),
-                    const SizedBox(width: 12),
-                    Text(t(context, 'Quinta', 'Fifth')),
-                    Switch(value: _fifth, onChanged: _toggleFifth),
-                  ],
-                ),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: <Widget>[
-                    Text(t(context, 'Onda', 'Wave')),
-                    for (final List<dynamic> o in <List<dynamic>>[
-                      <dynamic>[WaveShape.sine, t(context, 'Seno', 'Sine')],
-                      <dynamic>[WaveShape.triangle, t(context, 'Triángulo', 'Triangle')],
-                      <dynamic>[WaveShape.saw, t(context, 'Sierra', 'Saw')],
-                      <dynamic>[WaveShape.square, t(context, 'Cuadrada', 'Square')],
-                    ])
-                      ChoiceChip(label: Text(o[1] as String), selected: _shape == o[0], onSelected: (_) => _setShape(o[0] as WaveShape)),
-                  ],
-                ),
-                Row(
-                  children: <Widget>[
-                    const Icon(Icons.volume_down_rounded),
-                    Expanded(
-                      child: Slider(
-                        value: s.settings.droneVolume,
-                        onChanged: (double v) {
-                          s.settings.droneVolume = v;
-                          s.settings.save();
-                        },
-                      ),
-                    ),
-                    const Icon(Icons.volume_up_rounded),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        // ---------------------------------------------------------------- acordes
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(t(context, 'Acordes sostenidos', 'Sustained chords'), style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: <Widget>[
-                    for (int pc = 0; pc < 12; pc++)
-                      ChoiceChip(
-                        label: Text(Notes.name(pc, ps.notation, flats: ps.flats)),
-                        selected: Notes.pitchClassOf(_chordRoot) == pc,
-                        onSelected: (_) {
-                          _chordRoot = 48 + pc;
-                          _playChord();
-                        },
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: <Widget>[
-                    for (final String ty in chords.keys)
-                      ChoiceChip(
-                        label: Text(ty),
-                        selected: _chordType == ty,
-                        onSelected: (_) {
-                          _chordType = ty;
-                          _playChord();
-                        },
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: <Widget>[
-                    FilledButton.tonalIcon(onPressed: _playChord, icon: const Icon(Icons.play_arrow_rounded), label: Text(t(context, 'Tocar acorde', 'Play chord'))),
-                    OutlinedButton.icon(onPressed: _chordTones.isEmpty && _keys.isEmpty ? null : _releaseAllKeys, icon: const Icon(Icons.stop_rounded), label: Text(t(context, 'Silenciar', 'Silence'))),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        // ---------------------------------------------------------------- teclado
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(t(context, 'Teclado', 'Keyboard'), style: Theme.of(context).textTheme.titleMedium),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: <Widget>[
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: <Widget>[
-                        IconButton(onPressed: _octave > 0 ? () => setState(() => _octave -= 1) : null, icon: const Icon(Icons.chevron_left_rounded)),
-                        Text('${t(context, 'Octava', 'Octave')} $_octave', style: const TextStyle(fontWeight: FontWeight.w600)),
-                        IconButton(onPressed: _octave < 7 ? () => setState(() => _octave += 1) : null, icon: const Icon(Icons.chevron_right_rounded)),
-                      ],
-                    ),
-                    FilterChip(
-                      label: Text(t(context, 'Sostener', 'Sustain')),
-                      selected: _sustain,
-                      onSelected: (bool v) {
-                        setState(() => _sustain = v);
-                        if (!v) {
-                          _releaseAllKeys();
-                        }
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 170,
-                  child: _Keyboard(
-                    baseMidi: (_octave + 1) * 12,
-                    pressed: _keys.keys.toSet(),
-                    labelOf: (int m) => ps.displayName(m),
-                    onDown: _keyDown,
-                    onUp: _keyUp,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(t(context, 'Las notas siguen la referencia y el temperamento del afinador.', 'Notes follow the tuner reference and temperament.'), style: Theme.of(context).textTheme.bodySmall),
+                IconButton(
+                  tooltip: t(context, 'Notas más agudas', 'Higher notes'),
+                  onPressed: start < _maxStart(n) ? () => setState(() => _start = _next(start, n)) : null,
+                  icon: const Icon(Icons.chevron_right_rounded),
+                ),
               ],
             ),
-          ),
+            SizedBox(
+              height: DroneKeyboard.height,
+              width: width,
+              child: _keys(context, shown, width / n),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _keys(BuildContext context, List<int> shown, double kw) {
+    final ClavePalette pal = ClavePalette.of(context);
+    final PitchSettings ps = widget.settings;
+    final DroneController d = widget.controller;
+    final Set<int> pressed = d.pressedKeys;
+    const double h = DroneKeyboard.height;
+    const double blackHeight = h * 0.6;
+    final double blackWidth = kw * 0.62;
+    final List<Widget> whites = <Widget>[];
+    final List<Widget> blacks = <Widget>[];
+    final List<Widget> nodes = <Widget>[];
+
+    Widget node(int written, Rect r) {
+      final int sounding = ps.soundingMidi(written);
+      return Positioned.fromRect(
+        rect: r,
+        child: Semantics(
+          sortKey: OrdinalSortKey(written.toDouble()),
+          button: true,
+          selected: pressed.contains(sounding),
+          label: _spoken(written),
+          onTap: () => d.tapKey(sounding),
+          child: const SizedBox.expand(),
         ),
+      );
+    }
+
+    Widget black(int written, double boundary) {
+      final int sounding = ps.soundingMidi(written);
+      return Positioned(
+        left: boundary - blackWidth / 2,
+        top: 0,
+        width: blackWidth,
+        height: blackHeight,
+        child: _Key(black: true, pressed: pressed.contains(sounding), onDown: () => d.keyDown(sounding), onUp: () => d.keyUp(sounding), pressedColor: pal.accent, pressedTextColor: pal.onAccent),
+      );
+    }
+
+    for (int i = 0; i < shown.length; i++) {
+      final int written = shown[i];
+      final int sounding = ps.soundingMidi(written);
+      whites.add(Positioned(
+        left: i * kw,
+        top: 0,
+        width: kw,
+        height: h,
+        child: _Key(
+          black: false,
+          pressed: pressed.contains(sounding),
+          label: Notes.pitchClassOf(written) == 0 ? _name(written) : null,
+          onDown: () => d.keyDown(sounding),
+          onUp: () => d.keyUp(sounding),
+          pressedColor: pal.accent,
+          pressedTextColor: pal.onAccent,
+        ),
+      ));
+      nodes.add(node(written, Rect.fromLTWH(i * kw, 0, kw, h)));
+    }
+    // Negras entre dos blancas de la ventana: se tocan y se nombran (su área
+    // para el lector mide al menos 48 dp de ancho y queda dentro).
+    for (int i = 0; i + 1 < shown.length; i++) {
+      final int written = shown[i] + 1;
+      if (DroneKeyboard.isWhite(written)) {
+        continue;
+      }
+      final double boundary = (i + 1) * kw;
+      blacks.add(black(written, boundary));
+      final double nodeWidth = math.max(48.0, blackWidth);
+      nodes.add(node(written, Rect.fromLTWH(boundary - nodeWidth / 2, 0, nodeWidth, blackHeight)));
+    }
+    // Negras partidas en los bordes: se ven y se tocan; para el lector están
+    // enteras en la ventana vecina.
+    final int before = shown.first - 1;
+    if (before >= DroneKeyboard.lowest && !DroneKeyboard.isWhite(before)) {
+      blacks.add(black(before, 0));
+    }
+    final int after = shown.last + 1;
+    if (after <= DroneKeyboard.highest && !DroneKeyboard.isWhite(after)) {
+      blacks.add(black(after, shown.length * kw));
+    }
+
+    return Stack(
+      clipBehavior: Clip.hardEdge,
+      children: <Widget>[
+        Positioned.fill(child: ExcludeSemantics(child: Stack(clipBehavior: Clip.hardEdge, children: <Widget>[...whites, ...blacks]))),
+        Positioned.fill(child: Semantics(container: true, explicitChildNodes: true, child: Stack(children: nodes))),
       ],
-      ),
     );
   }
 }
 
-/// Una octava y media de teclas; se puede tocar más de una a la vez.
-class _Keyboard extends StatelessWidget {
-  const _Keyboard({required this.baseMidi, required this.pressed, required this.labelOf, required this.onDown, required this.onUp});
-
-  final int baseMidi;
-  final Set<int> pressed;
-  final String Function(int midi) labelOf;
-  final ValueChanged<int> onDown;
-  final ValueChanged<int> onUp;
-
-  static const List<int> whites = <int>[0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24];
-  static const Map<int, double> blacks = <int, double>{1: 0.5, 3: 1.5, 6: 3.5, 8: 4.5, 10: 5.5, 13: 7.5, 15: 8.5, 18: 10.5, 20: 11.5, 22: 12.5};
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme cs = Theme.of(context).colorScheme;
-    return LayoutBuilder(builder: (BuildContext context, BoxConstraints c) {
-      final double w = c.maxWidth / whites.length;
-      final double h = c.maxHeight;
-      return Stack(
-        children: <Widget>[
-          for (int i = 0; i < whites.length; i++)
-            Positioned(
-              left: i * w,
-              top: 0,
-              width: w,
-              height: h,
-              child: _Key(
-                midi: baseMidi + whites[i],
-                black: false,
-                pressed: pressed.contains(baseMidi + whites[i]),
-                label: whites[i] % 12 == 0 ? '${labelOf(baseMidi + whites[i])}${(baseMidi + whites[i]) ~/ 12 - 1}' : null,
-                onDown: onDown,
-                onUp: onUp,
-                color: cs,
-              ),
-            ),
-          for (final MapEntry<int, double> b in blacks.entries)
-            Positioned(
-              left: (b.value + 0.5) * w - w * 0.32,
-              top: 0,
-              width: w * 0.64,
-              height: h * 0.6,
-              child: _Key(midi: baseMidi + b.key, black: true, pressed: pressed.contains(baseMidi + b.key), onDown: onDown, onUp: onUp, color: cs),
-            ),
-        ],
-      );
-    });
-  }
-}
-
 class _Key extends StatelessWidget {
-  const _Key({required this.midi, required this.black, required this.pressed, required this.onDown, required this.onUp, required this.color, this.label});
+  const _Key({required this.black, required this.pressed, required this.onDown, required this.onUp, required this.pressedColor, required this.pressedTextColor, this.label});
 
-  final int midi;
   final bool black;
   final bool pressed;
-  final ValueChanged<int> onDown;
-  final ValueChanged<int> onUp;
-  final ColorScheme color;
+  final VoidCallback onDown;
+  final VoidCallback onUp;
+  final Color pressedColor;
+  final Color pressedTextColor;
   final String? label;
 
   @override
   Widget build(BuildContext context) {
     return Listener(
-      onPointerDown: (_) => onDown(midi),
-      onPointerUp: (_) => onUp(midi),
-      onPointerCancel: (_) => onUp(midi),
+      onPointerDown: (_) => onDown(),
+      onPointerUp: (_) => onUp(),
+      onPointerCancel: (_) => onUp(),
       child: Container(
         margin: const EdgeInsets.all(1),
         decoration: BoxDecoration(
-          color: pressed ? ClaveColors.ambar : (black ? const Color(0xFF1B1B1F) : Colors.white),
+          color: pressed ? pressedColor : (black ? const Color(0xFF1B1B1F) : Colors.white),
           borderRadius: const BorderRadius.vertical(bottom: Radius.circular(6)),
-          border: Border.all(color: Colors.black26),
+          border: Border.all(color: Colors.black38),
         ),
         alignment: Alignment.bottomCenter,
         padding: const EdgeInsets.only(bottom: 6),
-        child: label == null ? null : Text(label!, style: const TextStyle(fontSize: 10, color: Colors.black54)),
+        child: label == null ? null : Text(label!, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: pressed ? pressedTextColor : Colors.black87)),
       ),
     );
   }

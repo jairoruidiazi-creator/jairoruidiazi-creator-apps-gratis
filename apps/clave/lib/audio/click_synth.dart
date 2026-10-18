@@ -82,6 +82,36 @@ extension ClickSoundX on ClickSound {
 /// Tipo de golpe dentro del compás.
 enum BeatKind { accent, normal, sub }
 
+/// Altura base de cada sonido con tono (los de ruido no tienen).
+double? clickBaseFrequency(ClickSound s) {
+  switch (s) {
+    case ClickSound.madera:
+      return 880;
+    case ClickSound.clave:
+      return 2500;
+    case ClickSound.beep:
+      return 1000;
+    case ClickSound.campana:
+      return 1760;
+    case ClickSound.cencerro:
+      return 587;
+    case ClickSound.caja:
+      return 180;
+    case ClickSound.bombo:
+      return 55;
+    case ClickSound.hihat:
+      return null;
+    case ClickSound.palmada:
+      return null;
+    case ClickSound.triangulo:
+      return 4200;
+    case ClickSound.gota:
+      return 1400;
+    case ClickSound.tecla:
+      return 2200;
+  }
+}
+
 /// Sintetiza los golpes del metrónomo como muestras de punto flotante.
 class ClickSynth {
   ClickSynth({this.sampleRate = 44100});
@@ -89,6 +119,20 @@ class ClickSynth {
   final int sampleRate;
   final Map<String, Float32List> _cache = <String, Float32List>{};
   final math.Random _random = math.Random(7);
+
+  /// Multiplicador de altura de cada variante (acento, pulso, subdivisión).
+  static double pitchMultiplier(BeatKind kind) => kind == BeatKind.accent ? 1.35 : (kind == BeatKind.normal ? 1.0 : 0.85);
+
+  /// Frecuencias fundamentales que produce [sound] en sus tres variantes
+  /// (vacía para los sonidos de ruido). El afinador no cuenta como práctica
+  /// lo que oiga en ellas mientras el metrónomo suena.
+  static List<double> pitchedFrequencies(ClickSound sound) {
+    final double? base = clickBaseFrequency(sound);
+    if (base == null) {
+      return const <double>[];
+    }
+    return <double>[for (final BeatKind k in BeatKind.values) base * pitchMultiplier(k)];
+  }
 
   /// Muestras de un golpe (cacheadas por sonido y tipo).
   Float32List sample(ClickSound sound, BeatKind kind) {
@@ -98,7 +142,7 @@ class ClickSynth {
 
   Float32List _render(ClickSound sound, BeatKind kind) {
     final double gain = kind == BeatKind.accent ? 1.0 : (kind == BeatKind.normal ? 0.72 : 0.42);
-    final double pitchMul = kind == BeatKind.accent ? 1.35 : (kind == BeatKind.normal ? 1.0 : 0.85);
+    final double pitchMul = pitchMultiplier(kind);
     switch (sound) {
       case ClickSound.madera:
         return _tone(freq: 880 * pitchMul, decay: 0.045, gain: gain, noise: 0.25, noiseDecay: 0.01, harmonics: <double>[1, 0.4]);

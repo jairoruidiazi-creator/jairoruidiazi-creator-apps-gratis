@@ -6,7 +6,7 @@ AFINADOR
 • Temperamentos igual, justo, pitagórico, mesotónico y uno propio editable por grado.
 • Instrumentos transpositores (Si bemol, Mi bemol, Fa, La) y capo.
 • Notación en solfeo (Do, Re, Mi), inglesa, alemana e india.
-• Perfiles con cuerdas para guitarra, bajo, ukelele, tiple, bandola, cuatro, requinto, charango, mandolina, banjo, violín, viola, violonchelo y contrabajo, con detección automática de la cuerda o cuerda fija.
+• Perfiles con cuerdas para guitarra, bajo, ukelele, tiple (con sus cuerdas a la octava), requinto colombiano, bandola, cuatro, charango, requinto de guitarra, mandolina, banjo, violín, viola, violonchelo y contrabajo, con detección automática de la cuerda o cuerda fija.
 
 METRÓNOMO
 • De 20 a 400 BPM, tap tempo e indicación italiana del tempo.
@@ -14,11 +14,11 @@ METRÓNOMO
 • Editor de pulsos: acento, normal, silencio o solo subdivisión.
 • 12 sonidos sintetizados con tres variantes cada uno.
 • Entrenador de tempo que sube por pasos y compases mudos para practicar el pulso interno.
-• Péndulo, número grande, destello y vibración sincronizados con el audio, con ajuste para audífonos Bluetooth.
+• Péndulo o número grande, destello y vibración sincronizados con lo que se oye, con ajuste del retraso del audio y calibración por toques para audífonos Bluetooth.
 • Conteo hablado, preajustes y setlists que se pueden exportar e importar.
 
 TONO Y TECLADO
-• Bordón con quinta opcional, cuatro formas de onda y volumen.
+• Bordón con quinta pura opcional, cuatro formas de onda y volumen.
 • Teclado de 8 octavas y acordes sostenidos (mayor, menor, séptima, disminuido, aumentado, sus2, sus4 y quinta).
 • Todo sigue la referencia y el temperamento del afinador.
 
@@ -28,8 +28,8 @@ GRABADORA
 • Reproducción de 0,5x a 1,5x y opción de compartir.
 
 PRÁCTICA
-• Registro automático del tiempo al usar cualquier herramienta.
-• Metas diaria y semanal y una racha que no castiga los días de descanso.
+• Registro automático del tiempo mientras suenan el metrónomo, el bordón o el teclado, mientras grabas y mientras el afinador oye tu instrumento.
+• Metas diaria y semanal y una racha que admite un día de descanso de cada siete.
 • Minutos por día y desglose por instrumento y herramienta.
 
 PRIVACIDAD

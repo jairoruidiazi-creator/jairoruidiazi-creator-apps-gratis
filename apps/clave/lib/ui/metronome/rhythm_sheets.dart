@@ -108,9 +108,18 @@ Future<void> showSubdivisionSheet(BuildContext context, RhythmConfig initial, Va
           onChanged: (bool v) => applyConfig(c.copyWith(subdivisionAudible: v)),
         ),
         if (c.subdivision == 2) ...<Widget>[
-          Text('Swing: ${(c.swing * 100).round()} %'),
-          Slider(min: 0, max: 1, divisions: 10, value: c.swing, label: '${(c.swing * 100).round()} %', onChanged: (double v) => applyConfig(c.copyWith(swing: v))),
-          Text(t(context, '0 % = corcheas rectas · 100 % = corchea de tresillo', '0% = straight eighths · 100% = triplet feel'), style: Theme.of(context).textTheme.bodySmall),
+          Text('Swing: ${formatPercent(c.swing, spanish: isSpanish(context))}'),
+          Slider(
+            min: 0,
+            max: 1,
+            divisions: 10,
+            value: c.swing,
+            label: formatPercent(c.swing, spanish: isSpanish(context)),
+            semanticFormatterCallback: (double v) => 'Swing ${formatPercent(v, spanish: isSpanish(context))}',
+            onChanged: (double v) => applyConfig(c.copyWith(swing: v)),
+          ),
+          Text(t(context, '0\u00a0% = corcheas rectas · 100\u00a0% = corchea de tresillo', '0% = straight eighths · 100% = triplet feel'), style: Theme.of(context).textTheme.bodySmall),
+          Text(t(context, 'Los cambios con el metrónomo en marcha rigen desde el pulso siguiente.', 'Changes while the metronome runs apply from the next beat.'), style: Theme.of(context).textTheme.bodySmall),
         ],
       ],
     );
@@ -152,7 +161,7 @@ Future<void> showSoundSheet(BuildContext context, RhythmConfig initial, ValueCha
 
 Future<void> showTrainerSheet(BuildContext context, RhythmConfig initial, ValueChanged<RhythmConfig> onChange) {
   RhythmConfig c = initial;
-  TrainerConfig tr = initial.trainer ?? TrainerConfig(targetBpm: (initial.bpm + 20).clamp(20, 400).toDouble());
+  TrainerConfig tr = initial.trainer ?? TrainerConfig(targetBpm: (initial.bpm + 20).clamp(20.0, 400.0).toDouble());
   bool on = initial.trainer != null;
   return _sheet(context, (BuildContext context, void Function(void Function()) setState) {
     void apply() {
@@ -177,11 +186,40 @@ Future<void> showTrainerSheet(BuildContext context, RhythmConfig initial, ValueC
           },
         ),
         Text('${t(context, 'Tempo meta', 'Target tempo')}: ${tr.targetBpm.toStringAsFixed(0)} BPM'),
-        Slider(min: 20, max: 400, value: tr.targetBpm.clamp(20.0, 400.0), onChanged: (double v) { tr = TrainerConfig(targetBpm: v.roundToDouble(), stepBpm: tr.stepBpm, everyBars: tr.everyBars); apply(); }),
+        Slider(
+          min: 20,
+          max: 400,
+          value: tr.targetBpm.clamp(20.0, 400.0),
+          semanticFormatterCallback: (double v) => '${t(context, 'Tempo meta', 'Target tempo')} ${v.round()} BPM',
+          onChanged: (double v) {
+            tr = TrainerConfig(targetBpm: v.roundToDouble(), stepBpm: tr.stepBpm, everyBars: tr.everyBars);
+            apply();
+          },
+        ),
         Text('${t(context, 'Paso', 'Step')}: ${tr.stepBpm.toStringAsFixed(0)} BPM'),
-        Slider(min: 1, max: 20, divisions: 19, value: tr.stepBpm.clamp(1.0, 20.0), onChanged: (double v) { tr = TrainerConfig(targetBpm: tr.targetBpm, stepBpm: v.roundToDouble(), everyBars: tr.everyBars); apply(); }),
+        Slider(
+          min: 1,
+          max: 20,
+          divisions: 19,
+          value: tr.stepBpm.clamp(1.0, 20.0),
+          semanticFormatterCallback: (double v) => '${t(context, 'Paso', 'Step')} ${v.round()} BPM',
+          onChanged: (double v) {
+            tr = TrainerConfig(targetBpm: tr.targetBpm, stepBpm: v.roundToDouble(), everyBars: tr.everyBars);
+            apply();
+          },
+        ),
         Text('${t(context, 'Cada', 'Every')}: ${tr.everyBars} ${t(context, 'compases', 'bars')}'),
-        Slider(min: 1, max: 16, divisions: 15, value: tr.everyBars.toDouble(), onChanged: (double v) { tr = TrainerConfig(targetBpm: tr.targetBpm, stepBpm: tr.stepBpm, everyBars: v.round()); apply(); }),
+        Slider(
+          min: 1,
+          max: 16,
+          divisions: 15,
+          value: tr.everyBars.toDouble(),
+          semanticFormatterCallback: (double v) => '${t(context, 'Cada', 'Every')} ${v.round()} ${t(context, 'compases', 'bars')}',
+          onChanged: (double v) {
+            tr = TrainerConfig(targetBpm: tr.targetBpm, stepBpm: tr.stepBpm, everyBars: v.round());
+            apply();
+          },
+        ),
       ],
     );
   });
@@ -214,9 +252,29 @@ Future<void> showMuteSheet(BuildContext context, RhythmConfig initial, ValueChan
           },
         ),
         Text('${t(context, 'Compases que suenan', 'Bars with click')}: ${m.soundBars}'),
-        Slider(min: 1, max: 8, divisions: 7, value: m.soundBars.toDouble(), onChanged: (double v) { m = MuteConfig(soundBars: v.round(), muteBarsCount: m.muteBarsCount); apply(); }),
+        Slider(
+          min: 1,
+          max: 8,
+          divisions: 7,
+          value: m.soundBars.toDouble(),
+          semanticFormatterCallback: (double v) => '${v.round()} ${t(context, 'compases que suenan', 'bars with click')}',
+          onChanged: (double v) {
+            m = MuteConfig(soundBars: v.round(), muteBarsCount: m.muteBarsCount);
+            apply();
+          },
+        ),
         Text('${t(context, 'Compases mudos', 'Silent bars')}: ${m.muteBarsCount}'),
-        Slider(min: 1, max: 8, divisions: 7, value: m.muteBarsCount.toDouble(), onChanged: (double v) { m = MuteConfig(soundBars: m.soundBars, muteBarsCount: v.round()); apply(); }),
+        Slider(
+          min: 1,
+          max: 8,
+          divisions: 7,
+          value: m.muteBarsCount.toDouble(),
+          semanticFormatterCallback: (double v) => '${v.round()} ${t(context, 'compases mudos', 'silent bars')}',
+          onChanged: (double v) {
+            m = MuteConfig(soundBars: m.soundBars, muteBarsCount: v.round());
+            apply();
+          },
+        ),
       ],
     );
   });

@@ -1,15 +1,16 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 
 import 'audio_engine.dart';
 import 'click_synth.dart';
+import 'haptics.dart';
 import 'sequencer.dart';
 
 /// Estado visible del pulso actual.
 class BeatState {
-  const BeatState({required this.bar, required this.beat, required this.sub, required this.kind, required this.phase, required this.bpm, required this.running});
+  const BeatState({required this.bar, required this.beat, required this.sub, required this.kind, required this.phase, required this.bpm, required this.running, this.beatCount = 0});
 
   final int bar;
   final int beat;
@@ -21,17 +22,25 @@ class BeatState {
   final double bpm;
   final bool running;
 
+  /// Pulsos desde que arrancó: el péndulo va y viene alternando con él,
+  /// también en compases de 3, 5 o 7 pulsos.
+  final int beatCount;
+
   static const BeatState idle = BeatState(bar: 0, beat: 0, sub: 0, kind: BeatKind.accent, phase: 0, bpm: 0, running: false);
 }
 
 /// Metrónomo: genera el audio por bloques adelantándose al reloj del motor,
 /// y expone el pulso actual leyendo cuánto audio se ha consumido. Así las
 /// luces, el péndulo y la vibración van atados al sonido y no a un Timer.
+///
+/// [ChangeNotifier] avisa de los cambios de configuración y de marcha; el
+/// pulso de la animación (60 veces por segundo) va aparte en [beat].
 class Metronome extends ChangeNotifier {
-  Metronome(this.engine, {this.sampleRate = 44100});
+  Metronome(this.engine, {this.sampleRate = 44100, Haptics? haptics}) : haptics = haptics ?? const NoHaptics();
 
   final AudioEngine engine;
   final int sampleRate;
+  final Haptics haptics;
   final ClickSynth _synth = ClickSynth();
 
   RhythmConfig _config = const RhythmConfig();
@@ -40,46 +49,60 @@ class Metronome extends ChangeNotifier {
   bool hapticsEnabled = false;
   bool flashEnabled = true;
 
-  /// Desfase visual en milisegundos (positivo = adelantar la animación),
-  /// para compensar la latencia de salida o los audífonos Bluetooth.
-  int visualOffsetMs = 0;
+  /// Retraso del audio en milisegundos (0 a 400): el sonido que el
+  /// mezclador ya consumió tarda este tiempo en oírse (salida del teléfono y
+  /// audífonos Bluetooth), así que la animación y la vibración se retrasan lo
+  /// mismo. Positivo = el audio llega tarde.
+  int audioDelayMs = 0;
   double volume = 1.0;
+
+  /// Pulso actual para la animación.
+  final ValueNotifier<BeatState> beat = ValueNotifier<BeatState>(BeatState.idle);
 
   PcmStream? _stream;
   ClickScheduler? _scheduler;
   ClickRenderer? _renderer;
   Timer? _feeder;
   Timer? _ticker;
-  BeatState _state = BeatState.idle;
   int _lastHapticSample = -1;
   int _tapCount = 0;
   DateTime? _lastTap;
   final List<int> _tapIntervals = <int>[];
+  bool _starting = false;
 
   /// Tiempo de audio que se mantiene generado por delante del consumo.
   static const double lookaheadSeconds = 0.18;
   static const int chunkFrames = 2048;
 
-  BeatState get state => _state;
+  BeatState get state => beat.value;
 
   bool get running => _stream != null;
 
   /// Tempo vigente (con el entrenador puede diferir del configurado).
   double get currentBpm => _scheduler?.currentBpm ?? _config.bpm;
 
+  /// Sonido del clic que suena (el afinador no cuenta sus frecuencias).
+  ClickSound get sound => _config.sound;
+
   void setConfig(RhythmConfig c) {
-    _config = c;
-    _scheduler?.update(c);
+    _config = c.sanitized();
+    _scheduler?.update(_config);
     notifyListeners();
   }
 
-  void setBpm(double bpm) => setConfig(_config.copyWith(bpm: bpm.clamp(20.0, 400.0).toDouble()));
+  void setBpm(double bpm) => setConfig(_config.copyWith(bpm: bpm.clamp(RhythmConfig.minBpm, RhythmConfig.maxBpm).toDouble()));
 
   Future<void> start() async {
-    if (running) {
+    if (running || _starting) {
       return;
     }
-    final PcmStream? s = await engine.openPcmStream(sampleRate: sampleRate, bufferingSeconds: 0.03);
+    _starting = true;
+    PcmStream? s;
+    try {
+      s = await engine.openPcmStream(sampleRate: sampleRate, bufferingSeconds: 0.03);
+    } finally {
+      _starting = false;
+    }
     if (s == null) {
       return;
     }
@@ -102,7 +125,7 @@ class Metronome extends ChangeNotifier {
     _stream = null;
     _scheduler = null;
     _renderer = null;
-    _state = BeatState.idle;
+    beat.value = BeatState.idle;
     notifyListeners();
     if (s != null) {
       await engine.closePcmStream(s);
@@ -127,42 +150,37 @@ class Metronome extends ChangeNotifier {
     }
   }
 
+  /// Muestra que se está oyendo ahora: lo consumido menos el retraso.
+  int _heardSample(PcmStream s) {
+    final double heard = engine.consumedSeconds(s) - audioDelayMs / 1000.0;
+    return (heard * sampleRate).round();
+  }
+
   void _tick() {
     final PcmStream? s = _stream;
     final ClickRenderer? r = _renderer;
     if (s == null || r == null) {
       return;
     }
-    final double consumed = engine.consumedSeconds(s) + visualOffsetMs / 1000.0;
-    final int sample = (consumed * sampleRate).round();
+    final int sample = _heardSample(s);
     final ClickEvent? e = r.eventAt(sample);
     if (e == null) {
       return;
     }
-    final double subSeconds = 60.0 / e.bpm / _config.subdivision;
-    final double beatSeconds = 60.0 / e.bpm;
-    // Fase del pulso: posición dentro del pulso, contando las subdivisiones.
-    final double sinceEvent = (sample - e.sample) / sampleRate;
-    final double phase = ((e.sub * subSeconds + sinceEvent) / beatSeconds).clamp(0.0, 1.0).toDouble();
-    final BeatState next = BeatState(bar: e.bar, beat: e.beat, sub: e.sub, kind: e.kind, phase: phase, bpm: e.bpm, running: true);
-    final bool newEvent = e.sample != _lastHapticSample;
-    if (newEvent) {
+    final double phase = e.beatLength <= 0 ? 0 : ((sample - e.beatStart) / e.beatLength).clamp(0.0, 1.0).toDouble();
+    final BeatState next = BeatState(bar: e.bar, beat: e.beat, sub: e.sub, kind: e.kind, phase: phase, bpm: e.bpm, running: true, beatCount: e.beatCount);
+    if (e.sample != _lastHapticSample) {
       _lastHapticSample = e.sample;
       if (hapticsEnabled && e.sub == 0 && e.audible) {
-        if (e.kind == BeatKind.accent) {
-          unawaited(HapticFeedback.heavyImpact());
-        } else {
-          unawaited(HapticFeedback.lightImpact());
-        }
+        haptics.pulse(accent: e.kind == BeatKind.accent);
       }
     }
-    _state = next;
-    notifyListeners();
+    beat.value = next;
   }
 
   /// Tap tempo: promedia los últimos intervalos entre toques.
   double? tap() {
-    final DateTime now = DateTime.now();
+    final DateTime now = clock.now();
     final DateTime? last = _lastTap;
     _lastTap = now;
     if (last == null || now.difference(last).inMilliseconds > 2500) {
@@ -176,7 +194,10 @@ class Metronome extends ChangeNotifier {
     }
     _tapCount += 1;
     final double avg = _tapIntervals.reduce((int a, int b) => a + b) / _tapIntervals.length;
-    final double bpm = (60000 / avg).clamp(20.0, 400.0).toDouble();
+    if (avg <= 0) {
+      return null;
+    }
+    final double bpm = (60000 / avg).clamp(RhythmConfig.minBpm, RhythmConfig.maxBpm).toDouble();
     setBpm(bpm.roundToDouble());
     return bpm;
   }
@@ -192,6 +213,7 @@ class Metronome extends ChangeNotifier {
     if (s != null) {
       unawaited(engine.closePcmStream(s));
     }
+    beat.dispose();
     super.dispose();
   }
 }

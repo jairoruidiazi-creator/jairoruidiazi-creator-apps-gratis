@@ -1,4 +1,4 @@
 Clave works fully offline and needs no account or sign-in.
-The microphone is used only by the tuner and the recorder; audio is analyzed on the device and recordings are stored in the app's private storage. Denying the permission leaves the metronome, drone, keyboard and practice log fully usable.
-The audio background mode keeps the metronome and drone playing while the musician practices with the screen locked or in another app.
-To try it quickly: open Tuner and play or sing a note; open Metronome and tap Play.
+The microphone is used only by the tuner, while the Tuner tab is on screen and the app is in the foreground, and by the recorder while a take is being recorded. Audio is analyzed on the device and recordings are stored in the app's private storage. Before the system permission dialog, the app explains what the microphone is for; denying the permission leaves the metronome, drone, keyboard and practice log fully usable.
+The audio background mode keeps the metronome, the drone and a recording in progress going while the musician practices with the screen locked or in another app.
+To try it quickly: on the Tuner tab tap "Allow microphone" and play or sing a note; on the Metronome tab tap "Start".

@@ -27,20 +27,22 @@ Respuestas verificadas contra el código de la versión 1.0.0 (build 1).
 
 **Apps de salud, noticias, COVID-19, gobierno:** No.
 
-**Seguridad de los datos (Data safety):** ¿Recopila o comparte datos? **No.** El sonido del micrófono se analiza en tiempo real en el teléfono y no se guarda ni se envía; las grabaciones quedan en el almacenamiento privado de la app y solo salen cuando el usuario las comparte. La app no usa internet (no declara el permiso `INTERNET`).
+**Seguridad de los datos (Data safety):** ¿Recopila o comparte datos? **No.** El sonido del micrófono se analiza en tiempo real en el teléfono y no se guarda ni se envía; las grabaciones quedan en el almacenamiento privado de la app y solo salen cuando el usuario las comparte con la hoja del sistema. La app no usa internet (no declara el permiso `INTERNET`).
+
+**Segundo plano en Android:** no hay servicio en primer plano; al salir de la app se detienen el metrónomo y el bordón, y una toma en curso se cierra y se guarda.
 
 **Permisos:**
 
 | Permiso | Uso |
 | --- | --- |
-| `RECORD_AUDIO` | Afinador y grabadora (se pide al usarlos; sin él el resto funciona) |
-| `VIBRATE` | Pulso del metrónomo en vibración |
+| `RECORD_AUDIO` | Afinador (solo con su pestaña a la vista y la app al frente) y grabadora (mientras graba). Se pide al usarlos, con una explicación previa; sin él el resto funciona |
+| `VIBRATE` | Pulso del metrónomo en vibración, si se activa (paquete `vibration`, `VibrationEffect`) |
 
 ## App Store Connect
 
 **Privacidad de la app:** "Datos no recopilados". `PrivacyInfo.xcprivacy`: sin rastreo, sin dominios, sin datos recopilados, UserDefaults con motivo CA92.1.
 
-**Modos en segundo plano:** `audio`, para que el metrónomo y el bordón sigan sonando con la pantalla bloqueada. La nota para la revisión lo explica.
+**Modos en segundo plano:** `audio`, para que el metrónomo, el bordón y una toma en curso sigan con la pantalla bloqueada. La nota para la revisión lo explica.
 
 **Clasificación por edad:** todas las preguntas en "Ninguno"/"No". Resultado esperado: 4+.
 
