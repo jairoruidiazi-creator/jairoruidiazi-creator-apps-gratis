@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui' show Color;
 
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
