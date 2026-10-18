@@ -131,7 +131,7 @@ class _TxEditorState extends State<TxEditor> {
     // Un borrador recuperado ya trae lo que se había escrito sobre el aviso.
     final bool fromNotice = ib != null && widget.existing == null && widget.draft == null;
     if (fromNotice) {
-      _initFromNotice(l, ib!);
+      _initFromNotice(l, ib);
     }
     if (_accountId == null || l.account(_accountId) == null) {
       final String def = _s!.settings.defaultAccountId;
