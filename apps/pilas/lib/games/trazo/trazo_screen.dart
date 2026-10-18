@@ -352,7 +352,8 @@ class _TrazoScreenState extends State<TrazoScreen> {
           if (ejemplo != null) Padding(padding: const EdgeInsets.only(bottom: 6), child: ejemplo),
           Expanded(child: canvas),
           const SizedBox(height: 10),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: _zurdo ? bottom.reversed.toList() : bottom),
+          // Con la letra al doble, los dos botones se achican antes que salirse.
+          FittedBox(fit: BoxFit.scaleDown, child: Row(mainAxisSize: MainAxisSize.min, children: _zurdo ? bottom.reversed.toList() : bottom)),
         ],
       ),
     );

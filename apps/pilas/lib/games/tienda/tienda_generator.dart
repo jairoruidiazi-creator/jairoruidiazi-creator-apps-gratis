@@ -76,7 +76,7 @@ class TiendaGenerator {
     'lapiz': <int>[500, 3000], 'crayon': <int>[300, 2000], 'regla': <int>[1000, 5000], 'pincel': <int>[1000, 6000],
     'tijeras': <int>[2000, 9000], 'libro': <int>[8000, 60000], 'libros': <int>[15000, 90000], 'maleta': <int>[30000, 150000],
     // Juguetes.
-    'globo': <int>[200, 2000], 'dado': <int>[300, 3000], 'yoyo': <int>[2000, 9000], 'cometa': <int>[5000, 25000],
+    'globo': <int>[100, 2000], 'dado': <int>[300, 3000], 'yoyo': <int>[2000, 9000], 'cometa': <int>[5000, 25000],
     'rompecabezas': <int>[8000, 50000], 'balon': <int>[10000, 70000], 'patineta': <int>[40000, 150000],
   };
 

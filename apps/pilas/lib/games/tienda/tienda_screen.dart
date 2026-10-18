@@ -221,7 +221,12 @@ class _TiendaScreenState extends State<TiendaScreen> {
               const SizedBox(height: 10),
               Expanded(child: _bandejaView()),
               const SizedBox(height: 10),
-              _monedero(pago, coinWidth),
+              // Con la letra muy grande el monedero no empuja el botón de
+              // pagar fuera de la pantalla: se desplaza dentro de su espacio.
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: c.maxHeight * 0.4),
+                child: SingleChildScrollView(child: _monedero(pago, coinWidth)),
+              ),
               const SizedBox(height: 10),
               _botonPagar(),
             ],

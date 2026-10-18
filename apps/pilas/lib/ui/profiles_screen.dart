@@ -110,6 +110,10 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
     final PilasPalette pal = PilasPalette.of(context);
     final List<Profile> profiles = s.state.profiles;
     final double scale = MediaQuery.textScalerOf(context).scale(18) / 18;
+    // Teléfono acostado: cabecera compacta (sin lema y con la mascota más
+    // pequeña) para que las tarjetas se vean sin desplazar, aun con la letra
+    // al doble.
+    final bool compacta = MediaQuery.sizeOf(context).height < 500;
     return Scaffold(
       body: SafeArea(
         child: CustomScrollView(
@@ -122,14 +126,14 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
                     LayoutBuilder(builder: (BuildContext context, BoxConstraints c) {
                       final Widget titulo = Row(
                         children: <Widget>[
-                          const Mascot(size: 64),
+                          Mascot(size: compacta ? 40 : 64),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
                                 Text(S.appName, style: Theme.of(context).textTheme.headlineMedium),
-                                Text(S.lema, style: TextStyle(fontSize: 16, color: pal.tintaSuave)),
+                                if (!compacta) Text(S.lema, style: TextStyle(fontSize: 16, color: pal.tintaSuave)),
                               ],
                             ),
                           ),
@@ -151,8 +155,8 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
                       }
                       return Row(children: <Widget>[Expanded(child: titulo), adulto]);
                     }),
-                    const SizedBox(height: 20),
-                    Text(S.quienJuega, textAlign: TextAlign.center, style: Theme.of(context).textTheme.headlineSmall),
+                    SizedBox(height: compacta ? 8 : 20),
+                    Text(S.quienJuega, textAlign: TextAlign.center, style: compacta ? Theme.of(context).textTheme.titleLarge : Theme.of(context).textTheme.headlineSmall),
                     if (profiles.isEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
@@ -175,7 +179,7 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
                   maxCrossAxisExtent: 190,
                   mainAxisSpacing: 14,
                   crossAxisSpacing: 14,
-                  mainAxisExtent: 112 + 30 * math.max(1.0, scale),
+                  mainAxisExtent: 112 + 40 * math.max(1.0, scale),
                 ),
                 delegate: SliverChildBuilderDelegate(
                   (BuildContext context, int i) {
@@ -185,13 +189,16 @@ class _ProfilesScreenState extends State<ProfilesScreen> {
                         semanticsLabel: S.nuevoPerfil,
                         onTap: _busy ? null : () => _once(_nuevo),
                         color: pal.acentoClaro,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Icon(Icons.add_circle_rounded, size: 56, color: pal.acento),
-                            const SizedBox(height: 8),
-                            Text(S.nuevoPerfil, textAlign: TextAlign.center, maxLines: 2, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: pal.tinta)),
-                          ],
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: <Widget>[
+                              Icon(Icons.add_circle_rounded, size: 56, color: pal.acento),
+                              const SizedBox(height: 8),
+                              Text(S.nuevoPerfil, textAlign: TextAlign.center, maxLines: 2, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: pal.tinta)),
+                            ],
+                          ),
                         ),
                       );
                     }
