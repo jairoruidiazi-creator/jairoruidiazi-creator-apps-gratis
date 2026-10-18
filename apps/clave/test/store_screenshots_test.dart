@@ -53,10 +53,10 @@ void main() {
       testWidgets('Capturas de Clave en ${device.id} ($lang)', (WidgetTester tester) async {
         final bool es = lang == 'es';
         String tr(String a, String b) => es ? a : b;
-        final List<FlutterErrorDetails> errors = <FlutterErrorDetails>[];
+        final List<String> errors = <String>[];
         final FlutterExceptionHandler? previous = FlutterError.onError;
         FlutterError.onError = (FlutterErrorDetails d) {
-          errors.add(d);
+          errors.add(d.toString());
           previous?.call(d);
         };
         addTearDown(() => FlutterError.onError = previous);
@@ -153,7 +153,7 @@ void main() {
         metronome.dispose();
         await tester.runAsync(() => dir.delete(recursive: true));
         });
-        expect(errors, isEmpty, reason: errors.map((FlutterErrorDetails d) => d.toString()).join('\n----\n'));
+        expect(errors, isEmpty, reason: errors.join('\n----\n'));
       }, variant: TargetPlatformVariant.only(device.platform), timeout: const Timeout(Duration(minutes: 4)));
     }
   }

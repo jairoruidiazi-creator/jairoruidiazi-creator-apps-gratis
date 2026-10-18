@@ -98,10 +98,10 @@ Future<void> _colorIn(WidgetTester tester, {int leave = 3}) async {
 void main() {
   for (final StoreDevice device in StoreDevice.all) {
     testWidgets('Capturas de Pilas en ${device.id}', (WidgetTester tester) async {
-      final List<FlutterErrorDetails> errors = <FlutterErrorDetails>[];
+      final List<String> errors = <String>[];
       final FlutterExceptionHandler? previous = FlutterError.onError;
       FlutterError.onError = (FlutterErrorDetails d) {
-        errors.add(d);
+        errors.add(d.toString());
         previous?.call(d);
       };
       addTearDown(() => FlutterError.onError = previous);
@@ -170,7 +170,7 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump(const Duration(seconds: 2));
       await tester.runAsync(() => dir.delete(recursive: true));
-      expect(errors, isEmpty, reason: errors.map((FlutterErrorDetails d) => d.toString()).join('\n----\n'));
+      expect(errors, isEmpty, reason: errors.join('\n----\n'));
     }, variant: TargetPlatformVariant.only(device.platform), timeout: const Timeout(Duration(minutes: 4)));
   }
 }
