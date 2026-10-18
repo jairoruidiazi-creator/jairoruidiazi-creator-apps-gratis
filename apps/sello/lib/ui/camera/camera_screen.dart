@@ -316,9 +316,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     _errorSub = null;
     final Future<void>? shot = _shot;
     late final Future<void> done;
+    // Sin esperar la cancelación: su futuro se completa en la zona raíz.
+    unawaited(sub?.cancel());
     done = () async {
       try {
-        await sub?.cancel();
         if (shot != null) {
           await shot;
         }

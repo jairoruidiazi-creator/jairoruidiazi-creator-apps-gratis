@@ -339,7 +339,8 @@ void main() {
     expect(camera.exposureRequests.length, greaterThan(1));
     expect(camera.exposureRequests.length, lessThan(15));
     expect(camera.exposureMaxRunning, 1);
-    expect(camera.exposureRequests.last, tester.widget<Slider>(slider).value);
+    // CameraController redondea al paso de la cámara (0,5 EV en el falso).
+    expect(camera.exposureRequests.last, (tester.widget<Slider>(slider).value / 0.5).round() * 0.5);
     expect(tester.widget<Slider>(slider).value, greaterThan(0));
 
     // Enfoque: tocar otro punto antes de que termine el primero (CameraX

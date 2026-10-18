@@ -455,7 +455,8 @@ class FakeDeviceFiles extends DeviceFiles {
         out.writeFromSync(bytes, i, min(i + chunk, bytes.length));
         progress.add(min(i + chunk, bytes.length));
         onProgress?.call(min(i + chunk, bytes.length), doc.size);
-        await Future<void>.delayed(Duration.zero);
+        // Un respiro entre bloques (microtarea: pump() la atiende).
+        await Future<void>.microtask(() {});
       }
     } catch (_) {
       out.closeSync();
