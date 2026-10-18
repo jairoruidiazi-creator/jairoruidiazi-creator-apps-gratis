@@ -80,10 +80,10 @@ class HomeScreen extends StatelessWidget {
               LayoutBuilder(
                 builder: (BuildContext context, BoxConstraints box) {
                   // En tableta las tarjetas se ensanchan para que los nombres
-                  // largos no se corten; la quinta se asoma para que se note
-                  // que la fila sigue.
+                  // largos ("Tarjeta de crédito") no se corten; la cuarta se
+                  // asoma para que se note que la fila sigue.
                   final double minWidth = _AccountCard.widthFor(context);
-                  final double width = box.maxWidth >= 600 ? math.max(minWidth, (box.maxWidth - 4 * 8) / 4.4) : minWidth;
+                  final double width = box.maxWidth >= 600 ? math.max(minWidth, (box.maxWidth - 3 * 8) / 3.4) : minWidth;
                   return SizedBox(
                     height: _AccountCard.heightFor(context),
                     child: visible.isEmpty
