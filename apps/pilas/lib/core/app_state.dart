@@ -233,6 +233,12 @@ class AppState extends ChangeNotifier {
     }, sinRastro: sinRastro);
   }
 
+  /// Forma de los ids que crea [_newId] (milisegundos y un número al azar,
+  /// en base 36): solo minúsculas y cifras. Un id importado que no la cumpla
+  /// ("", "..", "ab.json") se rechaza, porque los ids forman rutas de
+  /// archivos y borrar ese perfil podría borrar datos de otros.
+  static final RegExp idValido = RegExp(r'^[0-9a-z]{1,32}$');
+
   String _newId() {
     final Random r = Random();
     final int t = clock.now().millisecondsSinceEpoch;
@@ -330,6 +336,14 @@ class AppState extends ChangeNotifier {
       copias += await store.deleteAsides(_groupsFile, si: (String t) => t.contains(id));
     } catch (e) {
       debugPrint('No se pudieron borrar las copias dañadas: $e');
+    }
+    // Las copias dañadas de los avisos (`avisos.json.corrupto-*` y
+    // `avisos.json.bak.corrupto-*`) se borran siempre: no se pueden leer, ya
+    // se avisó de ellas y pueden nombrar al perfil borrado (sin aviso nuevo).
+    try {
+      await store.deleteAsides(_noticesFile);
+    } catch (e) {
+      debugPrint('No se pudieron borrar las copias dañadas de los avisos: $e');
     }
     // Los avisos de ese perfil (por id; los viejos, por la frase exacta). Si
     // otro perfil vigente se llama igual, un aviso viejo sin id se deja.
@@ -829,6 +843,11 @@ class AppState extends ChangeNotifier {
       }
     } catch (e) {
       throw const FormatException('El archivo está incompleto o tiene un formato que Pilas no reconoce.');
+    }
+    final bool idsMalos = nuevos.any((Profile p) => !idValido.hasMatch(p.id)) ||
+        grupos.any((ClassGroup g) => !idValido.hasMatch(g.id) || g.profileIds.any((String id) => !idValido.hasMatch(id)));
+    if (idsMalos) {
+      throw const FormatException('El archivo tiene un perfil o un grupo con un identificador que Pilas no reconoce. No se importó nada.');
     }
     for (final Profile p in nuevos) {
       final Profile? existing = profileById(p.id);

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:clock/clock.dart';
@@ -102,6 +103,24 @@ void main() {
       expect(a.profiles.length, 1);
       expect(p.stickers.length, 1);
       await expectLater(a.importAll(<String, dynamic>{'app': 'otra'}), throwsFormatException);
+      // N4: los ids que crea la app cumplen la forma que se exige al importar.
+      expect(AppState.idValido.hasMatch(ana.id), isTrue, reason: ana.id);
+      // Un id que no la cumple ("", "..", "ab.json"…) se rechaza y no se
+      // importa nada: con él, borrar ese perfil podría borrar datos de otros.
+      for (final String malo in <String>['', '..', 'ab.json', '../x', 'Ana', 'a/b', 'a' * 33]) {
+        final Map<String, dynamic> copia = jsonDecode(jsonEncode(datos)) as Map<String, dynamic>;
+        ((copia['profiles'] as List<dynamic>).first as Map<String, dynamic>)['id'] = malo;
+        await expectLater(
+          a.importAll(copia),
+          throwsA(isA<FormatException>().having((FormatException e) => e.message, 'mensaje', contains('identificador'))),
+          reason: '«$malo»',
+        );
+      }
+      final Map<String, dynamic> conGrupo = jsonDecode(jsonEncode(datos)) as Map<String, dynamic>;
+      conGrupo['groups'] = <Map<String, dynamic>>[<String, dynamic>{'id': 'g1', 'nombre': 'Primero A', 'profileIds': <String>['..'], 'createdAt': '2026-10-18T00:00:00.000'}];
+      await expectLater(a.importAll(conGrupo), throwsFormatException);
+      expect(a.profiles.length, 1);
+      expect(a.groups, isEmpty);
       await expectLater(a.importAll(<String, dynamic>{'app': 'pilas', 'profiles': 'basura'}), throwsFormatException);
       a.dispose();
     });
