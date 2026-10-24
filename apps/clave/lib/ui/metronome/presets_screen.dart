@@ -281,13 +281,15 @@ class _PresetsScreenState extends State<PresetsScreen> {
     final String name = p.name.isEmpty ? t(context, 'Sin nombre', 'Untitled') : p.name;
     final String done = t(context, 'Se borró «$name»', 'Deleted "$name"');
     final String undo = t(context, 'Deshacer', 'Undo');
+    // Con acción, Flutter 3.38+ deja el aviso fijo; aquí se cierra solo salvo con lector de pantalla.
+    final bool keep = MediaQuery.accessibleNavigationOf(context);
     final PresetRemoval? removal = await s.state.deletePreset(p.id);
     if (removal == null) {
       return;
     }
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(done), action: SnackBarAction(label: undo, onPressed: () => s.state.restorePreset(removal))));
+      ..showSnackBar(SnackBar(content: Text(done), action: SnackBarAction(label: undo, onPressed: () => s.state.restorePreset(removal)), duration: const Duration(seconds: 8), persist: keep));
   }
 
   /// Borra la setlist (los preajustes se quedan) y ofrece deshacerlo.
@@ -296,6 +298,8 @@ class _PresetsScreenState extends State<PresetsScreen> {
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     final String done = t(context, 'Se borró la setlist «${setlist.name}»', 'Deleted the "${setlist.name}" setlist');
     final String undo = t(context, 'Deshacer', 'Undo');
+    // Con acción, Flutter 3.38+ deja el aviso fijo; aquí se cierra solo salvo con lector de pantalla.
+    final bool keep = MediaQuery.accessibleNavigationOf(context);
     final bool wasActive = s.settings.activeSetlistId == setlist.id;
     final int activeIndex = s.settings.activeSetlistIndex;
     final int index = await s.state.deleteSetlist(setlist.id);
@@ -327,7 +331,7 @@ class _PresetsScreenState extends State<PresetsScreen> {
 
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(done), action: SnackBarAction(label: undo, onPressed: restore)));
+      ..showSnackBar(SnackBar(content: Text(done), action: SnackBarAction(label: undo, onPressed: restore), duration: const Duration(seconds: 8), persist: keep));
   }
 
   Future<void> _rename(BuildContext context, Preset p) async {

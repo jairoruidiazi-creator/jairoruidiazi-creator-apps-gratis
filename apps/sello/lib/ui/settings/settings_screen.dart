@@ -140,6 +140,8 @@ class SettingsScreen extends StatelessWidget {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                           content: Text(t(context, 'Sin permiso para la fototeca. Puedes darlo en los ajustes del teléfono.', 'No access to the photo library. You can allow it in the phone settings.')),
                           action: SnackBarAction(label: t(context, 'Ajustes', 'Settings'), onPressed: () => s.location.backend.openAppSettings()),
+                          duration: const Duration(seconds: 8),
+                          persist: MediaQuery.accessibleNavigationOf(context),
                         ));
                       }
                       return;

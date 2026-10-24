@@ -221,6 +221,9 @@ class _RecorderScreenState extends State<RecorderScreen> with WidgetsBindingObse
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(t(context, 'Clave no tiene permiso para usar el micrófono.', 'Clave has no permission to use the microphone.')),
         action: SnackBarAction(label: t(context, 'Abrir ajustes', 'Open settings'), onPressed: () => unawaited(s.platform.openAppSettings())),
+        duration: const Duration(seconds: 8),
+        // Con acción, Flutter 3.38+ lo deja fijo; aquí se cierra solo salvo con lector de pantalla.
+        persist: MediaQuery.accessibleNavigationOf(context),
       ));
     }
     return false;

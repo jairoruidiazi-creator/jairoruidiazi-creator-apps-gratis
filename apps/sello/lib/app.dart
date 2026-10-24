@@ -168,7 +168,14 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver, Rout
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text), action: action, duration: const Duration(seconds: 6)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(text),
+      action: action,
+      duration: Duration(seconds: action == null ? 6 : 8),
+      // Desde Flutter 3.38 un SnackBar con acción no se cierra solo; aquí sí se
+      // cierra, salvo con lector de pantalla, donde se queda hasta que se atienda.
+      persist: MediaQuery.accessibleNavigationOf(context),
+    ));
   }
 
   /// Avisos visibles de la cola de sellado: si una foto no se pudo sellar

@@ -169,6 +169,10 @@ void showSnack(BuildContext context, String text, {String? actionLabel, VoidCall
   m.showSnackBar(SnackBar(
     content: Text(text),
     action: actionLabel == null || onAction == null ? null : SnackBarAction(label: actionLabel, onPressed: onAction),
+    duration: Duration(seconds: actionLabel == null || onAction == null ? 4 : 8),
+    // Desde Flutter 3.38 un SnackBar con acción no se cierra solo; aquí sí se
+    // cierra, salvo con lector de pantalla, donde se queda hasta que se atienda.
+    persist: MediaQuery.accessibleNavigationOf(context),
   ));
 }
 
