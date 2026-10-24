@@ -553,7 +553,11 @@ void main() {
     backend
       ..permission = LocationPermission.deniedForever
       ..requestResult = LocationPermission.deniedForever;
-    unawaited(services.location.stop().then((_) => services.location.retry()));
+    // Cancelar el flujo de posiciones espera fuera del tiempo simulado.
+    await tester.runAsync(() async {
+      await services.location.stop();
+      await services.location.retry();
+    });
     await pumpMany(tester, 10);
     expect(services.location.status, 'deniedForever');
     expect(services.location.locked, isTrue);

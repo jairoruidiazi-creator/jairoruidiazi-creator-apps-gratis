@@ -251,7 +251,9 @@ img.ExifData _stampExif(img.ExifData camera, ComposeJob job) {
     }
     if (taken != null) {
       final DateTime u = taken.toUtc();
-      gps['GPSDateStamp'] = img.IfdValueAscii('${u.year}:${_two(u.month)}:${_two(u.day)}');
+      // GPSDateStamp por número: el paquete `image` la llama «GPSDate» y con
+      // el nombre «GPSDateStamp» no se escribía.
+      gps[0x001D] = img.IfdValueAscii('${u.year}:${_two(u.month)}:${_two(u.day)}');
       gps['GPSTimeStamp'] = _rationals(<List<int>>[<int>[u.hour, 1], <int>[u.minute, 1], <int>[u.second, 1]]);
     }
   }
