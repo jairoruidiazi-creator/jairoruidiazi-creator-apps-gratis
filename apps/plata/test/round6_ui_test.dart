@@ -243,6 +243,9 @@ void main() {
       await tester.tap(find.text('Todavía no'));
       await settle(tester);
       expect(find.text('¿Ya lo pagaste?'), findsNothing);
+      // El editor queda abierto: se desmonta y se deja pasar el segundo con
+      // que libera sus campos.
+      await tester.pumpWidget(const SizedBox());
       await finish(tester);
     });
   });
