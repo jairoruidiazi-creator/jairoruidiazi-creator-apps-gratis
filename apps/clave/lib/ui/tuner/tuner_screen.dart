@@ -50,7 +50,7 @@ class _TunerScreenState extends State<TunerScreen> {
         final String name = tuner.instrument.name(isSpanish(context));
         return t(context, 'Suena más grave que el rango de $name · usar Cromático', 'Sounds lower than the $name range · use Chromatic');
       case TunerNotice.ownTone:
-        return t(context, 'Con el bordón sonando, la lectura se confunde con él: bájale el volumen o usa audífonos', 'With the drone playing, the reading mixes with it: turn it down or use headphones');
+        return t(context, 'Lo que se oye puede ser la mezcla con el bordón, las teclas o el acorde de la app. Apágalos para afinar esta nota.', 'What the tuner hears may be the mix with the app\'s drone, keys or chord. Turn them off to tune this note.');
       case TunerNotice.none:
         return null;
     }
@@ -190,10 +190,11 @@ class _TunerScreenState extends State<TunerScreen> {
               ),
               const SizedBox(height: 4),
               if (notice != null)
-                // Un aviso puede ocupar dos o tres líneas: no se encoge.
+                // Un aviso puede ocupar varias líneas (con letra grande, seis o
+                // más): no se encoge ni se corta; el afinador se desplaza.
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(notice, textAlign: TextAlign.center, maxLines: 3, style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant)),
+                  child: Text(notice, textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant)),
                 )
               else
                 FittedBox(

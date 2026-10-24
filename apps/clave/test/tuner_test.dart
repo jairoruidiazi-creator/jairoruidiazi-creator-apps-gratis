@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:clave/audio/click_synth.dart';
+import 'package:clave/audio/pitch_detector.dart';
 import 'package:clave/audio/sequencer.dart';
 import 'package:clave/audio/tuner.dart';
 import 'package:clave/music/instruments.dart';
@@ -239,7 +240,7 @@ void main() {
       expect(Instruments.byId('cromatico').lowestReading(), lessThan(12.1));
     });
 
-    test('El aviso de nota bajo el rango dura un momento y se va con el silencio (4.ª ronda, M3)', () {
+    test('El aviso de nota bajo el rango dura unos 5 s y se borra al cambiar de instrumento (4.ª ronda, M3; final, m2 y m3)', () {
       fakeAsync((FakeAsync async) {
         final Tuner tuner = Tuner(microphoneEnabled: false)
           ..instrument = Instruments.byId('violin')
@@ -253,38 +254,118 @@ void main() {
         expect(tuner.notice, TunerNotice.belowRange, reason: 'no parpadea');
         async.elapse(const Duration(milliseconds: 400));
         tuner.feed(Float32List(8192));
+        expect(tuner.notice, TunerNotice.belowRange, reason: 'el botón Cromático sigue unos 5 s');
+        async.elapse(const Duration(seconds: 5));
+        tuner.feed(Float32List(8192));
+        expect(tuner.notice, TunerNotice.none);
+        // Cambiar de instrumento borra el aviso del anterior.
+        tuner.feed(s.next(hzAt(36, 0), 8192));
+        expect(tuner.notice, TunerNotice.belowRange);
+        tuner.instrument = Instruments.byId('cromatico');
         expect(tuner.notice, TunerNotice.none);
         tuner.dispose();
       });
     });
 
-    test('Con el bordón sonando, una lectura en f/k de sus tonos no se muestra y se avisa (4.ª ronda, M1)', () {
-      final double root = hzAt(50, 0); // Re3 del bordón
-      Tuner fresh({bool drone = true}) {
+    group('Con tonos de la app sonando (comprobación final, G1)', () {
+      // Señales deterministas: lo que se toca más el bordón (o el bordón con
+      // su quinta pura) en la proporción dada, como lo oye el micrófono.
+      Float64List harmonic(double f, List<double> amps, {double phase = 0}) {
+        final Float64List x = Float64List(8192);
+        for (int k = 0; k < amps.length && f * (k + 1) < 20000; k++) {
+          for (int i = 0; i < x.length; i++) {
+            x[i] += amps[k] * math.sin(2 * math.pi * f * (k + 1) * i / 44100 + phase * (k + 1));
+          }
+        }
+        return x;
+      }
+
+      List<double> voiceAmps(double f) => <double>[for (int k = 1; k < 30 && f * k < 6000; k++) 1 / math.pow(k, 1.5).toDouble()];
+      final List<double> saw = <double>[for (int k = 1; k < 30; k++) 1 / k];
+      const List<double> guitar = <double>[1.0, 0.7, 0.5, 0.35, 0.25, 0.2, 0.12, 0.08, 0.05];
+      double rms(Float64List x) => math.sqrt(x.fold<double>(0, (double a, double v) => a + v * v) / x.length);
+      Float32List mix(Float64List player, Float64List app, double db) {
+        final double k = rms(player) / rms(app) * math.pow(10, db / 20).toDouble();
+        final Float64List x = Float64List.fromList(<double>[for (int i = 0; i < player.length; i++) player[i] + k * app[i]]);
+        final double peak = x.fold<double>(0, (double a, double v) => math.max(a, v.abs()));
+        return Float32List.fromList(<double>[for (final double v in x) 0.3 * v / peak]);
+      }
+
+      Float64List drone(double root, {bool fifth = false, bool sawShape = false}) {
+        final Float64List d = harmonic(root, sawShape ? saw : const <double>[1.0], phase: 0.3);
+        if (fifth) {
+          final Float64List q = harmonic(root * 1.5, sawShape ? saw : const <double>[1.0], phase: 1.1);
+          for (int i = 0; i < d.length; i++) {
+            d[i] += 0.7 * q[i];
+          }
+        }
+        return d;
+      }
+
+      /// El afinador oyendo [x] durante [ms] (un análisis cada 60 ms).
+      Tuner listen(FakeAsync async, String profile, List<double> own, Float32List x, {int ms = 420}) {
         final Tuner t = Tuner(microphoneEnabled: false)
-          ..instrument = Instruments.byId('voz')
-          ..damping = 0;
-        if (drone) {
-          t.ownTones = () => <double>[root, root * 1.5]; // con la quinta pura
+          ..instrument = Instruments.byId(profile)
+          ..damping = 0
+          ..ownTones = () => own;
+        for (int elapsed = 0; elapsed <= ms; elapsed += 60) {
+          t.feed(x);
+          async.elapse(const Duration(milliseconds: 60));
         }
         return t;
       }
 
-      final Sustained s = Sustained();
-      // La mezcla de una voz al unísono con bordón y quinta tiene periodo de
-      // Re2 (la mitad del bordón): esa lectura no es la nota.
-      final Tuner a = fresh()..feed(s.next(root / 2, 8192));
-      expect(a.reading, isNull);
-      expect(a.notice, TunerNotice.ownTone);
-      // La residual de la quinta (un tercio de La3 = Re2) también.
-      final Tuner b = fresh()..feed(s.next(root * 1.5 / 3, 8192));
-      expect(b.notice, TunerNotice.ownTone);
-      // La nota del bordón, su quinta y una nota cantada encima se muestran.
-      expect((fresh()..feed(s.next(root, 8192))).reading?.note.midi, 50);
-      expect((fresh()..feed(s.next(root * 1.5, 8192))).reading?.note.midi, 57);
-      expect((fresh()..feed(s.next(hzAt(54, 0), 8192))).reading?.note.midi, 54);
-      // Sin el bordón, el mismo Re2 es una nota más.
-      expect((fresh(drone: false)..feed(s.next(root / 2, 8192))).reading?.note.midi, 38);
+      test('Una nota de verdad una octava bajo el bordón se lee: Re2 con el bordón en Re3, con y sin quinta', () {
+        fakeAsync((FakeAsync async) {
+          final double root = hzAt(50, 0);
+          for (final double db in <double>[-12, -6, 0]) {
+            for (final double cents in <double>[-30, 0, 30]) {
+              final Float64List voice = harmonic(hzAt(38, cents), voiceAmps(hzAt(38, cents)));
+              for (final bool fifth in <bool>[false, true]) {
+                final List<double> own = <double>[root, if (fifth) root * 1.5];
+                final Tuner t = listen(async, 'voz', own, mix(voice, drone(root, fifth: fifth, sawShape: fifth), db));
+                expect(t.reading?.note.midi, 38, reason: 'Re2 $cents c, bordón a $db dB, quinta $fifth');
+                expect(t.notice, TunerNotice.none);
+              }
+            }
+          }
+        });
+      });
+
+      test('La cuerda La2 de la guitarra se lee con el bordón en La3', () {
+        fakeAsync((FakeAsync async) {
+          final double root = hzAt(57, 0);
+          for (final double db in <double>[-12, -6, 0]) {
+            for (final double cents in <double>[-30, 0, 30]) {
+              final Tuner t = listen(async, 'guitarra', <double>[root], mix(harmonic(hzAt(45, cents), guitar), drone(root), db));
+              expect(t.reading?.note.midi, 45, reason: 'La2 $cents c, bordón a $db dB');
+              expect(t.notice, TunerNotice.none);
+            }
+          }
+        });
+      });
+
+      test('La mezcla con residuo (fundamental ausente) no se muestra y avisa después de 300 ms seguidos', () {
+        fakeAsync((FakeAsync async) {
+          final double root = hzAt(57, 0); // La3
+          final Float32List unison = mix(harmonic(root, voiceAmps(root), phase: 0.7), drone(root, fifth: true, sawShape: true), -6);
+          final Float32List fifthAbove = mix(harmonic(hzAt(64, 0), voiceAmps(hzAt(64, 0)), phase: 0.7), drone(root), -6);
+          for (final Float32List x in <Float32List>[unison, fifthAbove]) {
+            final Tuner early = listen(async, 'voz', <double>[root, root * 1.5], x, ms: 180);
+            expect(early.reading, isNull);
+            expect(early.notice, TunerNotice.none, reason: 'todavía no: sin parpadeo');
+            final Tuner t = listen(async, 'voz', <double>[root, root * 1.5], x);
+            expect(t.reading, isNull);
+            expect(t.notice, TunerNotice.ownTone);
+          }
+          // La energía en la frecuencia leída separa los dos casos.
+          expect(PitchDetector.fundamentalProminenceDb(unison, root / 2, 44100), lessThan(Tuner.residueProminenceDb));
+          final Float32List real = mix(harmonic(hzAt(38, 0), voiceAmps(hzAt(38, 0))), drone(hzAt(50, 0)), 0);
+          expect(PitchDetector.fundamentalProminenceDb(real, hzAt(38, 0), 44100), greaterThan(Tuner.residueProminenceDb + 20));
+          // Sin tonos de la app, la misma mezcla se lee (es lo que suena).
+          expect(listen(async, 'voz', const <double>[], unison).reading, isNotNull);
+        });
+      });
     });
 
     test('Un tono sostenido cuenta como práctica a partir de 0,4 s; los clics no (B3)', () {

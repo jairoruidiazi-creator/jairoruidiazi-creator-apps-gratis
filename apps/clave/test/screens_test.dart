@@ -222,6 +222,42 @@ void main() {
     await t.shutdown(tester);
   });
 
+  testWidgets('Con letra × 2 en 360 × 640, los avisos del afinador se leen enteros (final, m4)', (WidgetTester tester) async {
+    useScreen(tester, const Size(360, 640), textScale: 2.0);
+    final List<FlutterErrorDetails> errors = watchErrors();
+    final TestServices t = TestServices(micEnabled: false);
+    t.services.settings.instrumentId = 'violin';
+    await t.services.settings.save();
+    await tester.pumpWidget(ClaveApp(services: t.services));
+    await tester.pump();
+    bool fits(String text) {
+      final RenderParagraph p = tester.renderObject<RenderParagraph>(find.text(text));
+      return !p.didExceedMaxLines;
+    }
+
+    // Nota bajo el rango.
+    t.services.tuner.feed(aString(65.41));
+    await tester.pump(const Duration(milliseconds: 100));
+    const String range = 'Suena más grave que el rango de Violín · usar Cromático';
+    expect(find.text(range), findsOneWidget);
+    expect(fits(range), isTrue);
+    // Residuo con el bordón (La3 con quinta; lo que se oye tiene periodo de La2
+    // y no hay energía en La2).
+    t.services.settings.instrumentId = 'voz';
+    await t.services.settings.save();
+    t.services.tuner.ownTones = () => <double>[220, 330];
+    final Float32List mixture = Float32List.fromList(<double>[for (int i = 0; i < 8192; i++) 0.15 * math.sin(2 * math.pi * 220 * i / 44100) + 0.1 * math.sin(2 * math.pi * 330 * i / 44100 + 1)]);
+    for (int i = 0; i < 8; i++) {
+      t.services.tuner.feed(mixture);
+      await tester.pump(const Duration(milliseconds: 60));
+    }
+    const String mix = 'Lo que se oye puede ser la mezcla con el bordón, las teclas o el acorde de la app. Apágalos para afinar esta nota.';
+    expect(find.text(mix), findsOneWidget);
+    expect(fits(mix), isTrue);
+    expect(errors, isEmpty, reason: report(errors));
+    await t.shutdown(tester);
+  });
+
   testWidgets('El afinador anuncia la nota al lector sin saturarlo: como mucho un aviso cada 1,1 s (G7)', (WidgetTester tester) async {
     useScreen(tester, const Size(360, 640));
     final SemanticsHandle handle = tester.ensureSemantics();

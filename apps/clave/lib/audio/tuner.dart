@@ -138,7 +138,22 @@ class Tuner extends ChangeNotifier {
   MicCapture get _capture => _mic ??= RecordMicCapture();
 
   PitchSettings settings = const PitchSettings();
-  Instrument instrument = Instruments.all.first;
+  Instrument _instrument = Instruments.all.first;
+
+  Instrument get instrument => _instrument;
+
+  /// Al cambiar de instrumento, un aviso del anterior ya no vale.
+  set instrument(Instrument value) {
+    if (identical(value, _instrument)) {
+      return;
+    }
+    _instrument = value;
+    if (_notice != TunerNotice.none) {
+      _notice = TunerNotice.none;
+      _noticeAt = null;
+      notifyListeners();
+    }
+  }
 
   /// Cents dentro de los cuales la nota se da por afinada.
   double toleranceCents = 5;
@@ -170,8 +185,21 @@ class Tuner extends ChangeNotifier {
   /// ellos (k de 2 a 8) es la mezcla con ese tono y no se muestra.
   List<double> Function()? ownTones;
 
-  /// Cuánto se mantiene un aviso sin que se repita.
+  /// Cuánto se mantiene el aviso del bordón sin que se repita.
   static const Duration noticeHold = Duration(milliseconds: 600);
+
+  /// El aviso de nota bajo el rango (con su botón «Usar Cromático») se
+  /// mantiene más: quien toca tiene que soltar el instrumento para tocar el
+  /// botón, y con el lector de pantalla llegar a él lleva tiempo.
+  static const Duration rangeNoticeHold = Duration(seconds: 5);
+
+  /// Tiempo seguido de residuo para pasar al aviso del bordón, y de notas
+  /// para dejarlo (sin parpadeo entre la lectura y el aviso).
+  static const Duration noticeDelay = Duration(milliseconds: 300);
+
+  /// Prominencia mínima (dB) de la energía en la frecuencia leída para que
+  /// una lectura en f/k de un tono de la app cuente como nota de verdad.
+  static const double residueProminenceDb = 15;
 
   /// Claridad mínima para avisar que una nota queda bajo el rango.
   static const double noticeClarity = 0.85;
@@ -207,6 +235,8 @@ class Tuner extends ChangeNotifier {
   bool _stableNow = false;
   TunerNotice _notice = TunerNotice.none;
   DateTime? _noticeAt;
+  DateTime? _residueSince;
+  DateTime? _cleanSince;
 
   MicStatus get status => _status;
 
@@ -396,6 +426,8 @@ class Tuner extends ChangeNotifier {
     _reading = null;
     _notice = TunerNotice.none;
     _noticeAt = null;
+    _residueSince = null;
+    _cleanSince = null;
     _smoothMidi = -1;
     _stableNow = false;
     stability.reset();
@@ -440,7 +472,7 @@ class Tuner extends ChangeNotifier {
       // La captura se detuvo sin avisar: no se analiza un búfer viejo, ni
       // ahora ni cuando vuelvan a llegar muestras.
       _discardBuffer();
-      if (_reading != null || _stableNow) {
+      if (_reading != null || _stableNow || _notice != TunerNotice.none) {
         _clearReading();
         notifyListeners();
       }
@@ -459,21 +491,39 @@ class Tuner extends ChangeNotifier {
     // Muy por debajo del rango del perfil elegido no es la nota (ruido grave o
     // un subarmónico) y no se muestra; con un tono claro, se avisa (puede ser
     // otro instrumento: Cromático lo lee). En Cromático no limita.
-    // Con el bordón o un acorde sonando, una lectura en f/k de uno de esos
-    // tonos es la mezcla con él: tampoco se muestra, y se avisa.
+    // Con el bordón, teclas o un acorde sonando, una lectura en f/k de uno de
+    // esos tonos puede ser la mezcla con él (un residuo): solo se oculta si
+    // en esa frecuencia no hay energía propia; una nota de verdad la tiene.
     final bool voiced = r.hasPitch && r.clarity >= 0.6;
-    TunerNotice why = TunerNotice.none;
     bool hide = false;
+    bool belowRange = false;
+    bool residue = false;
     if (voiced) {
       if (Notes.hzToMidi(r.frequency, a4: settings.a4) < instrument.lowestReading(capo: settings.capo)) {
         hide = true;
-        if (r.clarity >= noticeClarity) {
-          why = TunerNotice.belowRange;
-        }
-      } else if (_isOwnToneResidue(r.frequency)) {
+        belowRange = r.clarity >= noticeClarity;
+      } else if (_isOwnToneResidue(r.frequency) && PitchDetector.fundamentalProminenceDb(buf, r.frequency, sampleRate) < residueProminenceDb) {
         hide = true;
-        why = TunerNotice.ownTone;
+        residue = true;
       }
+    }
+    // Histéresis del aviso del bordón: hace falta un rato seguido de residuo
+    // para pasar al aviso, y un rato seguido de notas para dejarlo.
+    if (residue) {
+      _residueSince ??= wall;
+      _cleanSince = null;
+    } else if (voiced && !hide) {
+      _cleanSince ??= wall;
+      _residueSince = null;
+    }
+    if (_notice == TunerNotice.ownTone && voiced && !hide && wall.difference(_cleanSince!) < noticeDelay) {
+      hide = true;
+    }
+    TunerNotice why = TunerNotice.none;
+    if (belowRange) {
+      why = TunerNotice.belowRange;
+    } else if (residue && (_notice == TunerNotice.ownTone || wall.difference(_residueSince!) >= noticeDelay)) {
+      why = TunerNotice.ownTone;
     }
     if (why != TunerNotice.none) {
       final bool changed = _notice != why || _reading != null;
@@ -486,10 +536,15 @@ class Tuner extends ChangeNotifier {
       if (changed) {
         notifyListeners();
       }
-    } else if (_notice != TunerNotice.none && ((voiced && !hide) || (_noticeAt != null && wall.difference(_noticeAt!) > noticeHold))) {
-      _notice = TunerNotice.none;
-      _noticeAt = null;
-      notifyListeners();
+    } else if (_notice != TunerNotice.none) {
+      final DateTime? at = _noticeAt;
+      final Duration keep = _notice == TunerNotice.belowRange ? rangeNoticeHold : noticeHold;
+      final bool expired = at != null && wall.difference(at) > keep;
+      if (expired || (voiced && !hide)) {
+        _notice = TunerNotice.none;
+        _noticeAt = null;
+        notifyListeners();
+      }
     }
     if (!voiced || hide) {
       _stableNow = stability.update(wall, voiced: false, midi: 0, clarity: 0, impulsive: false, ownSound: false);
