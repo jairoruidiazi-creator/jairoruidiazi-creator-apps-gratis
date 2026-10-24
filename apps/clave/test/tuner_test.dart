@@ -572,6 +572,56 @@ void main() {
         });
       });
 
+      test('Bajo 30 Hz, la mezcla del bajo con un bordón grave da el aviso del bordón, no «usar Cromático» (N5)', () {
+        fakeAsync((FakeAsync async) {
+          // Si1 sobre Mi2 (residuo de 20,6 Hz) y Mi2 sobre La1 (27,5 Hz).
+          for (final List<int> c in <List<int>>[<int>[35, 40, -12, 0], <int>[35, 40, -6, 0], <int>[35, 40, -6, 1], <int>[40, 33, -6, 0], <int>[40, 33, 0, 0], <int>[40, 33, 0, 1]]) {
+            final double tone = hzAt(c[1], 0);
+            final List<double> heard = mix(harmonic(hzAt(c[0], 0), bass), drone(tone), c[2].toDouble());
+            final Float32List x = finish(c[3] == 1 ? highPass(heard, 100, 2) : heard);
+            final Tuner t = listen(async, 'bajo', <double>[tone], x);
+            final String why = 'MIDI ${c[0]} con el tono ${c[1]} a ${c[2]} dB, paso alto ${c[3]}';
+            expect(t.reading, isNull, reason: why);
+            expect(t.notice, TunerNotice.ownTone, reason: why);
+          }
+        });
+      });
+
+      test('La tercera mayor cantada con vibrato sobre el bordón La3 en seno a −3 dB no se muestra como La1 (N6)', () {
+        fakeAsync((FakeAsync async) {
+          final double root = hzAt(57, 0);
+          final double f0 = hzAt(61, 0); // Do#4
+          final int n = (4.2 * 44100).round();
+          final Float64List voice = Float64List(n);
+          double phase = 0;
+          for (int i = 0; i < n; i++) {
+            phase += 2 * math.pi * f0 * math.pow(2, 40 / 1200 * math.sin(2 * math.pi * 5.5 * i / 44100)).toDouble() / 44100;
+            double v = 0;
+            for (int k = 1; k < 30 && f0 * k < 6000; k++) {
+              v += math.pow(k, -1.5).toDouble() * math.sin(k * (phase + 0.7));
+            }
+            voice[i] = v;
+          }
+          final Float64List tone = Float64List.fromList(<double>[for (int i = 0; i < n; i++) math.sin(2 * math.pi * root * i / 44100 + 0.3)]);
+          final double k = rms(voice) / rms(tone) * math.pow(10, -3 / 20).toDouble();
+          final Float32List x = finish(<double>[for (int i = 0; i < n; i++) voice[i] + k * tone[i]]);
+          final Tuner t = Tuner(microphoneEnabled: false)
+            ..instrument = Instruments.byId('voz')
+            ..damping = 0
+            ..ownTones = () => <double>[root];
+          final Set<int> shown = <int>{};
+          for (int s0 = 0; s0 + 8192 <= n; s0 += 2646) {
+            t.feed(Float32List.sublistView(x, s0, s0 + 8192));
+            async.elapse(const Duration(milliseconds: 60));
+            final int? midi = t.reading?.note.midi;
+            if (midi != null) {
+              shown.add(midi);
+            }
+          }
+          expect(shown.contains(33), isFalse, reason: 'lecturas mostradas: $shown');
+        });
+      });
+
       test('Cuadros de residuo sueltos, separados por silencio, no abren el aviso (N3)', () {
         fakeAsync((FakeAsync async) {
           final double root = hzAt(57, 0);

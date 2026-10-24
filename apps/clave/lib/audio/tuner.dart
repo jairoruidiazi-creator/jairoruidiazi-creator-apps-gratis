@@ -240,14 +240,22 @@ class Tuner extends ChangeNotifier {
   /// micrófono les quite la fundamental). Una más grave que esa nota (una
   /// cuerda bajada, como el Re1 de Drop D, o la mezcla de la voz a 55 Hz) se
   /// decide por los armónicos como más arriba, con el piso medido a más de
-  /// [lowGuardBins] bins de cada múltiplo; si no queda ningún armónico que
-  /// se pueda medir, se muestra.
+  /// [lowGuardBins] bins de cada múltiplo y exigiendo que cada pico sea un
+  /// máximo local (N6: con esa guarda, la falda de un parcial fuerte vecino
+  /// asomaría como armónico); si no queda ningún armónico que se pueda
+  /// medir, se muestra. Bajo [residueMinResolvedHz], ver allí.
   static const double residueMinHz = 58;
 
   /// Por debajo de esto ni siquiera con [lowGuardBins] quedan bins entre
-  /// armónicos: la lectura se muestra siempre (el La0 de un bajo de 5
-  /// cuerdas bajado).
+  /// armónicos y no se decide por ellos. Una lectura así se muestra si queda
+  /// a menos de [farBelowSemitones] bajo la cuerda más grave (el La0 de un
+  /// bajo de 5 cuerdas bajado un tono); más abajo, si cae en f/k de un tono
+  /// de la app, es la mezcla (N5), sin mirar si el tono asoma: ahí su entorno
+  /// lleva los parciales de lo tocado.
   static const double residueMinResolvedHz = 30;
+
+  /// Ver [residueMinResolvedHz]: una cuerda bajada un tono, con margen.
+  static const double farBelowSemitones = 2.5;
 
   /// Margen (semitonos) bajo la nota más grave del instrumento para contar
   /// una lectura como "más grave que el instrumento" bajo [residueMinHz]:
@@ -584,7 +592,10 @@ class Tuner extends ChangeNotifier {
       residue = own != null &&
           own.isNotEmpty &&
           matchesOwnTone(r.frequency, own) &&
-          isResidue(Spectrum(buf, sampleRate: sampleRate), r.frequency, own, clarity: r.clarity, belowLowest: heardMidi < lowest + Instrument.rangeMargin - belowLowestSemitones);
+          isResidue(Spectrum(buf, sampleRate: sampleRate), r.frequency, own,
+              clarity: r.clarity,
+              belowLowest: heardMidi < lowest + Instrument.rangeMargin - belowLowestSemitones,
+              farBelow: heardMidi < lowest + Instrument.rangeMargin - farBelowSemitones);
       if (residue) {
         hide = true;
       } else if (heardMidi < lowest) {
@@ -697,7 +708,7 @@ class Tuner extends ChangeNotifier {
   ///   la frecuencia del tono puede ser un armónico de la propia nota, y
   ///   entonces decide el criterio de los armónicos;
   /// - [hz] es de al menos [residueMinHz], o queda bajo la nota más grave
-  ///   del instrumento ([belowLowest]);
+  ///   del instrumento ([belowLowest]; bajo [residueMinResolvedHz], ver allí);
   /// - y lo que no explican los tonos de la app no tiene el periodo de [hz].
   ///   Se miran los armónicos h·[hz] (h de 1 a [residueHarmonics], hasta
   ///   [residueMaxHz]) que no caen a menos de [ownPartialCents] de un
@@ -715,10 +726,19 @@ class Tuner extends ChangeNotifier {
   ///   los armónicos altos). Si no cuenta ninguno, o todos son múltiplos de
   ///   un j > 1, lo tocado es j·[hz] y [hz] sale de la mezcla. Si no se pudo
   ///   medir ninguno, no se decide: se muestra.
-  static bool isResidue(Spectrum spectrum, double hz, List<double> own, {double clarity = 1, bool belowLowest = false}) {
+  static bool isResidue(Spectrum spectrum, double hz, List<double> own, {double clarity = 1, bool belowLowest = false, bool farBelow = false}) {
     final bool low = hz < residueMinHz;
-    if (low && (!belowLowest || hz < residueMinResolvedHz)) {
+    final bool unresolved = hz < residueMinResolvedHz;
+    if (low && (!belowLowest || (unresolved && !farBelow))) {
       return false;
+    }
+    if (unresolved) {
+      // N5: sin resolución (tampoco para ver si el tono asoma: su entorno
+      // lleva los parciales de lo tocado), muy por debajo de la cuerda más
+      // grave y en f/k de un tono que suena, es la mezcla: el aviso del
+      // bordón, no el de rango con «usar Cromático» (que leería una nota que
+      // nadie toca).
+      return true;
     }
     if (!_matching(hz, own).any((double g) => spectrum.prominenceDb(g) >= ownTonePresentDb)) {
       return false;
@@ -734,13 +754,13 @@ class Tuner extends ChangeNotifier {
       }
       double p;
       if (h == 1) {
-        final double pooled = spectrum.harmonicProminenceDb(hz, 1, guard: guard);
+        final double pooled = spectrum.harmonicProminenceDb(hz, 1, guard: guard, localMax: low);
         final double sides = spectrum.prominenceBothSidesDb(hz);
         p = pooled.isNaN ? sides : (sides.isNaN ? pooled : math.max(pooled, sides));
         final double plain = spectrum.prominenceDb(hz);
         plainFundamental = !plain.isNaN && plain >= threshold && (sides.isNaN || sides > -nearbySoundDb);
       } else {
-        p = spectrum.harmonicProminenceDb(hz, h, guard: guard);
+        p = spectrum.harmonicProminenceDb(hz, h, guard: guard, localMax: low);
       }
       if (p.isNaN) {
         continue;

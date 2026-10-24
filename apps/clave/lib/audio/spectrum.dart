@@ -162,7 +162,12 @@ class Spectrum {
   /// Una nota de verdad tiene picos en sus armónicos aunque el micrófono le
   /// quite la fundamental; un residuo (la "fundamental ausente" de la mezcla
   /// con un tono de la app) solo los tiene donde caen lo tocado y la app.
-  double harmonicProminenceDb(double f0, int h, {double guard = 2.5}) {
+  ///
+  /// Con [localMax], el pico tiene que ser un máximo local (más alto que los
+  /// bins a ±2 del suyo); si no, es la falda de Hann de un parcial vecino
+  /// fuerte y devuelve −∞ (medido, sin pico). Hace falta con [guard] bajo:
+  /// el piso queda cerca de los lóbulos y la falda asomaría sobre él.
+  double harmonicProminenceDb(double f0, int h, {double guard = 2.5, bool localMax = false}) {
     if (!(f0 > 0) || h < 1) {
       return double.nan;
     }
@@ -171,6 +176,17 @@ class Spectrum {
     final double b = h * s;
     if (b + 1.5 >= half) {
       return double.nan;
+    }
+    if (localMax) {
+      int kp = math.max(1, (b - 1.5).floor());
+      for (int k = kp + 1; k <= math.min(half, (b + 1.5).ceil()); k++) {
+        if (mag[k] > mag[kp]) {
+          kp = k;
+        }
+      }
+      if (kp - 2 >= 0 && kp + 2 <= half && !(mag[kp] > mag[kp - 2] && mag[kp] > mag[kp + 2])) {
+        return double.negativeInfinity;
+      }
     }
     final double lo = math.max(0.5 * s, b - 1.5 * s);
     int count = 0;

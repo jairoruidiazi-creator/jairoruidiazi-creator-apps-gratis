@@ -357,6 +357,38 @@ void main() {
     await t.shutdown(tester);
   });
 
+  for (final bool reader in <bool>[false, true]) {
+    testWidgets('El aviso con «Deshacer» ${reader ? 'se queda con el lector de pantalla' : 'se cierra solo a los 8 s sin lector'} (3e24e72)', (WidgetTester tester) async {
+      usePhone(tester);
+      if (reader) {
+        tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(accessibleNavigation: true);
+        addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+      }
+      final TestServices t = TestServices();
+      await tester.runAsync(() async {
+        await t.services.state.addPreset(Preset(id: 'p1', name: 'Cumbia', rhythm: const RhythmConfig(bpm: 92, beatsPerBar: 2)));
+        await t.services.state.savePresets();
+      });
+      await tester.pumpWidget(AppScope(services: t.services, child: const MaterialApp(home: PresetsScreen())));
+      await tester.pump();
+      await tester.tap(find.byTooltip('Opciones de Cumbia'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Borrar'));
+      await pumpUntil(tester, () => find.text('Se borró «Cumbia»').evaluate().isNotEmpty);
+      expect(find.text('Deshacer'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+      expect(find.text('Se borró «Cumbia»'), findsOneWidget, reason: 'a los 5 s sigue');
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('Se borró «Cumbia»'), reader ? findsOneWidget : findsNothing);
+      if (reader) {
+        await tester.pump(const Duration(seconds: 30));
+        expect(find.text('Deshacer'), findsOneWidget, reason: 'con lector se queda hasta que se atiende');
+      }
+    });
+  }
+
   testWidgets('Borrar un preajuste o una setlist se puede deshacer', (WidgetTester tester) async {
     usePhone(tester);
     final TestServices t = TestServices();
