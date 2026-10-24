@@ -106,7 +106,7 @@ void main() {
       expect(find.bySemanticsLabel('Registrar el pago del extracto del 30 sep'), findsOneWidget);
       expect(find.bySemanticsLabel('Desmarcar el extracto del 30 sep'), findsOneWidget);
       // El botón de abajo ya no se llama casi igual.
-      expect(find.text('Pagar el próximo pago'), findsOneWidget);
+      expect(find.text('Abonar a la tarjeta'), findsOneWidget);
       final Finder log = find.text('Registrar el pago');
       await tester.scrollUntilVisible(log, 150, scrollable: find.byType(Scrollable).first);
       await tester.tap(log);

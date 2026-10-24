@@ -57,8 +57,10 @@ class Account {
     this.statementCut,
     Map<String, int>? statementMinimums,
     List<String>? paidStatements,
+    Map<String, String>? paidOn,
   })  : statementMinimums = statementMinimums ?? <String, int>{},
-        paidStatements = paidStatements ?? <String>[];
+        paidStatements = paidStatements ?? <String>[],
+        paidOn = paidOn ?? <String, String>{};
 
   final String id;
   String name;
@@ -105,6 +107,12 @@ class Account {
   /// pago no esté anotado en Plata: con ellos nunca se declara mora.
   final List<String> paidStatements;
 
+  /// Día en que se marcó cada extracto de [paidStatements] (`dayKey` del corte
+  /// → `dayKey` del día). Lo anotado hasta ese día es parte de lo que la
+  /// persona dijo que pagó. Las marcas de antes no lo traen: para ellas vale
+  /// la fecha límite real del extracto.
+  final Map<String, String> paidOn;
+
   bool get isCredit => type == AccountType.credit;
   bool get isPocket => type == AccountType.pocket;
   bool get isDebit => type == AccountType.debit;
@@ -132,6 +140,7 @@ class Account {
         'statementCut': statementCut?.toIso8601String(),
         'statementMinimums': statementMinimums,
         'paidStatements': paidStatements,
+        'paidOn': paidOn,
       };
 
   static Account fromJson(Map<String, dynamic> j) => Account(
@@ -160,6 +169,10 @@ class Account {
             if (e.value is num) e.key: (e.value as num).toInt(),
         },
         paidStatements: <String>[for (final dynamic x in (j['paidStatements'] as List<dynamic>?) ?? <dynamic>[]) x.toString()],
+        paidOn: <String, String>{
+          for (final MapEntry<String, dynamic> e in ((j['paidOn'] as Map<String, dynamic>?) ?? <String, dynamic>{}).entries)
+            if (e.value is String) e.key: e.value as String,
+        },
       );
 }
 

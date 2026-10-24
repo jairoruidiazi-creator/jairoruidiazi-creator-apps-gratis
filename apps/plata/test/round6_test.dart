@@ -227,7 +227,9 @@ void main() {
               l.setStatementMinimum(tc, DateTime(2026, 11, 15), minimum);
             }
             if (marked) {
-              l.markStatementPaid(tc, DateTime(2026, 11, 15));
+              // Marcado con la regla de antes del día de la marca: lo anotado
+              // hasta la fecha límite real completa el mínimo (ver round8_test).
+              l.markStatementPaid(tc, DateTime(2026, 11, 15), on: effective);
             }
             bool added = false;
             for (DateTime day = DateTime(2026, 11, 20); !day.isAfter(DateTime(2026, 12, 14)); day = DateTime(day.year, day.month, day.day + 1)) {

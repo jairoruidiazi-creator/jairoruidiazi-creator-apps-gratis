@@ -61,7 +61,9 @@ void main() {
     await l.addTx(Tx(id: 'c2', kind: TxKind.expense, amountMinor: pesos(300000), accountId: 'tc', date: d(2026, 11, 20)));
     l.setStatementMinimum(tc, nov15, pesos(100000));
     if (marked) {
-      l.markStatementPaid(tc, nov15);
+      // Pagó el mínimo fuera de Plata y lo marcó el 4 dic: lo anotado hasta
+      // ese día completa el mínimo; lo de después es un abono aparte.
+      l.markStatementPaid(tc, nov15, on: d(2026, 12, 4));
     }
     return l;
   }
@@ -180,10 +182,12 @@ void main() {
       expect(Tx.fromJson(linked.toJson()).statementOf, '2026-11-15');
       final Map<String, dynamic> old = linked.toJson()..remove('statementOf');
       expect(Tx.fromJson(old).statementOf, isNull);
-      // Copia vieja: marcado y un pago del 4 dic sin vínculo (dentro de la
-      // ventana): 1.200.000, sin contarlo dos veces.
+      // Copia vieja: la marca sin día vale hasta la fecha límite real (lun 7
+      // dic); un pago del 5 dic sin vínculo la completa: 1.200.000, sin
+      // contarlo dos veces.
       final Ledger l = await n1();
-      await pay(l, pesos(100000), d(2026, 12, 4));
+      l.account('tc')!.paidOn.clear();
+      await pay(l, pesos(100000), d(2026, 12, 5));
       expect(december(l), pesos(1200000));
       l.dispose();
     });

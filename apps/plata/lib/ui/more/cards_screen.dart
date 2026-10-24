@@ -240,7 +240,7 @@ class _CardPanelState extends State<_CardPanel> {
               child: FilledButton.tonalIcon(
                 onPressed: next.dueMinor <= 0 ? null : () => openCardPayment(context, c, next.dueMinor),
                 icon: const Icon(Icons.payments_outlined),
-                label: Text(t(context, 'Pagar el próximo pago', 'Pay the next payment')),
+                label: Text(t(context, 'Abonar a la tarjeta', 'Pay card')),
               ),
             ),
           ],
@@ -437,8 +437,10 @@ String unconfirmedText(BuildContext context, CardDue due, String currency) {
       : 'According to what you logged, $amount is left of the ${dayText(context, due.statementCut!)} statement. If you already paid, log it; if you paid only the bank minimum, enter it.';
 }
 
-/// Fila de un extracto marcado «Ya lo pagué» o pagado con un movimiento
-/// vinculado. Cada botón dice en su nombre accesible de qué extracto es.
+/// Fila de un extracto marcado «Ya lo pagué» o con pagos vinculados: dice
+/// cuánto se pagó con movimientos de Plata, cuánto con lo anotado y cuánto
+/// se da por pagado fuera de Plata (o cuánto falta, si no está marcado).
+/// Cada botón dice en su nombre accesible de qué extracto es.
 class _PaidStatementRow extends StatelessWidget {
   const _PaidStatementRow({required this.card, required this.cut});
 
@@ -450,26 +452,44 @@ class _PaidStatementRow extends StatelessWidget {
     final Ledger l = AppScope.of(context).ledger;
     final ColorScheme cs = Theme.of(context).colorScheme;
     final String day = dayText(context, cut);
+    String m(int v) => money(context, v, card.currency);
     final List<Tx> linked = l.statementPayments(card, cut);
     final bool marked = l.isStatementPaid(card, cut);
+    final int linkedTotal = l.linkedPayments(card, cut);
+    final int absorbed = marked ? l.absorbedPayments(card, cut) : 0;
+    final int outside = l.assumedPayment(card, cut);
+    final int? minimum = l.statementMinimum(card, cut);
+    final List<String> dates = linked.map((Tx x) => dayText(context, x.date)).toSet().toList();
+    final String when = dates.join(', ');
+    final String withTx = linked.length == 1 ? t(context, 'con el movimiento del $when', 'with the $when transaction') : t(context, 'con los movimientos del $when', 'with the $when transactions');
     final String text;
-    if (linked.isEmpty) {
+    if (!marked) {
+      // Sin marca, solo con pagos vinculados.
+      final int missing = minimum == null ? 0 : minimum - linkedTotal;
+      text = missing > 0
+          ? t(context, 'Extracto del $day: ${m(linkedTotal)} abonados $withTx; faltan ${m(missing)} del mínimo', '$day statement: ${m(linkedTotal)} paid $withTx; ${m(missing)} of the minimum is missing')
+          : t(context, 'Extracto del $day pagado $withTx (${m(linkedTotal)})', '$day statement paid $withTx (${m(linkedTotal)})');
+    } else if (linked.isEmpty && absorbed == 0) {
       text = t(context, 'Extracto del $day marcado como pagado', '$day statement marked as paid');
+    } else if (absorbed == 0 && outside == 0) {
+      text = t(context, 'Extracto del $day pagado $withTx (${m(linkedTotal)})', '$day statement paid $withTx (${m(linkedTotal)})');
     } else {
-      final String when = linked.map((Tx x) => dayText(context, x.date)).join(', ');
-      final int total = linked.fold<int>(0, (int a, Tx x) => a + l.receivedMinor(x));
-      text = linked.length == 1
-          ? t(context, 'Extracto del $day pagado con el movimiento del $when (${money(context, total, card.currency)})', '$day statement paid with the $when transaction (${money(context, total, card.currency)})')
-          : t(context, 'Extracto del $day pagado con los movimientos del $when (${money(context, total, card.currency)})', '$day statement paid with the $when transactions (${money(context, total, card.currency)})');
+      final List<String> parts = <String>[
+        if (linkedTotal > 0) '${m(linkedTotal)} $withTx',
+        if (absorbed > 0) t(context, '${m(absorbed)} con lo anotado', '${m(absorbed)} with what you logged'),
+        if (outside > 0) t(context, '${m(outside)} por fuera de Plata', '${m(outside)} outside Plata'),
+      ];
+      text = t(context, 'Extracto del $day pagado: ${parts.join(', ')}', '$day statement paid: ${parts.join(', ')}');
     }
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       children: <Widget>[
         Text(text, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-        // Con el pago ya vinculado no se ofrece registrarlo otra vez.
-        if (linked.isEmpty)
+        // Solo mientras quede una parte que se da por pagada fuera de Plata:
+        // registrarla la reemplaza, y no se puede registrar dos veces.
+        if (marked && outside > 0)
           TextButton(
-            onPressed: () => openCardPayment(context, card, l.statementMinimum(card, cut) ?? 0, date: proposedPaymentDate(l, card, cut), statement: cut),
+            onPressed: () => openCardPayment(context, card, outside, date: proposedPaymentDate(l, card, cut), statement: cut),
             child: Text(t(context, 'Registrar el pago', 'Log the payment'), semanticsLabel: t(context, 'Registrar el pago del extracto del $day', 'Log the payment of the $day statement')),
           ),
         if (marked)
