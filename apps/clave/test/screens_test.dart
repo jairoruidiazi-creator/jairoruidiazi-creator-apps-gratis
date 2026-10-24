@@ -317,6 +317,38 @@ void main() {
     await t.shutdown(tester);
   });
 
+  testWidgets('El lector no repite el mismo aviso antes de 6 s aunque alterne con lecturas (N2)', (WidgetTester tester) async {
+    useScreen(tester, const Size(360, 640));
+    final SemanticsHandle handle = tester.ensureSemantics();
+    final TestServices t = TestServices();
+    t.services.settings.instrumentId = 'violin';
+    await t.services.settings.save();
+    await tester.pumpWidget(ClaveApp(services: t.services));
+    await tester.pump();
+    final Finder live = find.descendant(of: find.byType(TunerScreen), matching: find.byWidgetPredicate((Widget w) => w is Semantics && w.properties.liveRegion == true));
+    String label() => tester.getSemantics(live).label;
+    const String notice = 'Suena más grave que el rango de Violín · usar Cromático';
+    Future<void> play(double hz, int frames) async {
+      for (int i = 0; i < frames; i++) {
+        t.services.tuner.feed(aString(hz));
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    await play(65.41, 15); // Do2 con Violín: el aviso
+    expect(label(), notice);
+    await play(440, 15); // La4: la nota
+    expect(label(), startsWith('La 4'));
+    await play(65.41, 15); // el aviso otra vez, a menos de 6 s del primero
+    expect(find.text(notice), findsOneWidget);
+    expect(label(), startsWith('La 4'), reason: 'el mismo aviso no se vuelve a anunciar antes de 6 s');
+    await tester.pump(const Duration(seconds: 3));
+    await play(65.41, 20); // ya pasaron más de 6 s
+    expect(label(), notice);
+    handle.dispose();
+    await t.shutdown(tester);
+  });
+
   for (final bool dark in <bool>[false, true]) {
     testWidgets('Guías de accesibilidad de Android e iOS en cada pantalla, tema ${dark ? 'oscuro' : 'claro'} (G7)', (WidgetTester tester) async {
       useScreen(tester, const Size(360, 640));
