@@ -351,7 +351,8 @@ class HomeScreen extends StatelessWidget {
         label: t(context, 'Deshacer', 'Undo'),
         onPressed: () {
           tpl.uses = tpl.uses > 0 ? tpl.uses - 1 : 0;
-          s.ledger.deleteTx(tx.id);
+          // Deshace todo: también lo que reemplazó del pago hecho fuera.
+          s.ledger.deleteTx(tx.id, restoreOutside: true);
         },
       ),
     ));

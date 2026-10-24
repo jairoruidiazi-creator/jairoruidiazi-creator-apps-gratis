@@ -263,25 +263,29 @@ void main() {
       l.dispose();
     });
 
-    test('regla sin ventana de días: B2 (19 dic) y meses después preguntan si cabe; N2 y las devoluciones no', () async {
+    test('regla de la ronda 13: se pregunta si se anota entre la marca y la fecha límite del extracto siguiente', () async {
       final Ledger l = await n1();
       final Account tc = l.account('tc')!;
       l.markStatementPaid(tc, nov15);
       final Tx refund = await l.addTx(Tx(id: 'r', kind: TxKind.income, amountMinor: pesos(30000), accountId: 'tc', categoryId: 'c_food', date: d(2026, 12, 9)));
       expect(refund.outsidePending, isFalse);
-      // Antes del corte y más que lo de fuera: es de otro extracto.
-      expect(l.outsideCandidate(Tx(id: 'x1', kind: TxKind.transfer, amountMinor: pesos(150000), accountId: 'bank', toAccountId: 'tc', date: d(2026, 11, 14))), isNull);
-      // B2: el 19 dic con la fecha que propone el editor.
-      today = d(2026, 12, 19);
-      expect(l.outsideCandidate(Tx(id: 'x2', kind: TxKind.transfer, amountMinor: pesos(100000), accountId: 'bank', toAccountId: 'tc', date: d(2026, 12, 19))), nov15);
+      Tx credit(int amount, DateTime date, {DateTime? logged}) => Tx(id: 'x', kind: TxKind.transfer, amountMinor: amount, accountId: 'bank', toAccountId: 'tc', date: date, loggedOn: logged ?? date);
+      // Con fecha antes del corte: es de otro extracto.
+      expect(l.outsideCandidate(credit(pesos(100000), d(2026, 11, 14))), isNull);
+      // B2: anotado el 19 dic con la fecha que propone el editor.
+      expect(l.outsideCandidate(credit(pesos(100000), d(2026, 12, 19))), nov15);
+      // El pago del 7 dic anotado el 4 ene (antes de la fecha límite del 15 dic, mar 5 ene).
+      expect(l.outsideCandidate(credit(pesos(100000), d(2026, 12, 7), logged: d(2027, 1, 4))), nov15);
+      // Anotado después de esa fecha (6 ene) o antes de la marca (7 dic): no.
+      expect(l.outsideCandidate(credit(pesos(100000), d(2026, 12, 7), logged: d(2027, 1, 6))), isNull);
+      expect(l.outsideCandidate(credit(pesos(100000), d(2026, 12, 7), logged: d(2026, 12, 7))), isNull);
       // N2: el pago de 1.200.000 del extracto del 15 dic, el 16 dic.
-      expect(l.outsideCandidate(Tx(id: 'x3', kind: TxKind.transfer, amountMinor: pesos(1200000), accountId: 'bank', toAccountId: 'tc', date: d(2026, 12, 16))), isNull);
+      expect(l.outsideCandidate(credit(pesos(1200000), d(2026, 12, 16))), isNull);
       // Antes del corte siguiente, cualquier monto.
-      expect(l.outsideCandidate(Tx(id: 'x4', kind: TxKind.transfer, amountMinor: pesos(1200000), accountId: 'bank', toAccountId: 'tc', date: d(2026, 12, 14))), nov15);
-      // Meses después: si cabe en lo de fuera, sí; si no, no.
-      today = d(2027, 3, 1);
-      expect(l.outsideCandidate(Tx(id: 'x5', kind: TxKind.transfer, amountMinor: pesos(100000), accountId: 'bank', toAccountId: 'tc', date: d(2027, 3, 1))), nov15);
-      expect(l.outsideCandidate(Tx(id: 'x6', kind: TxKind.transfer, amountMinor: pesos(300000), accountId: 'bank', toAccountId: 'tc', date: d(2027, 3, 1))), isNull);
+      expect(l.outsideCandidate(credit(pesos(1200000), d(2026, 12, 14))), nov15);
+      // Con el mínimo del 15 dic anotado y sin pagar, el abono es de ese extracto.
+      l.setStatementMinimum(tc, dec15, pesos(50000));
+      expect(l.outsideCandidate(credit(pesos(100000), d(2026, 12, 19))), isNull);
       l.dispose();
     });
 

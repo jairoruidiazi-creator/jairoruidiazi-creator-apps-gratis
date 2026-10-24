@@ -308,6 +308,7 @@ class Tx {
     List<String>? apartFrom,
     this.outsideTaken,
     this.outsidePending = false,
+    this.loggedOn,
     DateTime? createdAt,
   })  : apartFrom = apartFrom ?? <String>[],
         tags = tags ?? <String>[],
@@ -378,6 +379,12 @@ class Tx {
   /// contestado): cuenta una sola vez y la pregunta «¿Es el pago del
   /// extracto…?» sigue en Inicio y en Tarjetas.
   bool outsidePending;
+
+  /// Día en que se anotó en Plata (lo pone el libro al anotarlo, con su
+  /// reloj). La pregunta «¿Es el pago del extracto…?» solo se hace si el
+  /// abono se anotó entre el día de la marca y la fecha límite del extracto
+  /// siguiente. Null en los movimientos de antes: cuenta su fecha.
+  DateTime? loggedOn;
   final DateTime createdAt;
 
   bool get isSplit => splits.isNotEmpty;
@@ -426,6 +433,7 @@ class Tx {
         if (apartFrom.isNotEmpty) 'apartFrom': apartFrom,
         if (outsideTaken != null) 'outsideTaken': outsideTaken,
         if (outsidePending) 'outsidePending': true,
+        if (loggedOn != null) 'loggedOn': _dateKey(loggedOn!),
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -456,6 +464,7 @@ class Tx {
         apartFrom: _keys(j['apartFrom']),
         outsideTaken: (j['outsideTaken'] as num?)?.toInt(),
         outsidePending: j['outsidePending'] as bool? ?? false,
+        loggedOn: DateTime.tryParse(j['loggedOn'] as String? ?? ''),
         createdAt: _parseDate(j['createdAt']),
       );
 

@@ -587,6 +587,13 @@ class _PaidStatementRow extends StatelessWidget {
                 },
                 child: Text(t(context, 'Cambiar monto', 'Change amount'), semanticsLabel: t(context, 'Cambiar lo pagado fuera de Plata del extracto del $day', 'Change what was paid outside Plata for the $day statement')),
               ),
+            // Remedio de quien anotó el pago después de la ventana de la
+            // pregunta: elegir el movimiento ya anotado.
+            if (marked && outside > 0)
+              TextButton(
+                onPressed: () => pickLoggedPayment(context, card, cut),
+                child: Text(t(context, 'Ya lo anoté en Plata: elegir el movimiento', 'I already logged it in Plata: choose the transaction'), semanticsLabel: t(context, 'Ya anoté en Plata el pago del extracto del $day: elegir el movimiento', 'I already logged the $day statement payment in Plata: choose the transaction')),
+              ),
             if (marked)
               TextButton(
                 onPressed: () => l.markStatementPaid(card, cut, paid: false),
@@ -619,39 +626,68 @@ String _outsideMatchText(BuildContext context, Ledger l, Tx p) {
 /// La pregunta «¿Es el pago del extracto…?» justo después de anotar un abono
 /// que Plata tomó provisionalmente por un pago hecho fuera de Plata (el
 /// editor, el favorito de un toque, «Anotar ahora» y «Duplicar hoy» la
-/// hacen con este mismo diálogo). Si con «Es otro pago» puede ser el de otro
-/// extracto, pregunta otra vez. Si se cierra sin contestar (no se puede
-/// tocando fuera ni con Atrás), la pregunta sigue en Inicio y en Tarjetas.
+/// hacen con este mismo diálogo). Una sola pregunta: con «Es otro pago» se
+/// termina. Si se cierra sin contestar (no se puede tocando fuera ni con
+/// Atrás), la pregunta sigue en Inicio y en Tarjetas.
 Future<void> askOutsideMatch(BuildContext context, Tx saved) async {
   final Ledger l = AppScope.of(context).ledger;
-  for (int i = 0; i < 12; i++) {
-    final Iterable<Tx> found = l.txs.where((Tx x) => x.id == saved.id);
-    if (found.isEmpty || !found.first.outsidePending || !context.mounted) {
-      return;
-    }
-    final Tx p = found.first;
-    final DateTime cut = l.pendingOutsideCut(p)!;
-    final bool? same = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext c) => PopScope(
-        canPop: false,
-        child: AlertDialog(
-          scrollable: true,
-          title: Text(t(c, '¿Es el pago del extracto del ${dayText(c, cut)}?', 'Is it the payment of the ${dayText(c, cut)} statement?')),
-          content: Text(_outsideMatchText(c, l, p)),
-          actions: <Widget>[
-            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(t(c, 'Es otro pago', 'It is another payment'))),
-            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(t(c, 'Sí, es ese pago', 'Yes, it is that payment'))),
-          ],
-        ),
+  final Iterable<Tx> found = l.txs.where((Tx x) => x.id == saved.id);
+  if (found.isEmpty || !found.first.outsidePending || !context.mounted) {
+    return;
+  }
+  final Tx p = found.first;
+  final DateTime cut = l.pendingOutsideCut(p)!;
+  final bool? same = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext c) => PopScope(
+      canPop: false,
+      child: AlertDialog(
+        scrollable: true,
+        title: Text(t(c, '¿Es el pago del extracto del ${dayText(c, cut)}?', 'Is it the payment of the ${dayText(c, cut)} statement?')),
+        content: Text(_outsideMatchText(c, l, p)),
+        actions: <Widget>[
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(t(c, 'Es otro pago', 'It is another payment'))),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(t(c, 'Sí, es ese pago', 'Yes, it is that payment'))),
+        ],
       ),
-    );
-    if (same == null) {
-      return;
-    }
+    ),
+  );
+  if (same != null) {
     l.answerOutsideMatch(p, same: same);
   }
+}
+
+/// «Ya lo anoté en Plata: elegir el movimiento» en la fila de un extracto
+/// marcado: lista los abonos sin vínculo a la tarjeta posteriores al corte;
+/// el elegido queda vinculado y reemplaza el pago hecho fuera de Plata. Es el
+/// remedio para quien anota el pago después de la ventana de la pregunta.
+Future<void> pickLoggedPayment(BuildContext context, Account card, DateTime cut) async {
+  final Ledger l = AppScope.of(context).ledger;
+  final List<Tx> options = l.unlinkedCreditsAfter(card, cut);
+  final Tx? chosen = await showDialog<Tx>(
+    context: context,
+    builder: (BuildContext c) => SimpleDialog(
+      title: Text(t(c, '¿Cuál es el pago del extracto del ${dayText(c, cut)}?', 'Which is the payment of the ${dayText(c, cut)} statement?')),
+      children: <Widget>[
+        if (options.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+            child: Text(t(c, 'No hay abonos a ${card.name} sin vincular después del corte. Si pagaste desde una cuenta que tienes en Plata, regístralo con «Registrar el pago».', 'There are no unlinked payments to ${card.name} after the closing date. If you paid from an account you have in Plata, use "Log the payment".')),
+          ),
+        for (final Tx o in options)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(c, o),
+            child: Text('${dayText(c, o.date)} · ${money(c, o.kind == TxKind.transfer ? l.receivedMinor(o) : o.amountMinor, card.currency)}${o.description.isEmpty ? '' : ' · ${o.description}'}'),
+          ),
+      ],
+    ),
+  );
+  if (chosen == null || !context.mounted) {
+    return;
+  }
+  l.linkToStatement(chosen, cut);
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Vinculado al extracto del ${dayText(context, cut)}: reemplaza lo pagado fuera de Plata.', 'Linked to the ${dayText(context, cut)} statement: it replaces what was paid outside Plata.'))));
 }
 
 /// La pregunta pendiente de un abono que llegó sin pasar por una pantalla (un

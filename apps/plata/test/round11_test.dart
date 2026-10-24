@@ -14,6 +14,7 @@
 import 'dart:io';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plata/core/crypto_store.dart';
 import 'package:plata/core/ledger.dart';
@@ -305,6 +306,7 @@ void main() {
       final List<String> failures = <String>[];
       int outsideSeen = 0;
       int answered = 0;
+      int withoutQuestion = 0;
       for (int seed = 0; seed < 80 && failures.length < 10; seed++) {
         final Random rnd = Random(500 + seed);
         today = d(2026, 3, 1);
@@ -314,6 +316,10 @@ void main() {
         int documented = 0;
         final List<_Pay> pays = <_Pay>[];
         final Set<String> others = <String>{};
+        // Excepción documentada (ronda 13): un pago marcado que se anota
+        // fuera de la ventana no pregunta; se vincula con «Ya lo anoté en
+        // Plata» (la mitad de las veces) o queda aparte y se cuenta.
+        final Set<String> exception = <String>{};
         bool truthSame(Tx t, DateTime k) {
           final Iterable<_Pay> p = pays.where((_Pay x) => x.txId == t.id);
           return p.isNotEmpty && p.first.cut == dayKey(k) && !others.contains(t.id);
@@ -400,6 +406,15 @@ void main() {
               if (rnd.nextDouble() >= autoP) {
                 settle(t.id);
               }
+              final Tx stored = l.txs.firstWhere((Tx x) => x.id == t.id);
+              if (!stored.outsidePending && stored.statementOf == null && l.isStatementPaid(tc, DateTime.parse(p.cut))) {
+                withoutQuestion += 1;
+                if (rnd.nextBool()) {
+                  l.linkToStatement(stored, DateTime.parse(p.cut));
+                } else {
+                  exception.add(t.id);
+                }
+              }
             }
           } else if (op == 'visita') {
             if (rnd.nextDouble() < visitP) {
@@ -481,8 +496,16 @@ void main() {
               failures.add('$at: P6 pago de fuera en el extracto ${o.statementOf}, del ${dayKey(o.date)}');
             }
           }
-          if (plata < real) {
-            failures.add('$at: P8 deuda de Plata ${plata ~/ 100} < real ${real ~/ 100}');
+          int excepted = 0;
+          for (final _Pay p in pays.where((_Pay p) => exception.contains(p.txId))) {
+            for (final Tx t in l.txs.where((Tx t) => t.id == p.txId && t.statementOf == null)) {
+              final DateTime k = DateTime.parse(p.cut);
+              final int held = l.outsidePayment(tc, k) + l.pendingOutsideMatches(card: tc, cut: k).fold<int>(0, (int a, Tx o) => a + (o.outsideTaken ?? 0));
+              excepted += t.amountMinor < held ? t.amountMinor : held;
+            }
+          }
+          if (plata < real - excepted) {
+            failures.add('$at: P8 deuda de Plata ${plata ~/ 100} < real ${real ~/ 100} (excepción documentada ${excepted ~/ 100})');
           }
           final int pendingOther = l.pendingOutsideMatches().where((Tx t) => !truthSame(t, l.pendingOutsideCut(t)!)).fold<int>(0, (int a, Tx t) => a + (t.outsideTaken ?? 0));
           // Documentado (A4): un pago real anotado desde Plata cuenta entero
@@ -507,6 +530,8 @@ void main() {
       }
       expect(failures, isEmpty, reason: failures.join('\n'));
       expect(outsideSeen, greaterThan(10));
+      // Frecuencia de la excepción (pagos marcados anotados sin pregunta).
+      debugPrint('${config['name']}: preguntas $answered, anotados sin pregunta $withoutQuestion');
       if (autoP < 1 || visitP > 0) {
         expect(answered, greaterThan(5));
       }
