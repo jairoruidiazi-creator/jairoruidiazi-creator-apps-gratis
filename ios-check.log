@@ -1,0 +1,85 @@
+build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Info.plist: OK
+build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/PrivacyInfo.xcprivacy: OK
+build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/es.lproj/InfoPlist.strings: OK
+build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/en.lproj/InfoPlist.strings: OK
+  "CFBundleLocalizations" => [
+    0 => "es"
+    1 => "en"
+  ]
+--
+  "CFBundleShortVersionString" => "1.0.0"
+  "CFBundleSignature" => "????"
+  "CFBundleSupportedPlatforms" => [
+    0 => "iPhoneOS"
+--
+  "CFBundleVersion" => "1"
+  "DTCompiler" => "com.apple.compilers.llvm.clang.1_0"
+  "DTPlatformBuild" => "23F81a"
+  "DTPlatformName" => "iphoneos"
+--
+  "ITSAppUsesNonExemptEncryption" => false
+  "LSApplicationQueriesSchemes" => [
+    0 => "comgooglemaps"
+    1 => "maps"
+--
+  "MinimumOSVersion" => "15.0"
+  "NSCameraUsageDescription" => "Sello usa la cámara para tomar las fotos de campo que luego sella con la hora, la ubicación y el rumbo."
+  "NSLocationTemporaryUsageDescriptionDictionary" => {
+    "FieldPhotoCoordinates" => "Sello necesita tu ubicación precisa para que las coordenadas de la foto sirvan en campo: la aproximada puede estar a kilómetros."
+--
+  "UIDeviceFamily" => [
+    0 => 1
+    1 => 2
+  ]
+{
+  "NSPrivacyAccessedAPITypes" => [
+    0 => {
+      "NSPrivacyAccessedAPIType" => "NSPrivacyAccessedAPICategoryUserDefaults"
+      "NSPrivacyAccessedAPITypeReasons" => [
+        0 => "CA92.1"
+      ]
+    }
+    1 => {
+      "NSPrivacyAccessedAPIType" => "NSPrivacyAccessedAPICategoryDiskSpace"
+      "NSPrivacyAccessedAPITypeReasons" => [
+        0 => "E174.1"
+        1 => "85F4.1"
+      ]
+    }
+  ]
+  "NSPrivacyCollectedDataTypes" => [
+    0 => {
+      "NSPrivacyCollectedDataType" => "NSPrivacyCollectedDataTypePreciseLocation"
+      "NSPrivacyCollectedDataTypeLinked" => false
+      "NSPrivacyCollectedDataTypePurposes" => [
+        0 => "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+      ]
+      "NSPrivacyCollectedDataTypeTracking" => false
+    }
+  ]
+  "NSPrivacyTracking" => false
+  "NSPrivacyTrackingDomains" => [
+  ]
+}
+{
+  "CFBundleDisplayName" => "Sello"
+  "FieldPhotoCoordinates" => "Sello necesita tu ubicación precisa para que las coordenadas de la foto sirvan en campo: la aproximada puede estar a kilómetros."
+  "NSCameraUsageDescription" => "Sello usa la cámara para tomar las fotos de campo que luego sella con la hora, la ubicación y el rumbo."
+  "NSLocationWhenInUseUsageDescription" => "Sello usa tu ubicación para escribir en cada foto las coordenadas, la altitud y la dirección aproximada. Tus fotos y coordenadas se guardan solo en el teléfono."
+  "NSMicrophoneUsageDescription" => "Sello solo toma fotos: no usa el micrófono ni graba audio."
+  "NSMotionUsageDescription" => "Sello usa los sensores de movimiento para calcular el rumbo de la cámara."
+  "NSPhotoLibraryAddUsageDescription" => "Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges."
+  "NSPhotoLibraryUsageDescription" => "Sello guarda una copia de las fotos selladas en tu fototeca si así lo eliges."
+}
+{
+  "CFBundleDisplayName" => "Sello"
+  "FieldPhotoCoordinates" => "Sello needs your precise location so the photo's coordinates are useful in the field: approximate location can be kilometres off."
+  "NSCameraUsageDescription" => "Sello uses the camera to take the field photos it then stamps with the time, location and heading."
+  "NSLocationWhenInUseUsageDescription" => "Sello uses your location to write the coordinates, altitude and approximate address on each photo. Your photos and coordinates are stored only on your phone."
+  "NSMicrophoneUsageDescription" => "Sello only takes photos: it does not use the microphone or record audio."
+  "NSMotionUsageDescription" => "Sello uses the motion sensors to work out the camera heading."
+  "NSPhotoLibraryAddUsageDescription" => "Sello saves a copy of the stamped photos to your photo library if you choose to."
+  "NSPhotoLibraryUsageDescription" => "Sello saves a copy of the stamped photos to your photo library if you choose to."
+}
+Sin petición de ubicación «siempre» en el binario.
+ 23M	build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app

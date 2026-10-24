@@ -1,0 +1,16 @@
+Warning: Building for device with codesigning disabled. You will have to manually codesign before deploying to device.
+Archiving co.appsgratis.sello...
+Running Xcode build...                                          
+Xcode archive done.                                         73.4s
+✓ Built build/ios/archive/Runner.xcarchive (188.5MB)
+
+[✓] App Settings Validation
+    • Version Number: 1.0.0
+    • Build Number: 1
+    • Display Name: Sello
+    • Deployment Target: 15.0
+    • Bundle Identifier: co.appsgratis.sello
+
+To update the settings, please refer to https://flutter.dev/to/ios-deploy
+
+Codesigning disabled with --no-codesign, skipping IPA.
