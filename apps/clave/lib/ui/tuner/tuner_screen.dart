@@ -34,8 +34,14 @@ class _TunerScreenState extends State<TunerScreen> {
   DateTime _lastAnnounce = DateTime.fromMillisecondsSinceEpoch(0);
   Timer? _announceTimer;
   String _wanted = '';
+  bool _noticeWanted = false;
 
   static const Duration announceEvery = Duration(milliseconds: 1100);
+
+  /// Un mismo aviso no se vuelve a anunciar antes de este tiempo (si
+  /// alterna con otra cosa, el lector no lo repite cada segundo).
+  static const Duration noticeRepeat = Duration(seconds: 6);
+  final Map<String, DateTime> _noticeSaidAt = <String, DateTime>{};
 
   @override
   void dispose() {
@@ -92,16 +98,26 @@ class _TunerScreenState extends State<TunerScreen> {
     return '$name ${ps.displayOctave(r.note.midi)}, $state';
   }
 
-  void _scheduleAnnouncement(String wanted) {
+  void _scheduleAnnouncement(String wanted, {bool notice = false}) {
     if (wanted == _announcement) {
       _wanted = wanted;
       return;
     }
+    if (notice) {
+      final DateTime? said = _noticeSaidAt[wanted];
+      if (said != null && clock.now().difference(said) < noticeRepeat) {
+        return;
+      }
+    }
     _wanted = wanted;
+    _noticeWanted = notice;
     final Duration since = clock.now().difference(_lastAnnounce);
     if (since >= announceEvery) {
       _announcement = wanted;
       _lastAnnounce = clock.now();
+      if (notice) {
+        _noticeSaidAt[wanted] = clock.now();
+      }
       _announceTimer?.cancel();
       _announceTimer = null;
     } else {
@@ -111,6 +127,9 @@ class _TunerScreenState extends State<TunerScreen> {
           setState(() {
             _announcement = _wanted;
             _lastAnnounce = clock.now();
+            if (_noticeWanted) {
+              _noticeSaidAt[_wanted] = clock.now();
+            }
           });
         }
       });
@@ -136,7 +155,7 @@ class _TunerScreenState extends State<TunerScreen> {
     final bool spanish = isSpanish(context);
     final double cents = r?.note.cents ?? 0;
     final Color noteColor = r == null ? cs.onSurfaceVariant : colorForCents(pal, cents, tuner.toleranceCents);
-    _scheduleAnnouncement(_desiredAnnouncement(context, tuner, ps, spanish));
+    _scheduleAnnouncement(_desiredAnnouncement(context, tuner, ps, spanish), notice: tuner.reading == null && tuner.notice != TunerNotice.none);
     final double textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
 
     Widget gauge(double height) => SizedBox(
@@ -215,7 +234,9 @@ class _TunerScreenState extends State<TunerScreen> {
           ),
         ),
       );
-      if (tuner.notice != TunerNotice.belowRange || r != null) {
+      // El botón sigue mientras dura el aviso (unos 5 s), aunque entre tanto
+      // se lea el bordón de la app.
+      if (tuner.notice != TunerNotice.belowRange) {
         return block;
       }
       // Fuera de la región en vivo, para que el lector lo ofrezca como botón.

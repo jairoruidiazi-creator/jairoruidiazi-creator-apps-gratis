@@ -206,7 +206,10 @@ void main() {
     await t.services.settings.save();
     await tester.pumpWidget(ClaveApp(services: t.services));
     await tester.pump();
-    t.services.tuner.feed(aString(65.41)); // Do2: un violonchelo, no un violín
+    for (int i = 0; i < 7; i++) {
+      t.services.tuner.feed(aString(65.41)); // Do2: un violonchelo, no un violín
+      await tester.pump(const Duration(milliseconds: 60));
+    }
     await tester.pump(const Duration(milliseconds: 1200));
     expect(find.text('Suena más grave que el rango de Violín · usar Cromático'), findsOneWidget);
     expect(find.bySemanticsLabel(RegExp('más grave que el rango de Violín')), findsWidgets);
@@ -222,41 +225,45 @@ void main() {
     await t.shutdown(tester);
   });
 
-  testWidgets('Con letra × 2 en 360 × 640, los avisos del afinador se leen enteros (final, m4)', (WidgetTester tester) async {
-    useScreen(tester, const Size(360, 640), textScale: 2.0);
-    final List<FlutterErrorDetails> errors = watchErrors();
-    final TestServices t = TestServices(micEnabled: false);
-    t.services.settings.instrumentId = 'violin';
-    await t.services.settings.save();
-    await tester.pumpWidget(ClaveApp(services: t.services));
-    await tester.pump();
-    bool fits(String text) {
-      final RenderParagraph p = tester.renderObject<RenderParagraph>(find.text(text));
-      return !p.didExceedMaxLines;
-    }
+  for (final Size size in <Size>[const Size(360, 640), const Size(640, 360)]) {
+    testWidgets('Con letra × 2 en ${size.width.toInt()} × ${size.height.toInt()}, los avisos del afinador se ven enteros o se llega a ellos desplazando (final, m4)', (WidgetTester tester) async {
+      useScreen(tester, size, textScale: 2.0);
+      final List<FlutterErrorDetails> errors = watchErrors();
+      final TestServices t = TestServices(micEnabled: false);
+      t.services.settings.instrumentId = 'violin';
+      await t.services.settings.save();
+      await tester.pumpWidget(ClaveApp(services: t.services));
+      await tester.pump();
+      final Rect screen = Offset.zero & size;
+      Future<void> reachable(String text) async {
+        expect(find.text(text), findsOneWidget);
+        await tester.ensureVisible(find.text(text));
+        await tester.pump();
+        final Rect r = tester.getRect(find.text(text));
+        expect(screen.contains(r.topLeft) && screen.contains(r.bottomRight - const Offset(0.5, 0.5)), isTrue, reason: '$text en $r');
+      }
 
-    // Nota bajo el rango.
-    t.services.tuner.feed(aString(65.41));
-    await tester.pump(const Duration(milliseconds: 100));
-    const String range = 'Suena más grave que el rango de Violín · usar Cromático';
-    expect(find.text(range), findsOneWidget);
-    expect(fits(range), isTrue);
-    // Residuo con el bordón (La3 con quinta; lo que se oye tiene periodo de La2
-    // y no hay energía en La2).
-    t.services.settings.instrumentId = 'voz';
-    await t.services.settings.save();
-    t.services.tuner.ownTones = () => <double>[220, 330];
-    final Float32List mixture = Float32List.fromList(<double>[for (int i = 0; i < 8192; i++) 0.15 * math.sin(2 * math.pi * 220 * i / 44100) + 0.1 * math.sin(2 * math.pi * 330 * i / 44100 + 1)]);
-    for (int i = 0; i < 8; i++) {
-      t.services.tuner.feed(mixture);
-      await tester.pump(const Duration(milliseconds: 60));
-    }
-    const String mix = 'Lo que se oye puede ser la mezcla con el bordón, las teclas o el acorde de la app. Apágalos para afinar esta nota.';
-    expect(find.text(mix), findsOneWidget);
-    expect(fits(mix), isTrue);
-    expect(errors, isEmpty, reason: report(errors));
-    await t.shutdown(tester);
-  });
+      // Nota bajo el rango, sostenida.
+      for (int i = 0; i < 7; i++) {
+        t.services.tuner.feed(aString(65.41));
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+      await reachable('Suena más grave que el rango de Violín · usar Cromático');
+      // Residuo con el bordón (La3 con quinta, que se oye en la señal: lo que
+      // suena tiene periodo de La2 y en La2 no hay energía).
+      t.services.settings.instrumentId = 'voz';
+      await t.services.settings.save();
+      t.services.tuner.ownTones = () => <double>[220, 330];
+      final Float32List mixture = Float32List.fromList(<double>[for (int i = 0; i < 8192; i++) 0.15 * math.sin(2 * math.pi * 220 * i / 44100) + 0.1 * math.sin(2 * math.pi * 330 * i / 44100 + 1)]);
+      for (int i = 0; i < 8; i++) {
+        t.services.tuner.feed(mixture);
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+      await reachable('Lo que se oye puede ser la mezcla con el bordón, las teclas o el acorde de la app. Apágalos para afinar esta nota.');
+      expect(errors, isEmpty, reason: report(errors));
+      await t.shutdown(tester);
+    });
+  }
 
   testWidgets('El afinador anuncia la nota al lector sin saturarlo: como mucho un aviso cada 1,1 s (G7)', (WidgetTester tester) async {
     useScreen(tester, const Size(360, 640));

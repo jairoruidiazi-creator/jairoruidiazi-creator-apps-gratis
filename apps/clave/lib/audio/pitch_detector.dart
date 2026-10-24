@@ -94,65 +94,6 @@ class PitchDetector {
   final Map<int, Float64List> _scratch = <int, Float64List>{};
   final Map<int, Float64List> _hann = <int, Float64List>{};
 
-  /// Prominencia, en dB, de la energía en [hz] dentro de [samples]: el pico
-  /// del espectro (ventana de Hann, ±1,5 bins) sobre la mediana de su
-  /// entorno (±max(8 bins, 0,4·bin), sin los ±3 bins del centro).
-  ///
-  /// Distingue una nota de verdad de un residuo (una "fundamental ausente":
-  /// la mezcla de dos tonos tiene el periodo de un subarmónico común, pero
-  /// en ese subarmónico no hay energía). Una nota real tiene pico aunque el
-  /// micrófono del teléfono la atenúe por debajo de 100 a 150 Hz; un residuo
-  /// no lo tiene, también con ruido de fondo.
-  static double fundamentalProminenceDb(Float32List samples, double hz, int sampleRate) {
-    final int n = samples.length;
-    if (n < 16 || !(hz > 0)) {
-      return 0;
-    }
-    final Float64List xw = Float64List(n);
-    for (int i = 0; i < n; i++) {
-      xw[i] = samples[i] * (0.5 - 0.5 * math.cos(2 * math.pi * i / (n - 1)));
-    }
-    double mag(int k) {
-      // DFT en un solo bin, con rotación (sin trigonometría por muestra).
-      final double step = -2 * math.pi * k / n;
-      final double cs = math.cos(step);
-      final double sn = math.sin(step);
-      double c = 1;
-      double s = 0;
-      double re = 0;
-      double im = 0;
-      for (int i = 0; i < n; i++) {
-        re += xw[i] * c;
-        im += xw[i] * s;
-        final double nc = c * cs - s * sn;
-        s = c * sn + s * cs;
-        c = nc;
-      }
-      return math.sqrt(re * re + im * im);
-    }
-
-    final double b = hz * n / sampleRate;
-    final int half = n ~/ 2;
-    double peak = 0;
-    for (int k = math.max(1, (b - 1.5).floor()); k <= math.min(half, (b + 1.5).ceil()); k++) {
-      peak = math.max(peak, mag(k));
-    }
-    final double span = math.max(8.0, 0.4 * b);
-    final int from = math.max(1, (b - span).floor());
-    final int to = math.min(half, (b + span).floor());
-    final int gapLo = (b - 3).floor();
-    final int gapHi = (b + 3).floor();
-    final List<double> ring = <double>[
-      for (int k = from; k <= to; k++)
-        if (k < gapLo || k > gapHi) mag(k),
-    ]..sort();
-    if (ring.isEmpty) {
-      return 0;
-    }
-    final double median = ring.length.isOdd ? ring[ring.length ~/ 2] : (ring[ring.length ~/ 2 - 1] + ring[ring.length ~/ 2]) / 2;
-    return 20 * math.log(peak / (median + 1e-12)) / math.ln10;
-  }
-
   PitchResult detect(Float32List samples) {
     final int n = samples.length;
     if (n < minSamples) {

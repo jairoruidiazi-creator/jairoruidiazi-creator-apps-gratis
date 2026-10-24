@@ -8,6 +8,7 @@ import '../music/instruments.dart';
 import '../music/notes.dart';
 import 'mic_capture.dart';
 import 'pitch_detector.dart';
+import 'spectrum.dart';
 
 /// Una lectura del afinador lista para pintar.
 class TunerReading {
@@ -148,6 +149,9 @@ class Tuner extends ChangeNotifier {
       return;
     }
     _instrument = value;
+    _residueSince = null;
+    _belowSince = null;
+    _cleanSince = null;
     if (_notice != TunerNotice.none) {
       _notice = TunerNotice.none;
       _noticeAt = null;
@@ -197,9 +201,51 @@ class Tuner extends ChangeNotifier {
   /// para dejarlo (sin parpadeo entre la lectura y el aviso).
   static const Duration noticeDelay = Duration(milliseconds: 300);
 
-  /// Prominencia mínima (dB) de la energía en la frecuencia leída para que
-  /// una lectura en f/k de un tono de la app cuente como nota de verdad.
-  static const double residueProminenceDb = 15;
+  /// Prominencia mínima (dB) sobre el piso entre armónicos para contar un
+  /// armónico de la lectura como sonido propio de lo que se toca (ver
+  /// [isResidue]): de [residueProminenceLowDb] con la claridad de
+  /// [residueClarityLow] o menos (mucho ruido) a [residueProminenceHighDb]
+  /// con [residueClarityHigh] o más.
+  static const double residueProminenceLowDb = 10;
+  static const double residueProminenceHighDb = 14;
+  static const double residueClarityLow = 0.85;
+  static const double residueClarityHigh = 0.98;
+
+  /// Umbral de [isResidue] para una lectura de claridad [clarity]. Con ruido,
+  /// los armónicos de una nota real asoman menos sobre el piso y el umbral
+  /// baja; sin ruido, un pico suelto de la mezcla (vibrato, batido) puede
+  /// asomar más y el umbral sube.
+  static double residueThresholdDb(double clarity) {
+    final double t = ((clarity - residueClarityLow) / (residueClarityHigh - residueClarityLow)).clamp(0.0, 1.0).toDouble();
+    return residueProminenceLowDb + (residueProminenceHighDb - residueProminenceLowDb) * t;
+  }
+
+  /// Prominencia mínima (dB) de un tono de la app en el búfer para contar
+  /// que el micrófono lo oye.
+  static const double ownTonePresentDb = 15;
+
+  /// Distancia (cents) hasta un parcial de un tono de la app por debajo de la
+  /// cual un armónico de la lectura se atribuye a la app y no cuenta como
+  /// sonido propio.
+  static const double ownPartialCents = 90;
+
+  /// Armónicos de la lectura que se miran, y hasta qué frecuencia.
+  static const int residueHarmonics = 12;
+  static const double residueMaxHz = 5000;
+
+  /// Bajo esta frecuencia no hay resolución para separar una nota real de
+  /// un residuo: con 8192 muestras cada hueco entre armónicos tiene 5 bins o
+  /// menos. Ahí una lectura dentro del rango del instrumento se muestra
+  /// siempre (La1, Mi1 y Si0 del bajo); una más de
+  /// [belowInstrumentSemitones] bajo su nota más grave (en el margen de
+  /// [Instrument.rangeMargin], por ejemplo 55 Hz con Voz) se trata como
+  /// residuo si el tono de la app se oye.
+  static const double residueMinHz = 58;
+
+  /// Cuánto (semitonos) por debajo de la nota más grave del instrumento
+  /// empieza a contar como "bajo el instrumento" para [residueMinHz]: deja
+  /// sitio a una cuerda afinada un tono más grave (Re en vez de Mi).
+  static const double belowInstrumentSemitones = 2;
 
   /// Claridad mínima para avisar que una nota queda bajo el rango.
   static const double noticeClarity = 0.85;
@@ -236,6 +282,7 @@ class Tuner extends ChangeNotifier {
   TunerNotice _notice = TunerNotice.none;
   DateTime? _noticeAt;
   DateTime? _residueSince;
+  DateTime? _belowSince;
   DateTime? _cleanSince;
 
   MicStatus get status => _status;
@@ -427,6 +474,7 @@ class Tuner extends ChangeNotifier {
     _notice = TunerNotice.none;
     _noticeAt = null;
     _residueSince = null;
+    _belowSince = null;
     _cleanSince = null;
     _smoothMidi = -1;
     _stableNow = false;
@@ -491,36 +539,43 @@ class Tuner extends ChangeNotifier {
     // Muy por debajo del rango del perfil elegido no es la nota (ruido grave o
     // un subarmónico) y no se muestra; con un tono claro, se avisa (puede ser
     // otro instrumento: Cromático lo lee). En Cromático no limita.
-    // Con el bordón, teclas o un acorde sonando, una lectura en f/k de uno de
-    // esos tonos puede ser la mezcla con él (un residuo): solo se oculta si
-    // en esa frecuencia no hay energía propia; una nota de verdad la tiene.
+    // Con un tono de la app sonando que el micrófono de verdad oye, una
+    // lectura en f/k de ese tono puede ser la mezcla con él (un residuo): solo
+    // se oculta si lo que ese tono no explica no tiene el periodo de la
+    // lectura (ver isResidue).
     final bool voiced = r.hasPitch && r.clarity >= 0.6;
     bool hide = false;
     bool belowRange = false;
     bool residue = false;
     if (voiced) {
-      if (Notes.hzToMidi(r.frequency, a4: settings.a4) < instrument.lowestReading(capo: settings.capo)) {
+      final List<double>? own = ownTones?.call();
+      final double heardMidi = Notes.hzToMidi(r.frequency, a4: settings.a4);
+      final double lowest = instrument.lowestReading(capo: settings.capo);
+      // Un residuo bajo el rango también es un residuo: el aviso es el del
+      // bordón (usar Cromático no ayudaría) y no alterna con el de rango.
+      residue = own != null &&
+          own.isNotEmpty &&
+          matchesOwnTone(r.frequency, own) &&
+          isResidue(Spectrum(buf, sampleRate: sampleRate), r.frequency, own, clarity: r.clarity, belowInstrument: heardMidi < lowest + Instrument.rangeMargin - belowInstrumentSemitones);
+      if (residue) {
+        hide = true;
+      } else if (heardMidi < lowest) {
         hide = true;
         belowRange = r.clarity >= noticeClarity;
-      } else if (_isOwnToneResidue(r.frequency) && PitchDetector.fundamentalProminenceDb(buf, r.frequency, sampleRate) < residueProminenceDb) {
-        hide = true;
-        residue = true;
       }
     }
-    // Histéresis del aviso del bordón: hace falta un rato seguido de residuo
-    // para pasar al aviso, y un rato seguido de notas para dejarlo.
-    if (residue) {
-      _residueSince ??= wall;
-      _cleanSince = null;
-    } else if (voiced && !hide) {
-      _cleanSince ??= wall;
-      _residueSince = null;
-    }
-    if (_notice == TunerNotice.ownTone && voiced && !hide && wall.difference(_cleanSince!) < noticeDelay) {
+    // Histéresis: cada aviso pide 300 ms seguidos de su causa para aparecer,
+    // y el del bordón, 300 ms seguidos de notas para irse. Cualquier cuadro
+    // de otra clase (también silencio) reinicia la cuenta.
+    final bool clean = voiced && !hide;
+    _residueSince = residue ? (_residueSince ?? wall) : null;
+    _belowSince = belowRange ? (_belowSince ?? wall) : null;
+    _cleanSince = clean ? (_cleanSince ?? wall) : null;
+    if (_notice == TunerNotice.ownTone && clean && wall.difference(_cleanSince!) < noticeDelay) {
       hide = true;
     }
     TunerNotice why = TunerNotice.none;
-    if (belowRange) {
+    if (belowRange && (_notice == TunerNotice.belowRange || wall.difference(_belowSince!) >= noticeDelay)) {
       why = TunerNotice.belowRange;
     } else if (residue && (_notice == TunerNotice.ownTone || wall.difference(_residueSince!) >= noticeDelay)) {
       why = TunerNotice.ownTone;
@@ -540,7 +595,9 @@ class Tuner extends ChangeNotifier {
       final DateTime? at = _noticeAt;
       final Duration keep = _notice == TunerNotice.belowRange ? rangeNoticeHold : noticeHold;
       final bool expired = at != null && wall.difference(at) > keep;
-      if (expired || (voiced && !hide)) {
+      // Un tono de la propia app (el bordón que suena) no cuenta como lectura
+      // que borre el aviso.
+      if (expired || (voiced && !hide && !_isOwnSound(r.frequency))) {
         _notice = TunerNotice.none;
         _noticeAt = null;
         notifyListeners();
@@ -594,23 +651,81 @@ class Tuner extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// true si [hz] cae (±60 cents) en f/k de un tono sostenido de la app.
-  bool _isOwnToneResidue(double hz) {
-    final List<double>? own = ownTones?.call();
-    if (own == null || own.isEmpty) {
+  /// true si [hz] cae (±60 cents) en f/k (k de 2 a 8) de alguno de [own].
+  static bool matchesOwnTone(double hz, List<double> own) => _matching(hz, own).isNotEmpty;
+
+  static List<double> _matching(double hz, List<double> own) => <double>[
+        for (final double f in own)
+          if (f > 0 && <int>[2, 3, 4, 5, 6, 7, 8].any((int k) => (1200 * log2(hz * k / f)).abs() <= 60)) f,
+      ];
+
+  /// Si una lectura [hz] que cae en f/k de un tono de la app es un residuo
+  /// de la mezcla, no una nota. Lo es solo si se cumplen las tres cosas:
+  /// - alguno de esos tonos se oye en el búfer (prominencia de al menos
+  ///   [ownTonePresentDb]): con el volumen bajo no hay mezcla posible;
+  /// - [hz] es de al menos [residueMinHz] (más abajo, solo si
+  ///   [belowInstrument]: la lectura queda bajo la nota más grave del
+  ///   instrumento, donde una nota real es improbable);
+  /// - y lo que no explican los tonos de la app no tiene el periodo de [hz].
+  ///   Se miran los armónicos h·[hz] (h de 1 a [residueHarmonics], hasta
+  ///   [residueMaxHz]) que no caen a menos de [ownPartialCents] de un
+  ///   parcial de un tono de la app, y se toman los que superan
+  ///   [residueThresholdDb] sobre el piso entre armónicos (el piso se mide
+  ///   en cada zona del espectro y el umbral baja con el ruido, [clarity]).
+  ///   Si el máximo común divisor de sus h es 1, ese sonido tiene de verdad
+  ///   el periodo de [hz]: es una nota. Así se lee también con audífonos,
+  ///   cuando lo que suena en la frecuencia del bordón es un armónico de la
+  ///   propia nota. Si no queda ninguno, o todos son múltiplos de un j > 1,
+  ///   lo tocado es j·[hz] y [hz] sale de la mezcla.
+  static bool isResidue(Spectrum spectrum, double hz, List<double> own, {double clarity = 1, bool belowInstrument = false}) {
+    if (hz < residueMinHz && !belowInstrument) {
       return false;
     }
-    for (final double f in own) {
-      if (f <= 0) {
+    if (!_matching(hz, own).any((double g) => spectrum.prominenceDb(g) >= ownTonePresentDb)) {
+      return false;
+    }
+    if (hz < residueMinHz) {
+      return true;
+    }
+    final double threshold = residueThresholdDb(clarity);
+    int common = 0;
+    for (int h = 1; h <= residueHarmonics && h * hz <= residueMaxHz; h++) {
+      if (_nearOwnPartial(h * hz, own)) {
         continue;
       }
-      for (int k = 2; k <= 8; k++) {
-        if ((1200 * log2(hz * k / f)).abs() <= 60) {
-          return true;
+      final double p = spectrum.harmonicProminenceDb(hz, h);
+      if (!p.isNaN && p >= threshold) {
+        common = _gcd(common, h);
+        if (common == 1) {
+          return false;
         }
       }
     }
+    return true;
+  }
+
+  static bool _nearOwnPartial(double hz, List<double> own) {
+    for (final double g in own) {
+      if (g <= 0) {
+        continue;
+      }
+      final int m = math.max(1, (hz / g).round());
+      if ((1200 * log2(hz / (m * g))).abs() <= ownPartialCents) {
+        return true;
+      }
+    }
     return false;
+  }
+
+  static int _gcd(int a, int b) {
+    int x = a;
+    int y = b;
+    while (y != 0) {
+      final int t = x % y;
+      x = y;
+      y = t;
+    }
+    return x;
   }
 
   bool _isOwnSound(double hz) {

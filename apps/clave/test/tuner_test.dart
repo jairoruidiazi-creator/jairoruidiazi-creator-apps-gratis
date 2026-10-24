@@ -6,7 +6,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:clave/audio/click_synth.dart';
-import 'package:clave/audio/pitch_detector.dart';
+import 'package:clave/audio/spectrum.dart';
 import 'package:clave/audio/sequencer.dart';
 import 'package:clave/audio/tuner.dart';
 import 'package:clave/music/instruments.dart';
@@ -217,7 +217,7 @@ void main() {
       final Tuner flute = fresh('flauta')..feed(s.next(hzAt(45, 0), 8192));
       expect(flute.reading, isNull);
       expect(flute.stableTone, isFalse);
-      expect(flute.notice, TunerNotice.belowRange, reason: 'tono claro bajo el rango: se avisa');
+      expect(flute.notice, TunerNotice.none, reason: 'un cuadro suelto no basta para avisar (300 ms)');
       flute.feed(s.next(hzAt(54, 0), 8192)); // Fa♯3, dentro del margen de 7 semitonos
       expect(flute.reading?.note.midi, 54);
       expect(flute.notice, TunerNotice.none);
@@ -246,10 +246,13 @@ void main() {
           ..instrument = Instruments.byId('violin')
           ..damping = 0;
         final Sustained s = Sustained();
-        tuner.feed(s.next(hzAt(36, 0), 8192)); // el Do2 de un violonchelo
-        expect(tuner.reading, isNull);
-        expect(tuner.notice, TunerNotice.belowRange);
-        async.elapse(const Duration(milliseconds: 300));
+        // El Do2 de un violonchelo, sostenido: el aviso sale a los 300 ms.
+        for (int ms = 0; ms <= 300; ms += 60) {
+          tuner.feed(s.next(hzAt(36, 0), 8192));
+          expect(tuner.reading, isNull);
+          expect(tuner.notice, ms < 300 ? TunerNotice.none : TunerNotice.belowRange, reason: '$ms ms');
+          async.elapse(const Duration(milliseconds: 60));
+        }
         tuner.feed(Float32List(8192));
         expect(tuner.notice, TunerNotice.belowRange, reason: 'no parpadea');
         async.elapse(const Duration(milliseconds: 400));
@@ -259,8 +262,18 @@ void main() {
         tuner.feed(Float32List(8192));
         expect(tuner.notice, TunerNotice.none);
         // Cambiar de instrumento borra el aviso del anterior.
-        tuner.feed(s.next(hzAt(36, 0), 8192));
+        for (int ms = 0; ms <= 360; ms += 60) {
+          tuner.feed(s.next(hzAt(36, 0), 8192));
+          async.elapse(const Duration(milliseconds: 60));
+        }
         expect(tuner.notice, TunerNotice.belowRange);
+        // Un tono de la propia app (el bordón en Do2) no cuenta como lectura
+        // que borre el aviso.
+        tuner
+          ..ownTones = () => <double>[hzAt(62, 0)]
+          ..ownFrequencies = () => <double>[hzAt(62, 0)];
+        tuner.feed(s.next(hzAt(62, 0), 8192));
+        expect(tuner.notice, TunerNotice.belowRange, reason: 'el bordón no borra el botón');
         tuner.instrument = Instruments.byId('cromatico');
         expect(tuner.notice, TunerNotice.none);
         tuner.dispose();
@@ -300,6 +313,62 @@ void main() {
           }
         }
         return d;
+      }
+
+      Float32List finish(List<double> x) {
+        final double peak = x.fold<double>(0, (double a, double v) => math.max(a, v.abs()));
+        return Float32List.fromList(<double>[for (final double v in x) 0.3 * v / peak]);
+      }
+
+      /// Paso alto Butterworth de orden [order] (biquads en cascada), como el
+      /// filtro de voz o el micrófono pequeño de un teléfono.
+      List<double> highPass(List<double> x, double fc, int order) {
+        final double w0 = 2 * math.pi * fc / 44100;
+        final double alpha = math.sin(w0) / (2 * math.sqrt1_2);
+        final double cs = math.cos(w0);
+        final double a0 = 1 + alpha;
+        final double b0 = (1 + cs) / 2 / a0;
+        final double b1 = -(1 + cs) / a0;
+        final double a1 = -2 * cs / a0;
+        final double a2 = (1 - alpha) / a0;
+        List<double> y = x;
+        for (int stage = 0; stage < order ~/ 2; stage++) {
+          final List<double> out = List<double>.filled(y.length, 0);
+          double x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+          for (int i = 0; i < y.length; i++) {
+            final double o = b0 * y[i] + b1 * x1 + b0 * x2 - a1 * y1 - a2 * y2;
+            x2 = x1;
+            x1 = y[i];
+            y2 = y1;
+            y1 = o;
+            out[i] = o;
+          }
+          y = out;
+        }
+        return y;
+      }
+
+      /// [x] con ruido rosa (filtro de Kellet sobre un generador congruencial
+      /// fijo, para que la prueba sea determinista) a [snr] dB.
+      List<double> pinkNoise(List<double> x, double snr, {int seed = 7}) {
+        int s = seed;
+        double c0 = 0, c1 = 0, c2 = 0;
+        final List<double> w = List<double>.filled(x.length, 0);
+        for (int i = 0; i < x.length; i++) {
+          s = (s * 1103515245 + 12345) & 0x7fffffff;
+          final double white = s / 2147483648.0 - 0.5;
+          c0 = 0.99765 * c0 + white * 0.0990460;
+          c1 = 0.96300 * c1 + white * 0.2965164;
+          c2 = 0.57000 * c2 + white * 1.0526913;
+          w[i] = c0 + c1 + c2 + white * 0.1848;
+        }
+        double ex = 0, ew = 0;
+        for (int i = 0; i < x.length; i++) {
+          ex += x[i] * x[i];
+          ew += w[i] * w[i];
+        }
+        final double k = math.sqrt(ex / ew) * math.pow(10, -snr / 20).toDouble();
+        return <double>[for (int i = 0; i < x.length; i++) x[i] + k * w[i]];
       }
 
       /// El afinador oyendo [x] durante [ms] (un análisis cada 60 ms).
@@ -345,6 +414,110 @@ void main() {
         });
       });
 
+      test('El espectro (FFT de 8192 puntos, N1) coincide con la DFT directa de la ventana de Hann', () {
+        final math.Random rnd = math.Random(3);
+        final Float32List x = Float32List.fromList(<double>[for (int i = 0; i < 8192; i++) 0.2 * math.sin(2 * math.pi * 196 * i / 44100) + 0.05 * (rnd.nextDouble() - 0.5)]);
+        final Spectrum sp = Spectrum(x, sampleRate: 44100);
+        for (final int k in <int>[1, 36, 37, 500, 4096]) {
+          double re = 0, im = 0;
+          for (int i = 0; i < 8192; i++) {
+            final double w = (0.5 - 0.5 * math.cos(2 * math.pi * i / 8191)) * x[i];
+            re += w * math.cos(2 * math.pi * k * i / 8192);
+            im -= w * math.sin(2 * math.pi * k * i / 8192);
+          }
+          expect(sp.mag[k], closeTo(math.sqrt(re * re + im * im), 1e-9 * (1 + sp.mag[k])), reason: 'bin $k');
+        }
+        expect(() => Spectrum(Float32List(1000), sampleRate: 44100), throwsArgumentError);
+      });
+
+      const List<double> bass = <double>[1.0, 0.9, 0.7, 0.5, 0.35, 0.25, 0.18, 0.12];
+      test('Si0 se lee con el bordón en Si1 y un paso alto que casi quita la fundamental (bajo de 5 cuerdas)', () {
+        fakeAsync((FakeAsync async) {
+          final double root = hzAt(35, 0);
+          for (final List<int> hp in <List<int>>[<int>[100, 2], <int>[150, 2], <int>[200, 4]]) {
+            for (final double db in <double>[-12, -6, 0]) {
+              for (final double cents in <double>[-30, 0, 30]) {
+                final Float32List x = finish(highPass(mix(harmonic(hzAt(23, cents), bass), drone(root), db), hp[0].toDouble(), hp[1]));
+                final Tuner t = listen(async, 'bajo5', <double>[root], x);
+                expect(t.reading?.note.midi, 23, reason: 'Si0 $cents c, bordón a $db dB, paso alto $hp');
+                expect(t.notice, TunerNotice.none);
+              }
+            }
+          }
+        });
+      });
+
+      test('Mi1 con la fundamental débil y ruido rosa a 10 dB se lee con el bordón en Mi2 (con y sin quinta)', () {
+        fakeAsync((FakeAsync async) {
+          final double root = hzAt(40, 0);
+          const List<double> weak = <double>[0.3, 1.0, 0.7, 0.45, 0.3, 0.2, 0.12, 0.08];
+          for (final double db in <double>[-12, -6, 0]) {
+            for (final double cents in <double>[-30, 0, 30]) {
+              for (final bool fifth in <bool>[false, true]) {
+                final Float32List x = finish(pinkNoise(mix(harmonic(hzAt(28, cents), weak), drone(root, fifth: fifth, sawShape: fifth), db), 10));
+                final Tuner t = listen(async, 'bajo', <double>[root, if (fifth) root * 1.5], x);
+                expect(t.reading?.note.midi, 28, reason: 'Mi1 $cents c, bordón a $db dB, quinta $fifth');
+                expect(t.notice, TunerNotice.none);
+              }
+            }
+          }
+        });
+      });
+
+      test('Con audífonos (el bordón suena pero no llega al micrófono) la nota se lee aunque su fundamental casi no se oiga', () {
+        fakeAsync((FakeAsync async) {
+          final double root = hzAt(57, 0); // La3 con su quinta, en los audífonos
+          final List<double> own = <double>[root, root * 1.5];
+          for (final double a0 in <double>[0.02, 0.1]) {
+            for (final double? snr in <double?>[null, 10, 5]) {
+              for (final double cents in <double>[-30, 0, 30]) {
+                final Float64List voice = harmonic(hzAt(45, cents), <double>[a0, 1.0, 0.8, 0.6, 0.4, 0.3, 0.2, 0.12], phase: 0.7);
+                final Float32List x = finish(snr == null ? voice : pinkNoise(voice, snr));
+                final Tuner t = listen(async, 'voz', own, x);
+                expect(t.reading?.note.midi, 45, reason: 'La2 a0 $a0, ruido $snr dB, $cents c');
+                expect(t.notice, TunerNotice.none);
+                if (snr != null && a0 < 0.05) {
+                  // La fundamental sola no la salva: lo que la distingue de un
+                  // residuo son sus armónicos impares (5.º, 7.º), que el bordón
+                  // no explica.
+                  expect(Spectrum(x, sampleRate: 44100).harmonicProminenceDb(hzAt(45, cents), 1), lessThan(Tuner.residueProminenceLowDb));
+                }
+              }
+            }
+          }
+        });
+      });
+
+      test('Bajo 58 Hz: con Voz, la mezcla de la tercera mayor cantada sobre el bordón (unos 55 Hz, bajo la voz) se oculta y avisa', () {
+        fakeAsync((FakeAsync async) {
+          final double root = hzAt(57, 0); // La3, seno, al mismo nivel que la voz
+          for (final double cents in <double>[-30, 0, 30]) {
+            final Float32List x = mix(harmonic(hzAt(61, cents), voiceAmps(hzAt(61, cents)), phase: 0.7), drone(root), 0);
+            final Tuner t = listen(async, 'voz', <double>[root], x);
+            expect(t.reading, isNull, reason: 'Do#4 $cents c');
+            expect(t.notice, TunerNotice.ownTone, reason: 'el aviso del bordón, no el de rango');
+          }
+        });
+      });
+
+      test('Cuadros de residuo sueltos, separados por silencio, no abren el aviso (N3)', () {
+        fakeAsync((FakeAsync async) {
+          final double root = hzAt(57, 0);
+          final Float32List unison = mix(harmonic(root, voiceAmps(root), phase: 0.7), drone(root, fifth: true, sawShape: true), -6);
+          final Float32List silence = Float32List(8192);
+          final Tuner t = Tuner(microphoneEnabled: false)
+            ..instrument = Instruments.byId('voz')
+            ..damping = 0
+            ..ownTones = () => <double>[root, root * 1.5];
+          for (int i = 0; i < 20; i++) {
+            t.feed(i.isEven ? unison : silence);
+            async.elapse(const Duration(milliseconds: 60));
+            expect(t.notice, TunerNotice.none, reason: 'cuadro $i');
+            expect(t.reading, isNull);
+          }
+        });
+      });
+
       test('La mezcla con residuo (fundamental ausente) no se muestra y avisa después de 300 ms seguidos', () {
         fakeAsync((FakeAsync async) {
           final double root = hzAt(57, 0); // La3
@@ -359,9 +532,9 @@ void main() {
             expect(t.notice, TunerNotice.ownTone);
           }
           // La energía en la frecuencia leída separa los dos casos.
-          expect(PitchDetector.fundamentalProminenceDb(unison, root / 2, 44100), lessThan(Tuner.residueProminenceDb));
+          expect(Spectrum(unison, sampleRate: 44100).harmonicProminenceDb(root / 2, 1), lessThan(Tuner.residueProminenceLowDb));
           final Float32List real = mix(harmonic(hzAt(38, 0), voiceAmps(hzAt(38, 0))), drone(hzAt(50, 0)), 0);
-          expect(PitchDetector.fundamentalProminenceDb(real, hzAt(38, 0), 44100), greaterThan(Tuner.residueProminenceDb + 20));
+          expect(Spectrum(real, sampleRate: 44100).harmonicProminenceDb(hzAt(38, 0), 1), greaterThan(Tuner.residueProminenceHighDb + 20));
           // Sin tonos de la app, la misma mezcla se lee (es lo que suena).
           expect(listen(async, 'voz', const <double>[], unison).reading, isNotNull);
         });
