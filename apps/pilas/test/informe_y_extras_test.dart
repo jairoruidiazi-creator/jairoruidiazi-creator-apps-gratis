@@ -149,7 +149,7 @@ void main() {
       expect(f.existsSync(), isTrue, reason: f.path);
     }
     final List<String> textos = h.state.notices.map((StorageNotice n) => n.texto).toList();
-    expect(textos.where((String t) => t.contains('avance de Ana ') || t.contains('avance de Ana:') || t.contains('avance de Ana;')), isEmpty);
+    expect(textos.where((String t) => t.contains('avance de Ana desde') || t.contains('avance de Ana:') || t.contains('avance de Ana;')), isEmpty);
     // Ana María, Anabel y Beto conservan sus avisos.
     expect(textos.where((String t) => t.contains('Ana María')).length, 2);
     expect(textos.any((String t) => t.contains('Anabel')), isTrue);
