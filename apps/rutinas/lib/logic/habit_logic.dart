@@ -15,7 +15,6 @@ enum SlotState { met, excused, missed, open }
 /// En qué se cuenta la racha según la frecuencia.
 enum StreakUnit { days, times, weeks, months }
 
-/// Estado de un día para pintar el calendario.
 /// Qué hace con la racha cambiar la regla de un hábito hoy (lo que el editor
 /// anuncia antes de guardar):
 /// - none: no cambia nada.
@@ -24,6 +23,7 @@ enum StreakUnit { days, times, weeks, months }
 /// - restartsStreak: la racha vuelve a contar desde hoy (otra unidad).
 enum RuleChange { none, revert, keepsStreak, restartsStreak }
 
+/// Estado de un día para pintar el calendario.
 enum DayStatus { beforeStart, future, done, partial, skipped, missed, notDue, pending, relapse, clean, paused }
 
 class HabitSlot {
