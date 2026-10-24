@@ -169,7 +169,15 @@ class _CardPanelState extends State<_CardPanel> {
                       ],
                     ),
                   ),
-                  Text(money(context, next.dueMinor, c.currency), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: cs.onPrimaryContainer, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
+                  // Con letra grande la cifra se reduce antes que aplastar el texto.
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(money(context, next.dueMinor, c.currency), style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: cs.onPrimaryContainer, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -270,8 +278,16 @@ class _CardPanelState extends State<_CardPanel> {
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
           children: <Widget>[
-            Expanded(child: Text(label)),
-            Text(value, style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w600, fontSize: bold ? 17 : 14, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
+            Expanded(flex: 3, child: Text(label)),
+            const SizedBox(width: 8),
+            Flexible(
+              flex: 2,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text(value, style: TextStyle(fontWeight: bold ? FontWeight.w800 : FontWeight.w600, fontSize: bold ? 17 : 14, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()])),
+              ),
+            ),
           ],
         ),
       );
