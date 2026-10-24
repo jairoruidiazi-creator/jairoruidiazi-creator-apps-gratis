@@ -118,6 +118,9 @@ void main() {
       archivo('profiles.json.corrupto-20261018-120001', '{"profiles": [{"id": "${ana.id}", "nombre": "Ana"'),
       archivo('profiles.json.bak.corrupto-20261018-120001', '{"profiles": [{"id": "${ana.id}", "nombre": "Ana", "birthYear": 2018'),
       archivo('groups.json.bak.corrupto-20261018-120002', '{"groups": [{"profileIds": ["${ana.id}"'),
+      // N3: copias dañadas de los avisos (se borran siempre).
+      archivo('avisos.json.corrupto-20261018-120006', '{"avisos": [{"texto": "No se pudo leer el avance de Ana: '),
+      archivo('avisos.json.bak.corrupto-20261018-120006', '{"avisos": [{"texto": "Se recuperó el avance de Ana desde'),
     ];
     final List<File> deOtros = <File>[
       archivo('profiles.json.corrupto-20261018-120003', '{"profiles": [{"id": "${beto.id}"'),
@@ -163,6 +166,24 @@ void main() {
       }
     }
     expect(h.state.profiles.map((Profile p) => p.id), <String>[beto.id, anaMaria.id, anabel.id]);
+  });
+
+  test('N5: un aviso de Ana ya descartado, sin avisos vigentes ni copias dañadas, tampoco queda en el respaldo', () async {
+    final Profile ana = await h.state.addProfile(nombre: 'Ana', avatar: '1f431', birthYear: 2018, birthMonth: 1);
+    await h.services.store.writeJson('avisos.json', <String, dynamic>{
+      'avisos': <Map<String, dynamic>>[StorageNotice('Se recuperó el avance de Ana desde la copia de seguridad, porque el archivo estaba dañado.', DateTime(2026, 10, 18), profileId: ana.id).toJson()],
+    });
+    await h.state.dismissNotices();
+    final String avisos = await h.services.store.absolutePath('avisos.json');
+    expect(File('$avisos.bak').readAsStringSync(), contains('avance de Ana'));
+    expect(h.state.notices, isEmpty);
+    await h.state.deleteProfile(ana.id);
+    for (final File f in <File>[File(avisos), File('$avisos.bak')]) {
+      if (f.existsSync()) {
+        expect(f.readAsStringSync(), isNot(contains('Ana')), reason: f.path);
+      }
+    }
+    expect(h.state.notices, isEmpty);
   });
 
   test('N2: los avisos nuevos llevan el id del perfil y se reconocen por él', () {

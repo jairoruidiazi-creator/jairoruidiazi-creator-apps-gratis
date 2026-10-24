@@ -334,8 +334,11 @@ class JsonStore {
       await for (final FileSystemEntity e in dir.list()) {
         final String nombre = e.uri.pathSegments.last;
         if (e is File && (nombre == base || nombre.startsWith('$base.'))) {
-          await e.delete();
-          n += 1;
+          // Un archivo que no se deja borrar no impide borrar los demás.
+          try {
+            await e.delete();
+            n += 1;
+          } catch (_) {}
         }
       }
       return n;
