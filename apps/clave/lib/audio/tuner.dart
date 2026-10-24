@@ -258,6 +258,12 @@ class Tuner extends ChangeNotifier {
   /// [residueMinHz] (más arriba, 2,5). El lóbulo de Hann mide ±2 bins.
   static const double lowGuardBins = 2;
 
+  /// Cuánto (dB) puede quedar el pico de la fundamental bajo el lado más
+  /// alto de su entorno para que todavía cuente su medida contra el entorno
+  /// entero. Más abajo, cerca de f suena otra cosa mucho más fuerte: en una
+  /// mezcla, la nota tocada (por ejemplo Sol2 con la lectura en Re2).
+  static const double nearbySoundDb = 10;
+
   /// Armónicos que deciden solos: si los que cuentan hasta este h ya tienen
   /// máximo común divisor 1, es una nota. Los de más arriba solo cuentan si
   /// el resultado no depende de uno solo de ellos (N4: un pico suelto en un
@@ -693,6 +699,11 @@ class Tuner extends ChangeNotifier {
   ///   parcial de un tono de la app, y cuentan los que superan
   ///   [residueThresholdDb] sobre el piso entre armónicos (el piso se mide
   ///   en cada zona del espectro y el umbral baja con el ruido, [clarity]).
+  ///   La fundamental se mide contra el piso agrupado y contra el lado más
+  ///   alto de su entorno cercano (0,55·f a 1,45·f), y vale la mayor: con el
+  ///   paso alto de un teléfono el piso no es plano, y contra el lado grave,
+  ///   muy atenuado, asomaría el ruido. Contra el entorno entero solo vale
+  ///   con el apoyo de un armónico bajo que cuente ([nearbySoundDb]).
   ///   Si el máximo común divisor de los que cuentan es 1, ese sonido tiene
   ///   de verdad el periodo de [hz]: es una nota (ver [robustHarmonic] para
   ///   los armónicos altos). Si no cuenta ninguno, o todos son múltiplos de
@@ -710,11 +721,21 @@ class Tuner extends ChangeNotifier {
     final double threshold = residueThresholdDb(clarity);
     final List<int> counted = <int>[];
     int measured = 0;
+    bool plainFundamental = false;
     for (int h = 1; h <= residueHarmonics && h * hz <= residueMaxHz; h++) {
       if (_nearOwnPartial(h * hz, own)) {
         continue;
       }
-      final double p = h == 1 ? _fundamentalDb(spectrum, hz, guard) : spectrum.harmonicProminenceDb(hz, h, guard: guard);
+      double p;
+      if (h == 1) {
+        final double pooled = spectrum.harmonicProminenceDb(hz, 1, guard: guard);
+        final double sides = spectrum.prominenceBothSidesDb(hz);
+        p = pooled.isNaN ? sides : (sides.isNaN ? pooled : math.max(pooled, sides));
+        final double plain = spectrum.prominenceDb(hz);
+        plainFundamental = !plain.isNaN && plain >= threshold && (sides.isNaN || sides > -nearbySoundDb);
+      } else {
+        p = spectrum.harmonicProminenceDb(hz, h, guard: guard);
+      }
       if (p.isNaN) {
         continue;
       }
@@ -726,20 +747,34 @@ class Tuner extends ChangeNotifier {
     if (measured == 0) {
       return false;
     }
-    if (_gcdOf(counted) != 1) {
-      return true;
-    }
-    if (_gcdOf(<int>[for (final int h in counted) if (h <= robustHarmonic) h]) == 1) {
+    if (_hasPeriod(counted)) {
       return false;
     }
-    // El 1 sale gracias a armónicos altos: tiene que seguir saliendo sin
-    // cualquiera de ellos.
+    // La fundamental contra su entorno entero (los dos lados juntos) solo
+    // cuenta con el apoyo de un armónico bajo, y si cerca de f no suena algo
+    // mucho más fuerte (la nota de la mezcla).
+    if (plainFundamental && !counted.contains(1) && counted.any((int h) => h >= 2 && h <= robustHarmonic)) {
+      return false;
+    }
+    return true;
+  }
+
+  /// Si los armónicos que cuentan tienen el periodo de la lectura (máximo
+  /// común divisor 1), sin depender de un solo armónico de más de
+  /// [robustHarmonic].
+  static bool _hasPeriod(List<int> counted) {
+    if (_gcdOf(counted) != 1) {
+      return false;
+    }
+    if (_gcdOf(<int>[for (final int h in counted) if (h <= robustHarmonic) h]) == 1) {
+      return true;
+    }
     for (final int c in counted) {
       if (c > robustHarmonic && _gcdOf(<int>[for (final int h in counted) if (h != c) h]) != 1) {
-        return true;
+        return false;
       }
     }
-    return false;
+    return true;
   }
 
   static int _gcdOf(List<int> values) {
@@ -750,23 +785,7 @@ class Tuner extends ChangeNotifier {
     return g;
   }
 
-  /// La fundamental se mide contra el piso agrupado y contra su entorno
-  /// cercano (0,55·f a 1,45·f, con el piso del lado más alto), y vale la
-  /// mayor: con el paso alto de un teléfono y ruido, el piso sube mucho
-  /// hacia 2·f y el agrupado la subestima. El entorno cercano toma el lado
-  /// más alto para que el ruido en f no asome solo sobre el lado grave, más
-  /// atenuado por el paso alto (N4).
-  static double _fundamentalDb(Spectrum spectrum, double hz, double guard) {
-    final double pooled = spectrum.harmonicProminenceDb(hz, 1, guard: guard);
-    final double near = spectrum.prominenceBothSidesDb(hz);
-    if (pooled.isNaN) {
-      return near;
-    }
-    if (near.isNaN) {
-      return pooled;
-    }
-    return math.max(pooled, near);
-  }
+
 
   static bool _nearOwnPartial(double hz, List<double> own) {
     for (final double g in own) {

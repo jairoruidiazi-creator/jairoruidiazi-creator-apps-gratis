@@ -558,6 +558,20 @@ void main() {
         });
       });
 
+      test('Con el tono fuerte y un micrófono de teléfono, la mezcla de la voz bajo el bordón con quinta no se muestra como otra nota (N4)', () {
+        fakeAsync((FakeAsync async) {
+          final double root = hzAt(50, 0); // Re3 con su quinta, en sierra, al nivel de la voz
+          for (final int seed in <int>[7, 11, 13]) {
+            for (final double cents in <double>[-20, 20]) {
+              final Float64List voice = harmonic(hzAt(43, cents), voiceAmps(hzAt(43, cents)), phase: 0.7);
+              final Float32List x = finish(highPass(pinkNoise(mix(voice, drone(root, fifth: true, sawShape: true), 0), 10, seed: seed), 200, 4));
+              final Tuner t = listen(async, 'voz', <double>[root, root * 1.5], x);
+              expect(t.reading, isNull, reason: 'Sol2 $cents c, semilla $seed: la lectura sería Re2, la mezcla');
+            }
+          }
+        });
+      });
+
       test('Cuadros de residuo sueltos, separados por silencio, no abren el aviso (N3)', () {
         fakeAsync((FakeAsync async) {
           final double root = hzAt(57, 0);
