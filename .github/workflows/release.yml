@@ -90,7 +90,7 @@ jobs:
           python-version: "3.12"
       - run: python3 -m pip install --quiet pillow
       - run: python3 ../../tools/store/app_icons.py "$APP"
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - name: Dibujar las capturas
         env:
           TZ: America/Bogota
@@ -147,7 +147,7 @@ jobs:
           channel: stable
           flutter-version: 3.47.7
           cache: true
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - name: Llave de subida
         run: |
           set -euo pipefail
@@ -233,7 +233,7 @@ jobs:
           channel: stable
           flutter-version: 3.47.7
           cache: true
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - name: ¿Hay credenciales de Apple?
         run: |
           if [ -n "$TEAM_ID" ] && [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER_ID" ] && [ -n "$ASC_KEY_B64" ]; then

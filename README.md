@@ -22,6 +22,8 @@ flutter test
 flutter run
 ```
 
+La CI usa Flutter 3.47.7 y las versiones de paquetes fijadas en el `pubspec.lock` de cada app (`flutter pub get --enforce-lockfile`). Si cambias `pubspec.yaml`, corre `flutter pub get` y versiona el `pubspec.lock` actualizado; si no, la CI falla.
+
 Las carpetas `android/` e `ios/` de cada app se generan una sola vez con `flutter create` desde el flujo `bootstrap-platforms` y luego se ajustan con `tools/patch_platforms.py`. Lo propio de cada app que va en esas carpetas vive en `apps/<app>/native/` y el script lo copia: código nativo, reglas de copia de seguridad y la pantalla de arranque (el ícono sobre el fondo claro u oscuro del sistema, generada con `tools/gen_launch_assets.py` a partir de `assets/icon/icon-1024.png`).
 
 ## Licencias

@@ -5,6 +5,9 @@ name: App (flujo reutilizable)
 #
 # Flutter va fijo en una versión (no "la estable de hoy") para que dos
 # corridas del mismo commit compilen lo mismo; se sube a mano y a propósito.
+# Los paquetes salen del pubspec.lock de cada app (--enforce-lockfile): si se
+# cambia pubspec.yaml sin actualizar el lock, la CI falla en vez de resolver
+# otras versiones por su cuenta.
 #
 # Además de compilar, revisa lo que piden las tiendas:
 # - Android: firma de release (con una llave temporal que prueba la
@@ -47,8 +50,8 @@ jobs:
           flutter-version: 3.47.7
           cache: true
       - run: flutter --version 2>&1 | tee version.log
-      - run: flutter pub get 2>&1 | tee pubget.log; exit ${PIPESTATUS[0]}
-      # Copia de las versiones resueltas, para fijarlas en el repositorio (pubspec.lock).
+      - run: flutter pub get --enforce-lockfile 2>&1 | tee pubget.log; exit ${PIPESTATUS[0]}
+      # Copia del lock con el que se compiló, publicada junto a los registros.
       - run: cp pubspec.lock resolved-pubspec.lock
       # Los avisos de estilo (info) se revisan en el registro; errores y warnings sí bloquean.
       - run: flutter analyze --no-fatal-infos 2>&1 | tee analyze.log; exit ${PIPESTATUS[0]}
@@ -82,7 +85,7 @@ jobs:
           channel: stable
           flutter-version: 3.47.7
           cache: true
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - name: Llave temporal para probar la firma de release
         run: |
           keytool -genkeypair -keystore "$RUNNER_TEMP/ci-upload.jks" -storetype JKS -keyalg RSA -keysize 2048 \
@@ -141,7 +144,7 @@ jobs:
           channel: stable
           flutter-version: 3.47.7
           cache: true
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - run: flutter build ipa --release --no-codesign 2>&1 | tee build-ios.log; exit ${PIPESTATUS[0]}
         env:
           # geolocator_apple (Swift Package Manager) quita del binario la petición de
@@ -203,7 +206,7 @@ jobs:
           python3 ../../tools/store/app_icons.py "${{ inputs.app }}" 2>&1 | tee shots.log; test ${PIPESTATUS[0]} -eq 0
           python3 ../../tools/store/compose_screenshots.py "${{ inputs.app }}" --graphics-only 2>&1 | tee -a shots.log; exit ${PIPESTATUS[0]}
       - if: steps.has.outputs.yes == 'true'
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
       - name: Dibujar las pantallas
         if: steps.has.outputs.yes == 'true'
         # Los datos de ejemplo son de Colombia: la hora del sello y de los movimientos va en UTC-5.
