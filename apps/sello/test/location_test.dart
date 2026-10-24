@@ -329,6 +329,28 @@ void main() {
       loc.dispose();
     });
 
+    test('Si al volver el permiso quedó denegado, ya no es «aproximada» ni queda la lectura vieja (M1 de la ronda 7)', () async {
+      final FakeLocationBackend backend = FakeLocationBackend()
+        ..permission = LocationPermission.whileInUse
+        ..accuracy = LocationAccuracyStatus.reduced;
+      final LocationService loc = LocationService(backend: backend, systemAltitudeIsMsl: true, undulation: (double a, double b) => 20);
+      await loc.start();
+      backend.positionsCtrl.add(at(4.7113, -74.0727, accuracy: 2000));
+      await settle();
+      expect(loc.approximate, isTrue);
+      expect(loc.fix, isNotNull);
+      // Quitó el permiso en los ajustes y volvió.
+      backend
+        ..permission = LocationPermission.deniedForever
+        ..requestResult = LocationPermission.deniedForever;
+      await loc.stop();
+      await loc.retry();
+      expect(loc.status, 'deniedForever');
+      expect(loc.approximate, isFalse);
+      expect(loc.fix, isNull);
+      loc.dispose();
+    });
+
     test('Sin dato de precisión (Android 11 o anterior, iOS 13) se toma como precisa', () async {
       final FakeLocationBackend backend = FakeLocationBackend()
         ..permission = LocationPermission.whileInUse

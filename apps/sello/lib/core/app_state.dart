@@ -195,6 +195,11 @@ class AppState extends ChangeNotifier {
       altitudeMsl: info.altitudeMsl,
       heading: info.heading,
       headingTrue: info.headingTrue,
+      // Sin la ficha, el EXIF de Sello dice la precisión y si la posición era
+      // aproximada o escrita a mano: no se recupera como un punto exacto.
+      accuracy: info.manual ? null : info.accuracy,
+      approximateLocation: info.approximate,
+      positionSource: info.manual ? PositionSource.manual : PositionSource.gps,
       description: info.description,
       width: dims?.width ?? 0,
       height: dims?.height ?? 0,

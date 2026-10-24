@@ -157,6 +157,40 @@ void main() {
     handle.dispose();
   });
 
+  testWidgets('Detalle de una foto aproximada: marcada, sin detalle de más y así también en «Copiar datos» (M6 de la ronda 7)', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.625;
+    addTearDown(tester.view.reset);
+    await tester.runAsync(() => services.state.addPhoto(PhotoRecord(id: 'ap', projectId: 'general', originalFile: 'photos/general/a_a-orig.jpg', stampedFile: 'photos/general/a_a.jpg', takenAt: DateTime.utc(2026, 3, 9, 19, 6), latitude: 4.71, longitude: -74.07, accuracy: 2000, approximateLocation: true)));
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (MethodCall call) async {
+      if (call.method == 'Clipboard.setData') {
+        copied = (call.arguments as Map<Object?, Object?>)['text'] as String?;
+      }
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    await tester.pumpWidget(app(const PhotoDetailScreen(photoId: 'ap')));
+    await tester.pump();
+    await waitReal(tester, () => find.byType(InteractiveViewer).evaluate().isNotEmpty);
+    await tester.scrollUntilVisible(find.text('Grados y minutos'), 200, scrollable: find.byType(Scrollable).first);
+    await tester.pump();
+    expect(find.text('Grados, minutos y segundos'), findsNothing);
+    expect(find.text('4.71, -74.07'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('ubicación aproximada:'), 200, scrollable: find.byType(Scrollable).first);
+    expect(find.textContaining('ubicación aproximada:'), findsOneWidget);
+    await tester.tap(find.byTooltip('Más opciones'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Copiar datos'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(copied, contains('4.71, -74.07'));
+    expect(copied, contains('(ubicación aproximada)'));
+    expect(copied, isNot(contains('4.710000')));
+    expect(copied, matches(RegExp(r'CTM12 E \d+000 N \d+000')));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('Galería: compartir lo seleccionado y exportar', (WidgetTester tester) async {
     await tester.pumpWidget(app(const GalleryScreen()));
     await tester.pump();

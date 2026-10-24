@@ -433,6 +433,10 @@ class LocationService extends ChangeNotifier {
       }
       if (p == LocationPermission.denied || p == LocationPermission.deniedForever || p == LocationPermission.unableToDetermine) {
         status = p == LocationPermission.deniedForever ? 'deniedForever' : 'denied';
+        // Sin permiso no hay precisión que informar, y la última lectura en
+        // vivo no sirve para fotos nuevas (la fijada a propósito se conserva).
+        approximate = false;
+        _live = null;
         notifyListeners();
         return;
       }

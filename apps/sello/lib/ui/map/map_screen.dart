@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
@@ -16,6 +18,15 @@ import '../gallery/photo_detail_screen.dart';
 /// Mapa con las fotos (OpenStreetMap) y la posición actual. Se crea solo
 /// cuando se abre su pestaña (ver HomeShell): antes no pide teselas.
 class MapScreen extends StatefulWidget {
+  /// Distancia a una foto. Si alguno de los dos puntos es aproximado, en
+  /// kilómetros enteros y con «≈»: más detalle sería falso.
+  static String distanceText(double m, {bool approximate = false}) {
+    if (approximate) {
+      return '≈ ${math.max(1, (m / 1000).round())} km';
+    }
+    return m < 1000 ? '${m.toStringAsFixed(0)} m' : '${(m / 1000).toStringAsFixed(m < 10000 ? 2 : 1)} km';
+  }
+
   const MapScreen({super.key, this.active = true});
 
   /// El mapa está a la vista: mientras tanto usa la ubicación (tu posición y
@@ -141,10 +152,21 @@ class _MapScreenState extends State<MapScreen> {
                     tileProvider: MapScreen.tileProviderOverride ?? (_tiles ??= NetworkTileProvider(headers: <String, String>{'User-Agent': MapScreen.userAgent})),
                     maxNativeZoom: 19,
                   ),
+                // Las fotos con ubicación aproximada llevan un círculo de 1 km:
+                // la chincheta no es un punto exacto.
+                if (photos.any((PhotoRecord p) => p.approximateLocation))
+                  CircleLayer(
+                    circles: <CircleMarker>[
+                      for (final PhotoRecord p in photos)
+                        if (p.approximateLocation) CircleMarker(point: LatLng(p.latitude!, p.longitude!), radius: 1000, useRadiusInMeter: true, color: Colors.orange.withValues(alpha: 0.10), borderColor: Colors.orange.withValues(alpha: 0.5), borderStrokeWidth: 1),
+                    ],
+                  ),
+                // El círculo de la posición en vivo es su precisión real; con la
+                // aproximada puede pasar de 2 km (el tope de 500 m la achicaba).
                 if (fix != null && fix.accuracy != null)
                   CircleLayer(
                     circles: <CircleMarker>[
-                      CircleMarker(point: LatLng(fix.latitude, fix.longitude), radius: fix.accuracy!.clamp(1.0, 500.0), useRadiusInMeter: true, color: Colors.blue.withValues(alpha: 0.12), borderColor: Colors.blue.withValues(alpha: 0.4), borderStrokeWidth: 1),
+                      CircleMarker(point: LatLng(fix.latitude, fix.longitude), radius: fix.accuracy!.clamp(1.0, fix.approximate ? 10000.0 : 500.0), useRadiusInMeter: true, color: Colors.blue.withValues(alpha: 0.12), borderColor: Colors.blue.withValues(alpha: 0.4), borderStrokeWidth: 1),
                     ],
                   ),
                 MarkerLayer(
@@ -157,12 +179,12 @@ class _MapScreenState extends State<MapScreen> {
                         alignment: Alignment.topCenter,
                         child: Semantics(
                           button: true,
-                          label: '${spanish ? 'Foto del' : 'Photo of'} ${formatDate(p.wallTime, 'dd/MM/yyyy HH:mm')}${p.notes.isEmpty ? '' : ', ${p.notes}'}',
+                          label: '${spanish ? 'Foto del' : 'Photo of'} ${formatDate(p.wallTime, 'dd/MM/yyyy HH:mm')}${p.notes.isEmpty ? '' : ', ${p.notes}'}${p.approximateLocation ? (spanish ? ', ubicación aproximada' : ', approximate location') : ''}',
                           excludeSemantics: true,
                           onTap: () => _showPhoto(context, st, p),
                           child: GestureDetector(
                             onTap: () => _showPhoto(context, st, p),
-                            child: _Pin(color: _colorFor(st, p.projectId)),
+                            child: _Pin(color: _colorFor(st, p.projectId), approximate: p.approximateLocation),
                           ),
                         ),
                       ),
@@ -283,8 +305,6 @@ class _MapScreenState extends State<MapScreen> {
     return _palette.first;
   }
 
-  static String _distanceText(double m) => m < 1000 ? '${m.toStringAsFixed(0)} m' : '${(m / 1000).toStringAsFixed(m < 10000 ? 2 : 1)} km';
-
   Future<void> _showPhoto(BuildContext context, AppState st, PhotoRecord p) {
     final Services s = AppScope.of(context);
     return showModalBottomSheet<void>(
@@ -297,7 +317,7 @@ class _MapScreenState extends State<MapScreen> {
             ListTile(
               leading: SizedBox(width: 64, height: 64, child: ClipRRect(borderRadius: BorderRadius.circular(8), child: PhotoThumb(record: p, cacheWidth: kMapThumbWidth))),
               title: Text(p.notes.isNotEmpty ? p.notes : formatDate(p.wallTime, 'dd/MM/yyyy HH:mm')),
-              subtitle: Text('${st.projectById(p.projectId).name}${p.address.isNotEmpty ? '\n${p.address}' : ''}', maxLines: 2, overflow: TextOverflow.ellipsis),
+              subtitle: Text('${st.projectById(p.projectId).name}${p.approximateLocation ? ' · ${t(context, 'ubicación aproximada', 'approximate location')}' : ''}${p.address.isNotEmpty ? '\n${p.address}' : ''}', maxLines: 2, overflow: TextOverflow.ellipsis),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
                 Navigator.of(context).pop();
@@ -312,7 +332,7 @@ class _MapScreenState extends State<MapScreen> {
                   FilledButton.tonalIcon(onPressed: () => navigateTo(p.latitude!, p.longitude!), icon: const Icon(Icons.directions_outlined), label: Text(t(context, 'Cómo llegar', 'Directions'))),
                   OutlinedButton.icon(onPressed: () => openInMaps(p.latitude!, p.longitude!, label: p.notes), icon: const Icon(Icons.map_outlined), label: Text(t(context, 'Abrir en mapas', 'Open in maps'))),
                   if (s.location.fix != null)
-                    Chip(avatar: const Icon(Icons.straighten, size: 16), label: Text(_distanceText(Coords.distanceMeters(s.location.fix!.latitude, s.location.fix!.longitude, p.latitude!, p.longitude!)))),
+                    Chip(avatar: const Icon(Icons.straighten, size: 16), label: Text(MapScreen.distanceText(Coords.distanceMeters(s.location.fix!.latitude, s.location.fix!.longitude, p.latitude!, p.longitude!), approximate: p.approximateLocation || s.location.fix!.approximate))),
                 ],
               ),
             ),
@@ -370,20 +390,24 @@ class _AttributionText extends StatelessWidget {
 }
 
 class _Pin extends StatelessWidget {
-  const _Pin({required this.color});
+  const _Pin({required this.color, this.approximate = false});
 
   final Color color;
 
+  /// Foto con ubicación aproximada: chincheta hueca.
+  final bool approximate;
+
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(painter: _PinPainter(color));
+    return CustomPaint(painter: _PinPainter(color, approximate: approximate));
   }
 }
 
 class _PinPainter extends CustomPainter {
-  const _PinPainter(this.color);
+  const _PinPainter(this.color, {this.approximate = false});
 
   final Color color;
+  final bool approximate;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -396,10 +420,22 @@ class _PinPainter extends CustomPainter {
       ..lineTo(c.dx + r * 0.7, c.dy + r * 0.7)
       ..close();
     canvas.drawShadow(path, Colors.black, 3, false);
+    if (approximate) {
+      // Hueca: relleno blanco y borde del color del proyecto.
+      canvas.drawPath(path, Paint()..color = Colors.white);
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = r * 0.35,
+      );
+      return;
+    }
     canvas.drawPath(path, Paint()..color = color);
     canvas.drawCircle(c, r * 0.45, Paint()..color = Colors.white);
   }
 
   @override
-  bool shouldRepaint(covariant _PinPainter old) => old.color != color;
+  bool shouldRepaint(covariant _PinPainter old) => old.color != color || old.approximate != approximate;
 }

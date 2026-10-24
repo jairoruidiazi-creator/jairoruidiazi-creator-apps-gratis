@@ -549,6 +549,19 @@ void main() {
       expect(text, isNot(contains('(GMS)')));
       expect(text, contains('(Lote)'));
     });
+
+    test('Una foto aproximada sale marcada y sin decimales de más (M6 de la ronda 7)', () async {
+      final Project obra = Project(id: 'p1', name: 'Obra');
+      final List<PhotoRecord> list = <PhotoRecord>[
+        PhotoRecord(id: 'a', projectId: 'p1', originalFile: 'a-orig.jpg', stampedFile: 'a.jpg', takenAt: DateTime.utc(2026, 3, 9, 19), latitude: 4.71, longitude: -74.07, accuracy: 2000, approximateLocation: true, notes: 'Aprox'),
+      ];
+      final Uint8List pdf = await PdfReport.buildInCurrentIsolate(photos: list, projects: <String, Project>{'p1': obra}, title: 'Report', images: const <String, Uint8List>{}, spanish: false, now: DateTime(2026, 3, 11, 9));
+      final String text = pdfText(pdf);
+      expect(text, contains('4.71, -74.07'));
+      expect(text, contains('approximate'));
+      expect(text, isNot(contains('4.710000')));
+      expect(text, isNot(contains('4.71000')));
+    });
   });
 
   group('Estado', () {

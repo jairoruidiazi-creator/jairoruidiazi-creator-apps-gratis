@@ -66,7 +66,7 @@ class _GpsSheet extends StatelessWidget {
                       onPressed: () async {
                         final bool ok = await loc.requestPreciseLocation();
                         if (!ok && context.mounted) {
-                          ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(t(context, 'Sigue aproximada. Actívala en Ajustes › Sello › Ubicación › Ubicación precisa.', 'Still approximate. Turn it on in Settings › Sello › Location › Precise location.'))));
+                          ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(t(context, 'Sigue aproximada. En los ajustes de Sello activa la ubicación precisa (botón «Abrir ajustes»).', 'Still approximate. In Sello\'s settings turn on precise location ("Open settings" button).'))));
                         }
                       },
                       icon: const Icon(Icons.my_location_rounded),
@@ -80,10 +80,19 @@ class _GpsSheet extends StatelessWidget {
                   ],
                 ),
               ],
+              // Punto fijado cuando la ubicación era aproximada, con la precisa
+              // ya concedida: sigue siendo aproximado hasta liberarlo.
+              if (f != null && f.approximate && !loc.approximate) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(
+                  t(context, 'Esta posición fijada es aproximada: libérala para usar la precisa.', 'This locked position is approximate: unlock it to use the precise one.'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
               if (f != null) ...<Widget>[
                 const SizedBox(height: 8),
-                for (final CoordFormat cf in Coords.formatsFor(f.latitude, f.longitude))
-                  _CoordRow(label: Coords.formatName(cf, spanish: spanish), value: Coords.format(cf, f.latitude, f.longitude, coarse: f.approximate)),
+                for (final CoordFormat cf in Coords.formatsFor(f.latitude, f.longitude, coarse: f.approximate))
+                  _CoordRow(label: Coords.formatName(cf, spanish: spanish, coarse: f.approximate), value: Coords.format(cf, f.latitude, f.longitude, coarse: f.approximate)),
                 const Divider(),
                 if (f.manual)
                   _Line(t(context, 'Posición', 'Position'), t(context, 'Escrita a mano: sin precisión ni altitud medidas.', 'Entered by hand: no measured accuracy or altitude.'))
@@ -93,7 +102,9 @@ class _GpsSheet extends StatelessWidget {
                   if (!f.locked) _Line(t(context, 'Velocidad', 'Speed'), '${(f.speed * 3.6).toStringAsFixed(1)} km/h'),
                   _Line(t(context, 'Hora de la lectura', 'Fix time'), TimeOfDay.fromDateTime(f.time.toLocal()).format(context)),
                 ],
-                if (loc.stale)
+                // Con la aproximada el cielo abierto no sirve: lo que hay que
+                // hacer lo dice el bloque de arriba.
+                if (loc.stale && !f.approximate)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
@@ -255,8 +266,13 @@ class _GpsSheet extends StatelessWidget {
 
   Future<void> _manual(BuildContext context, LocationService loc) async {
     final Fix? f = loc.fix;
-    final TextEditingController lat = TextEditingController(text: f?.latitude.toStringAsFixed(6) ?? '');
-    final TextEditingController lon = TextEditingController(text: f?.longitude.toStringAsFixed(6) ?? '');
+    // Con una lectura aproximada no se rellena nada: fijarla sin tocarla le
+    // daría seis decimales a un punto que puede estar a kilómetros y le
+    // quitaría la marca. La persona escribe las coordenadas reales.
+    final bool approximate = (f?.approximate ?? false) || loc.approximate;
+    String start(double? v) => v == null || approximate ? '' : v.toStringAsFixed(6);
+    final TextEditingController lat = TextEditingController(text: start(f?.latitude));
+    final TextEditingController lon = TextEditingController(text: start(f?.longitude));
     final bool? ok = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
@@ -267,6 +283,13 @@ class _GpsSheet extends StatelessWidget {
             children: <Widget>[
               TextField(controller: lat, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), decoration: InputDecoration(labelText: t(context, 'Latitud (grados decimales)', 'Latitude (decimal degrees)'))),
               TextField(controller: lon, keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true), decoration: InputDecoration(labelText: t(context, 'Longitud (grados decimales)', 'Longitude (decimal degrees)'))),
+              if (approximate) ...<Widget>[
+                const SizedBox(height: 8),
+                Text(
+                  t(context, 'La ubicación del teléfono es aproximada (puede estar a kilómetros): escribe las coordenadas reales del lugar.', 'The phone location is approximate (it may be kilometres off): type the real coordinates of the place.'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
               const SizedBox(height: 8),
               Text(t(context, 'Queda fija hasta que la liberes. Las fotos dicen "posición manual" y no llevan precisión ni altitud, porque no se midieron.', 'Stays locked until you release it. Photos say "manual position" and carry no accuracy or altitude, because they were not measured.'), style: Theme.of(context).textTheme.bodySmall),
             ],
@@ -299,20 +322,37 @@ class _CoordRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () {
-        Clipboard.setData(ClipboardData(text: value));
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'Copiado', 'Copied')}: $value'), duration: const Duration(seconds: 1)));
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: <Widget>[
-            SizedBox(width: 102, child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
-            const SizedBox(width: 8),
-            Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontFeatures: <FontFeature>[FontFeature.tabularFigures()]))),
-            const Icon(Icons.copy_rounded, size: 16),
-          ],
+    void copy() {
+      Clipboard.setData(ClipboardData(text: value));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t(context, 'Copiado', 'Copied')}: $value'), duration: const Duration(seconds: 1)));
+    }
+
+    // Como en el detalle de la foto: al menos 48 dp (en campo, con guantes)
+    // y el lector de pantalla anuncia «copiar».
+    return Semantics(
+      button: true,
+      label: '$label: $value',
+      onTapHint: t(context, 'copiar', 'copy'),
+      onTap: copy,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: copy,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Row(
+                children: <Widget>[
+                  SizedBox(width: 102, child: Text(label, style: Theme.of(context).textTheme.bodySmall)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontFeatures: <FontFeature>[FontFeature.tabularFigures()]))),
+                  const Icon(Icons.copy_rounded, size: 16),
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

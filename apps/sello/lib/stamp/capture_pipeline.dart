@@ -213,6 +213,8 @@ class CapturePipeline {
         altitudeMsl: p.altitudeMsl,
         heading: p.heading,
         headingTrue: p.headingTrue,
+        accuracy: p.accuracy,
+        positionMethod: p.approximateLocation ? kExifApproximate : (p.positionSource == PositionSource.manual ? kExifManual : ''),
         takenAt: p.takenAt,
         utcOffsetMinutes: p.utcOffsetMinutes,
         description: description,

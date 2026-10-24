@@ -8,7 +8,9 @@ import 'package:sello/geo/coords.dart';
 import 'package:sello/geo/location_service.dart';
 import 'package:sello/model/models.dart';
 import 'package:sello/stamp/capture_pipeline.dart';
+import 'package:sello/stamp/composer.dart';
 import 'package:sello/stamp/stamp_data.dart';
+import 'package:sello/ui/map/map_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
@@ -95,5 +97,64 @@ void main() {
     final String kml = Exports.kml(<PhotoRecord>[p], <String, Project>{'p1': obra}, title: 'T');
     expect(kml, contains('<coordinates>-74.07,4.71,'));
     expect(kml, contains('GPS (ubicación aproximada)'));
+  });
+
+  group('Séptima ronda', () {
+    test('El EXIF dice la precisión y que la posición es aproximada, y el reindexado lo recupera (M4)', () async {
+      // Una foto aproximada sellada, cuya ficha se perdió.
+      await state.store.writeBytes('photos/general/Obra_x_ap1-orig.jpg', syntheticJpeg(64, 48));
+      final String out = await state.store.absolutePath('photos/general/Obra_x_ap1.jpg');
+      composeStampedSync(ComposeJob(
+        originalPath: await state.store.absolutePath('photos/general/Obra_x_ap1-orig.jpg'),
+        outputPath: out,
+        quality: 85,
+        latitude: 4.71,
+        longitude: -74.07,
+        accuracy: 2000,
+        positionMethod: kExifApproximate,
+        takenAt: DateTime.utc(2026, 3, 9, 19),
+        utcOffsetMinutes: -300,
+      ));
+      final StampExif e = readStampExif(File(out).readAsBytesSync());
+      expect(e.approximate, isTrue);
+      expect(e.accuracy, 2000);
+      expect(await state.reindexPhotos(), 1);
+      final PhotoRecord r = state.photoById('ap1')!;
+      expect(r.approximateLocation, isTrue);
+      expect(r.accuracy, 2000);
+      // Y se muestra sin precisión falsa.
+      expect(Coords.format(CoordFormat.ctm12, r.latitude!, r.longitude!, coarse: r.approximateLocation), matches(RegExp(r'^E \d+000 N \d+000$')));
+      expect(Exports.csv(<PhotoRecord>[r], state.projectMap), contains('GPS (ubicación aproximada)'));
+      // Una precisa lleva su GPSHPositioningError y ninguna marca; una manual, la suya.
+      for (final String method in <String>['', kExifManual]) {
+        final String path = '${tmp.path}/m$method.jpg';
+        composeStampedSync(ComposeJob(originalPath: await state.store.absolutePath('photos/general/Obra_x_ap1-orig.jpg'), outputPath: path, quality: 85, latitude: 4.711, longitude: -74.0721, accuracy: method.isEmpty ? 3.2 : null, positionMethod: method));
+        final StampExif x = readStampExif(File(path).readAsBytesSync());
+        expect(x.approximate, isFalse);
+        expect(x.manual, method == kExifManual);
+        expect(x.accuracy, method.isEmpty ? closeTo(3.2, 0.01) : isNull);
+      }
+    });
+
+    test('El sello dice a la vez que es aproximada y que la lectura es vieja (M1)', () {
+      final PhotoRecord r = PhotoRecord(id: 'a', projectId: 'general', originalFile: 'a-orig.jpg', stampedFile: 'a.jpg', takenAt: DateTime.utc(2026, 3, 9, 19), latitude: 4.71, longitude: -74.07, accuracy: 2000, approximateLocation: true, fixAgeSeconds: 120);
+      final StampTemplate t = StampTemplate.defaultTemplate()
+        ..items = <StampItem>{StampItem.coords}
+        ..coordFormat = CoordFormat.dd;
+      final String line = StampData.fromRecord(r, spanish: true).lines(t).single.text;
+      expect(line, contains('(ubicación aproximada, lectura de hace 2 min)'));
+    });
+
+    test('Con la aproximada: una sola fila de grados y minutos, y distancias en km enteros (M2)', () {
+      final List<CoordFormat> coarse = Coords.formatsFor(4.71, -74.07, coarse: true);
+      expect(coarse, isNot(contains(CoordFormat.dms)));
+      expect(coarse, contains(CoordFormat.ddm));
+      expect(Coords.formatName(CoordFormat.ddm, spanish: true, coarse: true), 'Grados y minutos');
+      expect(Coords.formatsFor(4.71, -74.07), contains(CoordFormat.dms));
+      expect(MapScreen.distanceText(1234), '1.23 km');
+      expect(MapScreen.distanceText(1234, approximate: true), '≈ 1 km');
+      expect(MapScreen.distanceText(240, approximate: true), '≈ 1 km');
+      expect(MapScreen.distanceText(5600, approximate: true), '≈ 6 km');
+    });
   });
 }

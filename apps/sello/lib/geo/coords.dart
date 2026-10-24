@@ -278,7 +278,11 @@ class Coords {
 
   /// Nombre del formato en el idioma de la app. Con [withCountry] se aclara
   /// que los dos formatos oficiales son de Colombia (en los selectores).
-  static String formatName(CoordFormat f, {required bool spanish, bool withCountry = false}) {
+  static String formatName(CoordFormat f, {required bool spanish, bool withCountry = false, bool coarse = false}) {
+    // Con ubicación aproximada GMS y GM dan lo mismo (minutos enteros).
+    if (coarse && (f == CoordFormat.dms || f == CoordFormat.ddm)) {
+      return spanish ? 'Grados y minutos' : 'Degrees and minutes';
+    }
     switch (f) {
       case CoordFormat.dd:
         return spanish ? 'Grados decimales' : 'Decimal degrees';
@@ -306,9 +310,11 @@ class Coords {
   }
 
   /// Formatos que tienen sentido en el punto (los colombianos solo en Colombia).
-  static List<CoordFormat> formatsFor(double lat, double lon) => <CoordFormat>[
+  /// Con [coarse] (ubicación aproximada) va una sola fila de grados y
+  /// minutos: GMS y GM saldrían iguales.
+  static List<CoordFormat> formatsFor(double lat, double lon, {bool coarse = false}) => <CoordFormat>[
         for (final CoordFormat f in CoordFormat.values)
-          if ((f != CoordFormat.ctm12 && f != CoordFormat.magna) || inColombia(lat, lon)) f,
+          if (((f != CoordFormat.ctm12 && f != CoordFormat.magna) || inColombia(lat, lon)) && !(coarse && f == CoordFormat.dms)) f,
       ];
 
   /// Distancia en metros (fórmula de haversine).

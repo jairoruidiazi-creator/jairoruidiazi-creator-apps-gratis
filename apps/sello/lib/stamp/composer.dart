@@ -28,6 +28,8 @@ class ComposeJob {
     this.altitudeMsl,
     this.heading,
     this.headingTrue = true,
+    this.accuracy,
+    this.positionMethod = '',
     this.takenAt,
     this.utcOffsetMinutes,
     this.description = '',
@@ -58,6 +60,13 @@ class ComposeJob {
 
   /// Falso si el rumbo es magnético (GPSImgDirectionRef = M).
   final bool headingTrue;
+
+  /// Radio de error horizontal (m): GPSHPositioningError (EXIF 2.31).
+  final double? accuracy;
+
+  /// GPSProcessingMethod: '' (GPS), [kExifApproximate] o [kExifManual].
+  /// Marca legible por máquina que el reindexado recupera.
+  final String positionMethod;
 
   /// Instante de la foto y desfase horario del teléfono al tomarla.
   final DateTime? takenAt;
@@ -227,6 +236,14 @@ img.ExifData _stampExif(img.ExifData camera, ComposeJob job) {
       gps['GPSAltitudeRef'] = img.IfdByteValue(alt >= 0 ? 0 : 1);
       gps['GPSAltitude'] = img.IfdValueRational((alt.abs() * 100).round(), 100);
     }
+    final double? acc = job.accuracy;
+    if (acc != null && acc.isFinite && acc >= 0) {
+      gps[0x001F] = img.IfdValueRational((acc * 100).round(), 100); // GPSHPositioningError
+    }
+    if (job.positionMethod.isNotEmpty) {
+      // UNDEFINED con el prefijo de juego de caracteres "ASCII\0\0\0".
+      gps[0x001B] = img.IfdValueUndefined.list(Uint8List.fromList(<int>[...ascii.encode('ASCII'), 0, 0, 0, ...ascii.encode(job.positionMethod)])); // GPSProcessingMethod
+    }
     final double? h = job.heading;
     if (h != null && h.isFinite) {
       gps['GPSImgDirectionRef'] = img.IfdValueAscii(job.headingTrue ? 'T' : 'M');
@@ -275,8 +292,23 @@ String _two(int v) => v.toString().padLeft(2, '0');
 
 /// Datos que Sello escribió en el EXIF de una foto sellada (para recuperar
 /// su ficha si el índice se perdió).
+/// GPSProcessingMethod de una posición aproximada (permiso del sistema).
+const String kExifApproximate = 'APPROXIMATE';
+
+/// GPSProcessingMethod de una posición escrita a mano.
+const String kExifManual = 'MANUAL';
+
 class StampExif {
-  const StampExif({this.takenAt, this.utcOffsetMinutes, this.latitude, this.longitude, this.altitudeMsl, this.heading, this.headingTrue = true, this.description = ''});
+  const StampExif({this.takenAt, this.utcOffsetMinutes, this.latitude, this.longitude, this.altitudeMsl, this.heading, this.headingTrue = true, this.description = '', this.accuracy, this.positionMethod = ''});
+
+  /// GPSHPositioningError, si se escribió.
+  final double? accuracy;
+
+  /// GPSProcessingMethod sin el prefijo de juego de caracteres.
+  final String positionMethod;
+
+  bool get approximate => positionMethod == kExifApproximate;
+  bool get manual => positionMethod == kExifManual;
 
   final DateTime? takenAt;
   final int? utcOffsetMinutes;
@@ -331,7 +363,16 @@ StampExif readStampExif(Uint8List jpeg) {
   if (d != null) {
     description = utf8.decode(d.toData(), allowMalformed: true).replaceAll('\u0000', '').trim();
   }
+  final img.IfdValue? hpe = exif.gpsIfd[0x001F];
+  String method = '';
+  final img.IfdValue? pm = exif.gpsIfd[0x001B];
+  if (pm != null) {
+    final List<int> raw = pm.toData();
+    method = String.fromCharCodes(raw.length > 8 ? raw.sublist(8) : raw).replaceAll('\u0000', '').trim();
+  }
   return StampExif(
+    accuracy: hpe?.toDouble(),
+    positionMethod: method,
     takenAt: taken,
     utcOffsetMinutes: offset,
     latitude: lat,

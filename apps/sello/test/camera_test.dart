@@ -469,6 +469,71 @@ void main() {
     await pumpMany(tester);
   });
 
+  testWidgets('Aproximada y vieja, filas de la hoja de 48 dp, posición manual sin decimales heredados y punto fijado aproximado (ronda 7: M1, M3, M5)', (WidgetTester tester) async {
+    phone(tester);
+    final SemanticsHandle handle = tester.ensureSemantics();
+    backend
+      ..permission = LocationPermission.whileInUse
+      ..accuracy = LocationAccuracyStatus.reduced
+      ..accuracyOnRequest = LocationAccuracyStatus.precise;
+    await tester.pumpWidget(cameraApp());
+    await pumpMany(tester);
+    // Una lectura aproximada de hace un minuto: el chip dice las dos cosas.
+    backend.positionsCtrl.add(RawPosition(latitude: 4.71137, longitude: -74.07263, time: DateTime.now().toUtc().subtract(const Duration(seconds: 60)), accuracy: 2000));
+    await pumpMany(tester);
+    final Finder chip = find.textContaining('Ubicación aproximada · hace');
+    expect(chip, findsOneWidget);
+    await tester.tap(chip);
+    await pumpMany(tester, 20);
+    // Nada de «sal a cielo abierto»: con la aproximada no sirve.
+    expect(find.textContaining('Sal a cielo abierto'), findsNothing);
+    expect(find.textContaining('Diste permiso de ubicación aproximada'), findsOneWidget);
+    // Con la aproximada, una sola fila de grados y minutos.
+    expect(find.text('Grados y minutos'), findsOneWidget);
+    expect(find.text('Grados, minutos y segundos'), findsNothing);
+    // Filas copiables de 48 dp que dicen «copiar» (M3).
+    final Finder row = find.bySemanticsLabel(RegExp(r'^Grados decimales: '));
+    expect(tester.getSemantics(row), isSemantics(isButton: true, hasTapAction: true, onTapHint: 'copiar'));
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    tester.platformDispatcher.textScaleFactorTestValue = 2.0;
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    await pumpMany(tester, 3);
+    await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+    await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+    tester.platformDispatcher.clearTextScaleFactorTestValue();
+    await pumpMany(tester, 3);
+
+    // Posición manual: no se rellena con la lectura aproximada (M5).
+    await tester.ensureVisible(find.text('Posición manual'));
+    await pumpMany(tester, 3);
+    await tester.tap(find.text('Posición manual'));
+    await pumpMany(tester, 10);
+    expect(find.textContaining('escribe las coordenadas reales'), findsOneWidget);
+    final List<TextField> fields = tester.widgetList<TextField>(find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField))).toList();
+    expect(fields.map((TextField f) => f.controller!.text), <String>['', '']);
+    // «Fijar» sin escribir nada no fija la lectura aproximada como manual.
+    await tester.tap(find.text('Fijar'));
+    await pumpMany(tester, 10);
+    expect(services.location.locked, isFalse);
+    expect(find.text('Coordenadas no válidas.'), findsOneWidget);
+
+    // Punto fijado mientras era aproximada y la precisa ya concedida (M1).
+    await tester.ensureVisible(find.text('Fijar posición'));
+    await pumpMany(tester, 3);
+    await tester.tap(find.text('Fijar posición'));
+    await pumpMany(tester, 5);
+    await tester.ensureVisible(find.text('Pedir ubicación precisa'));
+    await pumpMany(tester, 3);
+    await tester.tap(find.text('Pedir ubicación precisa'));
+    await pumpMany(tester, 10);
+    expect(services.location.approximate, isFalse);
+    expect(find.textContaining('Esta posición fijada es aproximada: libérala para usar la precisa.'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await pumpMany(tester);
+    handle.dispose();
+  });
+
   testWidgets('Si la cámara deja de responder se dice y se puede reintentar (M19)', (WidgetTester tester) async {
     phone(tester);
     await tester.pumpWidget(cameraApp());

@@ -209,6 +209,10 @@ class StampData {
       return spanish ? ' (posición manual)' : ' (manual position)';
     }
     if (approximate) {
+      // Las dos señales a la vez: aproximada y, si es vieja, de cuándo.
+      if (staleFix) {
+        return spanish ? ' (ubicación aproximada, lectura de ${_age(fixAgeSeconds, true)})' : ' (approximate location, reading from ${_age(fixAgeSeconds, false)})';
+      }
       return spanish ? ' (ubicación aproximada)' : ' (approximate location)';
     }
     if (locked) {

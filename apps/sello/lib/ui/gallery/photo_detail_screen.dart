@@ -124,7 +124,7 @@ class _PhotoDetailScreenState extends State<PhotoDetailScreen> {
               _Row(t(context, 'Fecha y hora', 'Date and time'), '${formatDate(p.wallTime, 'dd/MM/yyyy HH:mm:ss', spanish: spanish)} ${p.offsetLabel}'),
               _Row('UTC', '${formatDate(p.takenAt, 'yyyy-MM-dd HH:mm:ss')}Z'),
               if (p.hasLocation) ...<Widget>[
-                for (final CoordFormat cf in Coords.formatsFor(p.latitude!, p.longitude!)) _Row(Coords.formatName(cf, spanish: spanish), Coords.format(cf, p.latitude!, p.longitude!, coarse: p.approximateLocation), copyable: true),
+                for (final CoordFormat cf in Coords.formatsFor(p.latitude!, p.longitude!, coarse: p.approximateLocation)) _Row(Coords.formatName(cf, spanish: spanish, coarse: p.approximateLocation), Coords.format(cf, p.latitude!, p.longitude!, coarse: p.approximateLocation), copyable: true),
                 _Row(t(context, 'Posición', 'Position'), _sourceText(context, p)),
                 if (p.accuracy != null) _Row(t(context, 'Precisión', 'Accuracy'), '± ${p.accuracy!.toStringAsFixed(1)} m'),
                 if (p.altitude != null) _Row(t(context, 'Altitud', 'Altitude'), '${p.altitude!.toStringAsFixed(1)} m ${p.altitudeReference == 'ellipsoid' ? t(context, 'sobre el elipsoide', 'above the ellipsoid') : t(context, 'sobre el nivel del mar', 'above sea level')}'),
