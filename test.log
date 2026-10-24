@@ -1,0 +1,365 @@
+
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/legal_document_test.dart: el Markdown reducido se convierte en bloques
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/legal_document_test.dart: la política (es) está completa y solo usa la sintaxis que la app dibuja
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/legal_document_test.dart: la política (en) está completa y solo usa la sintaxis que la app dibuja
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/legal_document_test.dart: las dos versiones tienen la misma fecha y la misma estructura
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_test.dart: G1: avances a cuotas el caso del Árbitro: avance de $ 1.200.000 a 24 cuotas, pagar el mínimo del banco no deja la tarjeta vencida
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_test.dart: G1: avances a cuotas un avance anotado a 1 cuota (como antes) ya no produce mora falsa: sin mínimo es informativo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_test.dart: G1: avances a cuotas un avance desde una cuenta que no es tarjeta no lleva cuotas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_test.dart: Regla general: «vencido» solo contra un mínimo conocido compra a cuotas que llegó por aviso a 1 cuota: sin mínimo no hay mora; con el mínimo pagado, al día
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_test.dart: Regla general: «vencido» solo contra un mínimo conocido el caso que ya funcionaba: con el mínimo anotado y sin pagar, está vencido y avisa una vez
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_test.dart: Regla general: «vencido» solo contra un mínimo conocido un reverso después del corte cuenta como abono; una devolución no crea mora
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_test.dart: Regla general: «vencido» solo contra un mínimo conocido el mínimo anotado se guarda con la tarjeta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_test.dart: M6: «Ajustar saldo real» en una tarjeta no entra al próximo pago: va a la deuda aparte
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_test.dart: M1: duplicados aviso ↔ programado, en los dos sentidos B (de fábrica): el aviso llega el 4 y la app se abre el 4 y el 5: un solo cargo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_test.dart: M1: duplicados aviso ↔ programado, en los dos sentidos C: «Anotar sin preguntar» encendido pero con dos cuentas del banco: un solo cargo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_test.dart: M1: duplicados aviso ↔ programado, en los dos sentidos F: el débito llega el 5 a las 6:00 en vivo y la app vuelve a las 9:00: un solo cargo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_test.dart: M1: duplicados aviso ↔ programado, en los dos sentidos D: el programado se anotó primero; al confirmar el aviso se encuentra el cargo igual
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_test.dart: M2: cada programado y cada tarjeta dejan agendadas varias ocurrencias, sin pasar el tope de iOS
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_test.dart: M3: restaurar dos veces el mismo día no pisa la copia de antes de la primera
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/legal_document_test.dart: la pantalla muestra la política de principio a fin
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G6: la escritura del libro es atómica si se corta antes del renombrado, al abrir se recupera el temporal completo
+Libro recuperado de ledger.json.corte.tmp
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G6: la escritura del libro es atómica un fallo de escritura deja el libro anterior intacto y el cambio pendiente
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G6: la escritura del libro es atómica las escrituras van en fila: la última siempre gana
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G6: la escritura del libro es atómica dos escrituras simultáneas del mismo archivo no chocan
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G7: la llave del libro un fallo pasajero del llavero se reintenta y conserva la llave
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G7: la llave del libro si el llavero no responde y hay datos, no inventa una llave nueva
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G7: la llave del libro en una instalación nueva sin llavero, la llave va al archivo y se sigue usando
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G7: la llave del libro apartar el libro ilegible deja empezar de nuevo sin borrarlo
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G8 y M17: modo de recuperación la copia automática no guarda un libro vacío ni borra las copias buenas
+No se pudo descifrar ledger.json
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G8 y M17: modo de recuperación los avisos pendientes esperan a que se restaure una copia
+No se pudo descifrar ledger.json
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G8 y M17: modo de recuperación M13: un libro sin cifrar no se acepta
+No se pudo descifrar ledger.json
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G8 y M17: modo de recuperación un libro que se abre pero no tiene la forma esperada también protege los datos
+Libro inválido: FormatException: Los datos son de una versión más nueva de Plata
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G8 y M17: modo de recuperación si el libro desapareció y hay copias, se ofrece restaurar en vez de empezar vacío
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G8 y M17: modo de recuperación empezar de cero aparta el libro ilegible y vuelve a guardar
+No se pudo descifrar ledger.json
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G9: restaurar valida antes de escribir un archivo que no es de Plata o es de otra versión se rechaza sin tocar nada
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G9: restaurar valida antes de escribir después de restaurar una copia buena la app vuelve a abrir
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G11: reinstalar en iOS y olvidar la clave el primer arranque tras reinstalar en iOS limpia el llavero
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G11: reinstalar en iOS y olvidar la clave con datos (una actualización) o en Android no se borra nada
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/storage_test.dart: G11: reinstalar en iOS y olvidar la clave borrar todo deja la app como recién instalada, sin clave y con llave nueva
+Caché de compartir: Binding has not yet been initialized.
+The "instance" getter on the ServicesBinding binding mixin is only available once that binding has been initialized.
+Typically, this is done by calling "WidgetsFlutterBinding.ensureInitialized()" or "runApp()" (the latter calls the former). Typically this call is done in the "void main()" method. The "ensureInitialized" method is idempotent; calling it multiple times is not harmful. After calling that method, the "instance" getter will return the binding.
+In a test, one can call "TestWidgetsFlutterBinding.ensureInitialized()" as the first line in the test's "main()" method to initialize the binding.
+If ServicesBinding is a custom binding mixin, there must also be a custom binding class, like WidgetsFlutterBinding, but that mixes in the selected binding, and that is the class that must be constructed before using the "instance" getter.
+Copias del selector: Binding has not yet been initialized.
+The "instance" getter on the ServicesBinding binding mixin is only available once that binding has been initialized.
+Typically, this is done by calling "WidgetsFlutterBinding.ensureInitialized()" or "runApp()" (the latter calls the former). Typically this call is done in the "void main()" method. The "ensureInitialized" method is idempotent; calling it multiple times is not harmful. After calling that method, the "instance" getter will return the binding.
+In a test, one can call "TestWidgetsFlutterBinding.ensureInitialized()" as the first line in the test's "main()" method to initialize the binding.
+If ServicesBinding is a custom binding mixin, there must also be a custom binding class, like WidgetsFlutterBinding, but that mixes in the selected binding, and that is the class that must be constructed before using the "instance" getter.
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_ui_test.dart: M1: «Ya lo pagué» se deshace con «Deshacer» y con «Desmarcar» en Tarjetas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_ui_test.dart: G1: Atrás no cierra «¿Ya lo pagaste?» ni cambia la marca
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_ui_test.dart: G1: «Registrar el pago» de un extracto marcado propone su fecha límite, y no lo cuenta dos veces
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_ui_test.dart: M1: el pago registrado desde la fila queda vinculado, la fila lo dice y no ofrece registrarlo otra vez
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_ui_test.dart: M2: dentro de los 60 s de gracia, «Ya lo pagué» de la notificación espera a la clave
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_ui_test.dart: M1: «Todavía no» desmarca un extracto marcado como pagado
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_ui_test.dart: M2: con la app en primer plano y desbloqueada, el botón actúa enseguida
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_ui_test.dart: M4: abrir la app con «Ya lo pagué» de la notificación (arranque) marca el extracto
+Foto recuperada: MissingPluginException(No implementation found for method retrieve on channel plugins.flutter.io/image_picker)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_ui_test.dart: M2: al abrir la app en frío desde la notificación, con clave, espera a desbloquear
+Foto recuperada: MissingPluginException(No implementation found for method retrieve on channel plugins.flutter.io/image_picker)
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_ui_test.dart: M1: con la app bloqueada, el botón de la notificación espera al desbloqueo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_ui_test.dart: M2: el editor de la tarjeta dice la fecha límite corrida
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: B3: el editor guarda la suma aunque no se pulse "="
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: B2: la deuda inicial de una tarjeta se guarda como deuda
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_ui_test.dart: G1: al terminar la espera el candado vuelve a dejar escribir, sin tocar nada
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: G10: el candado tapa lo que hay detrás lo de atrás no se lee, no recibe foco ni toques
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: G10: el candado tapa lo que hay detrás en iOS se tapa al dejar de estar activa y se destapa al volver (variant: TargetPlatform.iOS)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: G10: el candado tapa lo que hay detrás M14: el desbloqueo con huella o rostro no acepta el PIN del teléfono
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: G11: "¿Olvidaste la clave?" borra todo y deja usar la app
+Caché de compartir: MissingPluginException(No implementation found for method getTemporaryDirectory on channel plugins.flutter.io/path_provider)
+Copias del selector: MissingPluginException(No implementation found for method getTemporaryDirectory on channel plugins.flutter.io/path_provider)
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: G17: idioma el primer arranque toma el idioma del teléfono
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_ui_test.dart: G2: una tarjeta con día de pago pide el permiso una vez, con su motivo; después solo se avisa
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_ui_test.dart: G2: Inicio y Ajustes muestran el permiso real, dejan darlo y lo vuelven a comprobar al volver
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: G17: idioma cambiar de idioma traduce la app y las categorías de fábrica, no las renombradas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: G17: idioma M1: en inglés no queda texto en español ni "TxSplit"
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_ui_test.dart: G3: un día después de la fecha límite, Inicio y Tarjetas informan lo que falta; con el mínimo anotado, «Vencido desde el …»
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_ui_test.dart: M8: Atrás con el candado puesto no cierra lo que hay detrás
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: M2: con texto a 1.3x nada se desborda en las pantallas principales
+[M2 1.3] inicio
+[M2 1.3] editor
+[M2 1.3] movimientos
+[M2 1.3] presupuestos e informes
+[M2 1.3] Cuentas
+[M2 1.3] Tarjetas de crédito
+[M2 1.3] Programados
+[M2 1.3] Monedas
+[M2 1.3] Seguridad
+[M2 1.3] Copias de seguridad
+[M2 1.3] Ajustes
+[M2 1.3] candado
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_ui_test.dart: M9 y M25: el ajuste no se ofrece en una débito y respeta el saldo a favor de una tarjeta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_test.dart: G1: «Ya lo pagué» y el pago registrado después caso N1: el pago sin vínculo registrado con la fecha límite real (lun 7 dic) completa el abono supuesto
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_test.dart: G1: «Ya lo pagué» y el pago registrado después caso N1: el pago sin vínculo registrado con la fecha nominal (sáb 5 dic) completa el abono supuesto
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_test.dart: G1: «Ya lo pagué» y el pago registrado después caso N1: el pago sin vínculo registrado antes de la fecha límite (1 dic) completa el abono supuesto
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_test.dart: G1: «Ya lo pagué» y el pago registrado después caso N1: un pago mayor que el mínimo cuenta completo, una sola vez
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_test.dart: G1: «Ya lo pagué» y el pago registrado después una devolución de una compra no reemplaza al pago supuesto
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_test.dart: G1: «Ya lo pagué» y el pago registrado después desmarcar deja de suponer el pago
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_test.dart: G1: «Ya lo pagué» y el pago registrado después el registro propone la fecha límite real del extracto (o hoy, si no ha llegado)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_test.dart: G2: una sola fecha efectiva caso N2: el pago del 6 dic es para el extracto que vence el lunes 7
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_test.dart: G2: una sola fecha efectiva caso N2: el pago del 7 dic es para el extracto que vence el lunes 7
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_test.dart: G2: una sola fecha efectiva caso N2 con mínimo: pagado el domingo o el lunes, no hay mora
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_test.dart: G2: una sola fecha efectiva el abono supuesto se mide con la misma ventana: un extracto marcado y pagado el lunes corrido no se cuenta dos veces
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_test.dart: G2: una sola fecha efectiva el recordatorio de la tarjeta se cuenta desde la fecha corrida
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: M2: con texto a 2.0x nada se desborda en las pantallas principales
+[M2 2.0] inicio
+[M2 2.0] editor
+[M2 2.0] movimientos
+[M2 2.0] presupuestos e informes
+[M2 2.0] Cuentas
+[M2 2.0] Tarjetas de crédito
+[M2 2.0] Programados
+[M2 2.0] Monedas
+[M2 2.0] Seguridad
+[M2 2.0] Copias de seguridad
+[M2 2.0] Ajustes
+[M2 2.0] candado
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: M2: las gráficas se describen para el lector de pantalla
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: M9: la pantalla de monedas atribuye las tasas de ExchangeRate-API
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: M10: la contraseña de la copia va oculta, no se aprende y se confirma
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: M22: una pestaña oculta no se redibuja con cada cambio y se pone al día al verse
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round6_test.dart: simulación: ninguna combinación da una cifra o un aviso falso
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: M23: si algo falla, el mensaje se entiende y no muestra el error técnico
+Copias: MissingPluginException(No implementation found for method share on channel dev.fluttercommunity.plus/share)
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: Textos: cantidades en singular y "$ 0" sin signo en la tarjeta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ui_test.dart: M17: si los datos no se pueden abrir, la app solo deja restaurar o empezar de cero
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_test.dart: M2: festivos de Colombia Pascua
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_ui_test.dart: G1: al crear la tarjeta después de pagar, «Sí, ya lo pagué» deja el extracto en cero
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_test.dart: M2: festivos de Colombia 2024, 2025 y 2026, como los calendarios publicados
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_test.dart: M2: festivos de Colombia siguiente día hábil: sábados, domingos y festivos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_test.dart: con un libro G1, camino a: crear la tarjeta después de pagar el mínimo y contestar «Sí, ya lo pagué»
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_test.dart: con un libro G1, camino a con el mínimo anotado y marcado como pagado: ni próximo pago ni mora
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_test.dart: con un libro G1, camino b: pago hecho en el banco sin anotar; «Pagué solo el mínimo» no enciende la mora
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_test.dart: con un libro M2: con la fecha límite en sábado, no hay mora el domingo; el lunes hábil es el último día
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_test.dart: con un libro M1: el aviso confirmado avanza el programado, y los meses siguientes se anotan solos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_test.dart: con un libro M1 (H2): con «Anotar sin preguntar» y cuenta segura, los avisos de cada mes no dejan el programado atrás
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_ui_test.dart: G1: el aviso informativo separa «Ya pagué» de «Pagué solo el mínimo», y este no enciende la mora
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_ui_test.dart: G1: «Ya lo pagué» desde la notificación marca el extracto como pagado
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_ui_test.dart: M2: Tarjetas dice en qué día cae el pago corrido
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_ui_test.dart: M3: las copias automáticas se ven con nombre legible
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_ui_test.dart: M4 (ronda 4): mientras se elige y copia el archivo, un segundo toque no abre otro selector (variant: TargetPlatform.android)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round5_ui_test.dart: M5: «Quitar fecha de fin» y «Quitar cuenta» tienen nombre
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/app_test.dart: Inicio, nuevo gasto, movimientos, presupuesto, informes y cuentas sin errores
+[prueba] inicio
+[prueba] nuevo gasto
+[prueba] movimientos
+[prueba] presupuesto
+[prueba] informes
+[prueba] cuentas
+[prueba] programado y tarjetas
+[prueba] ajustes, guía y copias
+[prueba] inicio con datos
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: G2: abonos adelantados con el extracto marcado un abono de 100000 el 10 dic baja el próximo pago exactamente eso
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: G2: abonos adelantados con el extracto marcado un abono de 50000 el 12 dic baja el próximo pago exactamente eso
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: G2: abonos adelantados con el extracto marcado un abono de 300000 el 14 dic baja el próximo pago exactamente eso
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: G2: abonos adelantados con el extracto marcado un abono de 500000 el 15 dic baja el próximo pago exactamente eso
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: G2: abonos adelantados con el extracto marcado lo anotado hasta la fecha límite real es parte del mínimo marcado (regla de la decisión)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: pago vinculado al extracto registrado el 1/12 reemplaza el abono supuesto: 1.200.000
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: pago vinculado al extracto registrado el 7/12 reemplaza el abono supuesto: 1.200.000
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: pago vinculado al extracto registrado el 8/12 reemplaza el abono supuesto: 1.200.000
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: pago vinculado al extracto registrado el 16/12 reemplaza el abono supuesto: 1.200.000
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: pago vinculado al extracto registrado el 22/12 reemplaza el abono supuesto: 1.200.000
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: pago vinculado al extracto registrado el 5/1 reemplaza el abono supuesto: 1.200.000
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: pago vinculado al extracto caso B: el pago registrado desde la fila después del corte siguiente
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: pago vinculado al extracto vinculado y además un abono adelantado: cada uno cuenta una vez
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: pago vinculado al extracto borrar el pago vinculado devuelve el abono supuesto; editarlo cambia la cifra
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: pago vinculado al extracto si el movimiento ya no va a la tarjeta, el vínculo no cuenta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: pago vinculado al extracto sin marcar, el pago vinculado cuenta para la mora de su extracto aunque su fecha sea de antes del corte
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: pago vinculado al extracto una copia no lleva el vínculo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: pago vinculado al extracto el vínculo se guarda; una copia vieja sin él se lee con la regla nueva
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: lo pagado más lo pendiente es el total facturado en cada escenario
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: G3: cambiar el día de corte caso C: 15 → 16 con el mínimo y la marca del extracto del 15 nov
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: G3: cambiar el día de corte el pago vinculado pasa al extracto del mismo mes
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: G3: cambiar el día de corte caso C2: mínimo del último extracto, «Ya lo pagué» desde el aviso rojo, y el corte cambia a 16 y a 10
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: G3: cambiar el día de corte cambiar solo el día de pago no mueve nada
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: M3: día de pago igual o justo antes del corte pago el 15: el extracto del 15 oct es el próximo hasta el 17 nov
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: M3: día de pago igual o justo antes del corte pago el 14: el extracto del 15 oct es el próximo hasta el 17 nov
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round7_test.dart: M3: día de pago igual o justo antes del corte pago el 13: el extracto del 15 oct es el próximo hasta el 13 nov
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/app_test.dart: La pantalla de bloqueo pide la clave y abre con la correcta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: B1: restaurar reconoce la copia por su contenido, no por su nombre el selector de Android no filtra por extensión
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round3_test.dart: G1: el pago mínimo del último extracto pagar el mínimo deja la tarjeta al día: al día siguiente del límite no está vencida
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round3_test.dart: G1: el pago mínimo del último extracto pagar menos del mínimo sí queda vencido, por lo que falta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round3_test.dart: G1: el pago mínimo del último extracto el editor pide el mínimo, no el pago total, y lo explica
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round3_test.dart: G2: cambiar la moneda base convierte la historia de topes, y el arrastre sigue cuadrando
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round3_test.dart: M2: un programado automático no se anota si un aviso ya anotó ese cargo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round3_test.dart: M3: el aviso de pago vencido solo se da por enviado si se mostró
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round3_test.dart: M4: copias del selector de archivos se borran al leerlas y, al abrir o borrar todo, las carpetas que quedaron
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round3_test.dart: M5: datos de las versiones de prueba en iOS se mueven aunque la carpeta nueva ya exista vacía (la crea el AppDelegate)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round3_test.dart: M6: cada ícono y cada color tienen nombre en español y en inglés
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round3_test.dart: M8: el borrador de la cámara conserva el aviso que se estaba confirmando
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: B1: restaurar reconoce la copia por su contenido, no por su nombre copia cifrada, JSON de Plata (con o sin BOM) y archivos que no son de Plata
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: G3 y G4: tarjetas G3: un día después de la fecha límite lo que falta se informa y, con el mínimo anotado, está vencido hasta pagarlo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: G3 y G4: tarjetas G3: el aviso de lo vencido sale de inmediato y una sola vez
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: G3 y G4: tarjetas G4: con el pago del último extracto, eso vence y el resto es deuda de antes de Plata
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: G3 y G4: tarjetas G4: sin el dato del extracto, la deuda inicial no se suma a ningún pago
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: G3 y G4: tarjetas M1: las cuotas en pesos son pesos enteros y suman el total
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: M4 y M5: avisos M4: publicidad, anuncios a futuro, reversos y comercios con "otp" en el nombre
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: M4 y M5: avisos M5: un aviso igual a un movimiento ya anotado queda como posible duplicado y no se anota solo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: M7: recordatorios cambiar el libro no borra los avisos ya mostrados y con clave no llevan montos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: M7: recordatorios G2: hay recordatorios que pedir cuando hay programados con aviso o tarjetas con día de pago
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: M7: recordatorios M6: el ícono de las notificaciones es un vector monocromo propio, también en native/
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: G5: huella en Android 7 a 8.1 los temas de la actividad son AppCompat, en claro y en oscuro, y la app trae AppCompat
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: G5: huella en Android 7 a 8.1 si la app se cerró con el diálogo de huella abierto, la siguiente vez no se abre solo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: M10 y M11: presupuestos e informes M10: subir el tope no cambia el arrastre de los meses anteriores
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: B1: transferencias entre monedas acreditan lo convertido con la tasa guardada y el patrimonio no cambia
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: M10 y M11: presupuestos e informes M10: el total de presupuestos solo se suma si no cuenta dos veces lo mismo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: B1: transferencias entre monedas el monto recibido escrito a mano manda sobre la tasa
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: M10 y M11: presupuestos e informes M11: la cabecera de Movimientos resta los reembolsos del gasto, como Informes
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: B1: transferencias entre monedas sin tasa no se anota y se dice qué moneda falta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: M10 y M11: presupuestos e informes M12: buscar un monto sin separadores lo encuentra
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: B1: transferencias entre monedas los programados convierten igual; sin tasa quedan vencidos, no se pierden
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: B1: transferencias entre monedas los favoritos convierten igual; sin tasa ni monto recibido abren el editor
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: B1: transferencias entre monedas pagar una tarjeta sale de una cuenta en su misma moneda
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: M19: restaurar una copia no borra de una vez las fotos de los datos reemplazados
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: B2 y G4: la deuda inicial resta del patrimonio y del cupo, pero no se cobra entera en el próximo pago
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: G1: estado de cuenta estimado de la tarjeta la primera cuota llega en el primer corte después de la compra y las cuotas suman el total (M11)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: G1: estado de cuenta estimado de la tarjeta lo que no se pagó pasa como saldo anterior; un abono de más queda a favor
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: M21: si Android cerró la app con la cámara abierta, vuelven la foto y lo escrito
+Copia del selector: Binding has not yet been initialized.
+The "instance" getter on the ServicesBinding binding mixin is only available once that binding has been initialized.
+Typically, this is done by calling "WidgetsFlutterBinding.ensureInitialized()" or "runApp()" (the latter calls the former). Typically this call is done in the "void main()" method. The "ensureInitialized" method is idempotent; calling it multiple times is not harmful. After calling that method, the "instance" getter will return the binding.
+In a test, one can call "TestWidgetsFlutterBinding.ensureInitialized()" as the first line in the test's "main()" method to initialize the binding.
+If ServicesBinding is a custom binding mixin, there must also be a custom binding class, like WidgetsFlutterBinding, but that mixes in the selected binding, and that is the class that must be constructed before using the "instance" getter.
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: G1: estado de cuenta estimado de la tarjeta los avances en efectivo cuentan en el estado de cuenta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: M22: moneda base de un libro nuevo sale del país del teléfono; sin país, pesos en español y dólares en inglés
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: G1: estado de cuenta estimado de la tarjeta M25: con corte 30 y pago 31, febrero no salta un mes ni deja ventanas vacías
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: G2: cambiar la moneda base convierte presupuestos, tasas y la tasa guardada de cada movimiento
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: M22: moneda base de un libro nuevo el libro nuevo y su efectivo usan esa moneda; uno guardado conserva la suya
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: G2: cambiar la moneda base sin tasa entre las dos monedas no cambia nada
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: M16: la clave solo acepta de 4 a 8 cifras
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: G2: cambiar la moneda base un libro sin datos cambia de base sin tasa
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: G4: una transferencia sin destino no se anota (ni desde un favorito)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: G5: lo pagado con una tarjeta débito cuadra en saldo, lista, informes y presupuestos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: M5: los compromisos fijos al mes se suman en la moneda base
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round2_test.dart: M24: un libro grande se cifra fuera del hilo de la interfaz y se lee igual
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: M6: reembolsos descuentan del gasto en informes igual que en presupuestos, también en los globales
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: M7: la división en categorías define el total y cada parte cuenta en su categoría
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: M8: tasa histórica se conserva al editar, cambia al mover de moneda y al duplicar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: M8: tasa histórica una cuenta que solo recibe transferencias está en uso
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: M15: ajustar el saldo real no cuenta como gasto ni ingreso
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: M18: archivar una cuenta pausa sus programados y suelta sus favoritos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: M20 y M21: el saldo de hoy no incluye lo futuro y el fin de periodo es exclusivo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: G17: las categorías de fábrica siguen el idioma; las renombradas se respetan
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/ledger_test.dart: M19: la aritmética de días es de calendario
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/notices_test.dart: B4: las apps que se leen existen y son las mismas en Dart y en Android la lista del servicio nativo es la de BankRules (fuente y copia generada)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/notices_test.dart: B4: las apps que se leen existen y son las mismas en Dart y en Android cada paquete es de un banco con nombre y Mi Bancolombia es la app que se lee
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/notices_test.dart: B4: las apps que se leen existen y son las mismas en Dart y en Android la política, la ficha y la guía nombran los mismos bancos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/notices_test.dart: G12: montos que cierran la frase el punto o la coma final no se lee como decimal
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/notices_test.dart: G13: moneda y transferencias un aviso en dólares queda en dólares
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/notices_test.dart: G13: moneda y transferencias pagar la tarjeta, retirar y pasar a un bolsillo son transferencias
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/notices_test.dart: G13: moneda y transferencias la publicidad con montos no es un movimiento
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/notices_test.dart: G13: moneda y transferencias al anotar se convierte a la moneda de la cuenta; sin tasa no se anota
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/notices_test.dart: G13: moneda y transferencias una transferencia nunca se anota sola como gasto
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/notices_test.dart: G14: emparejar un aviso con su cuenta el banco escrito con su nombre (o el de antes) sirve igual que la clave
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/notices_test.dart: G14: emparejar un aviso con su cuenta si hay dudas no se adivina
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/notices_test.dart: G15: apagar la lectura de avisos apaga el servicio nativo y borra lo capturado
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/notices_test.dart: G15: apagar la lectura de avisos el servicio de Android no captura nada si la lectura está apagada (M12: ni resúmenes de grupo)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/notices_test.dart: M3: el historial de avisos muestra primero los más recientes
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/notices_test.dart: M4: un CSV no deja fórmulas en el texto que viene de los avisos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_ui_test.dart: G1: el aviso de un retiro con la tarjeta propone las cuotas del avance (24) y se guardan
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_ui_test.dart: M1: al confirmar un aviso igual a un movimiento ya anotado, pregunta antes de contarlo dos veces
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round4_ui_test.dart: M8: los botones de ícono que faltaban tienen nombre
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round3_ui_test.dart: G1: la tarjeta pide el pago mínimo, explica que no es el total y pregunta si se escribe casi toda la deuda
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/reminders_test.dart: G16: un programado nuevo, uno editado o el idioma reprograman los avisos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round3_ui_test.dart: M1 y M6: al editar, la deuda es la del comienzo; el selector de ícono y color se lee con nombres
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Dinero formato colombiano sin centavos y con símbolo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Dinero compacto
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Dinero parse acepta formatos locales y extranjeros
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Dinero la calculadora suma, resta y evalúa de izquierda a derecha
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Periodos mes que empieza el día de pago
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Periodos quincenas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Periodos frecuencia quincenal cae el 15 y el último día
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Periodos frecuencia mensual conserva el día ancla en meses cortos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Periodos periodos de presupuesto
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Periodos ciclo de tarjeta: corte 15, pago 5
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro siembra categorías y efectivo, guarda cifrado y recarga
+No se pudo descifrar ledger.json
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro saldos: efectivo, débito enlazado, bolsillos, tarjeta y patrimonio
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro búsqueda, sugerencias y etiquetas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro totales por periodo, categorías y tendencia
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro presupuesto con arrastre y reembolsos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro programados: autoPost avanza; manual queda vencido; fin de serie
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro estado de cuenta de tarjeta con cuotas y pagos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro bandeja de avisos: duplicados, adivinar cuenta y aceptar
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro un libro dañado deja la app en solo lectura en vez de empezar de cero
+No se pudo descifrar ledger.json
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro las fotos de recibos se borran con su movimiento y las huérfanas a los 30 días
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Libro plantillas y conversión a moneda base
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Avisos bancarios reconoce compras, ingresos y descarta ruido
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Exportar y respaldar CSV y XLSX contienen los movimientos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/round3_ui_test.dart: M4: en Android se restaura con el selector propio; la copia se borra al leerla y lo enorme ni se lee (variant: TargetPlatform.android)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/money_test.dart: B3: la calculadora vale lo que se ve aunque no se pulse "=" una suma a medias se guarda completa
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/money_test.dart: B3: la calculadora vale lo que se ve aunque no se pulse "=" resta, multiplicación y división a medias
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/money_test.dart: B3: la calculadora vale lo que se ve aunque no se pulse "=" con el operador recién puesto vale el primer número
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/money_test.dart: B3: la calculadora vale lo que se ve aunque no se pulse "=" evaluate resuelve la operación como "="
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/money_test.dart: B3: la calculadora vale lo que se ve aunque no se pulse "=" la expresión usa los separadores del idioma
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/money_test.dart: G3: tasas escritas a mano con todos sus decimales lee tasas grandes, pequeñas y con muchos decimales
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/money_test.dart: G3: tasas escritas a mano con todos sus decimales en inglés el punto es decimal
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/money_test.dart: G3: tasas escritas a mano con todos sus decimales rechaza lo que no es una tasa positiva
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/money_test.dart: G3: tasas escritas a mano con todos sus decimales se muestra con las cifras que hacen falta y vuelve igual
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/money_test.dart: G3: tasas escritas a mano con todos sus decimales convertir con una tasa pequeña no la redondea a cero
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/money_test.dart: M1: formatos en inglés montos con separadores ingleses
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/money_test.dart: M1: formatos en inglés compacto: "mil" y "M" en español, "k" y "M" en inglés
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/money_test.dart: M1: formatos en inglés rótulos de ejes de gráficas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/money_test.dart: M1: formatos en inglés nombres de monedas en los dos idiomas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Exportar y respaldar copia cifrada con contraseña: ida y vuelta, contraseña mala y manipulación
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Exportar y respaldar caja criptográfica: cifra, descifra y detecta manipulación
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Tasas, recordatorios y bloqueo TRM de datos.gov.co y cruces del BCE
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Tasas, recordatorios y bloqueo M9: las monedas que el BCE no publica salen de ExchangeRate-API y se rotulan
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Tasas, recordatorios y bloqueo recordatorios: diario, programados y pago de tarjeta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Tasas, recordatorios y bloqueo clave de acceso con esperas crecientes
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/core_test.dart: Tasas, recordatorios y bloqueo avisos: el servicio deja sugerencias en la bandeja y respeta el ajuste
+::endgroup::
+
+🎉 256 tests passed.
