@@ -43,6 +43,11 @@ class _TunerScreenState extends State<TunerScreen> {
   static const Duration noticeRepeat = Duration(seconds: 6);
   final Map<String, DateTime> _noticeSaidAt = <String, DateTime>{};
 
+  /// La región muestra un aviso que no se volvió a anunciar: deja de ser
+  /// región en vivo para que la etiqueta siga a la pantalla sin decirlo otra
+  /// vez (O1). Vuelve a serlo con el siguiente anuncio.
+  bool _quiet = false;
+
   @override
   void dispose() {
     _announceTimer?.cancel();
@@ -106,6 +111,12 @@ class _TunerScreenState extends State<TunerScreen> {
     if (notice) {
       final DateTime? said = _noticeSaidAt[wanted];
       if (said != null && clock.now().difference(said) < noticeRepeat) {
+        // Ya se dijo hace poco: la etiqueta pasa al aviso en silencio.
+        _announceTimer?.cancel();
+        _announceTimer = null;
+        _wanted = wanted;
+        _announcement = wanted;
+        _quiet = true;
         return;
       }
     }
@@ -114,6 +125,7 @@ class _TunerScreenState extends State<TunerScreen> {
     final Duration since = clock.now().difference(_lastAnnounce);
     if (since >= announceEvery) {
       _announcement = wanted;
+      _quiet = false;
       _lastAnnounce = clock.now();
       if (notice) {
         _noticeSaidAt[wanted] = clock.now();
@@ -126,6 +138,7 @@ class _TunerScreenState extends State<TunerScreen> {
         if (mounted && _wanted != _announcement) {
           setState(() {
             _announcement = _wanted;
+            _quiet = false;
             _lastAnnounce = clock.now();
             if (_noticeWanted) {
               _noticeSaidAt[_wanted] = clock.now();
@@ -188,8 +201,9 @@ class _TunerScreenState extends State<TunerScreen> {
       final TextScaler noteScaler = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.0);
       final String? notice = r == null ? _noticeText(context, tuner) : null;
       final Widget block = Semantics(
+        key: const ValueKey<String>('tuner-live'),
         container: true,
-        liveRegion: true,
+        liveRegion: !_quiet,
         label: _announcement,
         child: ExcludeSemantics(
           child: Column(

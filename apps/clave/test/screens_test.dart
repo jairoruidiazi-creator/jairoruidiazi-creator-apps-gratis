@@ -37,7 +37,9 @@ Future<void> goBack(WidgetTester tester) async {
 }
 
 Future<void> goTab(WidgetTester tester, String label) async {
-  await tester.tap(find.widgetWithText(NavigationDestination, label));
+  // En el teléfono, la barra inferior; en tableta, el riel lateral.
+  final Finder bar = find.widgetWithText(NavigationDestination, label);
+  await tester.tap(bar.evaluate().isNotEmpty ? bar : find.descendant(of: find.byType(NavigationRail), matching: find.text(label)));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 300));
 }
@@ -317,7 +319,7 @@ void main() {
     await t.shutdown(tester);
   });
 
-  testWidgets('El lector no repite el mismo aviso antes de 6 s aunque alterne con lecturas (N2)', (WidgetTester tester) async {
+  testWidgets('El lector no repite el mismo aviso antes de 6 s aunque alterne con lecturas, y la etiqueta sigue a la pantalla (N2, O1)', (WidgetTester tester) async {
     useScreen(tester, const Size(360, 640));
     final SemanticsHandle handle = tester.ensureSemantics();
     final TestServices t = TestServices();
@@ -325,8 +327,9 @@ void main() {
     await t.services.settings.save();
     await tester.pumpWidget(ClaveApp(services: t.services));
     await tester.pump();
-    final Finder live = find.descendant(of: find.byType(TunerScreen), matching: find.byWidgetPredicate((Widget w) => w is Semantics && w.properties.liveRegion == true));
-    String label() => tester.getSemantics(live).label;
+    final Finder region = find.byKey(const ValueKey<String>('tuner-live'));
+    String label() => tester.getSemantics(region).label;
+    bool live() => tester.widget<Semantics>(region).properties.liveRegion ?? false;
     const String notice = 'Suena más grave que el rango de Violín · usar Cromático';
     Future<void> play(double hz, int frames) async {
       for (int i = 0; i < frames; i++) {
@@ -337,40 +340,51 @@ void main() {
 
     await play(65.41, 15); // Do2 con Violín: el aviso
     expect(label(), notice);
+    expect(live(), isTrue);
     await play(440, 15); // La4: la nota
     expect(label(), startsWith('La 4'));
+    expect(live(), isTrue);
     await play(65.41, 15); // el aviso otra vez, a menos de 6 s del primero
     expect(find.text(notice), findsOneWidget);
-    expect(label(), startsWith('La 4'), reason: 'el mismo aviso no se vuelve a anunciar antes de 6 s');
-    await tester.pump(const Duration(seconds: 3));
-    await play(65.41, 20); // ya pasaron más de 6 s
+    // La etiqueta sigue a la pantalla, pero la región deja de estar en vivo:
+    // el lector no lo vuelve a decir.
     expect(label(), notice);
+    expect(live(), isFalse, reason: 'el mismo aviso no se vuelve a anunciar antes de 6 s');
+    await play(440, 15); // otra nota: se anuncia y la región vuelve a estar en vivo
+    expect(label(), startsWith('La 4'));
+    expect(live(), isTrue);
+    await tester.pump(const Duration(seconds: 2));
+    await play(65.41, 20); // ya pasaron más de 6 s desde el primer aviso
+    expect(label(), notice);
+    expect(live(), isTrue);
     handle.dispose();
     await t.shutdown(tester);
   });
 
-  for (final bool dark in <bool>[false, true]) {
-    testWidgets('Guías de accesibilidad de Android e iOS en cada pantalla, tema ${dark ? 'oscuro' : 'claro'} (G7)', (WidgetTester tester) async {
-      useScreen(tester, const Size(360, 640));
-      final SemanticsHandle handle = tester.ensureSemantics();
-      final TestServices t = await openApp(tester, dark: dark);
-      Future<void> check(String where) async {
-        await expectLater(tester, meetsGuideline(androidTapTargetGuideline), reason: where);
-        await expectLater(tester, meetsGuideline(iOSTapTargetGuideline), reason: where);
-        await expectLater(tester, meetsGuideline(labeledTapTargetGuideline), reason: where);
-        await expectLater(tester, meetsGuideline(textContrastGuideline), reason: where);
-      }
+  for (final Size size in <Size>[const Size(360, 640), const Size(800, 1280), const Size(1280, 800)]) {
+    for (final bool dark in <bool>[false, true]) {
+      testWidgets('Guías de accesibilidad de Android e iOS en cada pantalla, ${size.width.toInt()} × ${size.height.toInt()}, tema ${dark ? 'oscuro' : 'claro'} (G7, O4)', (WidgetTester tester) async {
+        useScreen(tester, size);
+        final SemanticsHandle handle = tester.ensureSemantics();
+        final TestServices t = await openApp(tester, dark: dark);
+        Future<void> check(String where) async {
+          await expectLater(tester, meetsGuideline(androidTapTargetGuideline), reason: where);
+          await expectLater(tester, meetsGuideline(iOSTapTargetGuideline), reason: where);
+          await expectLater(tester, meetsGuideline(labeledTapTargetGuideline), reason: where);
+          await expectLater(tester, meetsGuideline(textContrastGuideline), reason: where);
+        }
 
-      for (final String tab in tabsEs) {
-        await goTab(tester, tab);
-        await check(tab);
-      }
-      await tester.tap(find.byTooltip('Ajustes'));
-      await tester.pumpAndSettle();
-      await check('Ajustes');
-      await goBack(tester);
-      handle.dispose();
-      await t.shutdown(tester);
-    });
+        for (final String tab in tabsEs) {
+          await goTab(tester, tab);
+          await check(tab);
+        }
+        await tester.tap(find.byTooltip('Ajustes'));
+        await tester.pumpAndSettle();
+        await check('Ajustes');
+        await goBack(tester);
+        handle.dispose();
+        await t.shutdown(tester);
+      });
+    }
   }
 }

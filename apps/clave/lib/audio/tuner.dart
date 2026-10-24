@@ -233,19 +233,36 @@ class Tuner extends ChangeNotifier {
   static const int residueHarmonics = 12;
   static const double residueMaxHz = 5000;
 
-  /// Bajo esta frecuencia no hay resolución para separar una nota real de
-  /// un residuo: con 8192 muestras cada hueco entre armónicos tiene 5 bins o
-  /// menos. Ahí una lectura dentro del rango del instrumento se muestra
-  /// siempre (La1, Mi1 y Si0 del bajo); una más de
-  /// [belowInstrumentSemitones] bajo su nota más grave (en el margen de
-  /// [Instrument.rangeMargin], por ejemplo 55 Hz con Voz) se trata como
-  /// residuo si el tono de la app se oye.
+  /// Bajo esta frecuencia, con 8192 muestras cada hueco entre armónicos
+  /// tiene 5 bins o menos y no hay resolución para decidir con seguridad.
+  /// Ahí una lectura que no queda bajo la cuerda (o nota) más grave del
+  /// instrumento se muestra siempre (La1, Mi1 y Si0 del bajo, aunque el
+  /// micrófono les quite la fundamental). Una más grave que esa nota (una
+  /// cuerda bajada, como el Re1 de Drop D, o la mezcla de la voz a 55 Hz) se
+  /// decide por los armónicos como más arriba, con el piso medido a más de
+  /// [lowGuardBins] bins de cada múltiplo; si no queda ningún armónico que
+  /// se pueda medir, se muestra.
   static const double residueMinHz = 58;
 
-  /// Cuánto (semitonos) por debajo de la nota más grave del instrumento
-  /// empieza a contar como "bajo el instrumento" para [residueMinHz]: deja
-  /// sitio a una cuerda afinada un tono más grave (Re en vez de Mi).
-  static const double belowInstrumentSemitones = 2;
+  /// Por debajo de esto ni siquiera con [lowGuardBins] quedan bins entre
+  /// armónicos: la lectura se muestra siempre (el La0 de un bajo de 5
+  /// cuerdas bajado).
+  static const double residueMinResolvedHz = 30;
+
+  /// Margen (semitonos) bajo la nota más grave del instrumento para contar
+  /// una lectura como "más grave que el instrumento" bajo [residueMinHz]:
+  /// una cuerda al aire unos cents baja sigue siendo esa cuerda.
+  static const double belowLowestSemitones = 0.5;
+
+  /// Separación mínima (bins) del piso a cada múltiplo de la lectura bajo
+  /// [residueMinHz] (más arriba, 2,5). El lóbulo de Hann mide ±2 bins.
+  static const double lowGuardBins = 2;
+
+  /// Armónicos que deciden solos: si los que cuentan hasta este h ya tienen
+  /// máximo común divisor 1, es una nota. Los de más arriba solo cuentan si
+  /// el resultado no depende de uno solo de ellos (N4: un pico suelto en un
+  /// armónico alto, sin fuente clara, no basta para mostrar una mezcla).
+  static const int robustHarmonic = 7;
 
   /// Claridad mínima para avisar que una nota queda bajo el rango.
   static const double noticeClarity = 0.85;
@@ -556,12 +573,14 @@ class Tuner extends ChangeNotifier {
       residue = own != null &&
           own.isNotEmpty &&
           matchesOwnTone(r.frequency, own) &&
-          isResidue(Spectrum(buf, sampleRate: sampleRate), r.frequency, own, clarity: r.clarity, belowInstrument: heardMidi < lowest + Instrument.rangeMargin - belowInstrumentSemitones);
+          isResidue(Spectrum(buf, sampleRate: sampleRate), r.frequency, own, clarity: r.clarity, belowLowest: heardMidi < lowest + Instrument.rangeMargin - belowLowestSemitones);
       if (residue) {
         hide = true;
       } else if (heardMidi < lowest) {
         hide = true;
-        belowRange = r.clarity >= noticeClarity;
+        // El propio bordón grave (con Voz o Violín) no es "una nota más grave
+        // que el rango": no se avisa (O2).
+        belowRange = r.clarity >= noticeClarity && !_isOwnSound(r.frequency, octaves: 0);
       }
     }
     // Histéresis: cada aviso pide 300 ms seguidos de su causa para aparecer,
@@ -660,57 +679,86 @@ class Tuner extends ChangeNotifier {
       ];
 
   /// Si una lectura [hz] que cae en f/k de un tono de la app es un residuo
-  /// de la mezcla, no una nota. Lo es solo si se cumplen las tres cosas:
-  /// - alguno de esos tonos se oye en el búfer (prominencia de al menos
-  ///   [ownTonePresentDb]): con el volumen bajo no hay mezcla posible;
-  /// - [hz] es de al menos [residueMinHz] (más abajo, solo si
-  ///   [belowInstrument]: la lectura queda bajo la nota más grave del
-  ///   instrumento, donde una nota real es improbable);
+  /// de la mezcla, no una nota. Lo es solo si:
+  /// - alguno de esos tonos asoma en el búfer (prominencia de al menos
+  ///   [ownTonePresentDb]). Con el volumen muy bajo no hay mezcla y no se
+  ///   oculta nada; con audífonos puede asomar igual, porque lo que suena en
+  ///   la frecuencia del tono puede ser un armónico de la propia nota, y
+  ///   entonces decide el criterio de los armónicos;
+  /// - [hz] es de al menos [residueMinHz], o queda bajo la nota más grave
+  ///   del instrumento ([belowLowest]);
   /// - y lo que no explican los tonos de la app no tiene el periodo de [hz].
   ///   Se miran los armónicos h·[hz] (h de 1 a [residueHarmonics], hasta
   ///   [residueMaxHz]) que no caen a menos de [ownPartialCents] de un
-  ///   parcial de un tono de la app, y se toman los que superan
+  ///   parcial de un tono de la app, y cuentan los que superan
   ///   [residueThresholdDb] sobre el piso entre armónicos (el piso se mide
   ///   en cada zona del espectro y el umbral baja con el ruido, [clarity]).
-  ///   Si el máximo común divisor de sus h es 1, ese sonido tiene de verdad
-  ///   el periodo de [hz]: es una nota. Así se lee también con audífonos,
-  ///   cuando lo que suena en la frecuencia del bordón es un armónico de la
-  ///   propia nota. Si no queda ninguno, o todos son múltiplos de un j > 1,
-  ///   lo tocado es j·[hz] y [hz] sale de la mezcla.
-  static bool isResidue(Spectrum spectrum, double hz, List<double> own, {double clarity = 1, bool belowInstrument = false}) {
-    if (hz < residueMinHz && !belowInstrument) {
+  ///   Si el máximo común divisor de los que cuentan es 1, ese sonido tiene
+  ///   de verdad el periodo de [hz]: es una nota (ver [robustHarmonic] para
+  ///   los armónicos altos). Si no cuenta ninguno, o todos son múltiplos de
+  ///   un j > 1, lo tocado es j·[hz] y [hz] sale de la mezcla. Si no se pudo
+  ///   medir ninguno, no se decide: se muestra.
+  static bool isResidue(Spectrum spectrum, double hz, List<double> own, {double clarity = 1, bool belowLowest = false}) {
+    final bool low = hz < residueMinHz;
+    if (low && (!belowLowest || hz < residueMinResolvedHz)) {
       return false;
     }
     if (!_matching(hz, own).any((double g) => spectrum.prominenceDb(g) >= ownTonePresentDb)) {
       return false;
     }
-    if (hz < residueMinHz) {
-      return true;
-    }
+    final double guard = low ? lowGuardBins : 2.5;
     final double threshold = residueThresholdDb(clarity);
-    int common = 0;
+    final List<int> counted = <int>[];
+    int measured = 0;
     for (int h = 1; h <= residueHarmonics && h * hz <= residueMaxHz; h++) {
       if (_nearOwnPartial(h * hz, own)) {
         continue;
       }
-      final double p = h == 1 ? _fundamentalDb(spectrum, hz) : spectrum.harmonicProminenceDb(hz, h);
-      if (!p.isNaN && p >= threshold) {
-        common = _gcd(common, h);
-        if (common == 1) {
-          return false;
-        }
+      final double p = h == 1 ? _fundamentalDb(spectrum, hz, guard) : spectrum.harmonicProminenceDb(hz, h, guard: guard);
+      if (p.isNaN) {
+        continue;
+      }
+      measured++;
+      if (p >= threshold) {
+        counted.add(h);
       }
     }
-    return true;
+    if (measured == 0) {
+      return false;
+    }
+    if (_gcdOf(counted) != 1) {
+      return true;
+    }
+    if (_gcdOf(<int>[for (final int h in counted) if (h <= robustHarmonic) h]) == 1) {
+      return false;
+    }
+    // El 1 sale gracias a armónicos altos: tiene que seguir saliendo sin
+    // cualquiera de ellos.
+    for (final int c in counted) {
+      if (c > robustHarmonic && _gcdOf(<int>[for (final int h in counted) if (h != c) h]) != 1) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static int _gcdOf(List<int> values) {
+    int g = 0;
+    for (final int v in values) {
+      g = _gcd(g, v);
+    }
+    return g;
   }
 
   /// La fundamental se mide contra el piso agrupado y contra su entorno
-  /// cercano (0,55·f a 1,45·f), y vale la mayor: con el paso alto de un
-  /// teléfono y ruido, el piso sube mucho hacia 2·f y el agrupado la
-  /// subestima, y con pocos bins por hueco el cercano es el ruidoso.
-  static double _fundamentalDb(Spectrum spectrum, double hz) {
-    final double pooled = spectrum.harmonicProminenceDb(hz, 1);
-    final double near = spectrum.prominenceDb(hz);
+  /// cercano (0,55·f a 1,45·f, con el piso del lado más alto), y vale la
+  /// mayor: con el paso alto de un teléfono y ruido, el piso sube mucho
+  /// hacia 2·f y el agrupado la subestima. El entorno cercano toma el lado
+  /// más alto para que el ruido en f no asome solo sobre el lado grave, más
+  /// atenuado por el paso alto (N4).
+  static double _fundamentalDb(Spectrum spectrum, double hz, double guard) {
+    final double pooled = spectrum.harmonicProminenceDb(hz, 1, guard: guard);
+    final double near = spectrum.prominenceBothSidesDb(hz);
     if (pooled.isNaN) {
       return near;
     }
@@ -744,7 +792,10 @@ class Tuner extends ChangeNotifier {
     return x;
   }
 
-  bool _isOwnSound(double hz) {
+  /// true si [hz] cae (±60 cents) en un sonido de la propia app o, con
+  /// [octaves] > 0, en una de sus octavas (el detector puede quedarse con
+  /// una de ellas).
+  bool _isOwnSound(double hz, {int octaves = 2}) {
     final List<double>? own = ownFrequencies?.call();
     if (own == null || own.isEmpty) {
       return false;
@@ -753,16 +804,15 @@ class Tuner extends ChangeNotifier {
       if (f <= 0) {
         continue;
       }
-      // También sus octavas: el detector puede quedarse con una de ellas.
       final double c = 1200 * log2(hz / f);
-      final double octaves = c / 1200;
-      final double nearest = octaves.roundToDouble();
-      if (nearest.abs() <= 2 && (c - nearest * 1200).abs() <= 60) {
+      final double nearest = (c / 1200).roundToDouble();
+      if (nearest.abs() <= octaves && (c - nearest * 1200).abs() <= 60) {
         return true;
       }
     }
     return false;
   }
+
 
   /// Envolvente de golpe: la energía se concentra en un trozo corto del
   /// búfer (más de 9 dB entre el bloque más fuerte y la mediana).

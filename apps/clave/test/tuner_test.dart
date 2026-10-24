@@ -446,6 +446,64 @@ void main() {
         });
       });
 
+      test('Una cuerda bajada se lee con un tono de la app sonando: Re1 de Drop D con La3 o Re2, Do1 con Do2, con altavoz y con audífonos (G2)', () {
+        fakeAsync((FakeAsync async) {
+          for (final List<int> c in <List<int>>[<int>[26, 57], <int>[26, 38], <int>[24, 36]]) {
+            final double tone = hzAt(c[1], 0);
+            for (final double cents in <double>[-30, -15, 15]) {
+              for (final bool phones in <bool>[false, true]) {
+                for (final bool phoneMic in <bool>[false, true]) {
+                  final Float64List string = harmonic(hzAt(c[0], cents), bass);
+                  final List<double> heard = phones ? string : mix(string, drone(tone), -12);
+                  final Float32List x = finish(phoneMic ? highPass(heard, 100, 2) : heard);
+                  final Tuner t = listen(async, 'bajo', <double>[tone], x);
+                  final String why = 'MIDI ${c[0]} $cents c con el tono ${c[1]}, ${phones ? 'audífonos' : 'altavoz'}, paso alto $phoneMic';
+                  expect(t.reading?.note.midi, c[0], reason: why);
+                  expect(t.notice, TunerNotice.none, reason: why);
+                }
+              }
+            }
+          }
+        });
+      });
+
+      test('La1 con el perfil de guitarra y La2 o La3 sonando no se toma por la mezcla: unos cents bajo, el aviso de rango; unos cents alto, la nota (G2)', () {
+        fakeAsync((FakeAsync async) {
+          for (final int tone in <int>[45, 57]) {
+            for (final bool phones in <bool>[false, true]) {
+              Float32List la1(double cents) {
+                final Float64List string = harmonic(hzAt(33, cents), guitar);
+                return finish(phones ? string : mix(string, drone(hzAt(tone, 0)), -12));
+              }
+
+              final Tuner low = listen(async, 'guitarra', <double>[hzAt(tone, 0)], la1(-15));
+              expect(low.reading, isNull);
+              expect(low.notice, TunerNotice.belowRange, reason: 'tono $tone, audífonos $phones');
+              final Tuner high = listen(async, 'guitarra', <double>[hzAt(tone, 0)], la1(15));
+              expect(high.reading?.note.midi, 33, reason: 'tono $tone, audífonos $phones');
+            }
+          }
+        });
+      });
+
+      test('El propio bordón grave no da el aviso de rango (O2)', () {
+        fakeAsync((FakeAsync async) {
+          final double re1 = hzAt(26, 0);
+          final Tuner t = Tuner(microphoneEnabled: false)
+            ..instrument = Instruments.byId('voz')
+            ..damping = 0
+            ..ownTones = () => <double>[re1];
+          t.ownFrequencies = () => <double>[re1];
+          final Float32List x = finish(harmonic(re1, const <double>[1.0, 0.5, 0.33, 0.25, 0.2]));
+          for (int i = 0; i < 10; i++) {
+            t.feed(x);
+            async.elapse(const Duration(milliseconds: 60));
+          }
+          expect(t.reading, isNull);
+          expect(t.notice, TunerNotice.none);
+        });
+      });
+
       test('Mi1 con la fundamental débil y ruido rosa a 10 dB se lee con el bordón en Mi2 (con y sin quinta)', () {
         fakeAsync((FakeAsync async) {
           final double root = hzAt(40, 0);
@@ -480,7 +538,7 @@ void main() {
                   // residuo son sus armónicos impares (5.º, 7.º), que el bordón
                   // no explica.
                   final Spectrum sp = Spectrum(x, sampleRate: 44100);
-                  expect(math.max(sp.harmonicProminenceDb(hzAt(45, cents), 1), sp.prominenceDb(hzAt(45, cents))), lessThan(Tuner.residueProminenceLowDb));
+                  expect(math.max(sp.harmonicProminenceDb(hzAt(45, cents), 1), sp.prominenceBothSidesDb(hzAt(45, cents))), lessThan(Tuner.residueProminenceLowDb));
                 }
               }
             }
