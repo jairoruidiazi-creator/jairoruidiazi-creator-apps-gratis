@@ -13,9 +13,9 @@ import 'package:plata/model/models.dart';
 
 import 'support/env.dart';
 
-Future<TestEnv> start(WidgetTester tester, {Future<void> Function(TestEnv env)? before}) async {
+Future<TestEnv> start(WidgetTester tester, {Future<void> Function(TestEnv env)? before, DateTime? today}) async {
   final TestEnv env = (await tester.runAsync(() async {
-    final TestEnv e = await makeEnv();
+    final TestEnv e = await makeEnv(today: today);
     await before?.call(e);
     return e;
   }))!;
@@ -32,6 +32,7 @@ Future<void> syncLedger(WidgetTester tester, TestEnv env) async {
 }
 
 final DateTime sep15 = DateTime(2026, 9, 15);
+final DateTime nov10 = DateTime(2026, 11, 10, 12);
 
 /// Hoy es el 10 nov. Corte el 15 y pago el 5. El extracto del 15 sep
 /// (mínimo 100.000) se pagó fuera y se marcó el 25 sep; el del 15 oct
@@ -72,10 +73,10 @@ final Finder hint = find.textContaining('¿Es el pago del extracto del 15 sep');
 
 void main() {
   testWidgets('sin lector de pantalla: el aviso se cierra a los 8 s, sale una sola vez, y «Vinculado… Deshacer» también se cierra', (WidgetTester tester) async {
-    await withClock(Clock.fixed(DateTime(2026, 11, 10, 12)), () async {
+    await withClock(Clock.fixed(nov10), () async {
       usePhone(tester);
       late Account tc;
-      final TestEnv env = await start(tester, before: (TestEnv e) async {
+      final TestEnv env = await start(tester, today: nov10, before: (TestEnv e) async {
         tc = await seed(e.services.ledger);
       });
       final Ledger l = env.services.ledger;
@@ -117,12 +118,12 @@ void main() {
   });
 
   testWidgets('con lector de pantalla (accessibleNavigation): el aviso y «Deshacer» se quedan hasta que se atienden', (WidgetTester tester) async {
-    await withClock(Clock.fixed(DateTime(2026, 11, 10, 12)), () async {
+    await withClock(Clock.fixed(nov10), () async {
       usePhone(tester);
       tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(accessibleNavigation: true);
       addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
       late Account tc;
-      final TestEnv env = await start(tester, before: (TestEnv e) async {
+      final TestEnv env = await start(tester, today: nov10, before: (TestEnv e) async {
         tc = await seed(e.services.ledger);
       });
       final Ledger l = env.services.ledger;

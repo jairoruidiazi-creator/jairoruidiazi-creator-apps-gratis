@@ -44,8 +44,10 @@ class TestEnv {
 /// Crea los servicios. Con [demo], el libro trae los seis meses de ejemplo
 /// de las capturas de tienda (con "hoy" en [demoNow]).
 /// [notificationsGranted] y [grantOnRequest] fijan lo que responde el
-/// permiso de notificaciones (por defecto, concedido).
-Future<TestEnv> makeEnv({String language = 'es', bool onboarded = true, bool demo = false, bool notices = false, bool? notificationsGranted = true, bool grantOnRequest = true}) async {
+/// permiso de notificaciones (por defecto, concedido). [today] cambia el
+/// "hoy" del libro (por defecto [kTestNow]); la interfaz debe correr con el
+/// mismo reloj (`withClock`).
+Future<TestEnv> makeEnv({String language = 'es', bool onboarded = true, bool demo = false, bool notices = false, bool? notificationsGranted = true, bool grantOnRequest = true, DateTime? today}) async {
   final Directory dir = await Directory.systemTemp.createTemp('plata_ui');
   SharedPreferences.setMockInitialValues(<String, Object>{'language': language, 'onboarded': onboarded, 'noticesEnabled': notices});
   final AppSettings settings = AppSettings();
@@ -53,7 +55,7 @@ Future<TestEnv> makeEnv({String language = 'es', bool onboarded = true, bool dem
   final JsonStore store = JsonStore(root: dir);
   final MemoryKeyStore keys = MemoryKeyStore();
   final CryptoBox box = await CryptoBox.fromKeyStore(keys);
-  final DateTime now = demo ? demoNow : kTestNow;
+  final DateTime now = today ?? (demo ? demoNow : kTestNow);
   final Ledger ledger = Ledger(EncryptedStore(store, box), spanish: language == 'es', clock: () => now);
   await ledger.load();
   if (demo) {

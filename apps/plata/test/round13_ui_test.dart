@@ -13,9 +13,9 @@ import 'package:plata/ui/transactions/tx_editor.dart';
 
 import 'support/env.dart';
 
-Future<TestEnv> start(WidgetTester tester, {Future<void> Function(TestEnv env)? before}) async {
+Future<TestEnv> start(WidgetTester tester, {Future<void> Function(TestEnv env)? before, DateTime? today}) async {
   final TestEnv env = (await tester.runAsync(() async {
-    final TestEnv e = await makeEnv();
+    final TestEnv e = await makeEnv(today: today);
     await before?.call(e);
     return e;
   }))!;
@@ -82,7 +82,7 @@ void main() {
     await withClock(Clock.fixed(DateTime(2026, 11, 10, 12)), () async {
       usePhone(tester);
       late Account tc;
-      final TestEnv env = await start(tester, before: (TestEnv e) async {
+      final TestEnv env = await start(tester, today: DateTime(2026, 11, 10, 12), before: (TestEnv e) async {
         tc = await seed(e.services.ledger);
         await e.services.ledger.addTx(Tx(id: 'oct', kind: TxKind.transfer, amountMinor: 12000000, accountId: 'ah', toAccountId: 'tc', date: DateTime(2026, 11, 3, 12)));
       });

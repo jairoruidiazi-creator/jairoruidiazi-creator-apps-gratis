@@ -247,7 +247,7 @@ void main() {
       final List<Object> s = await linked();
       final Ledger l = s[0] as Ledger;
       final Tx n = s[2] as Tx;
-      l.updateTx(Tx.fromJson(n.toJson())..amountMinor = pesos(90000));
+      l.updateTx(Tx.fromJson(l.txs.firstWhere((Tx x) => x.id == n.id).toJson())..amountMinor = pesos(90000));
       expect(l.undoLinkToStatement(s[3] as OutsideLinkUndo), isFalse);
       final Tx now = l.txs.firstWhere((Tx x) => x.id == n.id);
       expect(now.amountMinor, pesos(90000));
