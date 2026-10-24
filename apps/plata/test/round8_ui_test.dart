@@ -92,6 +92,8 @@ void main() {
       await tester.scrollUntilVisible(field, 150, scrollable: find.byType(Scrollable).first);
       await tester.tap(field);
       await settle(tester);
+      // El menú muestra los días cerca del 10: se baja hasta el 16.
+      await tester.scrollUntilVisible(find.text('16').last, 48, scrollable: find.byType(Scrollable).last);
       await tester.tap(find.text('16').last);
       await settle(tester);
       await tester.tap(find.text('Guardar'));
