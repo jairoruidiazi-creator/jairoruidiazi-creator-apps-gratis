@@ -341,6 +341,20 @@ void main() {
               final int paid = pays.firstWhere((_Pay p) => p.txId == t.id).amount;
               final int over = (t.outsideTaken ?? 0) - (before > paid ? before : paid);
               documented += over > 0 ? over : 0;
+            } else {
+              // La pregunta era por el extracto marcado más reciente y el abono
+              // es el pago de fuera de uno anterior: excepción documentada (el
+              // remedio de la fila, la mitad de las veces).
+              final Iterable<_Pay> mine = pays.where((_Pay p) => p.txId == t.id);
+              final Tx stored = l.txs.firstWhere((Tx x) => x.id == t.id);
+              if (mine.isNotEmpty && !others.contains(t.id) && stored.statementOf == null && l.isStatementPaid(tc, DateTime.parse(mine.first.cut))) {
+                withoutQuestion += 1;
+                if (rnd.nextBool()) {
+                  l.linkToStatement(stored, DateTime.parse(mine.first.cut));
+                } else {
+                  exception.add(t.id);
+                }
+              }
             }
           }
         }
@@ -497,11 +511,18 @@ void main() {
             }
           }
           int excepted = 0;
-          for (final _Pay p in pays.where((_Pay p) => exception.contains(p.txId))) {
-            for (final Tx t in l.txs.where((Tx t) => t.id == p.txId && t.statementOf == null)) {
+          for (final _Pay p in pays.where((_Pay p) => p.txId != null)) {
+            for (final Tx t in l.txs.where((Tx t) => t.id == p.txId)) {
               final DateTime k = DateTime.parse(p.cut);
-              final int held = l.outsidePayment(tc, k) + l.pendingOutsideMatches(card: tc, cut: k).fold<int>(0, (int a, Tx o) => a + (o.outsideTaken ?? 0));
-              excepted += t.amountMinor < held ? t.amountMinor : held;
+              final int held = l.outsidePayment(tc, k) + l.pendingOutsideMatches(card: tc, cut: k).where((Tx o) => o.id != t.id).fold<int>(0, (int a, Tx o) => a + (o.outsideTaken ?? 0));
+              if (exception.contains(t.id) && t.statementOf == null) {
+                excepted += t.amountMinor < held ? t.amountMinor : held;
+              } else if (t.outsidePending && l.pendingOutsideCut(t) != k) {
+                // La pregunta pendiente es por otro extracto (el más reciente):
+                // se contesta «Es otro pago» y se usa el remedio.
+                final int rest = t.amountMinor - (t.outsideTaken ?? 0);
+                excepted += rest < held ? rest : held;
+              }
             }
           }
           if (plata < real - excepted) {
