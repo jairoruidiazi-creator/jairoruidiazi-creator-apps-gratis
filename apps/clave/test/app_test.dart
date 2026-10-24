@@ -376,11 +376,16 @@ void main() {
       await tester.tap(find.text('Borrar'));
       await pumpUntil(tester, () => find.text('Se borró «Cumbia»').evaluate().isNotEmpty);
       expect(find.text('Deshacer'), findsOneWidget);
-      await tester.pump(const Duration(seconds: 5));
-      expect(find.text('Se borró «Cumbia»'), findsOneWidget, reason: 'a los 5 s sigue');
-      await tester.pump(const Duration(seconds: 4));
-      await tester.pump(const Duration(seconds: 1));
-      await tester.pump(const Duration(seconds: 1));
+      // Termina de entrar (el plazo de 8 s empieza al quedar a la vista).
+      for (int i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.pump(const Duration(seconds: 7));
+      expect(find.text('Se borró «Cumbia»'), findsOneWidget, reason: 'a los 7 s sigue');
+      await tester.pump(const Duration(milliseconds: 1500));
+      for (int i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
       expect(find.text('Se borró «Cumbia»'), reader ? findsOneWidget : findsNothing);
       if (reader) {
         await tester.pump(const Duration(seconds: 30));
