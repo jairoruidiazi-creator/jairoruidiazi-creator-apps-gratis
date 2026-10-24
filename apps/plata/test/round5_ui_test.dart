@@ -113,7 +113,7 @@ void main() {
       expect(find.byType(UnconfirmedBanner), findsNothing);
       expect(find.byType(OverdueBanner), findsNothing);
       expect(l.isStatementPaid(tc, DateTime(2026, 9, 30)), isTrue);
-      expect(find.textContaining('El extracto queda pagado'), findsOneWidget);
+      expect(find.textContaining('Marcado como pagado'), findsOneWidget);
       await syncLedger(tester, env);
       await finish(tester);
     });

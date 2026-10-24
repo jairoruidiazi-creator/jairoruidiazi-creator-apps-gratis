@@ -428,18 +428,22 @@ class _AccountEditorState extends State<AccountEditor> {
     final Account probe = Account(id: widget.existing?.id ?? '', name: '', type: AccountType.credit)
       ..cutDay = _cutDay
       ..payDay = _payDay
-      ..statementCut = widget.existing?.statementCut;
+      ..statementCut = widget.existing?.statementCut
+      ..currency = _currency;
     final DateTime cut = l.referenceStatementCut(probe);
     final CardCycle cycle = CardCycle.current(probe, cut);
     final bool es = l.spanish;
     final int debt = _initial.abs();
     final int? v = _statementDue;
+    // La misma fecha límite real (corrida al día hábil) que usa el resto de
+    // la app: en el texto y para decir si ya venció.
+    final DateTime due = l.effectivePayDate(probe, cycle.payDate);
     final String which = es
-        ? 'Del extracto con corte el ${formatDate(cycle.cut, 'dd MMM yyyy', spanish: true)}, que vence el ${formatDate(cycle.payDate, 'dd MMM', spanish: true)}.'
-        : 'From the statement that closed on ${formatDate(cycle.cut, 'MMM dd yyyy', spanish: false)}, due on ${formatDate(cycle.payDate, 'MMM dd', spanish: false)}.';
+        ? 'Del extracto con corte el ${formatDate(cycle.cut, 'dd MMM yyyy', spanish: true)}, que vence el ${payDateText(context, l, probe, cycle.payDate)}.'
+        : 'From the statement that closed on ${formatDate(cycle.cut, 'MMM dd yyyy', spanish: false)}, due on ${payDateText(context, l, probe, cycle.payDate)}.';
     // Si la fecha límite de ese extracto ya pasó, lo que se escriba queda
     // vencido: se dice, para que quien ya lo pagó escriba 0.
-    final bool passed = cycle.payDate.isBefore(dateOnly(clock.now()));
+    final bool passed = due.isBefore(dateOnly(clock.now()));
     // Siempre se dice: quien instala Plata justo después de pagar el extracto
     // no debe anotarlo como pendiente (terminaría en una mora falsa).
     final String late = passed ? t(context, ' Ya venció.', ' It is already past due.') : '';
@@ -488,6 +492,8 @@ class _AccountEditorState extends State<AccountEditor> {
                       t(context, 'Si ya pagaste este mínimo, Plata no lo cuenta como pendiente: tu próximo pago empieza en cero y nunca te avisará mora por este extracto.', 'If you already paid this minimum, Plata does not count it as pending: your next payment starts at zero and it will never warn you about this statement.'),
                       yes: t(context, 'Sí, ya lo pagué', 'Yes, I paid it'),
                       no: t(context, 'Todavía no', 'Not yet'),
+                      // Hay que contestar: tocar fuera no puede decidir por ti.
+                      barrierDismissible: false,
                     );
                     if (!context.mounted) {
                       return;

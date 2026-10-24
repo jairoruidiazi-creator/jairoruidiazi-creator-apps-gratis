@@ -424,16 +424,21 @@ Future<String?> askSecret(BuildContext context, String title, {String? help, boo
   return v;
 }
 
-Future<bool> confirm(BuildContext context, String title, String body, {String? yes, String? no}) async {
+Future<bool> confirm(BuildContext context, String title, String body, {String? yes, String? no, bool barrierDismissible = true}) async {
   final bool? ok = await showDialog<bool>(
     context: context,
-    builder: (BuildContext context) => AlertDialog(
-      title: Text(title),
-      content: Text(body),
-      actions: <Widget>[
-        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(no ?? t(context, 'Cancelar', 'Cancel'))),
-        FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(yes ?? t(context, 'Aceptar', 'OK'))),
-      ],
+    barrierDismissible: barrierDismissible,
+    builder: (BuildContext context) => PopScope(
+      // Sin cierre por fuera, tampoco con el botón Atrás: hay que contestar.
+      canPop: barrierDismissible,
+      child: AlertDialog(
+        title: Text(title),
+        content: Text(body),
+        actions: <Widget>[
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(no ?? t(context, 'Cancelar', 'Cancel'))),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(yes ?? t(context, 'Aceptar', 'OK'))),
+        ],
+      ),
     ),
   );
   return ok ?? false;

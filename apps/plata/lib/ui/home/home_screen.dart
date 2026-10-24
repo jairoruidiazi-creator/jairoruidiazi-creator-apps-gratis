@@ -558,7 +558,9 @@ IconData noticeIcon(InboxItem item) {
 /// cuenta en esa moneda, el editor lo plantea como transferencia entre
 /// monedas: el monto que llega a la tarjeta es lo que vence y el que sale se
 /// calcula con la tasa guardada.
-Future<void> openCardPayment(BuildContext context, Account card, int dueMinor) {
+/// [date] propone la fecha del pago: al registrar un extracto que se marcó
+/// como pagado, su fecha límite (el pago se hizo antes, no hoy).
+Future<void> openCardPayment(BuildContext context, Account card, int dueMinor, {DateTime? date}) {
   final Services s = AppScope.of(context);
   final Account? source = s.ledger.paymentSourceFor(card, preferredId: s.settings.defaultAccountId);
   return Navigator.push(
@@ -569,6 +571,7 @@ Future<void> openCardPayment(BuildContext context, Account card, int dueMinor) {
         initialAccountId: source?.id,
         initialToAccountId: card.id,
         initialToMinor: dueMinor,
+        initialDate: date,
         initialDescription: t(context, 'Pago ${card.name}', '${card.name} payment'),
       ),
     ),

@@ -277,6 +277,10 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     super.didChangeDependencies();
     _s ??= AppScope.of(context);
     _notificationTaps ??= _s!.notifier.responses.listen(_onNotification);
+    if (!_listeningLock) {
+      _listeningLock = true;
+      _s!.lock.addListener(_onLockChanged);
+    }
     if (!_started) {
       _started = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_startup()));
@@ -284,6 +288,19 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   }
 
   StreamSubscription<NotifierResponse>? _notificationTaps;
+  bool _listeningLock = false;
+
+  /// Respuesta a un aviso que llegó con la app bloqueada: se aplica al
+  /// desbloquear, nunca detrás de la pantalla de la clave.
+  NotifierResponse? _pendingResponse;
+
+  void _onLockChanged() {
+    final NotifierResponse? r = _pendingResponse;
+    if (r != null && _s != null && !_s!.lock.locked) {
+      _pendingResponse = null;
+      _onNotification(r);
+    }
+  }
 
   /// Un toque en un aviso de pago pendiente (`o:<tarjeta>:<corte>`): su botón
   /// «Ya lo pagué» marca ese extracto como pagado; tocar el aviso abre
@@ -302,8 +319,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     if (card == null || cut == null) {
       return;
     }
+    if (s.lock.locked) {
+      _pendingResponse = r;
+      return;
+    }
     if (r.actionId == Notifier.paidAction) {
-      markPaidFromBanner(context, card, cut, s.ledger.cardDue(card).overdueMinor);
+      markPaidFromBanner(context, card, cut);
     } else {
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CardsScreen()));
     }
@@ -312,6 +333,9 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     unawaited(_notificationTaps?.cancel());
+    if (_listeningLock) {
+      _s?.lock.removeListener(_onLockChanged);
+    }
     WidgetsBinding.instance.removeObserver(this);
     _reminders?.stop();
     unawaited(_s?.notices.stop());

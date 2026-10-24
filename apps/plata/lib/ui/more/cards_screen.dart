@@ -174,13 +174,23 @@ class _CardPanelState extends State<_CardPanel> {
                   child: Text(
                     lastMinimum == null
                         ? t(context, 'Pago mínimo del extracto del ${dayText(context, lastClosed.cut)}: sin anotar', 'Minimum payment on the ${dayText(context, lastClosed.cut)} statement: not entered')
-                        : '${t(context, 'Pago mínimo del extracto del ${dayText(context, lastClosed.cut)}', 'Minimum payment on the ${dayText(context, lastClosed.cut)} statement')}: ${money(context, lastMinimum, c.currency)}${l.isStatementPaid(c, lastClosed.cut) ? t(context, ' · pagado', ' · paid') : ''}',
+                        : '${t(context, 'Pago mínimo del extracto del ${dayText(context, lastClosed.cut)}', 'Minimum payment on the ${dayText(context, lastClosed.cut)} statement')}: ${money(context, lastMinimum, c.currency)}',
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   ),
                 ),
                 TextButton(onPressed: () => askStatementMinimum(context, c, lastClosed.cut), child: Text(lastMinimum == null ? t(context, 'Anotar', 'Enter') : t(context, 'Cambiar', 'Change'))),
               ],
             ),
+            // Extractos marcados «Ya lo pagué»: se pueden registrar o desmarcar.
+            for (final CardCycle paid in <CardCycle>[lastClosed, lastClosed.previous(c), lastClosed.previous(c).previous(c)].where((CardCycle x) => l.isStatementPaid(c, x.cut)))
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: <Widget>[
+                  Text(t(context, 'Extracto del ${dayText(context, paid.cut)} marcado como pagado', '${dayText(context, paid.cut)} statement marked as paid'), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                  TextButton(onPressed: () => openCardPayment(context, c, l.statementMinimum(c, paid.cut) ?? 0, date: proposedPaymentDate(l, c, paid.cut)), child: Text(t(context, 'Registrar el pago', 'Log the payment'))),
+                  TextButton(onPressed: () => l.markStatementPaid(c, paid.cut, paid: false), child: Text(t(context, 'Desmarcar', 'Unmark'))),
+                ],
+              ),
             Row(
               children: <Widget>[
                 IconButton(tooltip: t(context, 'Ciclo anterior', 'Previous cycle'), icon: const Icon(Icons.chevron_left), onPressed: () => setState(() => _back += 1)),
@@ -289,7 +299,7 @@ class OverdueBanner extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
               TextButton(onPressed: () => openCardPayment(context, card, due.overdueMinor), child: Text(t(context, 'Pagar', 'Pay'), style: TextStyle(color: cs.onErrorContainer))),
-              TextButton(onPressed: () => markPaidFromBanner(context, card, due.statementCut!, due.overdueMinor), child: Text(t(context, 'Ya lo pagué', 'Already paid'), style: TextStyle(color: cs.onErrorContainer))),
+              TextButton(onPressed: () => markPaidFromBanner(context, card, due.statementCut!), child: Text(t(context, 'Ya lo pagué', 'Already paid'), style: TextStyle(color: cs.onErrorContainer))),
             ],
           ),
         ],
@@ -337,28 +347,48 @@ Future<void> askStatementMinimum(BuildContext context, Account card, DateTime cu
         ) ??
         _Paid.notYet;
   }
-  if (answer == _Paid.notYet || !context.mounted) {
+  if (answer == _Paid.notYet) {
+    // «Todavía no» también deshace un «Ya lo pagué» anterior de ese extracto.
+    if (l.isStatementPaid(card, cut)) {
+      l.markStatementPaid(card, cut, paid: false);
+    }
+    return;
+  }
+  if (!context.mounted) {
     return;
   }
   l.markStatementPaid(card, cut);
   if (answer == _Paid.paidAndLog) {
-    await openCardPayment(context, card, v);
+    await openCardPayment(context, card, v, date: proposedPaymentDate(l, card, cut));
   } else if (alreadyPaid) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(t(context, 'El extracto queda pagado. Si lo pagaste desde una cuenta que tienes en Plata, regístralo.', 'The statement is marked as paid. If you paid from an account you have in Plata, log it.')),
-      action: SnackBarAction(label: t(context, 'Registrar', 'Log'), onPressed: () => openCardPayment(context, card, v)),
-    ));
+    showPaidSnackBar(context, card, cut);
   }
+}
+
+/// Fecha que se propone al registrar el pago de un extracto ya pagado: su
+/// fecha límite real (el pago se hizo antes de hoy), o hoy si aún no llega.
+DateTime proposedPaymentDate(Ledger l, Account card, DateTime cut) {
+  final DateTime due = l.effectivePayDate(card, CardCycle.current(card, cut).payDate);
+  final DateTime today = dateOnly(clock.now());
+  final DateTime d = due.isAfter(today) ? today : due;
+  return DateTime(d.year, d.month, d.day, 12);
+}
+
+/// Confirmación de «Ya lo pagué», con «Deshacer»: un toque equivocado no
+/// apaga la única alarma de un pago pendiente.
+void showPaidSnackBar(BuildContext context, Account card, DateTime cut) {
+  final Ledger l = AppScope.of(context).ledger;
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    content: Text(t(context, 'Marcado como pagado. Si lo pagaste desde una cuenta que tienes en Plata, regístralo en Tarjetas.', 'Marked as paid. If you paid from an account you have in Plata, log it in Cards.')),
+    action: SnackBarAction(label: t(context, 'Deshacer', 'Undo'), onPressed: () => l.markStatementPaid(card, cut, paid: false)),
+  ));
 }
 
 /// Marca como pagado el extracto de un aviso de pago pendiente, aunque el
 /// pago no esté anotado, y ofrece registrarlo.
-void markPaidFromBanner(BuildContext context, Account card, DateTime cut, int amount) {
+void markPaidFromBanner(BuildContext context, Account card, DateTime cut) {
   AppScope.of(context).ledger.markStatementPaid(card, cut);
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-    content: Text(t(context, 'Marcado como pagado. Si lo pagaste desde una cuenta que tienes en Plata, regístralo.', 'Marked as paid. If you paid from an account you have in Plata, log it.')),
-    action: SnackBarAction(label: t(context, 'Registrar', 'Log'), onPressed: () => openCardPayment(context, card, amount)),
-  ));
+  showPaidSnackBar(context, card, cut);
 }
 
 /// Sin un mínimo conocido, lo que el estimado de Plata dice que quedó de un

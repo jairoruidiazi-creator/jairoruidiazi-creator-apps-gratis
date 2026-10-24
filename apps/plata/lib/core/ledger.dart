@@ -1850,7 +1850,9 @@ class Ledger extends ChangeNotifier {
     CardCycle c = CardCycle.current(card, d);
     for (int i = 0; i < 2; i++) {
       final CardCycle p = c.previous(card);
-      if (!d.isAfter(p.payDate)) {
+      // Con la fecha límite real (corrida al día hábil): un abono del domingo
+      // o del lunes corrido es para el extracto que vence ese lunes.
+      if (!d.isAfter(effectivePayDate(card, p.payDate))) {
         c = p;
       } else {
         break;
@@ -2033,16 +2035,13 @@ class Ledger extends ChangeNotifier {
       }
       int payments = s.payments + adjustCredit;
       // Un extracto que la persona dijo que ya pagó (fuera de Plata) cuenta
-      // como abonado su mínimo conocido, si lo anotado no llega a él: así el
-      // estado siguiente no lo arrastra como saldo sin pagar.
+      // como abonado su mínimo conocido: así el estado siguiente no lo
+      // arrastra como saldo sin pagar. Es un abono supuesto y lo reemplaza
+      // cualquier abono anotado después del corte y hasta el corte siguiente
+      // (el pago de verdad, registrado con su fecha o con la de hoy): nunca
+      // se cuenta dos veces.
       if (card.paidStatements.isNotEmpty && isStatementPaid(card, cut)) {
-        final int? minimum = statementMinimum(card, cut);
-        if (minimum != null) {
-          final int logged = _creditsBetween(card, cut, CardCycle.current(card, cut).payDate);
-          if (minimum > logged) {
-            payments += minimum - logged;
-          }
-        }
+        payments += _assumedPayment(card, cut);
       }
       int balance = carry + s.purchases + s.advances + s.installments - payments;
       int toLegacy = 0;
@@ -2060,7 +2059,8 @@ class Ledger extends ChangeNotifier {
   }
 
   /// Abonos a una tarjeta hechos después de [after] y hasta el final de [until].
-  int _creditsBetween(Account card, DateTime after, DateTime until) {
+  /// Sin [refunds], solo los pagos (no las devoluciones de compras).
+  int _creditsBetween(Account card, DateTime after, DateTime until, {bool refunds = true}) {
     final DateTime a = dateOnly(after);
     final DateTime u = dateOnly(until);
     int sum = 0;
@@ -2073,6 +2073,9 @@ class Ledger extends ChangeNotifier {
         continue;
       }
       if (effectiveAccountId(t.accountId) == card.id && t.kind == TxKind.income) {
+        if (!refunds && _parts(t).every((TxSplit p) => isRefundCategory(p.categoryId))) {
+          continue;
+        }
         sum += t.amountMinor;
       } else if (t.kind == TxKind.transfer && t.toAccountId != null && effectiveAccountId(t.toAccountId!) == card.id) {
         sum += receivedMinor(t);
@@ -2118,7 +2121,7 @@ class Ledger extends ChangeNotifier {
       final int late = minimum - _creditsBetween(card, passed.cut, today);
       return CardDue(next: next, overdueMinor: late > 0 ? late : 0, overdueSince: late > 0 ? due : null, statementCut: passed.cut, statementPayDate: due);
     }
-    final int left = statement(card, date: passed.cut).dueMinor - _creditsBetween(card, passed.payDate, today);
+    final int left = statement(card, date: passed.cut).dueMinor - _creditsBetween(card, due, today);
     return CardDue(next: next, unconfirmedMinor: left > 0 ? left : 0, statementCut: passed.cut, statementPayDate: due);
   }
 
@@ -2131,6 +2134,20 @@ class Ledger extends ChangeNotifier {
       return dateOnly(nominal);
     }
     return ColombianHolidays.nextBusinessDay(nominal);
+  }
+
+  /// Abono supuesto de un extracto marcado como pagado: su mínimo conocido,
+  /// menos lo que se haya anotado como abonado después de su corte y hasta el
+  /// corte siguiente (ese registro es el pago de verdad y lo reemplaza).
+  int _assumedPayment(Account card, DateTime cut) {
+    final int? minimum = statementMinimum(card, cut);
+    if (minimum == null) {
+      return 0;
+    }
+    final DateTime nextCut = CardCycle.cutAfter(card, CardCycle.current(card, cut).cut, 1);
+    // Una devolución de una compra no es el pago: no lo reemplaza.
+    final int logged = _creditsBetween(card, cut, nextCut, refunds: false);
+    return minimum > logged ? minimum - logged : 0;
   }
 
   /// Si la persona dijo que ya pagó el extracto que cortó en [cut].

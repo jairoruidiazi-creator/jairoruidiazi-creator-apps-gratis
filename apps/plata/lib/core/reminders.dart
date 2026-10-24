@@ -148,14 +148,15 @@ class Reminders {
         CardCycle cycle = st.cycle;
         for (int k = 0; k < occurrencesAhead; k++) {
           final DateTime pay = cycle.payDate;
-          final DateTime when = DateTime(pay.year, pay.month, pay.day - settings.billReminderDaysBefore, 9);
+          // La fecha que se dice y desde la que se cuenta el aviso es la real
+          // (corrida si cae en un día no hábil), la misma del resto de la app.
+          final DateTime real = ledger.effectivePayDate(a, pay);
+          final DateTime when = DateTime(real.year, real.month, real.day - settings.billReminderDaysBefore, 9);
           // El primero lleva el capital estimado si hay algo que pagar; los
           // siguientes, solo la fecha, y solo si la tarjeta tiene deuda.
           final bool first = k == 0;
           final bool worth = first ? st.dueMinor > 0 : ledger.balanceMinor(a.id) < 0;
           if (worth && when.isAfter(moment)) {
-            // La fecha que se dice es la real (corrida si cae en un día no hábil).
-            final DateTime real = ledger.effectivePayDate(a, pay);
             final String date = spanish ? formatDate(real, 'dd MMM') : formatDate(real, 'MMM dd', spanish: false);
             final String due0 = amountOf(st.dueMinor, a.currency);
             planned[idFor('c:${a.id}:${dayKey(pay)}')] = _Planned(
