@@ -14,7 +14,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plata/core/crypto_store.dart';
 import 'package:plata/core/ledger.dart';
-import 'package:plata/core/periods.dart';
 import 'package:plata/core/storage.dart';
 import 'package:plata/model/models.dart';
 
