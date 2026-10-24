@@ -693,7 +693,7 @@ class Tuner extends ChangeNotifier {
       if (_nearOwnPartial(h * hz, own)) {
         continue;
       }
-      final double p = spectrum.harmonicProminenceDb(hz, h);
+      final double p = h == 1 ? _fundamentalDb(spectrum, hz) : spectrum.harmonicProminenceDb(hz, h);
       if (!p.isNaN && p >= threshold) {
         common = _gcd(common, h);
         if (common == 1) {
@@ -702,6 +702,22 @@ class Tuner extends ChangeNotifier {
       }
     }
     return true;
+  }
+
+  /// La fundamental se mide contra el piso agrupado y contra su entorno
+  /// cercano (0,55·f a 1,45·f), y vale la mayor: con el paso alto de un
+  /// teléfono y ruido, el piso sube mucho hacia 2·f y el agrupado la
+  /// subestima, y con pocos bins por hueco el cercano es el ruidoso.
+  static double _fundamentalDb(Spectrum spectrum, double hz) {
+    final double pooled = spectrum.harmonicProminenceDb(hz, 1);
+    final double near = spectrum.prominenceDb(hz);
+    if (pooled.isNaN) {
+      return near;
+    }
+    if (near.isNaN) {
+      return pooled;
+    }
+    return math.max(pooled, near);
   }
 
   static bool _nearOwnPartial(double hz, List<double> own) {

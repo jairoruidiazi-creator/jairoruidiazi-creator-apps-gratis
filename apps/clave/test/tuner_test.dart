@@ -479,7 +479,8 @@ void main() {
                   // La fundamental sola no la salva: lo que la distingue de un
                   // residuo son sus armónicos impares (5.º, 7.º), que el bordón
                   // no explica.
-                  expect(Spectrum(x, sampleRate: 44100).harmonicProminenceDb(hzAt(45, cents), 1), lessThan(Tuner.residueProminenceLowDb));
+                  final Spectrum sp = Spectrum(x, sampleRate: 44100);
+                  expect(math.max(sp.harmonicProminenceDb(hzAt(45, cents), 1), sp.prominenceDb(hzAt(45, cents))), lessThan(Tuner.residueProminenceLowDb));
                 }
               }
             }
