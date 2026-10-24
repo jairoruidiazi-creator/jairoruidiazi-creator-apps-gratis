@@ -133,7 +133,7 @@ ComposeResult composeStampedSync(ComposeJob job) {
   final img.Image photo = orientation == 1 ? decoded : img.bakeOrientation(decoded);
   final img.ExifData cameraExif = decoded.exif;
   decoded = null;
-  photo.exif = _stampExif(cameraExif, job);
+  photo.exif = _stampExif(cameraExif, job, photo.width, photo.height);
   final Uint8List? png = job.overlayPng;
   if (png != null) {
     img.Image? overlay = img.decodePng(png);
@@ -180,7 +180,7 @@ const List<int> _cameraExifTags = <int>[
   0xA434, // LensModel
 ];
 
-img.ExifData _stampExif(img.ExifData camera, ComposeJob job) {
+img.ExifData _stampExif(img.ExifData camera, ComposeJob job, int width, int height) {
   // Las etiquetas se escriben con valores IfdValue explícitos: el paquete
   // `image` solo convierte tipos simples para las etiquetas con tipo
   // declarado, y las de GPS no lo tienen.
@@ -197,6 +197,19 @@ img.ExifData _stampExif(img.ExifData camera, ComposeJob job) {
       exif.exifIfd[tag] = v.clone();
     }
   }
+  // Etiquetas que EXIF exige en un JPEG (las pide `exiftool -validate`):
+  // versión 2.32 (GPSHPositioningError y OffsetTime son de 2.31), sRGB,
+  // componentes Y Cb Cr, tamaño en píxeles de la foto sellada y 72 ppp.
+  exif.imageIfd[0x011A] = img.IfdValueRational(72, 1); // XResolution
+  exif.imageIfd[0x011B] = img.IfdValueRational(72, 1); // YResolution
+  exif.imageIfd[0x0128] = img.IfdValueShort(2); // ResolutionUnit: pulgadas
+  exif.imageIfd[0x0213] = img.IfdValueShort(1); // YCbCrPositioning: centrado
+  exif.exifIfd[0x9000] = img.IfdValueUndefined.list(Uint8List.fromList(ascii.encode('0232'))); // ExifVersion
+  exif.exifIfd[0x9101] = img.IfdValueUndefined.list(Uint8List.fromList(<int>[1, 2, 3, 0])); // ComponentsConfiguration
+  exif.exifIfd[0xA000] = img.IfdValueUndefined.list(Uint8List.fromList(ascii.encode('0100'))); // FlashpixVersion
+  exif.exifIfd[0xA001] = img.IfdValueShort(1); // ColorSpace: sRGB
+  exif.exifIfd[0xA002] = img.IfdValueLong(width); // PixelXDimension
+  exif.exifIfd[0xA003] = img.IfdValueLong(height); // PixelYDimension
   exif.imageIfd['Software'] = img.IfdValueAscii(job.software);
   if (job.description.isNotEmpty) {
     // ImageDescription en UTF-8 (es lo que leen Android, Lightroom y

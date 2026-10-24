@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sello/core/app_scope.dart';
 import 'package:sello/core/app_state.dart';
@@ -212,6 +213,44 @@ void main() {
     final File csv = File(shared.last.files!.single.path);
     expect(csv.readAsBytesSync().sublist(0, 3), <int>[0xEF, 0xBB, 0xBF]);
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('Galería por distancia: se reordena cuando la ubicación propia cambia de estado o de precisión, no con cada lectura (OB2)', (WidgetTester tester) async {
+    final FakeLocationBackend backend = FakeLocationBackend()
+      ..permission = LocationPermission.whileInUse
+      ..accuracy = LocationAccuracyStatus.precise;
+    final LocationService loc = LocationService(backend: backend, systemAltitudeIsMsl: true);
+    services = Services(settings: services.settings, state: services.state, store: services.store, location: loc, heading: services.heading, files: files);
+    await tester.runAsync(loc.start);
+    await tester.pumpWidget(app(const GalleryScreen()));
+    await tester.pump();
+    await tester.tap(find.text('Orden'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Por distancia a mí'));
+    await tester.pumpAndSettle();
+    expect(find.text('Sin distancia'), findsOneWidget);
+    // Primera lectura (de «buscando» a «ok»): la foto está al lado.
+    RawPosition at(double lat, double accuracy) => RawPosition(latitude: lat, longitude: -74.0721, time: DateTime.now().toUtc(), accuracy: accuracy);
+    loc.debugAddPosition(at(4.7111, 4));
+    await tester.pump();
+    expect(find.text('A menos de 100 m'), findsOneWidget);
+    // Otra lectura con el mismo estado y precisión no redibuja la galería
+    // (llegan varias por segundo): aunque esté a unos 50 km, el grupo sigue.
+    loc.debugAddPosition(at(5.2, 4));
+    await tester.pump();
+    expect(find.text('A menos de 100 m'), findsOneWidget);
+    // La precisión pasa a aproximada (la persona la cambió en los ajustes): la
+    // siguiente lectura ya es aproximada y la foto sale de «A menos de 100 m».
+    backend.accuracy = LocationAccuracyStatus.reduced;
+    await tester.runAsync(loc.retry);
+    expect(loc.approximate, isTrue);
+    loc.debugAddPosition(at(4.7111, 2000));
+    await tester.pump();
+    expect(find.text('A menos de 100 m'), findsNothing);
+    expect(find.text('Ubicación aproximada (distancia incierta)'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.runAsync(loc.stop);
+    loc.dispose();
   });
 
   testWidgets('Ajustes: la copia completa se comparte anclada en su botón', (WidgetTester tester) async {

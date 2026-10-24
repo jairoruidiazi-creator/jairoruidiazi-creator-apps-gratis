@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -220,6 +221,16 @@ void main() {
       expect(exif.imageIfd.keys, containsAll(<int>[0x8769, 0x8825]));
       ascending('EXIF', exif.exifIfd.keys);
       ascending('GPS', exif.gpsIfd.keys);
+      // Las etiquetas que EXIF exige en un JPEG (OB3).
+      expect(exif.imageIfd.keys, containsAll(<int>[0x011A, 0x011B, 0x0128, 0x0213]));
+      expect(exif.imageIfd[0x011A]!.toRational().numerator, 72);
+      expect(exif.imageIfd[0x0128]!.toInt(), 2);
+      expect(exif.exifIfd[0x9000]!.toData(), ascii.encode('0232'));
+      expect(exif.exifIfd[0xA000]!.toData(), ascii.encode('0100'));
+      expect(exif.exifIfd[0x9101]!.toData(), <int>[1, 2, 3, 0]);
+      expect(exif.exifIfd[0xA001]!.toInt(), 1);
+      expect(exif.exifIfd[0xA002]!.toInt(), 64);
+      expect(exif.exifIfd[0xA003]!.toInt(), 48);
       expect(exif.gpsIfd.keys, containsAll(<int>[0x0007, 0x001B, 0x001D, 0x001F]));
       for (final int tag in <int>[0x0002, 0x0004]) {
         final img.IfdValue v = exif.gpsIfd[tag]!;

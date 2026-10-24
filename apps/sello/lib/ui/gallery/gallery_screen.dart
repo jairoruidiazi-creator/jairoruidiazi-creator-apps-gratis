@@ -107,8 +107,46 @@ class _GalleryScreenState extends State<GalleryScreen> {
   bool _busy = false;
   final TextEditingController _search = TextEditingController();
 
+  // El orden «por distancia» depende de la posición propia. No se redibuja
+  // con cada lectura (varias por segundo): solo cuando cambia el estado de la
+  // ubicación, su precisión (aproximada o precisa) o si hay un punto fijado.
+  LocationService? _location;
+  String _locationKey = '';
+
+  static String _keyOf(LocationService loc) {
+    final Fix? f = loc.fix;
+    return '${loc.status}|${loc.approximate}|${loc.locked}|${f == null ? '-' : f.approximate}';
+  }
+
+  void _onLocation() {
+    final LocationService? loc = _location;
+    if (loc == null || !mounted) {
+      return;
+    }
+    final String key = _keyOf(loc);
+    if (key == _locationKey) {
+      return;
+    }
+    _locationKey = key;
+    if (_sort == 'distance') {
+      setState(() {});
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final LocationService loc = AppScope.of(context).location;
+    if (!identical(loc, _location)) {
+      _location?.removeListener(_onLocation);
+      _location = loc..addListener(_onLocation);
+      _locationKey = _keyOf(loc);
+    }
+  }
+
   @override
   void dispose() {
+    _location?.removeListener(_onLocation);
     _search.dispose();
     super.dispose();
   }

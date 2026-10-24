@@ -18,12 +18,12 @@ import '../gallery/photo_detail_screen.dart';
 /// Mapa con las fotos (OpenStreetMap) y la posición actual. Se crea solo
 /// cuando se abre su pestaña (ver HomeShell): antes no pide teselas.
 class MapScreen extends StatefulWidget {
-  /// Distancia a una foto. Si alguno de los dos puntos es aproximado, en
-  /// kilómetros enteros y con «≈»: más detalle sería falso.
   /// Radio en metros del círculo de una foto aproximada: su precisión, entre
   /// 1 km (el redondeo a 0,01° ya suma casi eso) y 10 km.
   static double approximateRadius(double? accuracy) => accuracy == null || !accuracy.isFinite ? 1000.0 : accuracy.clamp(1000.0, 10000.0);
 
+  /// Distancia a una foto. Si alguno de los dos puntos es aproximado, en
+  /// kilómetros enteros y con «≈»: más detalle sería falso.
   static String distanceText(double m, {bool approximate = false}) {
     if (approximate) {
       return '≈ ${math.max(1, (m / 1000).round())} km';
