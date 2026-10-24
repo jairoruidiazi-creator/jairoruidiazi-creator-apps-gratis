@@ -1,0 +1,53 @@
+build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/Info.plist: OK
+build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/PrivacyInfo.xcprivacy: OK
+build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/es.lproj/InfoPlist.strings: OK
+build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app/en.lproj/InfoPlist.strings: OK
+  "CFBundleLocalizations" => [
+    0 => "es"
+    1 => "en"
+  ]
+--
+  "CFBundleShortVersionString" => "1.0.0"
+  "CFBundleSignature" => "????"
+  "CFBundleSupportedPlatforms" => [
+    0 => "iPhoneOS"
+--
+  "CFBundleVersion" => "1"
+  "DTCompiler" => "com.apple.compilers.llvm.clang.1_0"
+  "DTPlatformBuild" => "23F81a"
+  "DTPlatformName" => "iphoneos"
+--
+  "ITSAppUsesNonExemptEncryption" => false
+  "LSRequiresIPhoneOS" => true
+  "MinimumOSVersion" => "15.0"
+  "UIApplicationSceneManifest" => {
+    "UIApplicationSupportsMultipleScenes" => false
+    "UISceneConfigurations" => {
+--
+  "UIDeviceFamily" => [
+    0 => 1
+    1 => 2
+  ]
+{
+  "NSPrivacyAccessedAPITypes" => [
+    0 => {
+      "NSPrivacyAccessedAPIType" => "NSPrivacyAccessedAPICategoryUserDefaults"
+      "NSPrivacyAccessedAPITypeReasons" => [
+        0 => "CA92.1"
+      ]
+    }
+  ]
+  "NSPrivacyCollectedDataTypes" => [
+  ]
+  "NSPrivacyTracking" => false
+  "NSPrivacyTrackingDomains" => [
+  ]
+}
+{
+  "CFBundleDisplayName" => "Rutinas"
+}
+{
+  "CFBundleDisplayName" => "Rutinas"
+}
+Sin petición de ubicación «siempre» en el binario.
+ 20M	build/ios/archive/Runner.xcarchive/Products/Applications/Runner.app
