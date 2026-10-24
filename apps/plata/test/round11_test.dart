@@ -527,6 +527,9 @@ void main() {
           }
           if (plata < real - excepted) {
             failures.add('$at: P8 deuda de Plata ${plata ~/ 100} < real ${real ~/ 100} (excepción documentada ${excepted ~/ 100})');
+            if (failures.length == 1) {
+              failures.add('DEPURACIÓN pagos ${pays.map((_Pay p) => '${p.amount ~/ 100}/${p.cut}/${p.plata}/${p.txId}/${p.outId}').join(' ')} | movs ${l.txs.where((Tx t) => t.toAccountId == 'tc' || t.isOutsidePayment || (t.accountId == 'tc' && t.kind == TxKind.income)).map((Tx t) => '${t.id}:${t.kind.name}:${t.amountMinor ~/ 100}:${dayKey(t.date)}:${t.statementOf}:${t.outsidePending}:${(t.outsideTaken ?? 0) ~/ 100}:${t.apartFrom}:${t.loggedOn == null ? '-' : dayKey(t.loggedOn!)}:${t.source}').join(' ')} | mínimos ${tc.statementMinimums} | marcas ${tc.markedOnly} | otros $others | excepción $exception');
+            }
           }
           final int pendingOther = l.pendingOutsideMatches().where((Tx t) => !truthSame(t, l.pendingOutsideCut(t)!)).fold<int>(0, (int a, Tx t) => a + (t.outsideTaken ?? 0));
           // Documentado (A4): un pago real anotado desde Plata cuenta entero
