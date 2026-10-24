@@ -116,19 +116,22 @@ void main() {
       l.dispose();
     });
 
-    test('el pago hecho fuera se guarda con su día y su monto, y desmarcar lo borra', () async {
+    test('el pago hecho fuera es un movimiento con su día y su monto, y desmarcar lo borra', () async {
       final Ledger l = await n1();
       final Account tc = l.account('tc')!;
       l.markStatementPaid(tc, nov15, on: DateTime(2026, 12, 10));
-      final Account back = Account.fromJson(tc.toJson());
-      expect(back.outsidePayments.single.statement, '2026-11-15');
-      expect(back.outsidePayments.single.amountMinor, pesos(100000));
-      expect(back.outsidePayments.single.on, '2026-12-10');
+      final Tx out = Tx.fromJson(l.outsidePayments(tc, nov15).single.toJson());
+      expect(out.isOutsidePayment, isTrue);
+      expect(out.statementOf, '2026-11-15');
+      expect(out.amountMinor, pesos(100000));
+      expect(dateOnly(out.date), DateTime(2026, 12, 10));
+      expect(out.accountId, 'tc');
+      expect(out.description, 'Pago hecho fuera de Plata');
       // Baja la deuda de la tarjeta, sin salir de ninguna cuenta.
       expect(l.balanceMinor('tc'), -pesos(1300000) + pesos(100000));
       expect(l.balanceMinor('bank'), pesos(50000000));
       l.markStatementPaid(tc, nov15, paid: false);
-      expect(tc.outsidePayments, isEmpty);
+      expect(l.outsidePayments(tc, nov15), isEmpty);
       expect(l.balanceMinor('tc'), -pesos(1300000));
       l.dispose();
     });
@@ -184,8 +187,9 @@ void main() {
       test('caso F1 corregido el ${moveDay.day} nov: la marca y el mínimo van al 15 oct, y el extracto del 15 nov es el próximo pago', () async {
         final Ledger l = await f1(moveDay);
         final Account tc = l.account('tc')!;
-        expect(tc.outsidePayments.single.statement, '2026-10-15');
-        expect(tc.outsidePayments.single.on, '2026-11-12');
+        final Tx out = l.outsidePayments(tc, DateTime(2026, 10, 15)).single;
+        expect(out.statementOf, '2026-10-15');
+        expect(dateOnly(out.date), DateTime(2026, 11, 12));
         expect(tc.statementMinimums, <String, int>{'2026-10-15': pesos(90000)});
         for (final DateTime day in <DateTime>[DateTime(2026, 11, 16), DateTime(2026, 11, 30)]) {
           if (day.isBefore(moveDay)) {
@@ -242,7 +246,7 @@ void main() {
         expect(clashes.keys, <DateTime>[DateTime(2026, 10, 15)]);
         expect(clashes.values.single, <DateTime>[DateTime(2026, 10, 10), DateTime(2026, 11, 10)]);
         tc.cutDay = 15;
-        l.moveCardCut(tc, 10, oldPayDay: 30, keepNewer: newer);
+        l.moveCardCut(tc, 10, oldPayDay: 30, keep: <DateTime, DateTime>{DateTime(2026, 10, 15): newer ? DateTime(2026, 11, 10) : DateTime(2026, 10, 10)});
         expect(tc.statementMinimums, <String, int>{'2026-10-15': newer ? pesos(90000) : pesos(70000)});
         // Lo pagado fuera (70.000 y 60.000) se suma en el 15 oct.
         expect(l.outsidePayment(tc, DateTime(2026, 10, 15)), pesos(130000));
@@ -346,18 +350,19 @@ void main() {
           final List<int> others = days.where((int x) => x != old).toList();
           final int next = others[rnd.nextInt(others.length)];
           what = 'corte $old → $next';
-          // Lo pagado de verdad va con su marca.
+          // Lo pagado de verdad va con su extracto (todos sus datos juntos).
+          final Map<String, String> moves = l.cutMoves(tc, next, oldPayDay: oldPay);
           final Map<String, int> moved = <String, int>{};
-          for (final OutsidePayment p in tc.outsidePayments) {
-            final String to = dayKey(l.movedCut(next, DateTime.parse(p.statement), DateTime.parse(p.on)));
-            moved[to] = (moved[to] ?? 0) + (truth[p.statement] ?? 0);
-          }
+          truth.forEach((String k, int v) {
+            final String to = moves[k] ?? k;
+            moved[to] = (moved[to] ?? 0) + v;
+          });
           truth = moved;
           tc.cutDay = next;
           if (rnd.nextBool()) {
             tc.payDay = days[rnd.nextInt(days.length)];
           }
-          l.moveCardCut(tc, old, oldPayDay: oldPay, keepNewer: rnd.nextBool());
+          l.moveCardCut(tc, old, oldPayDay: oldPay);
         }
         final String at = 'semilla $seed, op $i ($what, hoy ${dayKey(today)})';
         final DateTime now = dateOnly(today);
@@ -367,9 +372,10 @@ void main() {
             failures.add('$at: P6 mínimo en un extracto sin cerrar $key (anotado ${tc.minimumsOn[key]})');
           }
         }
-        for (final OutsidePayment p in tc.outsidePayments) {
-          if (!DateTime.parse(p.statement).isBefore(DateTime.parse(p.on))) {
-            failures.add('$at: P6 marca en un extracto sin cerrar ${p.statement} (marcada ${p.on})');
+        final List<Tx> outsideTxs = l.txs.where((Tx t) => t.isOutsidePayment).toList();
+        for (final Tx p in outsideTxs) {
+          if (!DateTime.parse(p.statementOf!).isBefore(dateOnly(p.date))) {
+            failures.add('$at: P6 pago de fuera en un extracto sin cerrar ${p.statementOf} (marcado ${dayKey(p.date)})');
           }
         }
         final CardDue due = l.cardDue(tc);
@@ -381,7 +387,7 @@ void main() {
         if (debt != far.balanceMinor + far.legacyMinor) {
           failures.add('$at: P1 deuda ${debt ~/ 100} ≠ estado ${far.balanceMinor ~/ 100} + aparte ${far.legacyMinor ~/ 100}');
         }
-        final int outside = tc.outsidePayments.fold<int>(0, (int a, OutsidePayment p) => a + p.amountMinor);
+        final int outside = outsideTxs.fold<int>(0, (int a, Tx p) => a + p.amountMinor);
         final int real = truth.values.fold<int>(0, (int a, int b) => a + b);
         if (outside > real) {
           failures.add('$at: T guardado fuera ${outside ~/ 100} > pagado fuera ${real ~/ 100}');
@@ -396,7 +402,8 @@ void main() {
           if (t.accountId == 'tc' && t.kind == TxKind.expense && !CardCycle.current(tc, t.date).cut.isAfter(cutNext)) {
             billed += t.amountMinor;
           }
-          if ((t.toAccountId == 'tc' || (t.accountId == 'tc' && t.kind == TxKind.income)) && !dateOnly(t.date).isAfter(now)) {
+          // Lo pagado fuera ya está en `real` (lo de verdad), no se suma otra vez.
+          if (!t.isOutsidePayment && (t.toAccountId == 'tc' || (t.accountId == 'tc' && t.kind == TxKind.income)) && !dateOnly(t.date).isAfter(now)) {
             paid += t.amountMinor;
           }
         }

@@ -334,7 +334,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       return;
     }
     if (r.actionId == Notifier.paidAction) {
-      markPaidFromBanner(context, card, cut);
+      unawaited(markPaidFromBanner(context, card, cut));
     } else {
       Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const CardsScreen()));
     }

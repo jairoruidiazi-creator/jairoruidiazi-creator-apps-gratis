@@ -113,7 +113,7 @@ void main() {
     tc.cutDay = 25;
     l.moveCardCut(tc, 5, oldPayDay: 20);
     // La marca del 23 nov va al extracto del 25 oct, que ya había cerrado.
-    expect(tc.outsidePayments.single.statement, '2026-10-25');
+    expect(l.outsidePayments(tc, DateTime(2026, 10, 25)).single.statementOf, '2026-10-25');
     expect(l.outsidePayment(tc, DateTime(2026, 10, 25)), pesos(60000));
     expect(debt(l), pesos(1000000));
     expect(l.nextPayment(tc, now: DateTime(2026, 12, 1)).dueMinor, pesos(1000000));
@@ -191,15 +191,17 @@ void main() {
     final Account back = again.account('tc')!;
     // Hasta la fecha límite real (lun 7 dic): 40.000 completan; fuera 60.000.
     expect(back.paidStatements, isEmpty);
-    expect(back.outsidePayments.single.amountMinor, pesos(60000));
-    expect(back.outsidePayments.single.on, '2026-12-07');
+    expect(back.outsidePayments, isEmpty);
+    final Tx out = again.outsidePayments(back, nov15).single;
+    expect(out.amountMinor, pesos(60000));
+    expect(dateOnly(out.date), DateTime(2026, 12, 7));
     expect(again.statement(back, date: dec15).dueMinor, pesos(1170000));
     // Guardado y vuelto a abrir, no se migra otra vez.
     again.save();
     await again.flush();
     final Ledger third = Ledger(l.store, clock: () => today);
     await third.load();
-    expect(third.account('tc')!.outsidePayments, hasLength(1));
+    expect(third.txs.where((Tx t) => t.isOutsidePayment), hasLength(1));
     third.dispose();
     again.dispose();
     l.dispose();

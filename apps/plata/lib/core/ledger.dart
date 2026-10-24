@@ -219,6 +219,18 @@ class _CardBook {
   _CycleSums at(DateTime cut) => sums.putIfAbsent(cut, _CycleSums.new);
 }
 
+/// Qué hace «Ya lo pagué» con un extracto (ver [Ledger.markKind]).
+enum MarkKind {
+  /// Guarda un movimiento «Pago hecho fuera de Plata».
+  payment,
+
+  /// Solo marca: Plata no tiene deuda de ese extracto.
+  markOnly,
+
+  /// Hay que preguntar si se pagó antes de crear la tarjeta en Plata.
+  ask,
+}
+
 /// Por qué un movimiento no se puede guardar.
 enum TxProblem {
   /// Monto vacío, cero o negativo.
@@ -301,7 +313,7 @@ class LedgerSnapshot {
   });
 
   /// Versión del formato que escribe esta app.
-  static const int currentVersion = 1;
+  static const int currentVersion = 2;
 
   final List<Account> accounts;
   final List<Category> categories;
@@ -504,59 +516,86 @@ class Ledger extends ChangeNotifier {
     _migrateOldMarks();
   }
 
-  /// Las marcas «Ya lo pagué» de las versiones anteriores no guardaban monto:
-  /// lo pagado fuera se recalculaba cada vez. Se convierten una sola vez en
-  /// pagos hechos fuera de Plata ([Account.outsidePayments]), con el monto que
-  /// daba la regla de entonces (el mínimo menos lo vinculado y menos lo
-  /// anotado sin vínculo después del corte y hasta el día de la marca, o hasta
-  /// la fecha límite real si la marca no tenía día, sin pasar de la fecha
-  /// límite del extracto siguiente). Vale también para las copias viejas.
+  /// «Ya lo pagué» de las versiones anteriores, convertido una sola vez en
+  /// movimientos al abrir el libro (o al restaurar una copia vieja):
+  /// - las marcas sin monto (`paidStatements`, con o sin `paidOn`) toman el
+  ///   monto que daba la regla de entonces: el mínimo menos lo vinculado y
+  ///   menos los pagos sin vínculo (no las devoluciones) anotados después del
+  ///   corte y hasta el día de la marca, o hasta la fecha límite real si la
+  ///   marca no tenía día, sin pasar de la fecha límite del extracto
+  ///   siguiente;
+  /// - los pagos de fuera guardados aparte (`outsidePayments`, de la ronda
+  ///   10) conservan su monto y su día.
+  /// Cada uno pasa a ser un movimiento «Pago hecho fuera de Plata»
+  /// ([Tx.isOutsidePayment]) o, si es de un extracto de antes de que la
+  /// tarjeta empezara en Plata o quedó en cero, solo una marca
+  /// ([Account.markedOnly]). Luego esos campos quedan vacíos: no se vuelve a
+  /// migrar.
   void _migrateOldMarks() {
+    bool changed = false;
     for (final Account card in accounts) {
-      if (card.paidStatements.isEmpty) {
+      if (card.paidStatements.isEmpty && card.outsidePayments.isEmpty) {
         continue;
       }
       _cardCache.clear();
       final _CardBook book = _cardBook(card);
-      final List<Tx> candidates = txs.where((Tx t) => t.statementOf == null && _creditAmount(card, t) > 0 && !(t.kind == TxKind.income && _parts(t).every((TxSplit p) => isRefundCategory(p.categoryId)))).toList()
-        ..sort((Tx a, Tx b) => a.date.compareTo(b.date));
-      final Map<String, int> left = <String, int>{for (final Tx t in candidates) t.id: _creditAmount(card, t)};
-      final Map<DateTime, String> keys = <DateTime, String>{
-        for (final String key in card.paidStatements)
-          if (DateTime.tryParse(key) != null) CardCycle.current(card, DateTime.parse(key)).cut: key,
-      };
-      final List<DateTime> marked = keys.keys.toList()..sort();
-      for (final DateTime cut in marked) {
-        final String key = keys[cut]!;
-        final DateTime due = effectivePayDate(card, CardCycle.current(card, cut).payDate);
-        final DateTime on = DateTime.tryParse(card.paidOn[key] ?? '') ?? (due.isAfter(_today) ? _today : due);
-        int amount = 0;
-        final int? minimum = statementMinimum(card, cut);
-        if (minimum != null && !cut.isBefore(book.firstCut)) {
-          int need = minimum - (book.linked[cut] ?? 0);
-          final CardCycle next = CardCycle.current(card, DateTime(cut.year, cut.month, cut.day + 1));
-          final DateTime cap = effectivePayDate(card, next.payDate);
-          final DateTime end = on.isAfter(cap) ? cap : on;
-          for (final Tx t in candidates) {
-            if (need <= 0) {
-              break;
+      if (card.paidStatements.isNotEmpty) {
+        final List<Tx> candidates = txs.where((Tx t) => t.statementOf == null && _creditAmount(card, t) > 0 && !(t.kind == TxKind.income && _parts(t).every((TxSplit p) => isRefundCategory(p.categoryId)))).toList()
+          ..sort((Tx a, Tx b) => a.date.compareTo(b.date));
+        final Map<String, int> left = <String, int>{for (final Tx t in candidates) t.id: _creditAmount(card, t)};
+        final Map<DateTime, String> keys = <DateTime, String>{
+          for (final String key in card.paidStatements)
+            if (DateTime.tryParse(key) != null) CardCycle.current(card, DateTime.parse(key)).cut: key,
+        };
+        final List<DateTime> marked = keys.keys.toList()..sort();
+        for (final DateTime cut in marked) {
+          final String key = keys[cut]!;
+          final DateTime due = effectivePayDate(card, CardCycle.current(card, cut).payDate);
+          final DateTime on = DateTime.tryParse(card.paidOn[key] ?? '') ?? (due.isAfter(_today) ? _today : due);
+          int amount = 0;
+          final int? minimum = statementMinimum(card, cut);
+          if (minimum != null && !cut.isBefore(book.firstCut)) {
+            int need = minimum - (book.linked[cut] ?? 0);
+            final CardCycle next = CardCycle.current(card, DateTime(cut.year, cut.month, cut.day + 1));
+            final DateTime cap = effectivePayDate(card, next.payDate);
+            final DateTime end = on.isAfter(cap) ? cap : on;
+            for (final Tx t in candidates) {
+              if (need <= 0) {
+                break;
+              }
+              final DateTime d = dateOnly(t.date);
+              final int available = left[t.id] ?? 0;
+              if (!d.isAfter(cut) || d.isAfter(end) || available <= 0) {
+                continue;
+              }
+              final int take = available < need ? available : need;
+              left[t.id] = available - take;
+              need -= take;
             }
-            final DateTime d = dateOnly(t.date);
-            final int available = left[t.id] ?? 0;
-            if (!d.isAfter(cut) || d.isAfter(end) || available <= 0) {
-              continue;
-            }
-            final int take = available < need ? available : need;
-            left[t.id] = available - take;
-            need -= take;
+            amount = need > 0 ? need : 0;
           }
-          amount = need > 0 ? need : 0;
+          card.outsidePayments.add(OutsidePayment(statement: dayKey(cut), amountMinor: amount, on: dayKey(on)));
         }
-        card.outsidePayments.add(OutsidePayment(statement: dayKey(cut), amountMinor: amount, on: dayKey(on)));
       }
-      card.outsidePayments.sort((OutsidePayment a, OutsidePayment b) => a.statement.compareTo(b.statement));
+      for (final OutsidePayment p in card.outsidePayments) {
+        final DateTime? d = DateTime.tryParse(p.statement);
+        if (d == null) {
+          continue;
+        }
+        final DateTime cut = CardCycle.current(card, d).cut;
+        if (p.amountMinor <= 0 || _beforeStart(card, cut, book)) {
+          _addMarkOnly(card, cut);
+        } else {
+          txs.add(_outsideTx(card, cut, p.amountMinor, DateTime.tryParse(p.on) ?? _today));
+        }
+      }
+      card.outsidePayments.clear();
       card.paidStatements.clear();
       card.paidOn.clear();
+      changed = true;
+    }
+    if (changed) {
+      _sortTxs();
       _dirty = true;
     }
     _cardCache.clear();
@@ -1044,15 +1083,7 @@ class Ledger extends ChangeNotifier {
   /// [balanceWithPockets].
   int balanceMinor(String accountId, {DateTime? before, bool includeDebitCards = true}) {
     final DateTime limit = before ?? addDays(_today, 1);
-    final Account? a = account(accountId);
-    int total = a?.initialMinor ?? 0;
-    // Lo pagado fuera de Plata («Ya lo pagué») baja la deuda de la tarjeta.
-    for (final OutsidePayment p in a?.outsidePayments ?? const <OutsidePayment>[]) {
-      final DateTime? on = DateTime.tryParse(p.on);
-      if (on != null && on.isBefore(limit)) {
-        total += p.amountMinor;
-      }
-    }
+    int total = account(accountId)?.initialMinor ?? 0;
     for (final Tx t in txs) {
       if (!t.date.isBefore(limit)) {
         continue;
@@ -1126,37 +1157,40 @@ class Ledger extends ChangeNotifier {
     _normalize(t);
     txs.add(t);
     _sortTxs();
-    _replaceOutside(t);
+    _replaceOutside(null, t);
     save();
     return t;
   }
 
-  /// Un pago nuevo vinculado a un extracto marcado «Ya lo pagué» es ese pago
-  /// (o parte de él) registrado desde una cuenta de Plata: reduce lo que se
-  /// daba por pagado fuera, sin bajar de cero. Es una sola vez: si después
-  /// se borra o se edita el movimiento, lo pagado fuera no vuelve a subir
-  /// (la deuda queda más alta, nunca más baja de lo que es).
-  void _replaceOutside(Tx t) {
-    if (t.statementOf == null) {
+  /// Un abono que queda vinculado a un extracto con un pago hecho fuera de
+  /// Plata («Ya lo pagué») es ese pago (o parte de él) anotado desde Plata:
+  /// lo reemplaza. El pago de fuera baja en lo que el abono suma al extracto
+  /// (al editarlo, solo en lo que subió); si queda en cero, se borra y el
+  /// extracto sigue marcado. Nunca se cuenta dos veces.
+  void _replaceOutside(Tx? before, Tx after) {
+    if (after.statementOf == null || after.isOutsidePayment) {
       return;
     }
     for (final Account card in accounts) {
-      if (!card.isCredit || card.outsidePayments.isEmpty) {
+      if (!card.isCredit) {
         continue;
       }
-      final DateTime? cut = _linkedCut(card, t);
+      final DateTime? cut = _linkedCut(card, after);
       if (cut == null) {
         continue;
       }
-      int amount = _creditAmount(card, t);
-      for (final OutsidePayment p in card.outsidePayments) {
-        if (amount <= 0) {
+      final int previous = before != null && _linkedCut(card, before) == cut ? _creditAmount(card, before) : 0;
+      int delta = _creditAmount(card, after) - previous;
+      for (final Tx o in txs.where((Tx x) => x.isOutsidePayment && _linkedCut(card, x) == cut).toList()) {
+        if (delta <= 0) {
           break;
         }
-        if (_outsideCut(card, p) == cut) {
-          final int take = p.amountMinor < amount ? p.amountMinor : amount;
-          p.amountMinor -= take;
-          amount -= take;
+        final int take = o.amountMinor < delta ? o.amountMinor : delta;
+        o.amountMinor -= take;
+        delta -= take;
+        if (o.amountMinor <= 0) {
+          txs.remove(o);
+          _addMarkOnly(card, cut);
         }
       }
     }
@@ -1167,12 +1201,30 @@ class Ledger extends ChangeNotifier {
   void updateTx(Tx draft) {
     _normalize(draft);
     final int i = txs.indexWhere((Tx x) => x.id == draft.id);
+    Tx? before;
     if (i < 0) {
       txs.add(draft);
     } else {
+      before = txs[i];
       txs[i] = draft;
     }
     _sortTxs();
+    // Si se editó el mismo objeto, no se sabe cuánto cambió: no se toca lo de
+    // fuera (el editor siempre manda una copia).
+    if (before == null || !identical(before, draft)) {
+      _replaceOutside(before, draft);
+    }
+    // Un pago hecho fuera de Plata que se convierte en otra cosa (una
+    // transferencia desde una cuenta, por ejemplo) deja la marca: la persona
+    // dijo que ese extracto ya estaba pagado.
+    if (before != null && before.isOutsidePayment && !draft.isOutsidePayment) {
+      for (final Account card in accounts) {
+        final DateTime? cut = card.isCredit ? _linkedCut(card, before) : null;
+        if (cut != null && !isStatementPaid(card, cut)) {
+          _addMarkOnly(card, cut);
+        }
+      }
+    }
     save();
   }
 
@@ -1196,6 +1248,7 @@ class Ledger extends ChangeNotifier {
     c.scheduledId = null;
     // Una copia no es el pago de ese extracto.
     c.statementOf = null;
+    c.apartFrom = null;
     c.source = 'manual';
     c.attachments.clear();
     return addTx(c);
@@ -1387,7 +1440,7 @@ class Ledger extends ChangeNotifier {
       if (f.onlyWithAttachment && t.attachments.isEmpty) {
         return false;
       }
-      if (f.onlyUncategorized && !(t.kind != TxKind.transfer && !t.isAdjustment && t.categoryId == null && t.splits.isEmpty)) {
+      if (f.onlyUncategorized && !(t.kind != TxKind.transfer && !t.isNeutral && t.categoryId == null && t.splits.isEmpty)) {
         return false;
       }
       if (f.onlyUnreconciled && t.reconciled) {
@@ -1421,7 +1474,7 @@ class Ledger extends ChangeNotifier {
     int income = 0;
     int expense = 0;
     for (final Tx t in list) {
-      if (t.isAdjustment || t.kind == TxKind.transfer) {
+      if (t.isNeutral || t.kind == TxKind.transfer) {
         continue;
       }
       if (accountId != null && !chargesAccount(t, accountId)) {
@@ -1446,7 +1499,7 @@ class Ledger extends ChangeNotifier {
   List<CategoryTotal> byCategory(Period p, {CategoryKind kind = CategoryKind.expense, String? accountId, bool roots = true}) {
     final Map<String, int> sums = <String, int>{};
     for (final Tx t in inPeriod(p, accountId: accountId)) {
-      if (t.isAdjustment || t.kind == TxKind.transfer) {
+      if (t.isNeutral || t.kind == TxKind.transfer) {
         continue;
       }
       if (accountId != null && !chargesAccount(t, accountId)) {
@@ -1514,15 +1567,6 @@ class Ledger extends ChangeNotifier {
           break;
       }
     }
-    // Lo pagado fuera de Plata entra a la tarjeta sin salir de ninguna cuenta.
-    for (final Account a in activeAccounts) {
-      for (final OutsidePayment op in a.outsidePayments) {
-        final DateTime? on = DateTime.tryParse(op.on);
-        if (on != null && p.contains(on)) {
-          add(a.id, op.amountMinor, 0);
-        }
-      }
-    }
     final List<AccountFlow> out = <AccountFlow>[];
     for (final Account a in activeAccounts) {
       final List<int>? v = m[a.id];
@@ -1544,7 +1588,7 @@ class Ledger extends ChangeNotifier {
     }
     final Map<String, List<Tx>> groups = <String, List<Tx>>{};
     for (final Tx t in txs) {
-      if ((kind != null && t.kind != kind) || t.isAdjustment) {
+      if ((kind != null && t.kind != kind) || t.isNeutral) {
         continue;
       }
       final String d = t.description.trim();
@@ -1598,7 +1642,7 @@ class Ledger extends ChangeNotifier {
   /// de gasto) y cero si no cuenta. Los ajustes de saldo y las transferencias
   /// no cuentan. Es la misma regla de los totales de Informes.
   int budgetShare(Budget b, Tx t, {Set<String>? cats}) {
-    if (t.isAdjustment || t.kind == TxKind.transfer) {
+    if (t.isNeutral || t.kind == TxKind.transfer) {
       return 0;
     }
     if (b.accountId != null && !chargesAccount(t, b.accountId!)) {
@@ -1860,7 +1904,7 @@ class Ledger extends ChangeNotifier {
   /// pregunta antes de contarlo dos veces.
   Tx? similarTx(Tx t) {
     for (final Tx o in txs) {
-      if (o.id == t.id || o.kind != t.kind || o.isAdjustment || o.amountMinor != t.amountMinor) {
+      if (o.id == t.id || o.kind != t.kind || o.isNeutral || o.amountMinor != t.amountMinor) {
         continue;
       }
       if (effectiveAccountId(o.accountId) != effectiveAccountId(t.accountId) || daysBetween(o.date, t.date).abs() > 2) {
@@ -1879,7 +1923,7 @@ class Ledger extends ChangeNotifier {
     final DateTime d = date ?? s.nextDate;
     final String acc = effectiveAccountId(s.accountId);
     for (final Tx t in txs) {
-      if (t.source != 'notice' || t.kind != s.kind || t.amountMinor != s.amountMinor || t.isAdjustment) {
+      if (t.source != 'notice' || t.kind != s.kind || t.amountMinor != s.amountMinor || t.isNeutral) {
         continue;
       }
       if (effectiveAccountId(t.accountId) != acc || daysBetween(t.date, d).abs() > 2) {
@@ -1987,7 +2031,7 @@ class Ledger extends ChangeNotifier {
     if (card.id.isNotEmpty) {
       for (final Tx t in txs) {
         final bool touches = effectiveAccountId(t.accountId) == card.id || (t.kind == TxKind.transfer && t.toAccountId != null && effectiveAccountId(t.toAccountId!) == card.id);
-        if (touches && (earliest == null || t.date.isBefore(earliest))) {
+        if (touches && !t.isOutsidePayment && (earliest == null || t.date.isBefore(earliest))) {
           earliest = t.date;
         }
       }
@@ -1998,7 +2042,7 @@ class Ledger extends ChangeNotifier {
   /// Movimientos de una tarjeta repartidos por ciclo (se calcula una vez por
   /// versión del libro).
   _CardBook _cardBook(Account card) {
-    final String key = '${card.id}|${card.cutDay}|${card.payDay}|${card.initialMinor}|${card.statementDueMinor}|${card.statementCut?.toIso8601String()}|${card.currency}|${card.outsidePayments.map((OutsidePayment p) => '${p.statement}:${p.amountMinor}').join(',')}|${card.statementMinimums}';
+    final String key = '${card.id}|${card.cutDay}|${card.payDay}|${card.initialMinor}|${card.statementDueMinor}|${card.statementCut?.toIso8601String()}|${card.currency}|${card.markedOnly.join(',')}|${card.statementMinimums}';
     final _CardBook? cached = _cardCache[key];
     if (cached != null) {
       return cached;
@@ -2006,7 +2050,8 @@ class Ledger extends ChangeNotifier {
     bool touches(Tx t) => effectiveAccountId(t.accountId) == card.id || (t.kind == TxKind.transfer && t.toAccountId != null && effectiveAccountId(t.toAccountId!) == card.id);
     DateTime? earliest;
     for (final Tx t in txs) {
-      if (touches(t) && (earliest == null || t.date.isBefore(earliest))) {
+      // Un pago hecho fuera de Plata no marca el comienzo de la tarjeta.
+      if (touches(t) && !t.isOutsidePayment && (earliest == null || t.date.isBefore(earliest))) {
         earliest = t.date;
       }
     }
@@ -2040,9 +2085,8 @@ class Ledger extends ChangeNotifier {
     }
 
     // Una sola regla decide a qué extracto va cada abono:
-    // 1. el vinculado (`Tx.statementOf`) y el pago hecho fuera de Plata («Ya
-    //    lo pagué», [Account.outsidePayments]), a su extracto, con cualquier
-    //    fecha;
+    // 1. el vinculado (`Tx.statementOf`), también el pago hecho fuera de
+    //    Plata («Ya lo pagué»), a su extracto, con cualquier fecha;
     // 2. los demás, al extracto con la primera fecha límite real en o después
     //    del día del abono.
     void credit(DateTime d, int amount, Tx t) {
@@ -2111,12 +2155,6 @@ class Ledger extends ChangeNotifier {
       }
       if (t.kind == TxKind.transfer && t.toAccountId != null && effectiveAccountId(t.toAccountId!) == card.id) {
         credit(d, receivedMinor(t), t);
-      }
-    }
-    for (final OutsidePayment p in card.outsidePayments) {
-      final DateTime? cut = _outsideCut(card, p);
-      if (cut != null) {
-        creditTo(cut, p.amountMinor);
       }
     }
     if (book.legacy < 0) {
@@ -2245,7 +2283,8 @@ class Ledger extends ChangeNotifier {
     final List<DateTime> ordered = cuts.toList()..sort();
     final Map<DateTime, int> need = <DateTime, int>{};
     for (final DateTime c in ordered) {
-      final int left = (statementMinimum(card, c) ?? 0) - (book.linked[c] ?? 0) - outsidePayment(card, c);
+      // Lo vinculado incluye lo pagado fuera de Plata.
+      final int left = (statementMinimum(card, c) ?? 0) - (book.linked[c] ?? 0);
       need[c] = left > 0 ? left : 0;
     }
     final List<Tx> credits = txs.where((Tx t) => t.statementOf == null && _creditAmount(card, t) > 0 && !dateOnly(t.date).isAfter(now)).toList()
@@ -2326,40 +2365,171 @@ class Ledger extends ChangeNotifier {
   }
 
   /// Lo pagado fuera de Plata para el extracto que cortó en [cut] («Ya lo
-  /// pagué»): el monto guardado al marcarlo. No se recalcula.
-  int outsidePayment(Account card, DateTime cut) {
+  /// pagué»): la suma de sus movimientos «Pago hecho fuera de Plata».
+  int outsidePayment(Account card, DateTime cut) => outsidePayments(card, cut).fold<int>(0, (int a, Tx t) => a + t.amountMinor);
+
+  /// Movimientos «Pago hecho fuera de Plata» del extracto que cortó en [cut].
+  List<Tx> outsidePayments(Account card, DateTime cut) {
+    final DateTime c = dateOnly(cut);
+    return txs.where((Tx t) => t.isOutsidePayment && _linkedCut(card, t) == c).toList();
+  }
+
+  /// Cambia lo pagado fuera de Plata para un extracto marcado («Cambiar
+  /// monto» en la fila). En cero se borra el movimiento y queda la marca.
+  void setOutsidePayment(Account card, DateTime cut, int amountMinor) {
+    final DateTime c = dateOnly(cut);
+    final List<Tx> mine = outsidePayments(card, c);
+    final int value = amountMinor < 0 ? 0 : amountMinor;
+    if (mine.isEmpty) {
+      if (value > 0 && isStatementPaid(card, c)) {
+        card.markedOnly.remove(dayKey(c));
+        txs.add(_outsideTx(card, c, value, _today));
+        _sortTxs();
+        save();
+      }
+      return;
+    }
+    for (final Tx t in mine.skip(1)) {
+      txs.remove(t);
+    }
+    if (value == 0) {
+      txs.remove(mine.first);
+      _addMarkOnly(card, c);
+    } else {
+      mine.first.amountMinor = value;
+    }
+    save();
+  }
+
+  /// Total de los pagos vinculados al extracto que cortó en [cut] anotados
+  /// desde cuentas de Plata (sin los hechos fuera).
+  int linkedPayments(Account card, DateTime cut) {
     final DateTime c = dateOnly(cut);
     int sum = 0;
-    for (final OutsidePayment p in card.outsidePayments) {
-      if (_outsideCut(card, p) == c) {
-        sum += p.amountMinor;
+    for (final Tx t in txs) {
+      if (!t.isOutsidePayment && t.statementOf != null && _linkedCut(card, t) == c) {
+        sum += _creditAmount(card, t);
       }
     }
     return sum;
   }
 
-  /// Cambia lo pagado fuera de Plata para un extracto marcado (la fila de
-  /// Tarjetas lo deja corregir).
-  void setOutsidePayment(Account card, DateTime cut, int amountMinor) {
+  /// Movimiento «Pago hecho fuera de Plata»: un abono a la tarjeta que no sale
+  /// de ninguna cuenta, vinculado al extracto que cortó en [cut], con el día
+  /// en que se marcó.
+  Tx _outsideTx(Account card, DateTime cut, int amountMinor, DateTime on) => Tx(
+        id: newId(),
+        kind: TxKind.income,
+        amountMinor: amountMinor,
+        accountId: card.id,
+        currency: card.currency,
+        date: DateTime(on.year, on.month, on.day, 12),
+        description: spanish ? 'Pago hecho fuera de Plata' : 'Payment made outside Plata',
+        source: 'outside',
+        statementOf: dayKey(cut),
+      );
+
+  void _addMarkOnly(Account card, DateTime cut) {
     final String key = dayKey(cut);
-    final List<OutsidePayment> mine = card.outsidePayments.where((OutsidePayment p) => p.statement == key).toList();
-    if (mine.isEmpty) {
-      return;
+    if (!card.markedOnly.contains(key)) {
+      card.markedOnly.add(key);
+      card.markedOnly.sort();
+      while (card.markedOnly.length > 48) {
+        card.markedOnly.removeAt(0);
+      }
     }
-    mine.first.amountMinor = amountMinor < 0 ? 0 : amountMinor;
-    for (final OutsidePayment p in mine.skip(1)) {
-      card.outsidePayments.remove(p);
-    }
-    save();
   }
 
-  /// Total de los pagos vinculados al extracto que cortó en [cut].
-  int linkedPayments(Account card, DateTime cut) => _cardBook(card).linked[dateOnly(cut)] ?? 0;
+  /// Si el extracto que cortó en [cut] es de antes de que la tarjeta empezara
+  /// en Plata: anterior a su primer ciclo, o el primer ciclo de una tarjeta
+  /// con deuda inicial (salvo que su mínimo se anotara como pendiente al
+  /// crearla). La deuda inicial ya refleja lo que se pagó antes.
+  bool _beforeStart(Account card, DateTime cut, [_CardBook? known]) {
+    final _CardBook book = known ?? _cardBook(card);
+    final DateTime c = dateOnly(cut);
+    if (c.isBefore(book.firstCut)) {
+      return true;
+    }
+    if (c.isAfter(book.firstCut) || card.initialMinor >= 0) {
+      return false;
+    }
+    final DateTime? ref = card.statementCut;
+    final bool pendingAtStart = ref != null && CardCycle.current(card, ref).cut == c && (card.statementDueMinor ?? 0) > 0;
+    return !pendingAtStart;
+  }
 
-  /// Corte del extracto de un pago hecho fuera de Plata.
-  DateTime? _outsideCut(Account card, OutsidePayment p) {
-    final DateTime? d = DateTime.tryParse(p.statement);
-    return d == null ? null : CardCycle.current(card, d).cut;
+  /// Qué hace «Ya lo pagué» con el extracto que cortó en [cut]:
+  /// - [MarkKind.payment]: crea un movimiento «Pago hecho fuera de Plata»;
+  /// - [MarkKind.markOnly]: solo marca (Plata no tiene deuda de ese extracto);
+  /// - [MarkKind.ask]: es de antes de que la tarjeta empezara en Plata y hay
+  ///   deuda inicial: hay que preguntar si se pagó antes de crearla (la deuda
+  ///   inicial ya lo descuenta: solo marca) o después (es un pago).
+  MarkKind markKind(Account card, DateTime cut) {
+    if (!_beforeStart(card, cut)) {
+      return MarkKind.payment;
+    }
+    return card.initialMinor < 0 ? MarkKind.ask : MarkKind.markOnly;
+  }
+
+  /// Si [t] es un abono sin vínculo a una tarjeta que podría ser el pago de
+  /// un extracto marcado «Ya lo pagué» con pago hecho fuera de Plata: con
+  /// fecha después de su corte y a lo sumo diez días después de la marca, y
+  /// sin que la persona haya dicho ya que es aparte. Devuelve el corte de ese
+  /// extracto (el de la marca más reciente) o null.
+  DateTime? outsideCandidate(Tx t) {
+    if (t.statementOf != null || t.isOutsidePayment || t.isAdjustment) {
+      return null;
+    }
+    // Una devolución de una compra no es el pago del extracto.
+    if (t.kind == TxKind.income && _parts(t).every((TxSplit p) => isRefundCategory(p.categoryId))) {
+      return null;
+    }
+    DateTime? best;
+    DateTime? bestOn;
+    for (final Account card in accounts) {
+      if (!card.isCredit || _creditAmount(card, t) <= 0) {
+        continue;
+      }
+      final DateTime d = dateOnly(t.date);
+      for (final Tx o in txs) {
+        if (!o.isOutsidePayment || o.amountMinor <= 0) {
+          continue;
+        }
+        final DateTime? cut = _linkedCut(card, o);
+        if (cut == null || t.apartFrom == dayKey(cut)) {
+          continue;
+        }
+        final DateTime on = dateOnly(o.date);
+        if (d.isAfter(cut) && !d.isAfter(DateTime(on.year, on.month, on.day + 10)) && (bestOn == null || on.isAfter(bestOn))) {
+          best = cut;
+          bestOn = on;
+        }
+      }
+    }
+    return best;
+  }
+
+  /// Abonos sin vínculo que podrían ser el pago de fuera del extracto que
+  /// cortó en [cut] y que nadie ha contestado (llegaron sin pasar por el
+  /// editor, por ejemplo con «Anotar sin preguntar»): la fila del extracto
+  /// pregunta por ellos.
+  List<Tx> pendingOutsideMatches(Account card, DateTime cut) {
+    final DateTime c = dateOnly(cut);
+    return txs.where((Tx t) => _creditAmount(card, t) > 0 && outsideCandidate(t) == c).toList();
+  }
+
+  /// La persona dijo que [t] es (o no) el pago del extracto marcado que cortó
+  /// en [cut]: si lo es, queda vinculado y reemplaza el pago de fuera; si no,
+  /// queda aparte y no se vuelve a preguntar.
+  void answerOutsideMatch(Tx t, DateTime cut, {required bool same}) {
+    final Tx draft = Tx.fromJson(t.toJson());
+    if (same) {
+      draft.statementOf = dayKey(dateOnly(cut));
+      draft.apartFrom = null;
+    } else {
+      draft.apartFrom = dayKey(dateOnly(cut));
+    }
+    updateTx(draft);
   }
 
   /// Corte del extracto al que está vinculado un abono a [card], o null si
@@ -2384,11 +2554,11 @@ class Ledger extends ChangeNotifier {
     return txs.where((Tx t) => t.statementOf != null && _linkedCut(card, t) == c).toList()..sort((Tx a, Tx b) => a.date.compareTo(b.date));
   }
 
-  /// Extracto al que pasa un dato del extracto que cortó en [old], anotado el
-  /// día [on], cuando el día de corte cambia a [newCutDay]: el del mismo mes
-  /// con el día nuevo si ya había cerrado ese día (su corte es anterior a
-  /// [on]); si no, el anterior. Nunca uno que no había cerrado cuando se
-  /// anotó el dato, ni uno posterior a hoy.
+  /// Extracto al que pasa un dato del extracto que cortó en [old] cuando el
+  /// día de corte cambia a [newCutDay], con [on] el día de referencia de ese
+  /// extracto: el del mismo mes con el día nuevo si ya había cerrado ese día
+  /// (su corte es anterior a [on]); si no, el anterior. Nunca uno que no
+  /// había cerrado ese día, ni uno posterior a hoy.
   DateTime movedCut(int newCutDay, DateTime old, DateTime on) {
     final DateTime limit = on.isAfter(_today) ? _today : dateOnly(on);
     final Account probe = Account(id: '', name: '', type: AccountType.credit, cutDay: newCutDay);
@@ -2396,18 +2566,75 @@ class Ledger extends ChangeNotifier {
     return same.isBefore(limit) ? same : CardCycle.cutAfter(probe, same, -1);
   }
 
-  /// Día en que se anotó un dato de las versiones anteriores, que no lo
-  /// guardaban: la fecha límite real de su extracto con el corte y el pago
-  /// de entonces ([oldCutDay], [oldPayDay]), sin pasar de hoy.
+  /// Día de las versiones anteriores, que no lo guardaban: la fecha límite
+  /// real del extracto con el corte y el pago de entonces ([oldCutDay],
+  /// [oldPayDay]), sin pasar de hoy.
   DateTime _legacyNotedOn(Account card, DateTime cut, int oldCutDay, int? oldPayDay) {
     final Account old = Account(id: card.id, name: '', type: AccountType.credit, cutDay: oldCutDay, payDay: oldPayDay ?? card.payDay, currency: card.currency);
     final DateTime due = effectivePayDate(old, CardCycle.current(old, cut).payDate);
     return due.isAfter(_today) ? _today : due;
   }
 
-  DateTime _minimumNotedOn(Account card, String key, int oldCutDay, int? oldPayDay) {
-    final DateTime? on = DateTime.tryParse(card.minimumsOn[key] ?? '');
-    return on ?? _legacyNotedOn(card, DateTime.parse(key), oldCutDay, oldPayDay);
+  /// Día de referencia de cada extracto con datos (`dayKey` del corte), para
+  /// moverlos **juntos** al cambiar el día de corte: el más antiguo entre el
+  /// día en que se anotó su mínimo, el de sus pagos hechos fuera, el de sus
+  /// pagos vinculados (posteriores a su corte) y, si es el extracto de
+  /// referencia de la deuda inicial, el día en que se anotó. Sin ninguno
+  /// (datos de versiones anteriores), el de [_legacyNotedOn].
+  Map<String, DateTime> _statementDays(Account card, int oldCutDay, int? oldPayDay) {
+    final Map<String, DateTime?> days = <String, DateTime?>{};
+    void consider(String key, DateTime? on) {
+      final DateTime? cut = DateTime.tryParse(key);
+      if (cut == null) {
+        return;
+      }
+      days.putIfAbsent(key, () => null);
+      if (on == null || !dateOnly(on).isAfter(cut)) {
+        return;
+      }
+      final DateTime d = dateOnly(on);
+      final DateTime? current = days[key];
+      if (current == null || d.isBefore(current)) {
+        days[key] = d;
+      }
+    }
+
+    for (final String key in card.statementMinimums.keys) {
+      consider(key, DateTime.tryParse(card.minimumsOn[key] ?? ''));
+    }
+    for (final String key in card.markedOnly) {
+      consider(key, null);
+    }
+    final DateTime? ref = card.statementCut;
+    if (ref != null) {
+      consider(dayKey(ref), DateTime.tryParse(card.statementNotedOn ?? ''));
+    }
+    for (final Tx t in txs) {
+      final String? key = t.statementOf;
+      if (key != null && _creditAmount(card, t) > 0) {
+        consider(key, t.date);
+      }
+    }
+    return <String, DateTime>{for (final MapEntry<String, DateTime?> e in days.entries) e.key: e.value ?? _legacyNotedOn(card, DateTime.parse(e.key), oldCutDay, oldPayDay)};
+  }
+
+  /// A qué extracto nuevo pasa cada extracto viejo con datos (`dayKey` →
+  /// `dayKey`): todos sus datos juntos, con su día de referencia.
+  Map<String, String> _cutMoves(Account card, int oldCutDay, int? oldPayDay, int newCutDay) {
+    final Map<String, DateTime> days = _statementDays(card, oldCutDay, oldPayDay);
+    return <String, String>{
+      for (final MapEntry<String, DateTime> e in days.entries) e.key: dayKey(movedCut(newCutDay, DateTime.parse(e.key), e.value)),
+    };
+  }
+
+  /// A qué extracto pasaría cada extracto con datos si el día de corte
+  /// cambiara a [newCutDay] (`dayKey` → `dayKey`), con todos sus datos juntos.
+  Map<String, String> cutMoves(Account card, int newCutDay, {int? oldPayDay}) {
+    final int? oldCutDay = card.cutDay;
+    if (oldCutDay == null || oldCutDay == newCutDay) {
+      return <String, String>{};
+    }
+    return _cutMoves(card, oldCutDay, oldPayDay ?? card.payDay, newCutDay);
   }
 
   /// Extracto de referencia de la deuda inicial con otro día de corte (lo que
@@ -2418,24 +2645,26 @@ class Ledger extends ChangeNotifier {
     if (ref == null || oldCutDay == null || oldCutDay == newCutDay) {
       return ref;
     }
-    final DateTime? on = DateTime.tryParse(card.statementNotedOn ?? '');
-    return movedCut(newCutDay, ref, on ?? _legacyNotedOn(card, ref, oldCutDay, card.payDay));
+    final String? to = _cutMoves(card, oldCutDay, card.payDay, newCutDay)[dayKey(ref)];
+    return to == null ? ref : DateTime.parse(to);
   }
 
-  /// Mínimos que, al cambiar el día de corte de [oldCutDay] a [newCutDay],
-  /// caerían en el mismo extracto: por cada extracto nuevo, los extractos
-  /// viejos con mínimo que caerían en él, del más antiguo al más reciente.
-  /// Los pagos (vinculados o hechos fuera) no chocan: se suman.
+  /// Mínimos que, al cambiar el día de corte a [newCutDay], caerían en el
+  /// mismo extracto: por cada extracto nuevo, los extractos viejos con
+  /// mínimo que caerían en él, del más antiguo al más reciente. Los pagos
+  /// (vinculados y hechos fuera de Plata) y las marcas no chocan: quedan
+  /// todos en ese extracto.
   Map<DateTime, List<DateTime>> cutMoveConflicts(Account card, int newCutDay, {int? oldPayDay}) {
     final Map<DateTime, List<DateTime>> into = <DateTime, List<DateTime>>{};
     final int? oldCutDay = card.cutDay;
     if (oldCutDay == null || oldCutDay == newCutDay) {
       return into;
     }
+    final Map<String, String> moves = _cutMoves(card, oldCutDay, oldPayDay ?? card.payDay, newCutDay);
     for (final String key in card.statementMinimums.keys) {
-      final DateTime? d = DateTime.tryParse(key);
-      if (d != null) {
-        (into[movedCut(newCutDay, d, _minimumNotedOn(card, key, oldCutDay, oldPayDay ?? card.payDay))] ??= <DateTime>[]).add(d);
+      final String? to = moves[key];
+      if (to != null) {
+        (into[DateTime.parse(to)] ??= <DateTime>[]).add(DateTime.parse(key));
       }
     }
     into.removeWhere((DateTime _, List<DateTime> from) => from.length < 2);
@@ -2446,63 +2675,53 @@ class Ledger extends ChangeNotifier {
   }
 
   /// Al cambiar el día de corte de una tarjeta (de [oldCutDay], con el día de
-  /// pago [oldPayDay], al que ya tiene), cada dato pasa al extracto que había
-  /// cerrado el día en que se anotó ([movedCut]): los pagos hechos fuera
-  /// (su día de marca), los pagos vinculados (su fecha), los mínimos (el día
-  /// en que se anotaron) y el extracto de referencia. Los pagos que caen en
-  /// el mismo extracto se suman; si dos mínimos caen en el mismo, queda el
-  /// del extracto más reciente o, con [keepNewer] falso, el del más antiguo.
-  void moveCardCut(Account card, int? oldCutDay, {int? oldPayDay, bool keepNewer = true}) {
+  /// pago [oldPayDay], al que ya tiene), **todos los datos de cada extracto se
+  /// mueven juntos** (mínimo, pagos hechos fuera, pagos vinculados, marcas y
+  /// referencia de la deuda inicial) al extracto que había cerrado su día de
+  /// referencia ([_statementDays], [movedCut]): nunca se separan. Si dos
+  /// mínimos caen en el mismo extracto queda el que diga [keep] (extracto
+  /// nuevo → extracto viejo elegido) o, si no lo dice, el del más reciente;
+  /// los pagos y las marcas de los dos quedan en ese extracto.
+  void moveCardCut(Account card, int? oldCutDay, {int? oldPayDay, Map<DateTime, DateTime>? keep}) {
     final int? newDay = card.cutDay;
     if (oldCutDay == null || newDay == null || oldCutDay == newDay) {
       return;
     }
-    // Mínimos: quién gana en cada extracto nuevo.
-    final Map<String, String> winner = <String, String>{};
-    final Map<String, String> target = <String, String>{};
+    // Con los datos como estaban (las claves viejas).
+    final Map<String, String> moves = _cutMoves(card, oldCutDay, oldPayDay, newDay);
+    String to(String key) => moves[key] ?? key;
+    final Map<String, List<String>> groups = <String, List<String>>{};
     for (final String key in card.statementMinimums.keys.toList()..sort()) {
-      final DateTime? d = DateTime.tryParse(key);
-      if (d == null) {
-        continue;
-      }
-      final DateTime on = _minimumNotedOn(card, key, oldCutDay, oldPayDay);
-      final String to = dayKey(movedCut(newDay, d, on));
-      target[key] = to;
-      final String? current = winner[to];
-      if (current == null || keepNewer) {
-        winner[to] = key;
-      }
+      (groups[to(key)] ??= <String>[]).add(key);
     }
     final Map<String, int> minimums = <String, int>{};
     final Map<String, String> minimumsOn = <String, String>{};
-    winner.forEach((String to, String from) {
-      minimums[to] = card.statementMinimums[from]!;
-      minimumsOn[to] = card.minimumsOn[from] ?? dayKey(_minimumNotedOn(card, from, oldCutDay, oldPayDay));
+    groups.forEach((String target, List<String> from) {
+      final DateTime? chosen = keep?[DateTime.parse(target)];
+      final String pick = chosen != null && from.contains(dayKey(chosen)) ? dayKey(chosen) : from.last;
+      minimums[target] = card.statementMinimums[pick]!;
+      final String? on = card.minimumsOn[pick];
+      if (on != null) {
+        minimumsOn[target] = on;
+      }
     });
-    // Pagos hechos fuera: por su día de marca; los que caen juntos se suman.
-    final Map<String, OutsidePayment> outside = <String, OutsidePayment>{};
-    for (final OutsidePayment p in card.outsidePayments) {
-      final DateTime? d = DateTime.tryParse(p.statement);
-      final DateTime? on = DateTime.tryParse(p.on);
-      if (d == null) {
-        continue;
-      }
-      final String to = dayKey(movedCut(newDay, d, on ?? _legacyNotedOn(card, d, oldCutDay, oldPayDay)));
-      final OutsidePayment? prev = outside[to];
-      if (prev == null) {
-        outside[to] = OutsidePayment(statement: to, amountMinor: p.amountMinor, on: p.on);
-      } else {
-        prev.amountMinor += p.amountMinor;
-        if (p.on.compareTo(prev.on) > 0) {
-          prev.on = p.on;
-        }
-      }
-    }
-    // Extracto de referencia de la deuda inicial.
+    final List<String> marks = <String>{for (final String key in card.markedOnly) to(key)}.toList()..sort();
     final DateTime? ref = card.statementCut;
     if (ref != null) {
-      final DateTime? on = DateTime.tryParse(card.statementNotedOn ?? '');
-      card.statementCut = movedCut(newDay, ref, on ?? _legacyNotedOn(card, ref, oldCutDay, oldPayDay));
+      card.statementCut = DateTime.parse(to(dayKey(ref)));
+    }
+    for (final Tx t in txs) {
+      if (_creditAmount(card, t) <= 0) {
+        continue;
+      }
+      final String? key = t.statementOf;
+      if (key != null) {
+        t.statementOf = to(key);
+      }
+      final String? apart = t.apartFrom;
+      if (apart != null) {
+        t.apartFrom = to(apart);
+      }
     }
     card.statementMinimums
       ..clear()
@@ -2510,41 +2729,34 @@ class Ledger extends ChangeNotifier {
     card.minimumsOn
       ..clear()
       ..addAll(minimumsOn);
-    card.outsidePayments
+    card.markedOnly
       ..clear()
-      ..addAll(outside.values);
-    // Pagos vinculados: por su fecha.
-    for (final Tx t in txs) {
-      final String? key = t.statementOf;
-      if (key == null || _creditAmount(card, t) == 0) {
-        continue;
-      }
-      final DateTime? d = DateTime.tryParse(key);
-      if (d != null) {
-        t.statementOf = dayKey(movedCut(newDay, d, t.date));
-      }
-    }
+      ..addAll(marks);
     save();
   }
 
   /// Si la persona dijo que ya pagó el extracto que cortó en [cut] («Ya lo
-  /// pagué»): tiene un pago hecho fuera de Plata guardado.
+  /// pagué»): tiene un pago hecho fuera de Plata o una marca.
   bool isStatementPaid(Account card, DateTime cut) {
     final DateTime c = dateOnly(cut);
-    return card.outsidePayments.any((OutsidePayment p) => _outsideCut(card, p) == c);
+    return card.markedOnly.contains(dayKey(c)) || txs.any((Tx t) => t.isOutsidePayment && _linkedCut(card, t) == c);
   }
 
-  /// Marca como pagado el extracto que cortó en [cut]: guarda un pago hecho
-  /// fuera de Plata por [amount] o, si no se da, por lo que faltaba en ese
-  /// momento ([statementMissing], la cifra del aviso), con el día [on] (hoy si
-  /// no se da). Si ya estaba marcado no cambia nada. Con [paid] falso, lo
-  /// desmarca: borra ese pago. Devuelve si cambió algo.
-  bool markStatementPaid(Account card, DateTime cut, {bool paid = true, DateTime? on, int? amount}) {
+  /// Marca como pagado el extracto que cortó en [cut] («Ya lo pagué»): crea
+  /// un movimiento «Pago hecho fuera de Plata» por [amount] o, si no se da,
+  /// por lo que faltaba ([statementMissing], la cifra del aviso), con fecha
+  /// [on] (hoy si no se da). Con [payment] falso (o, sin decirlo, cuando
+  /// [markKind] no es un pago), o si no faltaba nada, solo marca. Si ya estaba
+  /// marcado no cambia nada. Con [paid] falso lo desmarca: borra sus pagos
+  /// hechos fuera y la marca. Devuelve si cambió algo.
+  bool markStatementPaid(Account card, DateTime cut, {bool paid = true, DateTime? on, int? amount, bool? payment}) {
     final DateTime c = dateOnly(cut);
+    final String key = dayKey(c);
     if (!paid) {
-      final int before = card.outsidePayments.length;
-      card.outsidePayments.removeWhere((OutsidePayment p) => _outsideCut(card, p) == c);
-      if (card.outsidePayments.length != before) {
+      final int before = txs.length;
+      txs.removeWhere((Tx t) => t.isOutsidePayment && _linkedCut(card, t) == c);
+      final bool removed = card.markedOnly.remove(key);
+      if (removed || txs.length != before) {
         save();
         return true;
       }
@@ -2554,10 +2766,12 @@ class Ledger extends ChangeNotifier {
       return false;
     }
     final int value = amount ?? statementMissing(card, c, now: on) ?? 0;
-    card.outsidePayments.add(OutsidePayment(statement: dayKey(c), amountMinor: value, on: dayKey(on ?? _today)));
-    card.outsidePayments.sort((OutsidePayment a, OutsidePayment b) => a.statement.compareTo(b.statement));
-    while (card.outsidePayments.length > 24) {
-      card.outsidePayments.removeAt(0);
+    final bool asPayment = payment ?? markKind(card, c) == MarkKind.payment;
+    if (value <= 0 || !asPayment) {
+      _addMarkOnly(card, c);
+    } else {
+      txs.add(_outsideTx(card, c, value, on ?? _today));
+      _sortTxs();
     }
     save();
     return true;
@@ -2857,7 +3071,7 @@ class Ledger extends ChangeNotifier {
       return null;
     }
     for (final Tx t in txs) {
-      if (t.kind != item.kind || t.isAdjustment || t.amountMinor != amount) {
+      if (t.kind != item.kind || t.isNeutral || t.amountMinor != amount) {
         continue;
       }
       if (effectiveAccountId(t.accountId) != effectiveAccountId(a.id)) {

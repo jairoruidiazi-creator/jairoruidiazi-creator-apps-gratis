@@ -35,10 +35,10 @@ class _TxListScreenState extends State<TxListScreen> {
   }
 
   /// Lo que un movimiento suma al neto del día o de la lista, en moneda base.
-  /// Las transferencias y los ajustes de saldo no cuentan (igual que en
-  /// Informes).
+  /// Las transferencias, los ajustes de saldo y los pagos hechos fuera de
+  /// Plata no cuentan (igual que en Informes).
   static int _net(Ledger l, Tx tx) {
-    if (tx.kind == TxKind.transfer || tx.isAdjustment) {
+    if (tx.kind == TxKind.transfer || tx.isNeutral) {
       return 0;
     }
     return (tx.kind == TxKind.income ? 1 : -1) * l.toBase(tx.amountMinor, tx.currency, rate: tx.rateToBase);

@@ -374,9 +374,17 @@ class _TxEditorState extends State<TxEditor> {
   /// abrió (o el que ya tenía), mientras siga siendo una transferencia a la
   /// misma tarjeta.
   String? get _linkKey {
-    final String? key = widget.existing?.statementOf ?? widget.draft?.statementOf ?? widget.statementOf;
-    final String? card = widget.existing?.toAccountId ?? widget.draft?.toAccountId ?? widget.initialToAccountId;
-    return key != null && _kind == TxKind.transfer && _toAccountId != null && _toAccountId == card ? key : null;
+    final Tx? base = widget.existing ?? widget.draft;
+    final String? key = base?.statementOf ?? widget.statementOf;
+    if (key == null) {
+      return null;
+    }
+    final String? card = base == null ? widget.initialToAccountId : (base.isOutsidePayment ? base.accountId : base.toAccountId);
+    final bool toCard = _kind == TxKind.transfer && _toAccountId != null && _toAccountId == card;
+    // El pago hecho fuera de Plata sigue siéndolo mientras sea un abono a la
+    // misma tarjeta.
+    final bool outsideKept = base != null && base.isOutsidePayment && _kind == TxKind.income && _accountId == card;
+    return toCard || outsideKept ? key : null;
   }
 
   /// El movimiento tal como está escrito en el formulario (sin validar).
@@ -408,6 +416,11 @@ class _TxEditorState extends State<TxEditor> {
     tx.installments = (_account?.isCredit ?? false) && (_kind == TxKind.expense || _kind == TxKind.transfer) ? _shownInstallments : 1;
     tx.reconciled = _reconciled;
     tx.statementOf = _linkKey;
+    // Un pago hecho fuera de Plata que se cambia a transferencia desde una
+    // cuenta (u otra cosa) deja de serlo.
+    if (e != null && e.isOutsidePayment && !(_kind == TxKind.income && _accountId == e.accountId)) {
+      tx.source = 'manual';
+    }
     if (widget.inbox != null) {
       tx.source = 'notice';
     }
@@ -452,6 +465,46 @@ class _TxEditorState extends State<TxEditor> {
         if (!go || !mounted) {
           return;
         }
+      }
+    }
+    // Un abono sin vínculo a una tarjeta poco después de «Ya lo pagué»: ¿es ese
+    // mismo pago? Si lo es, reemplaza el pago hecho fuera de Plata y no se
+    // cuenta dos veces; si no, queda aparte.
+    final DateTime? match = l.outsideCandidate(tx);
+    if (match != null) {
+      final Account? card = l.account(tx.kind == TxKind.transfer ? tx.toAccountId : tx.accountId);
+      final List<Tx> outside = card == null ? const <Tx>[] : l.outsidePayments(card, match);
+      final bool es = _s!.settings.spanish;
+      final String day = formatDate(match, es ? 'dd MMM' : 'MMM dd', spanish: es);
+      final String marked = outside.isEmpty ? '' : formatDate(outside.first.date, es ? 'dd MMM' : 'MMM dd', spanish: es);
+      final String amount = outside.isEmpty ? '' : Money.format(outside.fold<int>(0, (int a, Tx o) => a + o.amountMinor), outside.first.currency, spanish: es);
+      final bool? same = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext c) => PopScope(
+          canPop: false,
+          child: AlertDialog(
+            scrollable: true,
+            title: Text(t(c, '¿Es el pago del extracto del $day?', 'Is it the payment of the $day statement?')),
+            content: Text(t(
+              c,
+              'El $marked marcaste ese extracto como pagado y Plata anotó $amount como pagados fuera de Plata. Si este abono es ese mismo pago, lo reemplaza y no se cuenta dos veces. Si es otro pago, queda aparte y baja el próximo pago.',
+              'On $marked you marked that statement as paid and Plata logged $amount as paid outside Plata. If this payment is that same one, it replaces it and is not counted twice. If it is another payment, it stays separate and lowers the next payment.',
+            )),
+            actions: <Widget>[
+              TextButton(onPressed: () => Navigator.pop(c, false), child: Text(t(c, 'Es otro pago', 'It is another payment'))),
+              FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(t(c, 'Sí, es ese pago', 'Yes, it is that payment'))),
+            ],
+          ),
+        ),
+      );
+      if (!mounted || same == null) {
+        return;
+      }
+      if (same) {
+        tx.statementOf = dayKey(match);
+      } else {
+        tx.apartFrom = dayKey(match);
       }
     }
     setState(() => _saving = true);
@@ -639,11 +692,17 @@ class _TxEditorState extends State<TxEditor> {
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
                     child: Text(
-                      t(
-                        context,
-                        'Queda asociado al extracto del ${dayText(context, DateTime.parse(_linkKey!))}: cuenta para ese extracto con cualquier fecha y reemplaza el pago que Plata daba por hecho. Si lo pagaste desde una cuenta que no tienes en Plata, no lo registres: basta con la marca «Ya lo pagué».',
-                        'It is linked to the ${dayText(context, DateTime.parse(_linkKey!))} statement: it counts for that statement whatever its date and replaces the payment Plata took for granted. If you paid from an account you do not have in Plata, do not log it: the "Already paid" mark is enough.',
-                      ),
+                      (widget.existing?.isOutsidePayment ?? false) && _kind == TxKind.income
+                          ? t(
+                              context,
+                              'Pago hecho fuera de Plata del extracto del ${dayText(context, DateTime.parse(_linkKey!))}: baja la deuda de la tarjeta, no sale de ninguna cuenta y no cuenta como ingreso. Si lo pagaste desde una cuenta que tienes en Plata, cámbialo a transferencia desde esa cuenta.',
+                              'Payment made outside Plata for the ${dayText(context, DateTime.parse(_linkKey!))} statement: it lowers the card debt, does not come from any account and is not income. If you paid it from an account you have in Plata, change it to a transfer from that account.',
+                            )
+                          : t(
+                              context,
+                              'Queda asociado al extracto del ${dayText(context, DateTime.parse(_linkKey!))}: cuenta para ese extracto con cualquier fecha y reemplaza lo que se marcó como pagado fuera de Plata. Si lo pagaste desde una cuenta que no tienes en Plata, no lo registres: basta con la marca «Ya lo pagué».',
+                              'It is linked to the ${dayText(context, DateTime.parse(_linkKey!))} statement: it counts for that statement whatever its date and replaces what was marked as paid outside Plata. If you paid from an account you do not have in Plata, do not log it: the "Already paid" mark is enough.',
+                            ),
                       style: TextStyle(fontSize: 12, color: cs.tertiary),
                     ),
                   ),

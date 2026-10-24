@@ -561,12 +561,13 @@ IconData noticeIcon(InboxItem item) {
 /// [date] propone la fecha del pago: al registrar un extracto que se marcó
 /// como pagado, su fecha límite (el pago se hizo antes, no hoy). Con
 /// [statement], el pago queda vinculado al extracto que cortó ese día.
-Future<void> openCardPayment(BuildContext context, Account card, int dueMinor, {DateTime? date, DateTime? statement}) {
+/// Devuelve el movimiento guardado (null si se cancela).
+Future<Tx?> openCardPayment(BuildContext context, Account card, int dueMinor, {DateTime? date, DateTime? statement}) {
   final Services s = AppScope.of(context);
   final Account? source = s.ledger.paymentSourceFor(card, preferredId: s.settings.defaultAccountId);
-  return Navigator.push(
+  return Navigator.push<Tx>(
     context,
-    MaterialPageRoute<void>(
+    MaterialPageRoute<Tx>(
       builder: (_) => TxEditor(
         kind: TxKind.transfer,
         initialAccountId: source?.id,

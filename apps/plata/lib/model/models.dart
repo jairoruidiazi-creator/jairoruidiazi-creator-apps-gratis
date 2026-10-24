@@ -60,12 +60,14 @@ class Account {
     Map<String, String>? paidOn,
     Map<String, String>? minimumsOn,
     List<OutsidePayment>? outsidePayments,
+    List<String>? markedOnly,
     this.statementNotedOn,
   })  : statementMinimums = statementMinimums ?? <String, int>{},
         paidStatements = paidStatements ?? <String>[],
         paidOn = paidOn ?? <String, String>{},
         minimumsOn = minimumsOn ?? <String, String>{},
-        outsidePayments = outsidePayments ?? <OutsidePayment>[];
+        outsidePayments = outsidePayments ?? <OutsidePayment>[],
+        markedOnly = markedOnly ?? <String>[];
 
   final String id;
   String name;
@@ -118,15 +120,22 @@ class Account {
   /// tarjeta ([statementDueMinor], [statementCut]); null en los de antes.
   String? statementNotedOn;
 
-  /// Pagos hechos fuera de Plata («Ya lo pagué»): cada uno guarda el
-  /// extracto, el monto que faltaba cuando se marcó y ese día. Bajan la deuda
-  /// de la tarjeta y no salen de ninguna cuenta. Un extracto con uno de estos
-  /// está marcado como pagado.
+  /// Extractos marcados «Ya lo pagué» sin un pago que anotar (`dayKey` del
+  /// corte): los de antes de que la tarjeta empezara en Plata (la deuda
+  /// inicial ya los refleja), los que ya estaban cubiertos por lo anotado y
+  /// los que conservan la marca después de reemplazar su pago de fuera por
+  /// uno de verdad. Los pagos hechos fuera de Plata son movimientos
+  /// ([Tx.isOutsidePayment]).
+  final List<String> markedOnly;
+
+  /// Pagos hechos fuera de Plata de la versión 1.0.0 (ronda 10), guardados
+  /// aparte. Al abrir el libro se convierten una sola vez en movimientos y
+  /// quedan vacíos.
   final List<OutsidePayment> outsidePayments;
 
   /// Marcas de las versiones anteriores («Ya lo pagué» sin monto guardado).
-  /// Al abrir el libro se convierten una sola vez en [outsidePayments] y
-  /// quedan vacías.
+  /// Al abrir el libro se convierten una sola vez en movimientos «Pago hecho
+  /// fuera de Plata» (o en [markedOnly]) y quedan vacías.
   final List<String> paidStatements;
 
   /// Día de cada marca de [paidStatements] (versión anterior).
@@ -163,6 +172,7 @@ class Account {
         'minimumsOn': minimumsOn,
         'statementNotedOn': statementNotedOn,
         'outsidePayments': outsidePayments.map((OutsidePayment p) => p.toJson()).toList(),
+        'markedOnly': markedOnly,
       };
 
   static Account fromJson(Map<String, dynamic> j) => Account(
@@ -200,6 +210,7 @@ class Account {
             if (e.value is String) e.key: e.value as String,
         },
         statementNotedOn: j['statementNotedOn'] as String?,
+        markedOnly: <String>[for (final dynamic x in (j['markedOnly'] as List<dynamic>?) ?? <dynamic>[]) x.toString()],
         outsidePayments: <OutsidePayment>[
           for (final dynamic x in (j['outsidePayments'] as List<dynamic>?) ?? <dynamic>[])
             if (x is Map<String, dynamic>) OutsidePayment.fromJson(x),
@@ -294,6 +305,7 @@ class Tx {
     this.source = 'manual',
     this.rateToBase,
     this.statementOf,
+    this.apartFrom,
     DateTime? createdAt,
   })  : tags = tags ?? <String>[],
         splits = splits ?? <TxSplit>[],
@@ -346,6 +358,10 @@ class Tx {
   /// reemplaza el pago que Plata daba por hecho al marcarlo «Ya lo pagué».
   /// Null en los demás movimientos (y en las copias anteriores).
   String? statementOf;
+
+  /// Abono sin vínculo que la persona dijo que **no** es el pago del extracto
+  /// marcado «Ya lo pagué» que cortó ese día (`dayKey`): ya no se pregunta.
+  String? apartFrom;
   final DateTime createdAt;
 
   bool get isSplit => splits.isNotEmpty;
@@ -353,6 +369,14 @@ class Tx {
   /// Ajuste de saldo: corrige el saldo de una cuenta, pero no es gasto ni
   /// ingreso en informes ni presupuestos.
   bool get isAdjustment => source == 'adjustment';
+
+  /// Pago de una tarjeta hecho fuera de Plata («Ya lo pagué»): un abono a la
+  /// tarjeta que no sale de ninguna cuenta de Plata, vinculado a su extracto.
+  bool get isOutsidePayment => source == 'outside';
+
+  /// No es gasto ni ingreso en informes ni presupuestos: los ajustes de saldo
+  /// y los pagos hechos fuera de Plata.
+  bool get isNeutral => isAdjustment || isOutsidePayment;
 
   /// Monto con signo desde el punto de vista de la cuenta de origen.
   int get signedMinor => kind == TxKind.income ? amountMinor : -amountMinor;
@@ -383,6 +407,7 @@ class Tx {
         'source': source,
         'rateToBase': rateToBase,
         if (statementOf != null) 'statementOf': statementOf,
+        if (apartFrom != null) 'apartFrom': apartFrom,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -410,6 +435,7 @@ class Tx {
         source: j['source'] as String? ?? 'manual',
         rateToBase: (j['rateToBase'] as num?)?.toDouble(),
         statementOf: j['statementOf'] as String?,
+        apartFrom: j['apartFrom'] as String?,
         createdAt: _parseDate(j['createdAt']),
       );
 

@@ -269,7 +269,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
 
     return l.inPeriod(period, accountId: _accountId).where((Tx tx) {
-      if (tx.isAdjustment || tx.kind == TxKind.transfer || (_accountId != null && !l.chargesAccount(tx, _accountId!))) {
+      if (tx.isNeutral || tx.kind == TxKind.transfer || (_accountId != null && !l.chargesAccount(tx, _accountId!))) {
         return false;
       }
       return tx.splits.isEmpty ? counts(tx, tx.categoryId) : tx.splits.any((TxSplit sp) => counts(tx, sp.categoryId));

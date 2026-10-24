@@ -360,19 +360,66 @@ Future<void> askStatementMinimum(BuildContext context, Account card, DateTime cu
   if (!context.mounted) {
     return;
   }
-  // Guarda lo que faltaba del mínimo como pagado fuera de Plata.
-  l.markStatementPaid(card, cut);
-  if (answer == _Paid.paidAndLog) {
-    // Se propone lo que faltaba, no el mínimo entero: lo anotado ya cuenta.
-    final int left = l.outsidePayment(card, cut);
-    if (left > 0) {
-      await openCardPayment(context, card, left, date: proposedPaymentDate(l, card, cut), statement: cut);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Lo que anotaste ya cubre ese mínimo: no hay nada más que registrar.', 'What you logged already covers that minimum: there is nothing else to log.'))));
+  // Lo que faltaba del mínimo queda como «Pago hecho fuera de Plata» (o solo
+  // la marca, si es de antes de que la tarjeta empezara en Plata).
+  final bool? payment = await askPaymentKind(context, card, cut);
+  if (payment == null || !context.mounted) {
+    return;
+  }
+  final int missing = l.statementMissing(card, cut) ?? 0;
+  if (answer == _Paid.paidAndLog && payment && missing > 0) {
+    // Se registra desde una cuenta de Plata, vinculado y por lo que faltaba
+    // (no el mínimo entero: lo anotado ya cuenta). La marca queda al
+    // guardarlo; si se cancela, el extracto sigue sin marcar.
+    final Tx? saved = await openCardPayment(context, card, missing, date: proposedPaymentDate(l, card, cut), statement: cut);
+    if (saved != null) {
+      l.markStatementPaid(card, cut, payment: false);
     }
-  } else if (alreadyPaid) {
+    return;
+  }
+  l.markStatementPaid(card, cut, payment: payment);
+  if (!context.mounted) {
+    return;
+  }
+  if (answer == _Paid.paidAndLog) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(payment
+            ? t(context, 'Lo que anotaste ya cubre ese mínimo: no hay nada más que registrar.', 'What you logged already covers that minimum: there is nothing else to log.')
+            : t(context, 'Marcado como pagado. La deuda que anotaste al crear la tarjeta ya lo descuenta: no hay nada que registrar.', 'Marked as paid. The debt you entered when you added the card already accounts for it: there is nothing to log.'))));
+  } else {
     showPaidSnackBar(context, card, cut);
   }
+}
+
+/// Si «Ya lo pagué» del extracto que cortó en [cut] crea un pago hecho fuera
+/// de Plata (true) o solo marca (false). Para un extracto de antes de que la
+/// tarjeta empezara en Plata, con deuda inicial, pregunta si se pagó antes
+/// de crearla: entonces la deuda inicial ya lo descuenta y solo se marca.
+/// Null si se cancela.
+Future<bool?> askPaymentKind(BuildContext context, Account card, DateTime cut) async {
+  final Ledger l = AppScope.of(context).ledger;
+  final MarkKind kind = l.markKind(card, cut);
+  if (kind != MarkKind.ask) {
+    return kind == MarkKind.payment;
+  }
+  final bool? before = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext c) => AlertDialog(
+          scrollable: true,
+          title: Text(t(c, '¿Lo pagaste antes de crear la tarjeta en Plata?', 'Did you pay it before adding the card to Plata?')),
+          content: Text(t(
+            c,
+            'El extracto del ${dayText(c, cut)} es de antes de que empezaras a llevar ${card.name} en Plata. Si lo pagaste antes de crear la tarjeta, la deuda que anotaste ya lo descuenta y solo se marca. Si lo pagaste después, se anota como pago hecho fuera de Plata y baja la deuda.',
+            'The ${dayText(c, cut)} statement is from before you started tracking ${card.name} in Plata. If you paid it before adding the card, the debt you entered already accounts for it and it is only marked. If you paid it afterwards, it is logged as a payment made outside Plata and lowers the debt.',
+          )),
+          actions: <Widget>[
+            TextButton(onPressed: () => Navigator.pop(c), child: Text(t(c, 'Cancelar', 'Cancel'))),
+            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(t(c, 'Después', 'Afterwards'))),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(t(c, 'Antes', 'Before'))),
+          ],
+        ),
+      );
+  return before == null ? null : !before;
 }
 
 /// Fecha que se propone al registrar el pago de un extracto ya pagado: su
@@ -388,9 +435,12 @@ DateTime proposedPaymentDate(Ledger l, Account card, DateTime cut) {
 /// apaga la única alarma de un pago pendiente.
 void showPaidSnackBar(BuildContext context, Account card, DateTime cut) {
   final Ledger l = AppScope.of(context).ledger;
-  final String amount = money(context, l.outsidePayment(card, cut), card.currency);
+  final int outside = l.outsidePayment(card, cut);
+  final String amount = money(context, outside, card.currency);
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-    content: Text(t(context, 'Marcado como pagado: $amount por fuera de Plata. Si lo pagaste desde una cuenta que tienes en Plata, regístralo en Tarjetas.', 'Marked as paid: $amount outside Plata. If you paid from an account you have in Plata, log it in Cards.')),
+    content: Text(outside > 0
+        ? t(context, 'Marcado como pagado: $amount por fuera de Plata. Si lo pagaste desde una cuenta que tienes en Plata, regístralo en Tarjetas.', 'Marked as paid: $amount outside Plata. If you paid from an account you have in Plata, log it in Cards.')
+        : t(context, 'Marcado como pagado.', 'Marked as paid.')),
     action: SnackBarAction(label: t(context, 'Deshacer', 'Undo'), onPressed: () => l.markStatementPaid(card, cut, paid: false)),
   ));
 }
@@ -399,7 +449,7 @@ void showPaidSnackBar(BuildContext context, Account card, DateTime cut) {
 /// fuera de Plata lo que el aviso decía que faltaba. Si el aviso ya no
 /// corresponde (es de antes de cambiar el día de corte, el extracto ya está
 /// marcado o lo anotado ya cubre el mínimo) no marca nada y lo dice.
-void markPaidFromBanner(BuildContext context, Account card, DateTime cut) {
+Future<void> markPaidFromBanner(BuildContext context, Account card, DateTime cut) async {
   final Ledger l = AppScope.of(context).ledger;
   void say(String es, String en) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, es, en))));
   if (CardCycle.current(card, cut).cut != dateOnly(cut)) {
@@ -415,7 +465,11 @@ void markPaidFromBanner(BuildContext context, Account card, DateTime cut) {
     say('Según lo anotado, ese pago mínimo ya está cubierto: no se marcó nada.', 'According to what you logged, that minimum payment is already covered: nothing was marked.');
     return;
   }
-  l.markStatementPaid(card, cut, amount: missing);
+  final bool? payment = await askPaymentKind(context, card, cut);
+  if (payment == null || !context.mounted) {
+    return;
+  }
+  l.markStatementPaid(card, cut, amount: missing, payment: payment);
   showPaidSnackBar(context, card, cut);
 }
 
@@ -466,7 +520,8 @@ String unconfirmedText(BuildContext context, CardDue due, String currency) {
 
 /// Fila de un extracto marcado «Ya lo pagué» o con pagos vinculados: dice
 /// cuánto se pagó con movimientos de Plata y cuánto fuera de Plata, o cuánto
-/// falta (la misma cifra del aviso rojo). Cada botón dice en su nombre
+/// falta (la misma cifra del aviso rojo), y pregunta por los abonos sin
+/// vínculo que podrían ser el pago de fuera. Cada botón dice en su nombre
 /// accesible de qué extracto es.
 class _PaidStatementRow extends StatelessWidget {
   const _PaidStatementRow({required this.card, required this.cut});
@@ -480,10 +535,11 @@ class _PaidStatementRow extends StatelessWidget {
     final ColorScheme cs = Theme.of(context).colorScheme;
     final String day = dayText(context, cut);
     String m(int v) => money(context, v, card.currency);
-    final List<Tx> linked = l.statementPayments(card, cut);
+    final List<Tx> linked = l.statementPayments(card, cut).where((Tx x) => !x.isOutsidePayment).toList();
     final bool marked = l.isStatementPaid(card, cut);
     final int linkedTotal = l.linkedPayments(card, cut);
     final int outside = l.outsidePayment(card, cut);
+    final List<Tx> pending = marked ? l.pendingOutsideMatches(card, cut) : const <Tx>[];
     final String when = linked.map((Tx x) => dayText(context, x.date)).toSet().join(', ');
     final String withTx = linked.length == 1 ? t(context, 'con el movimiento del $when', 'with the $when transaction') : t(context, 'con los movimientos del $when', 'with the $when transactions');
     final String text;
@@ -500,31 +556,53 @@ class _PaidStatementRow extends StatelessWidget {
     } else {
       text = t(context, 'Extracto del $day pagado: ${m(linkedTotal)} $withTx, ${m(outside)} por fuera de Plata', '$day statement paid: ${m(linkedTotal)} $withTx, ${m(outside)} outside Plata');
     }
-    return Wrap(
-      crossAxisAlignment: WrapCrossAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(text, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-        // Registrar lo que se dio por pagado fuera lo reemplaza: no se puede
-        // registrar dos veces.
-        if (marked && outside > 0)
-          TextButton(
-            onPressed: () => openCardPayment(context, card, outside, date: proposedPaymentDate(l, card, cut), statement: cut),
-            child: Text(t(context, 'Registrar el pago', 'Log the payment'), semanticsLabel: t(context, 'Registrar el pago del extracto del $day', 'Log the payment of the $day statement')),
-          ),
-        if (marked)
-          TextButton(
-            onPressed: () async {
-              final int? v = await pickAmount(context, initialMinor: outside, currency: card.currency, title: t(context, 'Pagado fuera de Plata (extracto del $day)', 'Paid outside Plata ($day statement)'));
-              if (v != null) {
-                l.setOutsidePayment(card, cut, v);
-              }
-            },
-            child: Text(t(context, 'Cambiar monto', 'Change amount'), semanticsLabel: t(context, 'Cambiar lo pagado fuera de Plata del extracto del $day', 'Change what was paid outside Plata for the $day statement')),
-          ),
-        if (marked)
-          TextButton(
-            onPressed: () => l.markStatementPaid(card, cut, paid: false),
-            child: Text(t(context, 'Desmarcar', 'Unmark'), semanticsLabel: t(context, 'Desmarcar el extracto del $day', 'Unmark the $day statement')),
+        Wrap(
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: <Widget>[
+            Text(text, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+            // Registrar lo que se dio por pagado fuera lo reemplaza: no se
+            // puede registrar dos veces.
+            if (marked && outside > 0)
+              TextButton(
+                onPressed: () => openCardPayment(context, card, outside, date: proposedPaymentDate(l, card, cut), statement: cut),
+                child: Text(t(context, 'Registrar el pago', 'Log the payment'), semanticsLabel: t(context, 'Registrar el pago del extracto del $day', 'Log the payment of the $day statement')),
+              ),
+            if (marked && outside > 0)
+              TextButton(
+                onPressed: () async {
+                  final int? v = await pickAmount(context, initialMinor: outside, currency: card.currency, title: t(context, 'Pagado fuera de Plata (extracto del $day)', 'Paid outside Plata ($day statement)'));
+                  if (v != null) {
+                    l.setOutsidePayment(card, cut, v);
+                  }
+                },
+                child: Text(t(context, 'Cambiar monto', 'Change amount'), semanticsLabel: t(context, 'Cambiar lo pagado fuera de Plata del extracto del $day', 'Change what was paid outside Plata for the $day statement')),
+              ),
+            if (marked)
+              TextButton(
+                onPressed: () => l.markStatementPaid(card, cut, paid: false),
+                child: Text(t(context, 'Desmarcar', 'Unmark'), semanticsLabel: t(context, 'Desmarcar el extracto del $day', 'Unmark the $day statement')),
+              ),
+          ],
+        ),
+        // Un abono que llegó sin pasar por el editor (por ejemplo, anotado
+        // solo desde un aviso del banco) y que podría ser el pago de fuera.
+        for (final Tx p in pending)
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: <Widget>[
+              Text(t(context, '¿El abono del ${dayText(context, p.date)} (${m(p.amountMinor)}) es el pago de este extracto?', 'Is the ${dayText(context, p.date)} payment (${m(p.amountMinor)}) the payment of this statement?'), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+              TextButton(
+                onPressed: () => l.answerOutsideMatch(p, cut, same: true),
+                child: Text(t(context, 'Sí, es ese', 'Yes, it is'), semanticsLabel: t(context, 'Sí, el abono del ${dayText(context, p.date)} es el pago del extracto del $day', 'Yes, the ${dayText(context, p.date)} payment is the payment of the $day statement')),
+              ),
+              TextButton(
+                onPressed: () => l.answerOutsideMatch(p, cut, same: false),
+                child: Text(t(context, 'Es otro', 'It is another'), semanticsLabel: t(context, 'No, el abono del ${dayText(context, p.date)} es otro pago', 'No, the ${dayText(context, p.date)} payment is another one')),
+              ),
+            ],
           ),
       ],
     );

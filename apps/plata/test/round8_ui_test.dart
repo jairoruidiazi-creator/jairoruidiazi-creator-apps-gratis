@@ -124,7 +124,7 @@ void main() {
       final Ledger l = env.services.ledger;
       env.notifier.respond(const NotifierResponse(payload: 'o:tc:2026-09-30', actionId: Notifier.paidAction));
       await settle(tester);
-      expect(tc.outsidePayments, isEmpty);
+      expect(l.txs.where((Tx t) => t.isOutsidePayment), isEmpty);
       expect(find.textContaining('antes de cambiar el día de corte'), findsOneWidget);
       expect(find.textContaining('Marcado como pagado'), findsNothing);
       // El aviso que sí corresponde es el del extracto del 29 sep.

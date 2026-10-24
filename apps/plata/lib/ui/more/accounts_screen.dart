@@ -195,18 +195,14 @@ class _AccountEditorState extends State<AccountEditor> {
     }
     final Account? e = widget.existing;
     // Otro día de corte: si dos pagos mínimos caerían en el mismo extracto,
-    // se pregunta cuál es antes de guardar. Los pagos no chocan: se suman.
-    bool keepNewer = true;
+    // se pregunta cuál es, por cada choque, antes de guardar. Los pagos y las
+    // marcas de los dos extractos quedan en ese extracto.
+    final Map<DateTime, DateTime> keep = <DateTime, DateTime>{};
     if (e != null && e.isCredit && _type == AccountType.credit && e.cutDay != null && e.cutDay != _cutDay) {
       final Map<DateTime, List<DateTime>> clashes = l.cutMoveConflicts(e, _cutDay);
-      if (clashes.isNotEmpty) {
-        final MapEntry<DateTime, List<DateTime>> c = clashes.entries.first;
+      for (final MapEntry<DateTime, List<DateTime>> c in clashes.entries) {
         final String target = dayText(context, c.key);
-        final String older = dayText(context, c.value.first);
-        final String newer = dayText(context, c.value.last);
-        final String olderMin = money(context, e.statementMinimums[dayKey(c.value.first)] ?? 0, e.currency);
-        final String newerMin = money(context, e.statementMinimums[dayKey(c.value.last)] ?? 0, e.currency);
-        final bool? newerWins = await showDialog<bool>(
+        final DateTime? chosen = await showDialog<DateTime>(
           context: context,
           builder: (BuildContext d) => AlertDialog(
             // Con letra grande el texto se desplaza en vez de cortarse.
@@ -214,20 +210,23 @@ class _AccountEditorState extends State<AccountEditor> {
             title: Text(t(d, '¿Cuál es el pago mínimo del extracto del $target?', 'Which is the minimum payment of the $target statement?')),
             content: Text(t(
               d,
-              'Con el corte el $_cutDay, el pago mínimo de $olderMin que anotaste para el extracto del $older y el de $newerMin del extracto del $newer quedan en el mismo extracto, el del $target. Plata deja uno y descarta el otro. Los pagos (los registrados y los que marcaste como hechos fuera de Plata) no se pierden: se suman en ese extracto.',
-              'With the closing day on the $_cutDay, the $olderMin minimum payment you entered for the $older statement and the $newerMin one for the $newer statement end up in the same statement, the $target one. Plata keeps one and discards the other. Payments (logged ones and the ones you marked as made outside Plata) are not lost: they add up in that statement.',
+              'Con el corte el $_cutDay, lo anotado para ${c.value.map((DateTime x) => 'el extracto del ${dayText(d, x)}').join(' y para ')} queda en el mismo extracto, el del $target. Cada uno tenía su pago mínimo: Plata deja el que elijas y descarta el otro. Los pagos (los registrados y los hechos fuera de Plata) y las marcas «Ya lo pagué» de los dos quedan en ese extracto.',
+              'With the closing day on the $_cutDay, what you entered for ${c.value.map((DateTime x) => 'the ${dayText(d, x)} statement').join(' and for ')} ends up in the same statement, the $target one. Each one had its minimum payment: Plata keeps the one you choose and discards the other. The payments (logged ones and ones made outside Plata) and the "Already paid" marks of both stay in that statement.',
             )),
             actions: <Widget>[
               TextButton(onPressed: () => Navigator.pop(d), child: Text(t(d, 'Cancelar', 'Cancel'))),
-              TextButton(onPressed: () => Navigator.pop(d, false), child: Text(t(d, '$olderMin (del $older)', '$olderMin ($older)'))),
-              FilledButton(onPressed: () => Navigator.pop(d, true), child: Text(t(d, '$newerMin (del $newer)', '$newerMin ($newer)'))),
+              for (final DateTime from in c.value)
+                TextButton(
+                  onPressed: () => Navigator.pop(d, from),
+                  child: Text(t(d, '${money(d, e.statementMinimums[dayKey(from)] ?? 0, e.currency)} (del ${dayText(d, from)})', '${money(d, e.statementMinimums[dayKey(from)] ?? 0, e.currency)} (${dayText(d, from)})')),
+                ),
             ],
           ),
         );
-        if (newerWins == null || !mounted) {
+        if (chosen == null || !mounted) {
           return;
         }
-        keepNewer = newerWins;
+        keep[c.key] = chosen;
       }
     }
     final bool wasCardWithDay = e != null && e.isCredit && e.payDay != null;
@@ -253,11 +252,11 @@ class _AccountEditorState extends State<AccountEditor> {
       ..last4 = _last4.text.trim()
       ..notes = _notes.text.trim();
     if (e != null && a.isCredit) {
-      // Con otro día de corte, cada dato (mínimos, pagos hechos fuera de
-      // Plata, pagos vinculados, extracto de referencia) pasa al extracto que
-      // había cerrado el día en que se anotó: nada queda huérfano ni en un
-      // extracto que no existía todavía.
-      l.moveCardCut(a, oldCutDay, oldPayDay: oldPayDay, keepNewer: keepNewer);
+      // Con otro día de corte, todos los datos de cada extracto (mínimo,
+      // pagos hechos fuera de Plata, pagos vinculados, marcas y extracto de
+      // referencia) pasan juntos al extracto que había cerrado su día de
+      // referencia: nunca se separan ni quedan en un extracto que no existía.
+      l.moveCardCut(a, oldCutDay, oldPayDay: oldPayDay, keep: keep);
     }
     if (_type == AccountType.credit && initial < 0 && _statementDue != null) {
       final int debt = -initial;
