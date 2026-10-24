@@ -264,6 +264,11 @@ class Tuner extends ChangeNotifier {
   /// mezcla, la nota tocada (por ejemplo Sol2 con la lectura en Re2).
   static const double nearbySoundDb = 10;
 
+  /// Período mínimo (en armónicos de la lectura) de lo que asoma para que
+  /// apoye a la fundamental medida contra su entorno entero: 5.º o 7.º sí;
+  /// 2.º, 3.º o 4.º no (ver [isResidue]).
+  static const int supportMinPeriod = 5;
+
   /// Armónicos que deciden solos: si los que cuentan hasta este h ya tienen
   /// máximo común divisor 1, es una nota. Los de más arriba solo cuentan si
   /// el resultado no depende de uno solo de ellos (N4: un pico suelto en un
@@ -703,7 +708,8 @@ class Tuner extends ChangeNotifier {
   ///   alto de su entorno cercano (0,55·f a 1,45·f), y vale la mayor: con el
   ///   paso alto de un teléfono el piso no es plano, y contra el lado grave,
   ///   muy atenuado, asomaría el ruido. Contra el entorno entero solo vale
-  ///   con el apoyo de un armónico bajo que cuente ([nearbySoundDb]).
+  ///   con el apoyo de un armónico bajo que cuente ([nearbySoundDb],
+  ///   [supportMinPeriod]).
   ///   Si el máximo común divisor de los que cuentan es 1, ese sonido tiene
   ///   de verdad el periodo de [hz]: es una nota (ver [robustHarmonic] para
   ///   los armónicos altos). Si no cuenta ninguno, o todos son múltiplos de
@@ -751,9 +757,12 @@ class Tuner extends ChangeNotifier {
       return false;
     }
     // La fundamental contra su entorno entero (los dos lados juntos) solo
-    // cuenta con el apoyo de un armónico bajo, y si cerca de f no suena algo
-    // mucho más fuerte (la nota de la mezcla).
-    if (plainFundamental && !counted.contains(1) && counted.any((int h) => h >= 2 && h <= robustHarmonic)) {
+    // cuenta con el apoyo de un armónico bajo, si cerca de f no suena algo
+    // mucho más fuerte (la nota de la mezcla) y si lo que asoma no es una
+    // octava, una duodécima o dos octavas de f: leer la nota una de esas
+    // distancias abajo es el error típico del detector con un tono de la
+    // app, y ahí el armónico que asoma es la nota tocada.
+    if (plainFundamental && !counted.contains(1) && _gcdOf(counted) >= supportMinPeriod && counted.any((int h) => h >= 2 && h <= robustHarmonic)) {
       return false;
     }
     return true;
