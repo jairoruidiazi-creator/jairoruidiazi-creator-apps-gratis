@@ -192,6 +192,16 @@ class _CardPanelState extends State<_CardPanel> {
             // vinculado: se ve cuál, y se registra el pago o se desmarca.
             for (final CardCycle paid in <CardCycle>[lastClosed, lastClosed.previous(c), lastClosed.previous(c).previous(c)].where((CardCycle x) => l.isStatementPaid(c, x.cut) || l.statementPayments(c, x.cut).isNotEmpty))
               _PaidStatementRow(card: c, cut: paid.cut),
+            // Los extractos más viejos con pago hecho fuera de Plata también
+            // tienen su fila (y su remedio «Ya lo anoté en Plata»).
+            if (_olderWithOutside(l, c, lastClosed).isNotEmpty)
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: Text(t(context, 'Ver extractos anteriores pagados fuera de Plata (${_olderWithOutside(l, c, lastClosed).length})', 'See earlier statements paid outside Plata (${_olderWithOutside(l, c, lastClosed).length})'), style: const TextStyle(fontSize: 13)),
+                children: <Widget>[
+                  for (final DateTime cut in _olderWithOutside(l, c, lastClosed)) _PaidStatementRow(card: c, cut: cut),
+                ],
+              ),
             Row(
               children: <Widget>[
                 IconButton(tooltip: t(context, 'Ciclo anterior', 'Previous cycle'), icon: const Icon(Icons.chevron_left), onPressed: () => setState(() => _back += 1)),
@@ -529,6 +539,13 @@ String unconfirmedText(BuildContext context, CardDue due, String currency) {
 /// falta (la misma cifra del aviso rojo), y pregunta por los abonos sin
 /// vínculo que podrían ser el pago de fuera. Cada botón dice en su nombre
 /// accesible de qué extracto es.
+/// Extractos con pago hecho fuera de Plata más viejos que los tres últimos
+/// cerrados (que ya tienen su fila).
+List<DateTime> _olderWithOutside(Ledger l, Account card, CardCycle lastClosed) {
+  final DateTime oldest = lastClosed.previous(card).previous(card).cut;
+  return l.statementsWithOutside(card).where((DateTime cut) => cut.isBefore(oldest)).toList();
+}
+
 class _PaidStatementRow extends StatelessWidget {
   const _PaidStatementRow({required this.card, required this.cut});
 
@@ -618,8 +635,8 @@ String _outsideMatchText(BuildContext context, Ledger l, Tx p) {
   final String amount = money(context, p.kind == TxKind.transfer ? l.receivedMinor(p) : p.amountMinor, card.currency);
   return t(
     context,
-    'Marcaste el extracto del ${dayText(context, cut)} de ${card.name} como pagado fuera de Plata (${money(context, marked, card.currency)}). Si el abono del ${dayText(context, p.date)} ($amount) es ese mismo pago, se cuenta una sola vez. Si es otro pago, queda aparte y baja el próximo pago. Mientras no contestes, Plata lo cuenta como ese pago.',
-    'You marked the ${dayText(context, cut)} ${card.name} statement as paid outside Plata (${money(context, marked, card.currency)}). If the ${dayText(context, p.date)} payment ($amount) is that same payment, it is counted once. If it is another payment, it stays separate and lowers the next payment. Until you answer, Plata counts it as that payment.',
+    'Marcaste el extracto del ${dayText(context, cut)} de ${card.name} como pagado fuera de Plata (${money(context, marked, card.currency)}). Si el abono del ${dayText(context, p.date)} ($amount) es ese mismo pago, se cuenta una sola vez. Si es otro pago, queda aparte y baja el próximo pago. Mientras no contestes, para la deuda Plata lo cuenta como ese pago (una sola vez) y para la mora lo cuenta en su propio extracto, por su fecha.',
+    'You marked the ${dayText(context, cut)} ${card.name} statement as paid outside Plata (${money(context, marked, card.currency)}). If the ${dayText(context, p.date)} payment ($amount) is that same payment, it is counted once. If it is another payment, it stays separate and lowers the next payment. Until you answer, for the debt Plata counts it as that payment (once), and for overdue checks it counts it in its own statement, by its date.',
   );
 }
 
@@ -686,8 +703,39 @@ Future<void> pickLoggedPayment(BuildContext context, Account card, DateTime cut)
   if (chosen == null || !context.mounted) {
     return;
   }
-  l.linkToStatement(chosen, cut);
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Vinculado al extracto del ${dayText(context, cut)}: reemplaza lo pagado fuera de Plata.', 'Linked to the ${dayText(context, cut)} statement: it replaces what was paid outside Plata.'))));
+  final OutsideLinkUndo? undo = l.linkToStatement(chosen, cut);
+  final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+  messenger.hideCurrentSnackBar();
+  messenger.showSnackBar(SnackBar(
+    content: Text(t(context, 'Vinculado al extracto del ${dayText(context, cut)}: reemplaza lo pagado fuera de Plata.', 'Linked to the ${dayText(context, cut)} statement: it replaces what was paid outside Plata.')),
+    // Un toque equivocado (E7) se deshace: el vínculo y lo de fuera quedan
+    // como estaban.
+    action: undo == null ? null : SnackBarAction(label: t(context, 'Deshacer', 'Undo'), onPressed: () => l.undoLinkToStatement(undo)),
+  ));
+}
+
+/// Aviso que no bloquea (M1 de la ronda 13): si un abono recién guardado no
+/// preguntó (fuera de la ventana, o con un extracto más nuevo sin pagar) y
+/// cabe en lo pagado fuera de un extracto marcado, un SnackBar ofrece
+/// elegirlo como ese pago («Elegir» abre «Ya lo anoté en Plata»). No deja
+/// nada pendiente ni cambia la mora.
+void offerOutsideHint(BuildContext context, Tx saved) {
+  final Ledger l = AppScope.of(context).ledger;
+  final Iterable<Tx> found = l.txs.where((Tx x) => x.id == saved.id);
+  if (found.isEmpty) {
+    return;
+  }
+  final DateTime? cut = l.outsideHint(found.first);
+  final Account? card = cut == null ? null : l.accounts.where((Account a) => a.isCredit && (a.id == found.first.accountId || a.id == found.first.toAccountId)).firstOrNull;
+  if (cut == null || card == null) {
+    return;
+  }
+  final NavigatorState nav = Navigator.of(context);
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    duration: const Duration(seconds: 8),
+    content: Text(t(context, '¿Es el pago del extracto del ${dayText(context, cut)} que marcaste como pagado fuera de Plata?', 'Is it the payment of the ${dayText(context, cut)} statement you marked as paid outside Plata?')),
+    action: SnackBarAction(label: t(context, 'Elegir', 'Choose'), onPressed: () => pickLoggedPayment(nav.context, card, cut)),
+  ));
 }
 
 /// La pregunta pendiente de un abono que llegó sin pasar por una pantalla (un

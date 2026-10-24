@@ -234,6 +234,7 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
                     await askOutsideMatch(context, posted);
                   }
                   if (context.mounted) {
+                    offerOutsideHint(context, posted);
                     Navigator.pop(context);
                   }
                 } else if (v == 'skip') {

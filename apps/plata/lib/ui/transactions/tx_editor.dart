@@ -501,6 +501,10 @@ class _TxEditorState extends State<TxEditor> {
       await askOutsideMatch(context, tx);
     }
     if (mounted) {
+      // Solo al anotar uno nuevo: editar uno viejo no avisa.
+      if (e == null) {
+        offerOutsideHint(context, tx);
+      }
       Navigator.of(context).pop(tx);
     }
   }
@@ -612,6 +616,7 @@ class _TxEditorState extends State<TxEditor> {
                   await askOutsideMatch(context, copy);
                 }
                 if (context.mounted) {
+                  offerOutsideHint(context, copy);
                   Navigator.of(context).pop();
                 }
               }

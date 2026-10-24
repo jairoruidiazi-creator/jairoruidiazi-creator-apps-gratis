@@ -1224,6 +1224,9 @@ class Ledger extends ChangeNotifier {
         if (o.amountMinor <= 0) {
           txs.remove(o);
           _addMarkOnly(card, cut);
+          // Se recuerda para devolverlo igual (mismo id y fecha) si el abono
+          // resulta ser otro pago.
+          card.outsideGone[dayKey(cut)] = '${o.id}|${dayKey(o.date)}';
         }
       }
       if (delta > 0 && !after.outsidePending) {
@@ -1302,8 +1305,14 @@ class Ledger extends ChangeNotifier {
         mine.first.amountMinor += amount;
       } else {
         card.markedOnly.remove(dayKey(cut));
+        // Con el id y la fecha que tenía (la de la marca): la ventana de la
+        // pregunta no se corre. Si no se conocen, el día siguiente al corte o
+        // hoy.
+        final List<String> gone = (card.outsideGone.remove(dayKey(cut)) ?? '').split('|');
         final DateTime after = DateTime(cut.year, cut.month, cut.day + 1);
-        txs.add(_outsideTx(card, cut, amount, _today.isAfter(after) ? _today : after));
+        final DateTime? was = gone.length == 2 ? DateTime.tryParse(gone[1]) : null;
+        final Tx back = _outsideTx(card, cut, amount, was ?? (_today.isAfter(after) ? _today : after), id: gone.length == 2 && !txs.any((Tx x) => x.id == gone[0]) ? gone[0] : null);
+        txs.add(back);
         _sortTxs();
       }
     }
@@ -1420,6 +1429,7 @@ class Ledger extends ChangeNotifier {
   /// monto» a cero o borrarlo). Lo que habían tomado no vuelve.
   void _releasePending(Account card, DateTime cut) {
     final String key = dayKey(dateOnly(cut));
+    card.outsideGone.remove(key);
     for (final Tx t in pendingOutsideMatches(card: card, cut: cut)) {
       t.outsidePending = false;
       t.outsideTaken = null;
@@ -2600,6 +2610,7 @@ class Ledger extends ChangeNotifier {
     if (mine.isEmpty) {
       if (value > 0 && isStatementPaid(card, c)) {
         card.markedOnly.remove(dayKey(c));
+        card.outsideGone.remove(dayKey(c));
         txs.add(_outsideTx(card, c, value, _today));
         _sortTxs();
         save();
@@ -2635,8 +2646,8 @@ class Ledger extends ChangeNotifier {
   /// Movimiento «Pago hecho fuera de Plata»: un abono a la tarjeta que no sale
   /// de ninguna cuenta, vinculado al extracto que cortó en [cut], con el día
   /// en que se marcó.
-  Tx _outsideTx(Account card, DateTime cut, int amountMinor, DateTime on) => Tx(
-        id: newId(),
+  Tx _outsideTx(Account card, DateTime cut, int amountMinor, DateTime on, {String? id}) => Tx(
+        id: id ?? newId(),
         kind: TxKind.income,
         amountMinor: amountMinor,
         accountId: card.id,
@@ -2805,13 +2816,101 @@ class Ledger extends ChangeNotifier {
   /// fuera de Plata del extracto que cortó en [cut], anotado desde Plata
   /// (por ejemplo, después de la ventana de la pregunta). Queda vinculado y
   /// lo reemplaza, como un pago registrado desde la fila.
-  void linkToStatement(Tx t, DateTime cut) {
+  /// Devuelve lo necesario para deshacerlo ([undoLinkToStatement]).
+  OutsideLinkUndo? linkToStatement(Tx t, DateTime cut) {
+    final Account? card = _cardCredited(t);
+    final OutsideLinkUndo? undo = card == null ? null : _snapshotLinks(card, t);
     final Tx draft = Tx.fromJson(t.toJson())
       ..statementOf = dayKey(dateOnly(cut))
       ..outsidePending = false
       ..outsideTaken = null;
     draft.apartFrom.remove(dayKey(dateOnly(cut)));
     updateTx(draft);
+    return undo;
+  }
+
+  /// Tarjeta de crédito a la que abona [t], o null.
+  Account? _cardCredited(Tx t) {
+    for (final Account a in accounts) {
+      if (a.isCredit && _creditAmount(a, t) > 0) {
+        return a;
+      }
+    }
+    return null;
+  }
+
+  /// Copia de los movimientos de [card] que el vínculo puede cambiar (los
+  /// pagos de fuera, los abonos vinculados y [t]) y de sus marcas.
+  OutsideLinkUndo _snapshotLinks(Account card, Tx t) {
+    final List<Map<String, dynamic>> saved = <Map<String, dynamic>>[
+      for (final Tx x in txs)
+        if (x.id == t.id || (_creditAmount(card, x) > 0 && (x.statementOf != null || x.isOutsidePayment))) x.toJson(),
+    ];
+    return OutsideLinkUndo._(card.id, saved, List<String>.of(card.markedOnly), Map<String, String>.of(card.outsideGone));
+  }
+
+  /// «Deshacer» de «Ya lo anoté en Plata»: el vínculo y el pago hecho fuera
+  /// de Plata quedan como estaban.
+  void undoLinkToStatement(OutsideLinkUndo undo) {
+    final Account? card = account(undo.cardId);
+    if (card == null) {
+      return;
+    }
+    final Set<String> ids = <String>{for (final Map<String, dynamic> j in undo.txs) j['id'] as String};
+    txs.removeWhere((Tx x) => ids.contains(x.id) || (_creditAmount(card, x) > 0 && (x.statementOf != null || x.isOutsidePayment)));
+    txs.addAll(undo.txs.map(Tx.fromJson));
+    card.markedOnly
+      ..clear()
+      ..addAll(undo.markedOnly);
+    card.outsideGone
+      ..clear()
+      ..addAll(undo.outsideGone);
+    _sortTxs();
+    save();
+  }
+
+  /// Si [t] (un abono sin vínculo y sin pregunta pendiente, ya guardado)
+  /// cabe en lo pagado fuera de Plata de algún extracto marcado de su
+  /// tarjeta, sea cual sea la ventana: el corte del más reciente, para un
+  /// aviso que no bloquea («¿Es el pago del extracto del …? Elegir»). No deja
+  /// nada pendiente ni toca la mora.
+  DateTime? outsideHint(Tx t) {
+    if (t.statementOf != null || t.outsidePending || t.isOutsidePayment || t.isAdjustment) {
+      return null;
+    }
+    if (t.kind == TxKind.income && _parts(t).every((TxSplit p) => isRefundCategory(p.categoryId))) {
+      return null;
+    }
+    final Account? card = _cardCredited(t);
+    if (card == null) {
+      return null;
+    }
+    final int amount = _creditAmount(card, t);
+    final Map<DateTime, int> outside = <DateTime, int>{};
+    for (final Tx o in txs.where((Tx x) => x.isOutsidePayment && x.amountMinor > 0)) {
+      final DateTime? cut = _linkedCut(card, o);
+      if (cut != null) {
+        outside[cut] = (outside[cut] ?? 0) + o.amountMinor;
+      }
+    }
+    final List<DateTime> cuts = outside.keys.where((DateTime c) => !t.apartFrom.contains(dayKey(c)) && dateOnly(t.date).isAfter(c)).toList()..sort((DateTime a, DateTime b) => b.compareTo(a));
+    for (final DateTime cut in cuts) {
+      final int out = outside[cut]!;
+      if (amount <= out + out ~/ 100) {
+        return cut;
+      }
+    }
+    return null;
+  }
+
+  /// Extractos de [card] con pago hecho fuera de Plata, del más reciente al
+  /// más antiguo (para «Ver extractos anteriores» en Tarjetas).
+  List<DateTime> statementsWithOutside(Account card) {
+    final Set<DateTime> cuts = <DateTime>{
+      for (final Tx o in txs.where((Tx x) => x.isOutsidePayment))
+        if (_linkedCut(card, o) != null) _linkedCut(card, o)!,
+    };
+    return cuts.toList()..sort((DateTime a, DateTime b) => b.compareTo(a));
   }
 
   /// Abonos que Plata tomó provisionalmente por un pago hecho fuera de Plata
@@ -3072,6 +3171,10 @@ class Ledger extends ChangeNotifier {
     card.markedOnly
       ..clear()
       ..addAll(marks);
+    final Map<String, String> gone = <String, String>{for (final MapEntry<String, String> e in card.outsideGone.entries) to(e.key): e.value};
+    card.outsideGone
+      ..clear()
+      ..addAll(gone);
     save();
   }
 
@@ -3551,6 +3654,17 @@ class Ledger extends ChangeNotifier {
   /// Los últimos avisos ya anotados o descartados, del más reciente al más
   /// antiguo (la bandeja guarda primero los nuevos).
   List<InboxItem> noticeHistory({int limit = 30}) => inbox.where((InboxItem i) => i.status != 'pending').take(limit).toList();
+}
+
+/// Lo necesario para deshacer «Ya lo anoté en Plata» (ver
+/// [Ledger.linkToStatement]).
+class OutsideLinkUndo {
+  const OutsideLinkUndo._(this.cardId, this.txs, this.markedOnly, this.outsideGone);
+
+  final String cardId;
+  final List<Map<String, dynamic>> txs;
+  final List<String> markedOnly;
+  final Map<String, String> outsideGone;
 }
 
 /// Tarjeta y extracto al que está vinculado un abono.

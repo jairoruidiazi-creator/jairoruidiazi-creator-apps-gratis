@@ -356,6 +356,7 @@ class HomeScreen extends StatelessWidget {
         },
       ),
     ));
+    offerOutsideHint(context, tx);
   }
 
   void _openAccount(BuildContext context, Account a) {

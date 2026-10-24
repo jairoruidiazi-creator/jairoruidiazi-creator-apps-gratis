@@ -61,8 +61,10 @@ class Account {
     Map<String, String>? minimumsOn,
     List<OutsidePayment>? outsidePayments,
     List<String>? markedOnly,
+    Map<String, String>? outsideGone,
     this.statementNotedOn,
-  })  : statementMinimums = statementMinimums ?? <String, int>{},
+  })  : outsideGone = outsideGone ?? <String, String>{},
+        statementMinimums = statementMinimums ?? <String, int>{},
         paidStatements = paidStatements ?? <String>[],
         paidOn = paidOn ?? <String, String>{},
         minimumsOn = minimumsOn ?? <String, String>{},
@@ -128,6 +130,12 @@ class Account {
   /// ([Tx.isOutsidePayment]).
   final List<String> markedOnly;
 
+  /// Pagos hechos fuera de Plata que un abono provisional reemplazó entero
+  /// (y por eso se borraron): corte (`dayKey`) → `id|fecha` del movimiento.
+  /// Si la persona contesta «Es otro pago», se vuelve a crear con el mismo id
+  /// y la misma fecha (la de la marca).
+  final Map<String, String> outsideGone;
+
   /// Pagos hechos fuera de Plata de la versión 1.0.0 (ronda 10), guardados
   /// aparte. Al abrir el libro se convierten una sola vez en movimientos y
   /// quedan vacíos.
@@ -173,6 +181,7 @@ class Account {
         'statementNotedOn': statementNotedOn,
         'outsidePayments': outsidePayments.map((OutsidePayment p) => p.toJson()).toList(),
         'markedOnly': markedOnly,
+        if (outsideGone.isNotEmpty) 'outsideGone': outsideGone,
       };
 
   static Account fromJson(Map<String, dynamic> j) => Account(
@@ -211,6 +220,10 @@ class Account {
         },
         statementNotedOn: j['statementNotedOn'] as String?,
         markedOnly: <String>[for (final dynamic x in (j['markedOnly'] as List<dynamic>?) ?? <dynamic>[]) x.toString()],
+        outsideGone: <String, String>{
+          for (final MapEntry<String, dynamic> e in ((j['outsideGone'] as Map<String, dynamic>?) ?? <String, dynamic>{}).entries)
+            if (e.value is String) e.key: e.value as String,
+        },
         outsidePayments: <OutsidePayment>[
           for (final dynamic x in (j['outsidePayments'] as List<dynamic>?) ?? <dynamic>[])
             if (x is Map<String, dynamic>) OutsidePayment.fromJson(x),
