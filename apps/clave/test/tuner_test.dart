@@ -267,11 +267,10 @@ void main() {
           async.elapse(const Duration(milliseconds: 60));
         }
         expect(tuner.notice, TunerNotice.belowRange);
-        // Un tono de la propia app (el bordón en Do2) no cuenta como lectura
+        // Un tono de la propia app (el bordón en Re4) no cuenta como lectura
         // que borre el aviso.
-        tuner
-          ..ownTones = () => <double>[hzAt(62, 0)]
-          ..ownFrequencies = () => <double>[hzAt(62, 0)];
+        tuner.ownTones = () => <double>[hzAt(62, 0)];
+        tuner.ownFrequencies = () => <double>[hzAt(62, 0)];
         tuner.feed(s.next(hzAt(62, 0), 8192));
         expect(tuner.notice, TunerNotice.belowRange, reason: 'el bordón no borra el botón');
         tuner.instrument = Instruments.byId('cromatico');
