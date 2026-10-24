@@ -296,6 +296,7 @@ void main() {
     <String, Object>{'name': 'base', 'auto': 0.15, 'visit': 0.5, 'today': 0.5},
     <String, Object>{'name': 'siempre con pantalla y la fecha de hoy', 'auto': 0.0, 'visit': 0.5, 'today': 1.0},
     <String, Object>{'name': 'siempre automático y nunca abre la app', 'auto': 1.0, 'visit': 0.0, 'today': 0.5},
+    <String, Object>{'name': 'siempre automático y abre la app', 'auto': 1.0, 'visit': 1.0, 'today': 0.5},
   ]) {
     test('propiedades P1, P6, P8 y P9 al azar con la verdad aparte (${config['name']})', () async {
       final double autoP = config['auto']! as double;
@@ -304,7 +305,7 @@ void main() {
       final List<String> failures = <String>[];
       int outsideSeen = 0;
       int answered = 0;
-      for (int seed = 0; seed < 60 && failures.length < 10; seed++) {
+      for (int seed = 0; seed < 80 && failures.length < 10; seed++) {
         final Random rnd = Random(500 + seed);
         today = d(2026, 3, 1);
         final Ledger l = await newLedger();
@@ -325,7 +326,16 @@ void main() {
               return;
             }
             answered += 1;
-            l.answerOutsideMatch(found.first, same: truthSame(found.first, l.pendingOutsideCut(found.first)!));
+            final Tx t = found.first;
+            final bool same = truthSame(t, l.pendingOutsideCut(t)!);
+            final int before = t.outsideTaken ?? 0;
+            l.answerOutsideMatch(t, same: same);
+            if (same) {
+              // Documentado (como A4): confirmado, el abono entero es ese pago.
+              final int paid = pays.firstWhere((_Pay p) => p.txId == t.id).amount;
+              final int over = (t.outsideTaken ?? 0) - (before > paid ? before : paid);
+              documented += over > 0 ? over : 0;
+            }
           }
         }
 
@@ -426,7 +436,9 @@ void main() {
               final Tx t = linked[rnd.nextInt(linked.length)];
               final int add = pesos(10000 * (1 + rnd.nextInt(3)));
               final DateTime k = CardCycle.current(tc, DateTime.parse(t.statementOf!)).cut;
-              if (!t.outsidePending || truthSame(t, k)) {
+              final bool wasPending = t.outsidePending;
+              final int takenBefore = t.outsideTaken ?? 0;
+              if (!wasPending) {
                 // Documentado (A4): subir un pago vinculado reemplaza lo de fuera.
                 final int held = l.pendingOutsideMatches(card: tc, cut: k).where((Tx o) => o.id != t.id).fold<int>(0, (int a, Tx o) => a + (o.outsideTaken ?? 0));
                 final int room = l.outsidePayment(tc, k) + held;
@@ -434,6 +446,13 @@ void main() {
               }
               l.updateTx(Tx.fromJson(t.toJson())..amountMinor = t.amountMinor + add);
               real -= add;
+              // Documentado: un abono provisional editado recalcula lo que toma
+              // con su monto nuevo (si de verdad es ese pago).
+              final Tx after = l.txs.firstWhere((Tx x) => x.id == t.id);
+              if (wasPending && truthSame(after, k)) {
+                final int grew = (after.outsideTaken ?? 0) - takenBefore;
+                documented += grew > 0 ? grew : 0;
+              }
             }
           } else {
             final int old = tc.cutDay!;
@@ -466,8 +485,21 @@ void main() {
             failures.add('$at: P8 deuda de Plata ${plata ~/ 100} < real ${real ~/ 100}');
           }
           final int pendingOther = l.pendingOutsideMatches().where((Tx t) => !truthSame(t, l.pendingOutsideCut(t)!)).fold<int>(0, (int a, Tx t) => a + (t.outsideTaken ?? 0));
-          if (plata > real + documented + pendingOther) {
-            failures.add('$at: P9 deuda de Plata ${plata ~/ 100} > real ${real ~/ 100} + documentado ${documented ~/ 100} + pendiente que es otro ${pendingOther ~/ 100}');
+          // Documentado (A4): un pago real anotado desde Plata cuenta entero
+          // como ese pago; si abona más que el pago real, reemplaza lo de fuera
+          // hasta su monto (también si lo tomó al devolver otro provisional).
+          int a4 = 0;
+          for (final _Pay p in pays.where((_Pay p) => p.txId != null)) {
+            for (final Tx t in l.txs.where((Tx t) => t.id == p.txId && t.statementOf != null)) {
+              final int over = (t.outsideTaken ?? 0) - p.amount;
+              if (over > 0 && truthSame(t, CardCycle.current(tc, DateTime.parse(t.statementOf!)).cut)) {
+                a4 += over;
+              }
+            }
+          }
+          final int allowed = documented > a4 ? documented : a4;
+          if (plata > real + allowed + pendingOther) {
+            failures.add('$at: P9 deuda de Plata ${plata ~/ 100} > real ${real ~/ 100} + documentado ${allowed ~/ 100} + pendiente que es otro ${pendingOther ~/ 100}');
           }
         }
         outsideSeen += l.txs.where((Tx t) => t.isOutsidePayment).length;

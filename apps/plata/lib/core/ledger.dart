@@ -1311,8 +1311,8 @@ class Ledger extends ChangeNotifier {
   /// ese pago: queda vinculado, lo reemplaza y la pregunta «¿Es el pago del
   /// extracto…?» queda pendiente ([Tx.outsidePending]) hasta que se conteste
   /// ([answerOutsideMatch]). Así nunca cuenta dos veces mientras tanto.
-  DateTime? _matchOutside(Tx t) {
-    final DateTime? cut = outsideCandidate(t);
+  DateTime? _matchOutside(Tx t, {bool afterNo = false}) {
+    final DateTime? cut = outsideCandidate(t, afterNo: afterNo);
     if (cut == null) {
       return null;
     }
@@ -2656,15 +2656,20 @@ class Ledger extends ChangeNotifier {
   ///   provisionalmente otros abonos sin contestar) y por los que la persona
   ///   no contestó «Es otro pago» para este abono ([Tx.apartFrom]);
   /// - primero, del más reciente al más antiguo, el extracto en que el monto
-  ///   cabe (no pasa de lo pagado fuera, +1 %), con fecha desde su ciclo
+  ///   cabe (no pasa de lo pagado fuera, +1 %; primero en lo que queda de
+  ///   fuera y después contando lo que tienen otros abonos provisionales),
+  ///   con fecha desde su ciclo
   ///   (antes de su corte pasa si después se corrigió el día de corte) y sin
   ///   límite de fecha;
   /// - si no cabe en ninguno, el más reciente con fecha después de su corte
   ///   y hasta su corte siguiente, con cualquier monto. Después del corte
   ///   siguiente un monto que no cabe es el pago de ese extracto siguiente
   ///   (caso N2): no se pregunta;
+  /// - con [afterNo] (la persona acaba de contestar «Es otro pago» por otro
+  ///   extracto), cualquier otro extracto marcado con pago de fuera desde
+  ///   cuyo ciclo tenga fecha;
   /// - nunca las devoluciones, los ajustes ni los pagos de fuera.
-  DateTime? outsideCandidate(Tx t) {
+  DateTime? outsideCandidate(Tx t, {bool afterNo = false}) {
     if (t.statementOf != null || t.isOutsidePayment || t.isAdjustment) {
       return null;
     }
@@ -2678,7 +2683,10 @@ class Ledger extends ChangeNotifier {
       if (amount <= 0) {
         continue;
       }
+      // Lo de fuera que queda de cada extracto ([free]) y lo mismo más lo
+      // que tienen provisionalmente otros abonos sin contestar ([outside]).
       final Map<DateTime, int> outside = <DateTime, int>{};
+      final Map<DateTime, int> free = <DateTime, int>{};
       for (final Tx o in txs) {
         if (identical(o, t) || o.id == t.id) {
           continue;
@@ -2687,21 +2695,39 @@ class Ledger extends ChangeNotifier {
         final DateTime? cut = held > 0 ? _linkedCut(card, o) : null;
         if (cut != null) {
           outside[cut] = (outside[cut] ?? 0) + held;
+          if (o.isOutsidePayment) {
+            free[cut] = (free[cut] ?? 0) + held;
+          }
         }
       }
       final List<DateTime> cuts = outside.keys.where((DateTime c) => !t.apartFrom.contains(dayKey(c))).toList()..sort((DateTime a, DateTime b) => b.compareTo(a));
       // Primero el más reciente en que el monto cabe (con fecha desde su
       // ciclo, sin límite); si no cabe en ninguno, el más reciente con fecha
       // después de su corte y hasta su corte siguiente.
+      bool fits(int out) => out > 0 && amount <= out + out ~/ 100;
+      bool inCycle(DateTime cut) => d.isAfter(CardCycle.current(card, cut).previous(card).cut);
       for (final DateTime cut in cuts) {
-        final int out = outside[cut]!;
-        if (amount <= out + out ~/ 100 && d.isAfter(CardCycle.current(card, cut).previous(card).cut)) {
+        if (fits(free[cut] ?? 0) && inCycle(cut)) {
+          return cut;
+        }
+      }
+      for (final DateTime cut in cuts) {
+        if (fits(outside[cut]!) && inCycle(cut)) {
           return cut;
         }
       }
       for (final DateTime cut in cuts) {
         if (d.isAfter(cut) && !d.isAfter(CardCycle.cutAfter(card, cut, 1))) {
           return cut;
+        }
+      }
+      // Después de «Es otro pago»: ¿es el de otro extracto marcado? (El
+      // abono pudo subir con otro pago y ya no caber.)
+      if (afterNo) {
+        for (final DateTime cut in cuts) {
+          if (inCycle(cut)) {
+            return cut;
+          }
         }
       }
     }
@@ -2759,7 +2785,7 @@ class Ledger extends ChangeNotifier {
       if (cut != null && !stored.apartFrom.contains(dayKey(cut))) {
         stored.apartFrom.add(dayKey(cut));
       }
-      _matchOutside(stored);
+      _matchOutside(stored, afterNo: true);
     }
     save();
   }
