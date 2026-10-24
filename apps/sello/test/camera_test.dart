@@ -507,8 +507,18 @@ void main() {
     tester.platformDispatcher.clearTextScaleFactorTestValue();
     await pumpMany(tester, 3);
 
+    // La hoja es una lista perezosa: se desplaza hasta que el botón exista.
+    final Finder sheetList = find.descendant(of: find.byType(DraggableScrollableSheet), matching: find.byType(Scrollable)).first;
+    Future<void> reveal(Finder f) async {
+      for (int i = 0; i < 45 && f.evaluate().isEmpty; i++) {
+        await tester.drag(sheetList, Offset(0, i < 15 ? -150 : 150));
+        await pumpMany(tester, 2);
+      }
+      await tester.ensureVisible(f);
+    }
+
     // Posición manual: no se rellena con la lectura aproximada (M5).
-    await tester.ensureVisible(find.text('Posición manual'));
+    await reveal(find.text('Posición manual'));
     await pumpMany(tester, 3);
     await tester.tap(find.text('Posición manual'));
     await pumpMany(tester, 10);
@@ -522,11 +532,11 @@ void main() {
     expect(find.text('Coordenadas no válidas.'), findsOneWidget);
 
     // Punto fijado mientras era aproximada y la precisa ya concedida (M1).
-    await tester.ensureVisible(find.text('Fijar posición'));
+    await reveal(find.text('Fijar posición'));
     await pumpMany(tester, 3);
     await tester.tap(find.text('Fijar posición'));
     await pumpMany(tester, 5);
-    await tester.ensureVisible(find.text('Pedir ubicación precisa'));
+    await reveal(find.text('Pedir ubicación precisa'));
     await pumpMany(tester, 3);
     await tester.tap(find.text('Pedir ubicación precisa'));
     await pumpMany(tester, 10);
