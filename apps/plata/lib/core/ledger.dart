@@ -2167,7 +2167,7 @@ class Ledger extends ChangeNotifier {
         adjustCredit = -legacy;
         legacy = 0;
       }
-      int payments = s.payments + adjustCredit;
+      final int payments = s.payments + adjustCredit;
       int balance = carry + s.purchases + s.advances + s.installments - payments;
       int toLegacy = 0;
       if (balance < 0 && legacy > 0) {
