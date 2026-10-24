@@ -2655,12 +2655,14 @@ class Ledger extends ChangeNotifier {
   /// - solo extractos que aún tienen pago de fuera (contando lo que tomaron
   ///   provisionalmente otros abonos sin contestar) y por los que la persona
   ///   no contestó «Es otro pago» para este abono ([Tx.apartFrom]);
-  /// - del extracto más reciente al más antiguo, el primero en que cabe: con
-  ///   fecha después de su corte y hasta su corte siguiente, cualquier monto;
-  ///   después del corte siguiente (puede ser el pago de ese extracto
-  ///   siguiente, caso N2) o antes de su corte pero en su ciclo (pasa si
-  ///   después se corrigió el día de corte), solo si el monto no pasa de lo
-  ///   pagado fuera (+1 %);
+  /// - primero, del más reciente al más antiguo, el extracto en que el monto
+  ///   cabe (no pasa de lo pagado fuera, +1 %), con fecha desde su ciclo
+  ///   (antes de su corte pasa si después se corrigió el día de corte) y sin
+  ///   límite de fecha;
+  /// - si no cabe en ninguno, el más reciente con fecha después de su corte
+  ///   y hasta su corte siguiente, con cualquier monto. Después del corte
+  ///   siguiente un monto que no cabe es el pago de ese extracto siguiente
+  ///   (caso N2): no se pregunta;
   /// - nunca las devoluciones, los ajustes ni los pagos de fuera.
   DateTime? outsideCandidate(Tx t) {
     if (t.statementOf != null || t.isOutsidePayment || t.isAdjustment) {
@@ -2688,15 +2690,17 @@ class Ledger extends ChangeNotifier {
         }
       }
       final List<DateTime> cuts = outside.keys.where((DateTime c) => !t.apartFrom.contains(dayKey(c))).toList()..sort((DateTime a, DateTime b) => b.compareTo(a));
+      // Primero el más reciente en que el monto cabe (con fecha desde su
+      // ciclo, sin límite); si no cabe en ninguno, el más reciente con fecha
+      // después de su corte y hasta su corte siguiente.
       for (final DateTime cut in cuts) {
         final int out = outside[cut]!;
-        final bool fits = amount <= out + out ~/ 100;
-        if (d.isAfter(cut)) {
-          final DateTime next = CardCycle.cutAfter(card, cut, 1);
-          if (!d.isAfter(next) || fits) {
-            return cut;
-          }
-        } else if (fits && d.isAfter(CardCycle.current(card, cut).previous(card).cut)) {
+        if (amount <= out + out ~/ 100 && d.isAfter(CardCycle.current(card, cut).previous(card).cut)) {
+          return cut;
+        }
+      }
+      for (final DateTime cut in cuts) {
+        if (d.isAfter(cut) && !d.isAfter(CardCycle.cutAfter(card, cut, 1))) {
           return cut;
         }
       }

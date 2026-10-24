@@ -52,13 +52,15 @@ Future<Account> seedCard(Ledger l) async {
 
 int debt(Ledger l) => -l.balanceMinor('tc', before: DateTime(2040));
 
+Finder inDialog(String text) => find.descendant(of: find.byType(AlertDialog), matching: find.text(text));
+
 Future<void> answer(WidgetTester tester, {required bool same}) async {
-  expect(find.text(question), findsOneWidget);
+  expect(inDialog(question), findsOneWidget);
   // No se cierra tocando fuera: hay que contestar.
   await tester.tapAt(const Offset(8, 8));
   await settle(tester);
-  expect(find.text(question), findsOneWidget);
-  await tester.tap(find.text(same ? 'Sí, es ese pago' : 'Es otro pago'));
+  expect(inDialog(question), findsOneWidget);
+  await tester.tap(inDialog(same ? 'Sí, es ese pago' : 'Es otro pago'));
   await settle(tester);
 }
 
@@ -95,8 +97,8 @@ void main() {
       await settle(tester);
       await tester.tap(find.text('Guardar'));
       await settle(tester);
-      expect(find.text('¿Es el pago del extracto del 15 sep?'), findsOneWidget);
-      await tester.tap(find.text('Sí, es ese pago'));
+      expect(inDialog('¿Es el pago del extracto del 15 sep?'), findsOneWidget);
+      await tester.tap(inDialog('Sí, es ese pago'));
       await settle(tester);
       await syncLedger(tester, env);
       expect(find.byType(TxEditor), findsNothing);
@@ -241,6 +243,7 @@ void main() {
       await tester.tapAt(const Offset(8, 8));
       await settle(tester);
       await syncLedger(tester, env);
+      await tester.pumpWidget(const SizedBox());
       await finish(tester);
     });
   });

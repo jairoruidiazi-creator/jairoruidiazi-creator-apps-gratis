@@ -86,12 +86,13 @@ void main() {
         expect(find.byType(TxEditor), findsOneWidget);
         await tester.tap(find.text('Guardar'));
         await settle(tester);
-        expect(find.text('¿Es el pago del extracto del 30 sep?'), findsOneWidget);
+        final Finder title = find.descendant(of: find.byType(AlertDialog), matching: find.text('¿Es el pago del extracto del 30 sep?'));
+        expect(title, findsOneWidget);
         // No se cierra tocando fuera: hay que contestar.
         await tester.tapAt(const Offset(8, 8));
         await settle(tester);
-        expect(find.text('¿Es el pago del extracto del 30 sep?'), findsOneWidget);
-        await tester.tap(find.text(same ? 'Sí, es ese pago' : 'Es otro pago'));
+        expect(title, findsOneWidget);
+        await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text(same ? 'Sí, es ese pago' : 'Es otro pago')));
         await settle(tester);
         await syncLedger(tester, env);
         final Tx paid = l.txs.firstWhere((Tx t) => t.kind == TxKind.transfer && t.toAccountId == 'tc');
