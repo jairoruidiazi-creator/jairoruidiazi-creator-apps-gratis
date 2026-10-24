@@ -187,7 +187,8 @@ class PdfReport {
         <String>[s('Fecha y hora', 'Date and time'), '${formatDate(p.wallTime, 'dd/MM/yyyy HH:mm:ss')} ${p.offsetLabel}'],
         if (p.hasLocation) ...<List<String>>[
           <String>[s('Grados decimales', 'Decimal degrees'), Coords.format(CoordFormat.dd, p.latitude!, p.longitude!, coarse: p.approximateLocation)],
-          <String>[s('GMS', 'DMS'), Coords.format(CoordFormat.dms, p.latitude!, p.longitude!, coarse: p.approximateLocation)],
+          // Con la aproximada van minutos enteros: no es GMS.
+          <String>[p.approximateLocation ? s('Grados y minutos', 'Degrees and minutes') : s('GMS', 'DMS'), Coords.format(CoordFormat.dms, p.latitude!, p.longitude!, coarse: p.approximateLocation)],
           <String>['UTM', Coords.format(CoordFormat.utm, p.latitude!, p.longitude!, coarse: p.approximateLocation)],
           <String>['MGRS', Coords.format(CoordFormat.mgrs, p.latitude!, p.longitude!, coarse: p.approximateLocation)],
           <String>['Plus Code', p.approximateLocation ? Coords.plusCode(p.latitude!, p.longitude!, length: 6) : Coords.plusCode(p.latitude!, p.longitude!, length: 11)],

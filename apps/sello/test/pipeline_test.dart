@@ -557,8 +557,13 @@ void main() {
       ];
       final Uint8List pdf = await PdfReport.buildInCurrentIsolate(photos: list, projects: <String, Project>{'p1': obra}, title: 'Report', images: const <String, Uint8List>{}, spanish: false, now: DateTime(2026, 3, 11, 9));
       final String text = pdfText(pdf);
-      expect(text, contains('4.71, -74.07'));
-      expect(text, contains('approximate'));
+      // El PDF escribe cada palabra por separado.
+      expect(text, contains('[(4.71,)]TJ'));
+      expect(text, contains('[(-74.07)]TJ'));
+      expect(text, contains('approx.'));
+      expect(text, contains('[(approximate)]TJ'));
+      expect(text, contains('[(4881000)]TJ'));
+      expect(text, contains('[(Degrees)]TJ'));
       expect(text, isNot(contains('4.710000')));
       expect(text, isNot(contains('4.71000')));
     });

@@ -483,6 +483,9 @@ void main() {
     await pumpMany(tester);
     final Finder chip = find.textContaining('Ubicación aproximada · hace');
     expect(chip, findsOneWidget);
+    // Con el texto largo el chip queda al final de la fila desplazable.
+    await tester.ensureVisible(chip);
+    await pumpMany(tester, 3);
     await tester.tap(chip);
     await pumpMany(tester, 20);
     // Nada de «sal a cielo abierto»: con la aproximada no sirve.
