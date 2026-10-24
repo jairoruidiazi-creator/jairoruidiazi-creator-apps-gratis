@@ -298,14 +298,15 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     final NotifierResponse? r = _pendingResponse;
     if (r != null && _s != null && !_s!.lock.locked) {
       _pendingResponse = null;
-      _onNotification(r);
+      // La persona acaba de poner la clave: se aplica sin volver a pedirla.
+      _onNotification(r, authenticated: true);
     }
   }
 
   /// Un toque en un aviso de pago pendiente (`o:<tarjeta>:<corte>`): su botón
   /// «Ya lo pagué» marca ese extracto como pagado; tocar el aviso abre
   /// Tarjetas.
-  void _onNotification(NotifierResponse r) {
+  void _onNotification(NotifierResponse r, {bool authenticated = false}) {
     final Services? s = _s;
     if (s == null || !mounted) {
       return;
@@ -325,7 +326,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     // se identifique en esta vuelta, aunque esté dentro de los segundos de
     // gracia del bloqueo: se bloquea ya y se aplica al desbloquear.
     final bool active = WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
-    if (s.lock.enabled && (s.lock.locked || s.lock.obscured || !active)) {
+    if (s.lock.enabled && (s.lock.locked || (!authenticated && (s.lock.obscured || !active)))) {
       _pendingResponse = r;
       if (!s.lock.locked) {
         s.lock.lockNow();
