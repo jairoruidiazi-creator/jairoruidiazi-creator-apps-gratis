@@ -72,6 +72,8 @@ void main() {
       await goTab(tester, 'Más');
       await openMore(tester, 'Tarjetas de crédito');
       expect(find.byType(OverdueBanner), findsOneWidget);
+      await tester.ensureVisible(find.descendant(of: find.byType(OverdueBanner), matching: find.text('Ya lo pagué')));
+      await settle(tester);
       await tester.tap(find.descendant(of: find.byType(OverdueBanner), matching: find.text('Ya lo pagué')));
       await settle(tester);
       expect(l.isStatementPaid(tc, cut), isTrue);
@@ -82,6 +84,8 @@ void main() {
       expect(l.isStatementPaid(tc, cut), isFalse);
       expect(find.byType(OverdueBanner), findsOneWidget);
       // Marcado otra vez: Tarjetas lo dice y deja desmarcarlo después.
+      await tester.ensureVisible(find.descendant(of: find.byType(OverdueBanner), matching: find.text('Ya lo pagué')));
+      await settle(tester);
       await tester.tap(find.descendant(of: find.byType(OverdueBanner), matching: find.text('Ya lo pagué')));
       await settle(tester);
       await tester.pump(const Duration(seconds: 10));
@@ -213,19 +217,17 @@ void main() {
       await settle(tester);
       // Corte el 15 y pago el 7: el extracto del 15 oct vence el sáb 7 nov,
       // que se corre al lun 9.
+      await tester.tap(find.text('Deuda total hoy (todo lo que debes)'));
+      await settle(tester);
+      await typeAmount(tester, '1000000');
       final Finder pay = find.ancestor(of: find.text('Día de pago'), matching: find.byWidgetPredicate((Widget w) => w is DropdownButtonFormField<int>));
       await tester.scrollUntilVisible(pay, 150, scrollable: find.byType(Scrollable).first);
       await tester.tap(pay);
       await settle(tester);
       await tester.tap(find.text('7').last);
       await settle(tester);
-      await tester.ensureVisible(find.text('Deuda total hoy (todo lo que debes)'));
-      await settle(tester);
-      await tester.tap(find.text('Deuda total hoy (todo lo que debes)'));
-      await settle(tester);
-      await typeAmount(tester, '1000000');
       final Finder hint = find.textContaining('que vence el lun 09 nov (el sáb 07 nov no es hábil)');
-      await tester.scrollUntilVisible(hint, 150, scrollable: find.byType(Scrollable).first);
+      await tester.scrollUntilVisible(hint, -150, scrollable: find.byType(Scrollable).first);
       expect(hint, findsOneWidget);
       expect(find.textContaining('Ya venció'), findsNothing);
       // «¿Ya lo pagaste?» no se cierra tocando fuera.
