@@ -58,9 +58,14 @@ class Account {
     Map<String, int>? statementMinimums,
     List<String>? paidStatements,
     Map<String, String>? paidOn,
+    Map<String, String>? minimumsOn,
+    List<OutsidePayment>? outsidePayments,
+    this.statementNotedOn,
   })  : statementMinimums = statementMinimums ?? <String, int>{},
         paidStatements = paidStatements ?? <String>[],
-        paidOn = paidOn ?? <String, String>{};
+        paidOn = paidOn ?? <String, String>{},
+        minimumsOn = minimumsOn ?? <String, String>{},
+        outsidePayments = outsidePayments ?? <OutsidePayment>[];
 
   final String id;
   String name;
@@ -103,14 +108,28 @@ class Account {
   /// (`dayKey`). Solo contra un mínimo conocido se declara un pago vencido.
   final Map<String, int> statementMinimums;
 
-  /// Extractos (por fecha de corte) que la persona dijo que ya pagó, aunque el
-  /// pago no esté anotado en Plata: con ellos nunca se declara mora.
+  /// Día en que se anotó cada mínimo de [statementMinimums] (`dayKey` del
+  /// corte → `dayKey` del día). Sirve para llevarlo al extracto correcto si
+  /// cambia el día de corte. Los anotados antes de guardarse el día no lo
+  /// traen.
+  final Map<String, String> minimumsOn;
+
+  /// Día en que se anotó el pago mínimo del último extracto al crear la
+  /// tarjeta ([statementDueMinor], [statementCut]); null en los de antes.
+  String? statementNotedOn;
+
+  /// Pagos hechos fuera de Plata («Ya lo pagué»): cada uno guarda el
+  /// extracto, el monto que faltaba cuando se marcó y ese día. Bajan la deuda
+  /// de la tarjeta y no salen de ninguna cuenta. Un extracto con uno de estos
+  /// está marcado como pagado.
+  final List<OutsidePayment> outsidePayments;
+
+  /// Marcas de las versiones anteriores («Ya lo pagué» sin monto guardado).
+  /// Al abrir el libro se convierten una sola vez en [outsidePayments] y
+  /// quedan vacías.
   final List<String> paidStatements;
 
-  /// Día en que se marcó cada extracto de [paidStatements] (`dayKey` del corte
-  /// → `dayKey` del día). Lo anotado hasta ese día es parte de lo que la
-  /// persona dijo que pagó. Las marcas de antes no lo traen: para ellas vale
-  /// la fecha límite real del extracto.
+  /// Día de cada marca de [paidStatements] (versión anterior).
   final Map<String, String> paidOn;
 
   bool get isCredit => type == AccountType.credit;
@@ -141,6 +160,9 @@ class Account {
         'statementMinimums': statementMinimums,
         'paidStatements': paidStatements,
         'paidOn': paidOn,
+        'minimumsOn': minimumsOn,
+        'statementNotedOn': statementNotedOn,
+        'outsidePayments': outsidePayments.map((OutsidePayment p) => p.toJson()).toList(),
       };
 
   static Account fromJson(Map<String, dynamic> j) => Account(
@@ -173,7 +195,35 @@ class Account {
           for (final MapEntry<String, dynamic> e in ((j['paidOn'] as Map<String, dynamic>?) ?? <String, dynamic>{}).entries)
             if (e.value is String) e.key: e.value as String,
         },
+        minimumsOn: <String, String>{
+          for (final MapEntry<String, dynamic> e in ((j['minimumsOn'] as Map<String, dynamic>?) ?? <String, dynamic>{}).entries)
+            if (e.value is String) e.key: e.value as String,
+        },
+        statementNotedOn: j['statementNotedOn'] as String?,
+        outsidePayments: <OutsidePayment>[
+          for (final dynamic x in (j['outsidePayments'] as List<dynamic>?) ?? <dynamic>[])
+            if (x is Map<String, dynamic>) OutsidePayment.fromJson(x),
+        ],
       );
+}
+
+/// Pago de una tarjeta hecho fuera de Plata («Ya lo pagué»).
+class OutsidePayment {
+  OutsidePayment({required this.statement, required this.amountMinor, required this.on});
+
+  /// Corte del extracto que pagó (`dayKey`).
+  String statement;
+
+  /// Lo que faltaba del mínimo cuando se marcó (o lo que la persona escribió
+  /// después). No se recalcula.
+  int amountMinor;
+
+  /// Día en que se marcó (`dayKey`).
+  String on;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{'statement': statement, 'amountMinor': amountMinor, 'on': on};
+
+  static OutsidePayment fromJson(Map<String, dynamic> j) => OutsidePayment(statement: j['statement'] as String? ?? '', amountMinor: (j['amountMinor'] as num?)?.toInt() ?? 0, on: j['on'] as String? ?? '');
 }
 
 enum CategoryKind { expense, income }

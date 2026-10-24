@@ -107,6 +107,7 @@ class _CardPanelState extends State<_CardPanel> {
     }
     final CardStatement st = l.statement(c, date: cycle.cut);
     final int balance = l.balanceMinor(c.id);
+    // «· cupo libre $ 2,47 M» va entero en una línea (espacios que no parten).
     final int? available = l.availableCreditMinor(c);
     final List<Tx> installments = l.txs.where((Tx tx) => tx.accountId == c.id && tx.installments > 1 && l.remainingInstallments(tx) > 0).toList();
     final int pendingInstallments = installments.fold<int>(0, (int a, Tx tx) => a + l.remainingInstallmentsMinor(tx));
@@ -132,7 +133,7 @@ class _CardPanelState extends State<_CardPanel> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Text('${c.name}${c.last4.isNotEmpty ? ' *${c.last4}' : ''}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                      Text('${t(context, 'Corte el', 'Closes on the')} ${dayOfMonth(context, c.cutDay ?? 1)} · ${t(context, 'pago el', 'due on the')} ${dayOfMonth(context, c.payDay ?? c.cutDay ?? 1)}${available != null ? ' · ${t(context, 'cupo libre', 'available')} ${money(context, available, c.currency, compact: true)}' : ''}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                      Text('${t(context, 'Corte el', 'Closes on the')} ${dayOfMonth(context, c.cutDay ?? 1)} · ${t(context, 'pago el', 'due on the')} ${dayOfMonth(context, c.payDay ?? c.cutDay ?? 1)}${available != null ? ' ${'· ${t(context, 'cupo libre', 'available')} ${money(context, available, c.currency, compact: true)}'.replaceAll(' ', '\u00A0')}' : ''}', style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
                     ],
                   ),
                 ),
@@ -334,6 +335,7 @@ Future<void> askStatementMinimum(BuildContext context, Account card, DateTime cu
       builder: (BuildContext c) => PopScope(
         canPop: false,
         child: AlertDialog(
+            scrollable: true,
             title: Text(t(c, '¿Ya lo pagaste?', 'Have you already paid it?')),
             content: Text(t(c, 'Si ya pagaste este mínimo (en la app del banco, por ejemplo), Plata lo da por pagado y no te avisará mora por este extracto. Si lo pagaste desde una cuenta que tienes en Plata, regístralo para que el saldo cuadre.', 'If you already paid this minimum (in your bank app, for example), Plata counts it as paid and will not warn you about this statement. If you paid from an account you have in Plata, log it so the balance adds up.')),
             actions: <Widget>[
@@ -358,9 +360,16 @@ Future<void> askStatementMinimum(BuildContext context, Account card, DateTime cu
   if (!context.mounted) {
     return;
   }
+  // Guarda lo que faltaba del mínimo como pagado fuera de Plata.
   l.markStatementPaid(card, cut);
   if (answer == _Paid.paidAndLog) {
-    await openCardPayment(context, card, v, date: proposedPaymentDate(l, card, cut), statement: cut);
+    // Se propone lo que faltaba, no el mínimo entero: lo anotado ya cuenta.
+    final int left = l.outsidePayment(card, cut);
+    if (left > 0) {
+      await openCardPayment(context, card, left, date: proposedPaymentDate(l, card, cut), statement: cut);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, 'Lo que anotaste ya cubre ese mínimo: no hay nada más que registrar.', 'What you logged already covers that minimum: there is nothing else to log.'))));
+    }
   } else if (alreadyPaid) {
     showPaidSnackBar(context, card, cut);
   }
@@ -379,16 +388,34 @@ DateTime proposedPaymentDate(Ledger l, Account card, DateTime cut) {
 /// apaga la única alarma de un pago pendiente.
 void showPaidSnackBar(BuildContext context, Account card, DateTime cut) {
   final Ledger l = AppScope.of(context).ledger;
+  final String amount = money(context, l.outsidePayment(card, cut), card.currency);
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-    content: Text(t(context, 'Marcado como pagado. Si lo pagaste desde una cuenta que tienes en Plata, regístralo en Tarjetas.', 'Marked as paid. If you paid from an account you have in Plata, log it in Cards.')),
+    content: Text(t(context, 'Marcado como pagado: $amount por fuera de Plata. Si lo pagaste desde una cuenta que tienes en Plata, regístralo en Tarjetas.', 'Marked as paid: $amount outside Plata. If you paid from an account you have in Plata, log it in Cards.')),
     action: SnackBarAction(label: t(context, 'Deshacer', 'Undo'), onPressed: () => l.markStatementPaid(card, cut, paid: false)),
   ));
 }
 
-/// Marca como pagado el extracto de un aviso de pago pendiente, aunque el
-/// pago no esté anotado, y ofrece registrarlo.
+/// «Ya lo pagué» del aviso rojo o de la notificación: guarda como pagado
+/// fuera de Plata lo que el aviso decía que faltaba. Si el aviso ya no
+/// corresponde (es de antes de cambiar el día de corte, el extracto ya está
+/// marcado o lo anotado ya cubre el mínimo) no marca nada y lo dice.
 void markPaidFromBanner(BuildContext context, Account card, DateTime cut) {
-  AppScope.of(context).ledger.markStatementPaid(card, cut);
+  final Ledger l = AppScope.of(context).ledger;
+  void say(String es, String en) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t(context, es, en))));
+  if (CardCycle.current(card, cut).cut != dateOnly(cut)) {
+    say('Ese aviso es de antes de cambiar el día de corte de ${card.name} y ya no corresponde a ningún extracto: no se marcó nada. Revisa la tarjeta en Tarjetas.', 'That notice is from before the ${card.name} closing day changed and no longer matches any statement: nothing was marked. Check the card in Cards.');
+    return;
+  }
+  if (l.isStatementPaid(card, cut)) {
+    say('Ese extracto ya estaba marcado como pagado.', 'That statement was already marked as paid.');
+    return;
+  }
+  final int missing = l.statementMissing(card, cut) ?? 0;
+  if (missing <= 0) {
+    say('Según lo anotado, ese pago mínimo ya está cubierto: no se marcó nada.', 'According to what you logged, that minimum payment is already covered: nothing was marked.');
+    return;
+  }
+  l.markStatementPaid(card, cut, amount: missing);
   showPaidSnackBar(context, card, cut);
 }
 
@@ -438,9 +465,9 @@ String unconfirmedText(BuildContext context, CardDue due, String currency) {
 }
 
 /// Fila de un extracto marcado «Ya lo pagué» o con pagos vinculados: dice
-/// cuánto se pagó con movimientos de Plata, cuánto con lo anotado y cuánto
-/// se da por pagado fuera de Plata (o cuánto falta, si no está marcado).
-/// Cada botón dice en su nombre accesible de qué extracto es.
+/// cuánto se pagó con movimientos de Plata y cuánto fuera de Plata, o cuánto
+/// falta (la misma cifra del aviso rojo). Cada botón dice en su nombre
+/// accesible de qué extracto es.
 class _PaidStatementRow extends StatelessWidget {
   const _PaidStatementRow({required this.card, required this.cut});
 
@@ -456,41 +483,43 @@ class _PaidStatementRow extends StatelessWidget {
     final List<Tx> linked = l.statementPayments(card, cut);
     final bool marked = l.isStatementPaid(card, cut);
     final int linkedTotal = l.linkedPayments(card, cut);
-    final int absorbed = marked ? l.absorbedPayments(card, cut) : 0;
-    final int outside = l.assumedPayment(card, cut);
-    final int? minimum = l.statementMinimum(card, cut);
-    final List<String> dates = linked.map((Tx x) => dayText(context, x.date)).toSet().toList();
-    final String when = dates.join(', ');
+    final int outside = l.outsidePayment(card, cut);
+    final String when = linked.map((Tx x) => dayText(context, x.date)).toSet().join(', ');
     final String withTx = linked.length == 1 ? t(context, 'con el movimiento del $when', 'with the $when transaction') : t(context, 'con los movimientos del $when', 'with the $when transactions');
     final String text;
     if (!marked) {
-      // Sin marca, solo con pagos vinculados.
-      final int missing = minimum == null ? 0 : minimum - linkedTotal;
+      // Sin marca, solo con pagos vinculados: lo que falta es lo del aviso.
+      final int missing = l.statementMissing(card, cut) ?? 0;
       text = missing > 0
           ? t(context, 'Extracto del $day: ${m(linkedTotal)} abonados $withTx; faltan ${m(missing)} del mínimo', '$day statement: ${m(linkedTotal)} paid $withTx; ${m(missing)} of the minimum is missing')
           : t(context, 'Extracto del $day pagado $withTx (${m(linkedTotal)})', '$day statement paid $withTx (${m(linkedTotal)})');
-    } else if (linked.isEmpty && absorbed == 0) {
-      text = t(context, 'Extracto del $day marcado como pagado', '$day statement marked as paid');
-    } else if (absorbed == 0 && outside == 0) {
+    } else if (linkedTotal == 0) {
+      text = outside > 0 ? t(context, 'Extracto del $day pagado: ${m(outside)} por fuera de Plata', '$day statement paid: ${m(outside)} outside Plata') : t(context, 'Extracto del $day marcado como pagado', '$day statement marked as paid');
+    } else if (outside == 0) {
       text = t(context, 'Extracto del $day pagado $withTx (${m(linkedTotal)})', '$day statement paid $withTx (${m(linkedTotal)})');
     } else {
-      final List<String> parts = <String>[
-        if (linkedTotal > 0) '${m(linkedTotal)} $withTx',
-        if (absorbed > 0) t(context, '${m(absorbed)} con lo anotado', '${m(absorbed)} with what you logged'),
-        if (outside > 0) t(context, '${m(outside)} por fuera de Plata', '${m(outside)} outside Plata'),
-      ];
-      text = t(context, 'Extracto del $day pagado: ${parts.join(', ')}', '$day statement paid: ${parts.join(', ')}');
+      text = t(context, 'Extracto del $day pagado: ${m(linkedTotal)} $withTx, ${m(outside)} por fuera de Plata', '$day statement paid: ${m(linkedTotal)} $withTx, ${m(outside)} outside Plata');
     }
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
       children: <Widget>[
         Text(text, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-        // Solo mientras quede una parte que se da por pagada fuera de Plata:
-        // registrarla la reemplaza, y no se puede registrar dos veces.
+        // Registrar lo que se dio por pagado fuera lo reemplaza: no se puede
+        // registrar dos veces.
         if (marked && outside > 0)
           TextButton(
             onPressed: () => openCardPayment(context, card, outside, date: proposedPaymentDate(l, card, cut), statement: cut),
             child: Text(t(context, 'Registrar el pago', 'Log the payment'), semanticsLabel: t(context, 'Registrar el pago del extracto del $day', 'Log the payment of the $day statement')),
+          ),
+        if (marked)
+          TextButton(
+            onPressed: () async {
+              final int? v = await pickAmount(context, initialMinor: outside, currency: card.currency, title: t(context, 'Pagado fuera de Plata (extracto del $day)', 'Paid outside Plata ($day statement)'));
+              if (v != null) {
+                l.setOutsidePayment(card, cut, v);
+              }
+            },
+            child: Text(t(context, 'Cambiar monto', 'Change amount'), semanticsLabel: t(context, 'Cambiar lo pagado fuera de Plata del extracto del $day', 'Change what was paid outside Plata for the $day statement')),
           ),
         if (marked)
           TextButton(

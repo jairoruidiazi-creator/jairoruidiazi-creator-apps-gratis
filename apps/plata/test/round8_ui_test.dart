@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plata/app.dart';
 import 'package:plata/core/ledger.dart';
+import 'package:plata/core/notifications.dart';
 import 'package:plata/model/models.dart';
 import 'package:plata/ui/more/accounts_screen.dart';
 
@@ -67,7 +68,7 @@ void main() {
       await syncLedger(tester, env);
       // Registró los 40.000 que faltaban, vinculados: ya no queda nada fuera.
       expect(l.linkedPayments(tc, cut), 8000000);
-      expect(l.assumedPayment(tc, cut), 0);
+      expect(l.outsidePayment(tc, cut), 0);
       expect(find.textContaining('Extracto del 30 sep pagado con los movimientos del 15 oct'), findsOneWidget);
       expect(find.text('Registrar el pago'), findsNothing);
       await finish(tester);
@@ -97,11 +98,37 @@ void main() {
       expect(find.descendant(of: field, matching: find.text('16')), findsOneWidget);
       await tester.tap(find.text('Guardar'));
       await settle(tester);
-      expect(find.text('¿Qué extracto es el del 16 sep?'), findsOneWidget);
-      await tester.tap(find.text('Los del 14 sep'));
+      expect(find.text('¿Cuál es el pago mínimo del extracto del 16 sep?'), findsOneWidget);
+      await tester.tap(find.textContaining('(del 14 sep)'));
       await settle(tester);
       expect(tc.cutDay, 16);
       expect(tc.statementMinimums, <String, int>{'2026-09-16': 7000000});
+      await syncLedger(tester, env);
+      await finish(tester);
+    });
+  });
+
+  testWidgets('M4: «Ya lo pagué» de una notificación anterior a un cambio de corte no marca nada y lo dice', (WidgetTester tester) async {
+    await atTestTime(() async {
+      usePhone(tester);
+      late Account tc;
+      final TestEnv env = await start(tester, before: (TestEnv e) async {
+        final Ledger l = e.services.ledger;
+        tc = await l.addAccount(Account(id: 'tc', name: 'Visa', type: AccountType.credit, icon: 'card', cutDay: 30, payDay: 15));
+        await l.addTx(Tx(id: 'c', kind: TxKind.expense, amountMinor: 100000000, accountId: 'tc', categoryId: 'c_food', date: DateTime(2026, 9, 20, 12)));
+        l.setStatementMinimum(tc, cut, 8000000);
+        // El aviso del extracto del 30 sep salió; después se corrigió el corte a 29.
+        tc.cutDay = 29;
+        l.moveCardCut(tc, 30, oldPayDay: 15);
+      });
+      final Ledger l = env.services.ledger;
+      env.notifier.respond(const NotifierResponse(payload: 'o:tc:2026-09-30', actionId: Notifier.paidAction));
+      await settle(tester);
+      expect(tc.outsidePayments, isEmpty);
+      expect(find.textContaining('antes de cambiar el día de corte'), findsOneWidget);
+      expect(find.textContaining('Marcado como pagado'), findsNothing);
+      // El aviso que sí corresponde es el del extracto del 29 sep.
+      expect(l.cardDue(tc).statementCut, DateTime(2026, 9, 29));
       await syncLedger(tester, env);
       await finish(tester);
     });

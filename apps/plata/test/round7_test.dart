@@ -92,10 +92,13 @@ void main() {
     });
 
     test('lo anotado hasta la fecha límite real es parte del mínimo marcado (regla de la decisión)', () async {
-      // Anotó $40.000 el 30 nov y marcó «Ya lo pagué»: el pago de fuera
-      // completa el mínimo con $60.000. Pendiente: 1.300.000 − 100.000.
-      final Ledger l = await n1();
+      // Anotó $40.000 el 30 nov y después marcó «Ya lo pagué»: faltaban
+      // $60.000, que se guardan como pagados fuera. Pendiente: 1.300.000 −
+      // 100.000.
+      final Ledger l = await n1(marked: false);
       await pay(l, pesos(40000), d(2026, 11, 30));
+      l.markStatementPaid(l.account('tc')!, nov15, on: d(2026, 12, 4));
+      expect(l.outsidePayment(l.account('tc')!, nov15), pesos(60000));
       expect(december(l), pesos(1200000));
       l.dispose();
     });
@@ -134,15 +137,18 @@ void main() {
       l.dispose();
     });
 
-    test('borrar el pago vinculado devuelve el abono supuesto; editarlo cambia la cifra', () async {
+    test('el pago vinculado reemplaza lo pagado fuera una vez; editarlo cambia la cifra y borrarlo no lo devuelve', () async {
       final Ledger l = await n1();
       final Tx p = await pay(l, pesos(100000), d(2026, 12, 22), statement: nov15);
+      expect(l.outsidePayment(l.account('tc')!, nov15), 0);
       expect(december(l), pesos(1200000));
       p.amountMinor = pesos(1000000);
       l.updateTx(p);
       expect(december(l), pesos(300000));
+      // Borrado, lo pagado fuera no vuelve a subir: la deuda queda más alta,
+      // nunca más baja (ver DECISIONES).
       await l.deleteTx(p.id);
-      expect(december(l), pesos(1200000));
+      expect(december(l), pesos(1300000));
       expect(l.statementPayments(l.account('tc')!, nov15), isEmpty);
       l.dispose();
     });
@@ -153,7 +159,7 @@ void main() {
       final Tx p = await pay(l, pesos(100000), d(2026, 12, 22), statement: nov15);
       p.toAccountId = 'cash';
       l.updateTx(p);
-      expect(december(l), pesos(1200000));
+      expect(december(l), pesos(1300000));
       expect(l.statementPayments(l.account('tc')!, nov15), isEmpty);
       l.dispose();
     });
@@ -182,13 +188,22 @@ void main() {
       expect(Tx.fromJson(linked.toJson()).statementOf, '2026-11-15');
       final Map<String, dynamic> old = linked.toJson()..remove('statementOf');
       expect(Tx.fromJson(old).statementOf, isNull);
-      // Copia vieja: la marca sin día vale hasta la fecha límite real (lun 7
-      // dic); un pago del 5 dic sin vínculo la completa: 1.200.000, sin
-      // contarlo dos veces.
-      final Ledger l = await n1();
-      l.account('tc')!.paidOn.clear();
+      // Copia vieja: una marca sin monto ni día (versión anterior) y un pago
+      // del 5 dic sin vínculo. Al abrir, la marca se convierte una vez en un
+      // pago hecho fuera con la regla de entonces (lo anotado hasta la fecha
+      // límite real, lun 7 dic, completa el mínimo): 0 fuera, 1.200.000.
+      final Ledger l = await n1(marked: false);
+      l.account('tc')!.paidStatements.add('2026-11-15');
       await pay(l, pesos(100000), d(2026, 12, 5));
-      expect(december(l), pesos(1200000));
+      await l.flush();
+      final Ledger again = Ledger(l.store, clock: () => today);
+      await again.load();
+      final Account tc = again.account('tc')!;
+      expect(tc.paidStatements, isEmpty);
+      expect(again.isStatementPaid(tc, nov15), isTrue);
+      expect(again.outsidePayment(tc, nov15), 0);
+      expect(again.statement(tc, date: dec15).dueMinor, pesos(1200000));
+      again.dispose();
       l.dispose();
     });
   });
@@ -200,11 +215,21 @@ void main() {
     test('en cada escenario', () async {
       final List<String> failures = <String>[];
       Future<void> scenario(String name, {required int external, required bool marked, required List<_Logged> logged, required int pending}) async {
-        final Ledger l = await n1(marked: marked);
+        final Ledger l = await n1(marked: false);
         int sum = 0;
-        for (final _Logged p in logged) {
+        for (final _Logged p in logged.where((_Logged x) => x.beforeMark)) {
           await pay(l, p.amount, p.date, statement: p.linked ? nov15 : null);
           sum += p.amount;
+        }
+        if (marked) {
+          l.markStatementPaid(l.account('tc')!, nov15, on: d(2026, 12, 4));
+        }
+        for (final _Logged p in logged.where((_Logged x) => !x.beforeMark)) {
+          await pay(l, p.amount, p.date, statement: p.linked ? nov15 : null);
+          sum += p.amount;
+        }
+        if (l.outsidePayment(l.account('tc')!, nov15) != external) {
+          failures.add('$name: pagado fuera ${l.outsidePayment(l.account('tc')!, nov15) ~/ 100}, esperado ${external ~/ 100}');
         }
         final int got = december(l);
         if (got != pending) {
@@ -218,7 +243,7 @@ void main() {
 
       await scenario('mínimo pagado fuera, nada anotado', external: pesos(100000), marked: true, logged: <_Logged>[], pending: pesos(1200000));
       await scenario('mínimo fuera y abono de 200.000 el 12 dic', external: pesos(100000), marked: true, logged: <_Logged>[_Logged(pesos(200000), d(2026, 12, 12), linked: false)], pending: pesos(1000000));
-      await scenario('60.000 fuera y 40.000 anotados el 30 nov', external: pesos(60000), marked: true, logged: <_Logged>[_Logged(pesos(40000), d(2026, 11, 30), linked: false)], pending: pesos(1200000));
+      await scenario('60.000 fuera y 40.000 anotados el 30 nov', external: pesos(60000), marked: true, logged: <_Logged>[_Logged(pesos(40000), d(2026, 11, 30), linked: false, beforeMark: true)], pending: pesos(1200000));
       await scenario('pago registrado desde la fila el 22 dic', external: 0, marked: true, logged: <_Logged>[_Logged(pesos(100000), d(2026, 12, 22), linked: true)], pending: pesos(1200000));
       await scenario('desde la fila el 7 dic y abono de 300.000 el 14 dic', external: 0, marked: true, logged: <_Logged>[_Logged(pesos(100000), d(2026, 12, 7), linked: true), _Logged(pesos(300000), d(2026, 12, 14), linked: false)], pending: pesos(900000));
       await scenario('mínimo fuera y quincena de 500.000 el 15 dic', external: pesos(100000), marked: true, logged: <_Logged>[_Logged(pesos(500000), d(2026, 12, 15), linked: false)], pending: pesos(700000));
@@ -319,9 +344,12 @@ void main() {
 /// Un abono anotado en un escenario: monto, fecha y si va vinculado al
 /// extracto del 15 nov.
 class _Logged {
-  const _Logged(this.amount, this.date, {required this.linked});
+  const _Logged(this.amount, this.date, {required this.linked, this.beforeMark = false});
 
   final int amount;
   final DateTime date;
   final bool linked;
+
+  /// Anotado antes de tocar «Ya lo pagué».
+  final bool beforeMark;
 }

@@ -194,8 +194,8 @@ class _AccountEditorState extends State<AccountEditor> {
       return;
     }
     final Account? e = widget.existing;
-    // Otro día de corte: si dos extractos con datos caerían en el mismo, se
-    // pregunta cuál dejar antes de guardar.
+    // Otro día de corte: si dos pagos mínimos caerían en el mismo extracto,
+    // se pregunta cuál es antes de guardar. Los pagos no chocan: se suman.
     bool keepNewer = true;
     if (e != null && e.isCredit && _type == AccountType.credit && e.cutDay != null && e.cutDay != _cutDay) {
       final Map<DateTime, List<DateTime>> clashes = l.cutMoveConflicts(e, _cutDay);
@@ -204,19 +204,23 @@ class _AccountEditorState extends State<AccountEditor> {
         final String target = dayText(context, c.key);
         final String older = dayText(context, c.value.first);
         final String newer = dayText(context, c.value.last);
+        final String olderMin = money(context, e.statementMinimums[dayKey(c.value.first)] ?? 0, e.currency);
+        final String newerMin = money(context, e.statementMinimums[dayKey(c.value.last)] ?? 0, e.currency);
         final bool? newerWins = await showDialog<bool>(
           context: context,
           builder: (BuildContext d) => AlertDialog(
-            title: Text(t(d, '¿Qué extracto es el del $target?', 'Which statement is the $target one?')),
+            // Con letra grande el texto se desplaza en vez de cortarse.
+            scrollable: true,
+            title: Text(t(d, '¿Cuál es el pago mínimo del extracto del $target?', 'Which is the minimum payment of the $target statement?')),
             content: Text(t(
               d,
-              'Con el corte el $_cutDay, el extracto del $target es el último que ya cerró, y le corresponden el pago mínimo o la marca «Ya lo pagué» que anotaste para el extracto del $older y para el del $newer. Plata deja los de uno y descarta los del otro.',
-              'With the closing day on the $_cutDay, the $target statement is the last one that has closed, and both the minimum payment or "Already paid" mark you entered for the $older statement and the one for the $newer statement belong to it. Plata keeps one and discards the other.',
+              'Con el corte el $_cutDay, el pago mínimo de $olderMin que anotaste para el extracto del $older y el de $newerMin del extracto del $newer quedan en el mismo extracto, el del $target. Plata deja uno y descarta el otro. Los pagos (los registrados y los que marcaste como hechos fuera de Plata) no se pierden: se suman en ese extracto.',
+              'With the closing day on the $_cutDay, the $olderMin minimum payment you entered for the $older statement and the $newerMin one for the $newer statement end up in the same statement, the $target one. Plata keeps one and discards the other. Payments (logged ones and the ones you marked as made outside Plata) are not lost: they add up in that statement.',
             )),
             actions: <Widget>[
               TextButton(onPressed: () => Navigator.pop(d), child: Text(t(d, 'Cancelar', 'Cancel'))),
-              TextButton(onPressed: () => Navigator.pop(d, false), child: Text(t(d, 'Los del $older', 'The $older ones'))),
-              FilledButton(onPressed: () => Navigator.pop(d, true), child: Text(t(d, 'Los del $newer', 'The $newer ones'))),
+              TextButton(onPressed: () => Navigator.pop(d, false), child: Text(t(d, '$olderMin (del $older)', '$olderMin ($older)'))),
+              FilledButton(onPressed: () => Navigator.pop(d, true), child: Text(t(d, '$newerMin (del $newer)', '$newerMin ($newer)'))),
             ],
           ),
         );
@@ -229,6 +233,7 @@ class _AccountEditorState extends State<AccountEditor> {
     final bool wasCardWithDay = e != null && e.isCredit && e.payDay != null;
     final Account a = e ?? Account(id: newId(), name: name);
     final int? oldCutDay = e?.cutDay;
+    final int? oldPayDay = e?.payDay;
     // Deuda en tarjetas y préstamos: negativa, como la lee el libro.
     final int initial = _isDebtType ? -_initial.abs() : _initial;
     a
@@ -248,19 +253,25 @@ class _AccountEditorState extends State<AccountEditor> {
       ..last4 = _last4.text.trim()
       ..notes = _notes.text.trim();
     if (e != null && a.isCredit) {
-      // Con otro día de corte, los mínimos, las marcas «Ya lo pagué», el
-      // extracto de referencia y los pagos vinculados pasan al extracto del
-      // mismo mes: nada de lo anotado queda huérfano.
-      l.moveCardCut(a, oldCutDay, keepNewer: keepNewer);
+      // Con otro día de corte, cada dato (mínimos, pagos hechos fuera de
+      // Plata, pagos vinculados, extracto de referencia) pasa al extracto que
+      // había cerrado el día en que se anotó: nada queda huérfano ni en un
+      // extracto que no existía todavía.
+      l.moveCardCut(a, oldCutDay, oldPayDay: oldPayDay, keepNewer: keepNewer);
     }
     if (_type == AccountType.credit && initial < 0 && _statementDue != null) {
       final int debt = -initial;
       a.statementDueMinor = _statementDue!.clamp(0, debt);
-      // El extracto al que se refiere queda fijo desde que se anota.
-      a.statementCut ??= l.referenceStatementCut(a);
+      // El extracto al que se refiere queda fijo desde que se anota, con el
+      // día en que se anotó.
+      if (a.statementCut == null) {
+        a.statementCut = l.referenceStatementCut(a);
+        a.statementNotedOn = dayKey(clock.now());
+      }
     } else {
       a.statementDueMinor = null;
       a.statementCut = null;
+      a.statementNotedOn = null;
     }
     if (e == null) {
       await l.addAccount(a);
@@ -469,9 +480,10 @@ class _AccountEditorState extends State<AccountEditor> {
       ..cutDay = _cutDay
       ..payDay = _payDay
       ..currency = _currency;
-    // Con otro día de corte, el extracto fijo pasa al que le corresponde, que
-    // nunca es uno sin cerrar (como al guardar, ver Ledger.moveCardCut).
-    probe.statementCut = fixed == null ? null : (widget.existing?.cutDay == _cutDay ? fixed : l.movedCut(_cutDay, fixed));
+    // Con otro día de corte, el extracto fijo pasa al que había cerrado el día
+    // en que se anotó (como al guardar, ver Ledger.moveCardCut).
+    final Account? existing = widget.existing;
+    probe.statementCut = fixed == null || existing == null ? null : l.movedReference(existing, _cutDay);
     final DateTime cut = l.referenceStatementCut(probe);
     final CardCycle cycle = CardCycle.current(probe, cut);
     final bool es = l.spanish;

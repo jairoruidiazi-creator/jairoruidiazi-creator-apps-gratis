@@ -125,10 +125,13 @@ void main() {
       await tester.scrollUntilVisible(row, 150, scrollable: find.byType(Scrollable).first);
       expect(row, findsOneWidget);
       expect(find.text('Registrar el pago'), findsNothing);
-      // Borrar el movimiento deja la marca como estaba: no aparece la mora.
+      // Borrar el movimiento deja la marca (sin aviso de mora), pero lo que
+      // reemplazó no vuelve a darse por pagado fuera: la deuda sube.
       await tester.runAsync(() => l.deleteTx(paid.id));
       await settle(tester);
-      expect(find.text('Registrar el pago'), findsOneWidget);
+      expect(find.text('Extracto del 30 sep marcado como pagado'), findsOneWidget);
+      expect(l.outsidePayment(tc, cut), 0);
+      expect(find.text('Registrar el pago'), findsNothing);
       expect(find.byType(OverdueBanner), findsNothing);
       await syncLedger(tester, env);
       await finish(tester);

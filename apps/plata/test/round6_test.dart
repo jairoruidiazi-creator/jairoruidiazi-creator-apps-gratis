@@ -34,7 +34,7 @@ void main() {
     return l;
   }
 
-  Future<Tx> pay(Ledger l, int amount, DateTime date, {String id = 'p'}) => l.addTx(Tx(id: id, kind: TxKind.transfer, amountMinor: amount, accountId: 'bank', toAccountId: 'tc', date: date));
+  Future<Tx> pay(Ledger l, int amount, DateTime date, {String id = 'p', DateTime? statement}) => l.addTx(Tx(id: id, kind: TxKind.transfer, amountMinor: amount, accountId: 'bank', toAccountId: 'tc', date: date, statementOf: statement == null ? null : dayKey(statement)));
 
   setUp(() async {
     today = d(2026, 12, 20);
@@ -59,21 +59,20 @@ void main() {
     }
 
     // Desde la ronda 7, el pago de un extracto marcado se registra desde su
-    // fila y queda vinculado: cuenta con cualquier fecha (ver round7_test).
-    // Sin vínculo, solo lo anotado hasta la fecha límite real es parte del
-    // mínimo.
+    // fila y queda vinculado: cuenta con cualquier fecha y, desde la ronda 10,
+    // reemplaza lo que se guardó como pagado fuera de Plata.
     final Map<String, DateTime> n1Dates = <String, DateTime>{
       'con la fecha límite real (lun 7 dic)': d(2026, 12, 7),
       'con la fecha nominal (sáb 5 dic)': d(2026, 12, 5),
       'antes de la fecha límite (1 dic)': d(2026, 12, 1),
     };
     for (final MapEntry<String, DateTime> c in n1Dates.entries) {
-      test('caso N1: el pago sin vínculo registrado ${c.key} completa el abono supuesto', () async {
+      test('caso N1: el pago registrado desde la fila ${c.key} reemplaza lo pagado fuera', () async {
         final Ledger l = await n1();
         final Account tc = l.account('tc')!;
         // Marcado y sin registrar: el abono supuesto es el mínimo.
         expect(l.statement(tc, date: DateTime(2026, 12, 15)).dueMinor, pesos(1200000));
-        await pay(l, pesos(100000), c.value);
+        await pay(l, pesos(100000), c.value, statement: DateTime(2026, 11, 15));
         // Registrado: es el pago de verdad, no un segundo pago.
         expect(l.statement(tc, date: DateTime(2026, 12, 15)).dueMinor, pesos(1200000));
         expect(l.cardDue(tc, now: DateTime(2026, 12, 9)).overdue, isFalse);
@@ -86,7 +85,7 @@ void main() {
     test('caso N1: un pago mayor que el mínimo cuenta completo, una sola vez', () async {
       final Ledger l = await n1();
       final Account tc = l.account('tc')!;
-      await pay(l, pesos(1000000), d(2026, 12, 4));
+      await pay(l, pesos(1000000), d(2026, 12, 4), statement: DateTime(2026, 11, 15));
       expect(l.statement(tc, date: DateTime(2026, 12, 15)).dueMinor, pesos(300000));
       l.dispose();
     });
@@ -163,11 +162,13 @@ void main() {
       l.dispose();
     });
 
-    test('el abono supuesto se mide con la misma ventana: un extracto marcado y pagado el lunes corrido no se cuenta dos veces', () async {
+    test('pagado el lunes corrido y después marcado: no se cuenta dos veces', () async {
       final Ledger l = await n2(minimum: pesos(80000));
       final Account tc = l.account('tc')!;
-      l.markStatementPaid(tc, DateTime(2026, 11, 15));
       await pay(l, pesos(80000), d(2026, 12, 7));
+      // Ya no faltaba nada: lo pagado fuera queda en cero.
+      l.markStatementPaid(tc, DateTime(2026, 11, 15));
+      expect(l.outsidePayment(tc, DateTime(2026, 11, 15)), 0);
       expect(l.statement(tc, date: DateTime(2026, 11, 15)).paymentsMinor, pesos(80000));
       expect(l.statement(tc, date: DateTime(2026, 12, 15)).dueMinor, pesos(720000));
       l.dispose();
@@ -227,8 +228,8 @@ void main() {
               l.setStatementMinimum(tc, DateTime(2026, 11, 15), minimum);
             }
             if (marked) {
-              // Marcado con la regla de antes del día de la marca: lo anotado
-              // hasta la fecha límite real completa el mínimo (ver round8_test).
+              // Marcado antes de anotar el pago: guarda los 100.000 que faltaban
+              // como pagados fuera; lo que se anote después es un abono más.
               l.markStatementPaid(tc, DateTime(2026, 11, 15), on: effective);
             }
             bool added = false;
@@ -238,10 +239,8 @@ void main() {
                 added = true;
               }
               final int logged = added ? p!.amount : 0;
-              // Marcado: el pago de fuera completa el mínimo con lo anotado hasta
-              // la fecha límite real; lo anotado después es un abono más.
-              final int inWindow = added && !p!.date.isAfter(effective) ? logged : 0;
-              final int counted = marked && known ? (inWindow > minimum ? inWindow : minimum) + logged - inWindow : logged;
+              // Marcado: los 100.000 de fuera más lo anotado.
+              final int counted = marked && known ? minimum + logged : logged;
               final bool late = day.isAfter(effective);
               // Próximo pago: el extracto del 15 nov hasta su fecha límite real
               // (si no está marcado y queda algo), después el ciclo en curso.
@@ -266,8 +265,7 @@ void main() {
             // El extracto de diciembre nunca cuenta el pago dos veces.
             final int december = l.statement(tc, date: DateTime(2026, 12, 15)).dueMinor;
             final int all = p?.amount ?? 0;
-            final int window = p != null && !p.date.isAfter(effective) ? all : 0;
-            final int counted = marked && known ? (window > minimum ? window : minimum) + all - window : all;
+            final int counted = marked && known ? minimum + all : all;
             if (december != purchase1 + purchase2 - counted) {
               failures.add('$label: extracto del 15 dic ${december ~/ 100}, esperado ${(purchase1 + purchase2 - counted) ~/ 100}');
             }

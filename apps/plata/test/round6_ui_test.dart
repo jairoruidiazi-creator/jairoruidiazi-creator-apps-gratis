@@ -90,7 +90,8 @@ void main() {
       await settle(tester);
       await tester.pump(const Duration(seconds: 10));
       await settle(tester);
-      final Finder row = find.text('Extracto del 30 sep marcado como pagado');
+      // «Extracto del 30 sep pagado: $ 80.000 por fuera de Plata».
+      final Finder row = find.textContaining('Extracto del 30 sep pagado: ');
       await tester.scrollUntilVisible(row, 150, scrollable: find.byType(Scrollable).first);
       expect(row, findsOneWidget);
       await tester.tap(find.text('Desmarcar'));
