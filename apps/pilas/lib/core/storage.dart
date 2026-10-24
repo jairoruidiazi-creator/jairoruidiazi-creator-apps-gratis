@@ -280,20 +280,23 @@ class JsonStore {
     return out;
   }
 
-  /// Borra las copias apartadas de un archivo dañado (`<archivo>.corrupto-*`,
-  /// con sus `.bak` y temporales). Con [si], solo las que lo cumplen (por
-  /// ejemplo, las que nombran a un perfil). Devuelve cuántas borró.
+  /// Borra las copias apartadas de un archivo dañado: `<archivo>.corrupto-*`
+  /// y las de su respaldo, `<archivo>.bak.corrupto-*` (que es como las
+  /// aparta [readJsonSafe]). Con [si], solo las que lo cumplen (por ejemplo,
+  /// las que nombran a un perfil). Devuelve cuántas borró.
   Future<int> deleteAsides(String relativePath, {bool Function(String contenido)? si}) {
     return _enqueue<int>(relativePath, () async {
       final File file = await _file(relativePath);
       final Directory dir = file.parent;
-      final String prefijo = '${file.uri.pathSegments.last}.corrupto-';
+      final String base = file.uri.pathSegments.last;
+      final List<String> prefijos = <String>['$base.corrupto-', '$base.bak.corrupto-'];
       int n = 0;
       if (!await dir.exists()) {
         return 0;
       }
       await for (final FileSystemEntity e in dir.list()) {
-        if (e is! File || !e.uri.pathSegments.last.startsWith(prefijo)) {
+        final String nombre = e.uri.pathSegments.last;
+        if (e is! File || !prefijos.any(nombre.startsWith)) {
           continue;
         }
         if (si != null) {
@@ -311,6 +314,29 @@ class JsonStore {
           await e.delete();
           n += 1;
         } catch (_) {}
+      }
+      return n;
+    });
+  }
+
+  /// Borra un archivo y todo lo que empieza por su nombre en su carpeta: el
+  /// respaldo, las copias dañadas apartadas (también las del respaldo) y los
+  /// temporales. Devuelve cuántos archivos borró.
+  Future<int> deleteFamily(String relativePath) {
+    return _enqueue<int>(relativePath, () async {
+      final File file = await _file(relativePath);
+      final Directory dir = file.parent;
+      final String base = file.uri.pathSegments.last;
+      int n = 0;
+      if (!await dir.exists()) {
+        return 0;
+      }
+      await for (final FileSystemEntity e in dir.list()) {
+        final String nombre = e.uri.pathSegments.last;
+        if (e is File && (nombre == base || nombre.startsWith('$base.'))) {
+          await e.delete();
+          n += 1;
+        }
       }
       return n;
     });

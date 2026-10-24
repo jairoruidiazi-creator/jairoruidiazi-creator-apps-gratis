@@ -245,14 +245,18 @@ class _GateDialogState extends State<_GateDialog> {
     // Todo (también «Entrar») va dentro de la parte que se desplaza: con el
     // teclado numérico abierto, que en iPhone no tiene tecla de enviar, y
     // con la letra al doble en un teléfono acostado, «Entrar» sigue a mano.
-    final Widget botones = Wrap(
-      alignment: WrapAlignment.end,
-      spacing: 8,
-      runSpacing: 4,
-      children: <Widget>[
-        TextButton(key: const ValueKey<String>('puerta-cancelar'), onPressed: () => Navigator.of(context).pop(false), child: const Text(S.cancelar)),
-        FilledButton(key: const ValueKey<String>('puerta-entrar'), onPressed: locked ? null : _submit, child: const Text(S.entrar)),
-      ],
+    // A la derecha, como las acciones de los demás diálogos.
+    final Widget botones = Align(
+      alignment: Alignment.centerRight,
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        spacing: 8,
+        runSpacing: 4,
+        children: <Widget>[
+          TextButton(key: const ValueKey<String>('puerta-cancelar'), onPressed: () => Navigator.of(context).pop(false), child: const Text(S.cancelar)),
+          FilledButton(key: const ValueKey<String>('puerta-entrar'), onPressed: locked ? null : _submit, child: const Text(S.entrar)),
+        ],
+      ),
     );
     return AlertDialog(
       scrollable: true,

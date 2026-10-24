@@ -90,7 +90,8 @@ class _KidHomeScreenState extends State<KidHomeScreen> {
               crossAxisSpacing: 12,
               // Pictograma, nombre (dos líneas) y la fila de nivel y pegatinas,
               // que crece con la letra para que el número no se corte.
-              mainAxisExtent: 100 + 2 * 16 * 1.3 * scale + 16 * scale,
+              // (+2 dp para el borde de 3 dp del alto contraste.)
+              mainAxisExtent: 102 + 2 * 16 * 1.3 * scale + 16 * scale,
             ),
             delegate: SliverChildListDelegate(<Widget>[
               for (final GameDef g in games)

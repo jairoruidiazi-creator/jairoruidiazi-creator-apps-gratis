@@ -27,14 +27,34 @@ class RoundFeedback {
 
 /// Un aviso para el panel de adultos (por ejemplo, un archivo dañado).
 class StorageNotice {
-  const StorageNotice(this.texto, this.fecha);
+  const StorageNotice(this.texto, this.fecha, {this.profileId});
 
   final String texto;
   final DateTime fecha;
 
-  Map<String, dynamic> toJson() => <String, dynamic>{'texto': texto, 'fecha': fecha.toIso8601String()};
+  /// Perfil del que habla el aviso (para quitarlo si se borra ese perfil), o
+  /// null si es general.
+  final String? profileId;
 
-  static StorageNotice fromJson(Map<String, dynamic> j) => StorageNotice((j['texto'] as String?) ?? '', DateTime.tryParse((j['fecha'] as String?) ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0));
+  Map<String, dynamic> toJson() => <String, dynamic>{'texto': texto, 'fecha': fecha.toIso8601String(), if (profileId != null) 'perfil': profileId};
+
+  static StorageNotice fromJson(Map<String, dynamic> j) => StorageNotice(
+        (j['texto'] as String?) ?? '',
+        DateTime.tryParse((j['fecha'] as String?) ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+        profileId: j['perfil'] as String?,
+      );
+
+  /// Si el aviso es de ese perfil. Los avisos guardados antes de llevar id
+  /// se reconocen por las frases exactas que genera la app ("el avance de
+  /// Ana:", "el avance de Ana desde", "el avance de Ana;"), así que borrar a
+  /// "Ana" no quita los de "Ana María".
+  bool esDe(String id, String nombre) {
+    if (profileId != null) {
+      return profileId == id;
+    }
+    final String base = 'el avance de $nombre';
+    return texto.contains('$base:') || texto.contains('$base desde') || texto.contains('$base;');
+  }
 }
 
 /// Estado de la app: perfiles, progreso, grupos, sesión de juego y descanso.
@@ -128,7 +148,7 @@ class AppState extends ChangeNotifier {
     for (final Profile p in profiles) {
       final String rel = 'progress/${p.id}.json';
       final JsonRead r = await _safeRead(rel);
-      _noteRead(r, 'el avance de ${p.nombre}', nuevos);
+      _noteRead(r, 'el avance de ${p.nombre}', nuevos, profileId: p.id);
       ProfileProgress prog = ProfileProgress();
       if (r.data != null) {
         try {
@@ -137,7 +157,7 @@ class AppState extends ChangeNotifier {
           // JSON válido pero con un formato que no se entiende: se aparta tal
           // cual (no se pisa) y se empieza de cero, con aviso.
           final String aside = await _setAside(rel);
-          nuevos.add(StorageNotice('No se pudo interpretar el avance de ${p.nombre}; el archivo se guardó aparte ($aside) y su avance empezó de cero.', now));
+          nuevos.add(StorageNotice('No se pudo interpretar el avance de ${p.nombre}; el archivo se guardó aparte ($aside) y su avance empezó de cero.', now, profileId: p.id));
         }
       }
       _progress[p.id] = prog;
@@ -176,13 +196,13 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  void _noteRead(JsonRead r, String what, List<StorageNotice> out) {
+  void _noteRead(JsonRead r, String what, List<StorageNotice> out, {String? profileId}) {
     final DateTime now = clock.now();
     if (r.outcome == ReadOutcome.recovered) {
-      out.add(StorageNotice('Se recuperó $what desde la copia de seguridad, porque el archivo estaba dañado.', now));
+      out.add(StorageNotice('Se recuperó $what desde la copia de seguridad, porque el archivo estaba dañado.', now, profileId: profileId));
     } else if (r.outcome == ReadOutcome.corrupt) {
       final String donde = r.asidePath == null ? '' : ' (quedó guardado aparte como ${r.asidePath!.split(RegExp(r'[\\/]')).last})';
-      out.add(StorageNotice('No se pudo leer $what: el archivo y su copia estaban dañados$donde. Se empezó de cero.', now));
+      out.add(StorageNotice('No se pudo leer $what: el archivo y su copia estaban dañados$donde. Se empezó de cero.', now, profileId: profileId));
     }
   }
 
@@ -285,12 +305,18 @@ class AppState extends ChangeNotifier {
     for (final ClassGroup g in groups) {
       g.profileIds.remove(id);
     }
-    await store.delete('progress/$id.json');
+    // Todo lo que empieza por el archivo de su avance: el avance, su
+    // respaldo, las copias dañadas apartadas (también las del respaldo,
+    // `.json.bak.corrupto-*`) y los temporales.
     try {
-      await store.deleteAsides('progress/$id.json');
+      await store.deleteFamily('progress/$id.json');
+    } catch (e) {
+      debugPrint('No se pudo borrar el avance de $id: $e');
+    }
+    try {
       await store.deleteDir('drawings/$id');
     } catch (e) {
-      debugPrint('No se pudieron borrar los archivos de $id: $e');
+      debugPrint('No se pudieron borrar los dibujos de $id: $e');
     }
     // El respaldo (.bak) también se reescribe: el perfil borrado no puede
     // volver si un día hay que recuperar el archivo.
@@ -305,18 +331,17 @@ class AppState extends ChangeNotifier {
     } catch (e) {
       debugPrint('No se pudieron borrar las copias dañadas: $e');
     }
-    final String? nombre = borrado?.nombre;
-    final int antes = notices.length;
-    if (nombre != null && nombre.trim().isNotEmpty && !profiles.any((Profile p) => p.nombre == nombre)) {
-      final RegExp nombra = RegExp('(^|[^\\p{L}])${RegExp.escape(nombre)}(\$|[^\\p{L}])', unicode: true);
-      notices.removeWhere((StorageNotice n) => nombra.hasMatch(n.texto));
-    }
+    // Los avisos de ese perfil (por id; los viejos, por la frase exacta). Si
+    // otro perfil vigente se llama igual, un aviso viejo sin id se deja.
+    final String nombre = borrado?.nombre ?? '';
+    final bool homonimo = profiles.any((Profile p) => p.nombre == nombre);
+    notices.removeWhere((StorageNotice n) => n.profileId == null ? (nombre.trim().isNotEmpty && !homonimo && n.esDe(id, nombre)) : n.esDe(id, nombre));
     if (copias > 0) {
       notices.add(StorageNotice('Se borraron copias dañadas de la lista de perfiles o de grupos que incluían al perfil borrado.', clock.now()));
     }
-    if (notices.length != antes || copias > 0) {
-      await _saveNotices(sinRastro: true);
-    }
+    // Siempre se reescriben los avisos sin dejar respaldo: el `.bak` puede
+    // guardar avisos ya descartados que lo nombran.
+    await _saveNotices(sinRastro: true);
     notifyListeners();
   }
 

@@ -155,6 +155,10 @@ void main() {
       expect(campo.enableInteractiveSelection, isFalse);
       // La puerta dice que se puede usar la calculadora.
       expect(find.text(S.puertaCalculadora), findsOneWidget);
+      // «Cancelar» y «Entrar» van a la derecha, como en los demás diálogos.
+      final Rect campoRect = tester.getRect(find.byKey(const ValueKey<String>('puerta-respuesta')));
+      expect(tester.getRect(find.byKey(const ValueKey<String>('puerta-entrar'))).right, closeTo(campoRect.right, 1));
+      expect(tester.getRect(find.byKey(const ValueKey<String>('puerta-cancelar'))).left, greaterThan(campoRect.center.dx));
       // Pedir otra operación cuenta como intento fallido y cambia la pregunta.
       String pregunta() => tester.widget<Text>(find.byKey(const ValueKey<String>('puerta-pregunta'))).data!;
       final String antes = pregunta();

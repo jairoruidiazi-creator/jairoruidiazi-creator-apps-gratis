@@ -97,40 +97,83 @@ void main() {
     expect(h.state.profiles, isEmpty);
   });
 
-  test('M5 (cuarta ronda): al borrar un perfil se borran sus copias dañadas y los avisos que lo nombran', () async {
+  test('M5, N1 y N2: al borrar un perfil se borran todas sus copias, los respaldos de avisos y solo sus avisos', () async {
     final Profile beto = await h.state.addProfile(nombre: 'Beto', avatar: '1f436', birthYear: 2019, birthMonth: 1);
     final Profile ana = await h.state.addProfile(nombre: 'Ana', avatar: '1f431', birthYear: 2018, birthMonth: 1);
-    final Profile anabel = await h.state.addProfile(nombre: 'Anabel', avatar: '1f430', birthYear: 2018, birthMonth: 2);
+    final Profile anaMaria = await h.state.addProfile(nombre: 'Ana María', avatar: '1f430', birthYear: 2018, birthMonth: 2);
+    final Profile anabel = await h.state.addProfile(nombre: 'Anabel', avatar: '1f42d', birthYear: 2017, birthMonth: 3);
     final String raiz = (await h.services.store.root()).path;
-    final File avanceDanado = File('$raiz/progress/${ana.id}.json.corrupto-20261018-120000')..createSync(recursive: true)..writeAsStringSync('{"roto": "${ana.id}');
-    final File avanceDanadoBak = File('$raiz/progress/${ana.id}.json.corrupto-1760000000000.bak')..createSync(recursive: true)..writeAsStringSync('{}');
-    final File listaConAna = File('$raiz/profiles.json.corrupto-20261018-120001')..createSync(recursive: true)..writeAsStringSync('{"profiles": [{"id": "${ana.id}", "nombre": "Ana"');
-    final File listaSinAna = File('$raiz/profiles.json.corrupto-20261018-120002')..createSync(recursive: true)..writeAsStringSync('{"profiles": [{"id": "${beto.id}"');
-    final File otroAvance = File('$raiz/progress/${beto.id}.json.corrupto-20261018-120003')..createSync(recursive: true)..writeAsStringSync('{');
+    File archivo(String rel, String texto) => File('$raiz/$rel')..createSync(recursive: true)..writeAsStringSync(texto);
+    // Nombres que la app produce de verdad: readJsonSafe aparta el archivo
+    // y su respaldo como `<archivo>.corrupto-<fecha>` y
+    // `<archivo>.bak.corrupto-<fecha>`; _setAside, como
+    // `<archivo>.corrupto-<milisegundos>`.
+    final List<File> deAna = <File>[
+      archivo('progress/${ana.id}.json', '{"mastery": {}}'),
+      archivo('progress/${ana.id}.json.bak', '{"mastery": {}}'),
+      archivo('progress/${ana.id}.json.corrupto-20261018-120000', '{"roto'),
+      archivo('progress/${ana.id}.json.bak.corrupto-20261018-120000', '{"roto'),
+      archivo('progress/${ana.id}.json.bak.corrupto-20261018-120000-2', '{"roto'),
+      archivo('progress/${ana.id}.json.corrupto-1760000000000', '{"mastery": {}}'),
+      archivo('profiles.json.corrupto-20261018-120001', '{"profiles": [{"id": "${ana.id}", "nombre": "Ana"'),
+      archivo('profiles.json.bak.corrupto-20261018-120001', '{"profiles": [{"id": "${ana.id}", "nombre": "Ana", "birthYear": 2018'),
+      archivo('groups.json.bak.corrupto-20261018-120002', '{"groups": [{"profileIds": ["${ana.id}"'),
+    ];
+    final List<File> deOtros = <File>[
+      archivo('profiles.json.corrupto-20261018-120003', '{"profiles": [{"id": "${beto.id}"'),
+      archivo('progress/${beto.id}.json.bak.corrupto-20261018-120004', '{'),
+      archivo('progress/${anaMaria.id}.json.corrupto-20261018-120005', '{'),
+    ];
+    // Un aviso de Ana ya descartado: queda en el respaldo de avisos.json.
+    await h.services.store.writeJson('avisos.json', <String, dynamic>{
+      'avisos': <Map<String, dynamic>>[StorageNotice('No se pudo leer el avance de Ana: el archivo y su copia estaban dañados. Se empezó de cero.', DateTime(2026, 10, 18)).toJson()],
+    });
+    await h.state.dismissNotices();
+    final String avisos = await h.services.store.absolutePath('avisos.json');
+    expect(File('$avisos.bak').readAsStringSync(), contains('avance de Ana:'));
+    // Avisos vigentes: con id (nuevos) y sin id (de antes de esta versión).
     h.state.notices
-      ..add(StorageNotice('No se pudo leer el avance de Ana: el archivo y su copia estaban dañados.', DateTime(2026, 10, 18)))
-      ..add(StorageNotice('Se recuperó el avance de Anabel desde la copia de seguridad.', DateTime(2026, 10, 18)))
-      ..add(StorageNotice('Se recuperó el avance de Beto desde la copia de seguridad.', DateTime(2026, 10, 18)));
+      ..add(StorageNotice('Se recuperó el avance de Ana desde la copia de seguridad, porque el archivo estaba dañado.', DateTime(2026, 10, 18), profileId: ana.id))
+      ..add(StorageNotice('No se pudo interpretar el avance de Ana; el archivo se guardó aparte (x) y su avance empezó de cero.', DateTime(2026, 10, 18)))
+      ..add(StorageNotice('No se pudo leer el avance de Ana María: el archivo y su copia estaban dañados. Se empezó de cero.', DateTime(2026, 10, 18)))
+      ..add(StorageNotice('Se recuperó el avance de Ana María desde la copia de seguridad, porque el archivo estaba dañado.', DateTime(2026, 10, 18), profileId: anaMaria.id))
+      ..add(StorageNotice('Se recuperó el avance de Anabel desde la copia de seguridad, porque el archivo estaba dañado.', DateTime(2026, 10, 18)))
+      ..add(StorageNotice('Se recuperó el avance de Beto desde la copia de seguridad, porque el archivo estaba dañado.', DateTime(2026, 10, 18), profileId: beto.id));
+
     await h.state.deleteProfile(ana.id);
-    expect(avanceDanado.existsSync(), isFalse);
-    expect(avanceDanadoBak.existsSync(), isFalse);
-    expect(listaConAna.existsSync(), isFalse);
-    // Lo de los demás niños no se toca.
-    expect(listaSinAna.existsSync(), isTrue);
-    expect(otroAvance.existsSync(), isTrue);
-    final List<String> avisos = h.state.notices.map((StorageNotice n) => n.texto).toList();
-    expect(avisos.any((String t) => t.contains('avance de Ana:')), isFalse);
-    expect(avisos.any((String t) => t.contains('Anabel')), isTrue);
-    expect(avisos.any((String t) => t.contains('Beto')), isTrue);
-    expect(avisos.any((String t) => t.contains('copias dañadas')), isTrue);
-    // Y el archivo de avisos (con su respaldo) ya no lo nombra.
-    final String ruta = await h.services.store.absolutePath('avisos.json');
-    for (final File f in <File>[File(ruta), File('$ruta.bak')]) {
+
+    for (final File f in deAna) {
+      expect(f.existsSync(), isFalse, reason: f.path);
+    }
+    for (final File f in deOtros) {
+      expect(f.existsSync(), isTrue, reason: f.path);
+    }
+    final List<String> textos = h.state.notices.map((StorageNotice n) => n.texto).toList();
+    expect(textos.where((String t) => t.contains('avance de Ana ') || t.contains('avance de Ana:') || t.contains('avance de Ana;')), isEmpty);
+    // Ana María, Anabel y Beto conservan sus avisos.
+    expect(textos.where((String t) => t.contains('Ana María')).length, 2);
+    expect(textos.any((String t) => t.contains('Anabel')), isTrue);
+    expect(textos.any((String t) => t.contains('Beto')), isTrue);
+    expect(textos.any((String t) => t.contains('copias dañadas')), isTrue);
+    // Ni avisos.json ni su respaldo nombran ya a Ana.
+    for (final File f in <File>[File(avisos), File('$avisos.bak')]) {
       if (f.existsSync()) {
-        expect(f.readAsStringSync(), isNot(contains('avance de Ana:')));
+        expect(f.readAsStringSync(), isNot(contains('avance de Ana:')), reason: f.path);
+        expect(f.readAsStringSync(), isNot(contains('avance de Ana;')), reason: f.path);
       }
     }
-    expect(h.state.profiles.map((Profile p) => p.id), <String>[beto.id, anabel.id]);
+    expect(h.state.profiles.map((Profile p) => p.id), <String>[beto.id, anaMaria.id, anabel.id]);
+  });
+
+  test('N2: los avisos nuevos llevan el id del perfil y se reconocen por él', () {
+    final StorageNotice n = StorageNotice('Se recuperó el avance de Ana desde la copia de seguridad.', DateTime(2026, 10, 18), profileId: 'p1');
+    expect(StorageNotice.fromJson(n.toJson()).profileId, 'p1');
+    expect(n.esDe('p1', 'Ana'), isTrue);
+    expect(n.esDe('p2', 'Ana'), isFalse);
+    final StorageNotice viejo = StorageNotice.fromJson(<String, dynamic>{'texto': 'No se pudo leer el avance de Ana María: …', 'fecha': '2026-10-18T00:00:00.000'});
+    expect(viejo.profileId, isNull);
+    expect(viejo.esDe('x', 'Ana'), isFalse);
+    expect(viejo.esDe('x', 'Ana María'), isTrue);
   });
 
   test('M7 (tercera ronda): el perfil borrado no queda en el respaldo ni vuelve al recuperarlo', () async {
