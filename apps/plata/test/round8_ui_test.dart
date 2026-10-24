@@ -80,26 +80,25 @@ void main() {
       late Account tc;
       final TestEnv env = await start(tester, before: (TestEnv e) async {
         final Ledger l = e.services.ledger;
-        tc = await l.addAccount(Account(id: 'tc', name: 'Visa', type: AccountType.credit, icon: 'card', cutDay: 10, payDay: 30));
-        l.setStatementMinimum(tc, DateTime(2026, 9, 10), 7000000);
-        l.setStatementMinimum(tc, DateTime(2026, 10, 10), 9000000);
+        tc = await l.addAccount(Account(id: 'tc', name: 'Visa', type: AccountType.credit, icon: 'card', cutDay: 14, payDay: 30));
+        l.setStatementMinimum(tc, DateTime(2026, 9, 14), 7000000);
+        l.setStatementMinimum(tc, DateTime(2026, 10, 14), 9000000);
       });
       tester.state<NavigatorState>(find.byType(Navigator).first).push(MaterialPageRoute<void>(builder: (_) => AccountEditor(existing: tc)));
       await settle(tester);
       // Hoy es el 16 oct: con el corte el 16, el extracto del 16 oct aún no
-      // cierra, así que el del 10 oct pasa al del 16 sep, igual que el del 10 sep.
+      // cierra, así que el del 14 oct pasa al del 16 sep, igual que el del 14 sep.
       final Finder field = find.ancestor(of: find.text('Día de corte'), matching: find.byWidgetPredicate((Widget w) => w is DropdownButtonFormField<int>));
       await tester.scrollUntilVisible(field, 150, scrollable: find.byType(Scrollable).first);
       await tester.tap(field);
       await settle(tester);
-      // El menú muestra los días cerca del 10: se baja hasta el 16.
-      await tester.scrollUntilVisible(find.text('16'), 48, scrollable: find.byType(Scrollable).last);
-      await tester.tap(find.text('16'));
+      await tester.tap(find.text('16').last);
       await settle(tester);
+      expect(find.descendant(of: field, matching: find.text('16')), findsOneWidget);
       await tester.tap(find.text('Guardar'));
       await settle(tester);
       expect(find.text('¿Qué extracto es el del 16 sep?'), findsOneWidget);
-      await tester.tap(find.text('Los del 10 sep'));
+      await tester.tap(find.text('Los del 14 sep'));
       await settle(tester);
       expect(tc.cutDay, 16);
       expect(tc.statementMinimums, <String, int>{'2026-09-16': 7000000});
