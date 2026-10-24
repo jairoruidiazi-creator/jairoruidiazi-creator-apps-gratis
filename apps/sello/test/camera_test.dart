@@ -548,6 +548,18 @@ void main() {
     expect(services.location.approximate, isFalse);
     await reveal(find.textContaining('Esta posición fijada es aproximada'));
     expect(find.textContaining('Esta posición fijada es aproximada: libérala para usar la precisa.'), findsOneWidget);
+    // Si luego quita el permiso, no hay precisa que usar: no se invita a
+    // liberar el punto, que dejaría la foto sin posición (N1).
+    backend
+      ..permission = LocationPermission.deniedForever
+      ..requestResult = LocationPermission.deniedForever;
+    unawaited(services.location.stop().then((_) => services.location.retry()));
+    await pumpMany(tester, 10);
+    expect(services.location.status, 'deniedForever');
+    expect(services.location.locked, isTrue);
+    await reveal(find.textContaining('Esta posición fijada es aproximada'));
+    expect(find.text('Esta posición fijada es aproximada (puede estar a kilómetros).'), findsOneWidget);
+    expect(find.textContaining('libérala'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     await pumpMany(tester);
     handle.dispose();

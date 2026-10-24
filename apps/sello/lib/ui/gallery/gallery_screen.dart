@@ -48,6 +48,47 @@ Future<void> evictPhotoImages(File file) async {
   }
 }
 
+/// Si la distancia entre la foto y la posición actual es incierta porque
+/// alguna de las dos es una ubicación aproximada.
+bool distanceIsApproximate(PhotoRecord p, Fix here) => p.approximateLocation || here.approximate;
+
+/// Ordena «por distancia a mí»: primero las de distancia fiable, luego las
+/// aproximadas (su punto, o el nuestro, puede estar a kilómetros) y al final
+/// las que no tienen distancia; dentro de cada tramo, de la más cercana a la
+/// más lejana.
+void sortByDistance(List<PhotoRecord> photos, Fix? here) {
+  double d(PhotoRecord p) => here == null || !p.hasLocation ? double.infinity : Coords.distanceMeters(here.latitude, here.longitude, p.latitude!, p.longitude!);
+  int tier(PhotoRecord p) => here == null || !p.hasLocation ? 2 : (distanceIsApproximate(p, here) ? 1 : 0);
+  photos.sort((PhotoRecord a, PhotoRecord b) {
+    final int c = tier(a).compareTo(tier(b));
+    return c != 0 ? c : d(a).compareTo(d(b));
+  });
+}
+
+/// Grupo de la galería ordenada por distancia. Con una ubicación aproximada
+/// la distancia puede errar en kilómetros: no cabe en «A menos de 100 m» ni
+/// en ningún otro tramo, así que va en su propio grupo.
+String distanceGroup(PhotoRecord p, Fix? here, {required bool spanish}) {
+  String t(String es, String en) => spanish ? es : en;
+  if (here == null || !p.hasLocation) {
+    return t('Sin distancia', 'No distance');
+  }
+  if (distanceIsApproximate(p, here)) {
+    return t('Ubicación aproximada (distancia incierta)', 'Approximate location (uncertain distance)');
+  }
+  final double d = Coords.distanceMeters(here.latitude, here.longitude, p.latitude!, p.longitude!);
+  if (d < 100) {
+    return t('A menos de 100 m', 'Within 100 m');
+  }
+  if (d < 1000) {
+    return t('A menos de 1 km', 'Within 1 km');
+  }
+  if (d < 10000) {
+    return t('A menos de 10 km', 'Within 10 km');
+  }
+  return t('A más de 10 km', 'Farther than 10 km');
+}
+
 /// Galería propia: cuadrícula por fecha con filtros, selección múltiple,
 /// compartir, exportar (CSV, KML, KMZ, ZIP, PDF) y borrar.
 class GalleryScreen extends StatefulWidget {
@@ -103,8 +144,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
         });
         break;
       case 'distance':
-        double d(PhotoRecord p) => here == null || !p.hasLocation ? double.infinity : Coords.distanceMeters(here.latitude, here.longitude, p.latitude!, p.longitude!);
-        out.sort((PhotoRecord a, PhotoRecord b) => d(a).compareTo(d(b)));
+        sortByDistance(out, here);
         break;
       case 'place':
         out.sort((PhotoRecord a, PhotoRecord b) {
@@ -131,22 +171,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
       case 'place':
         return (PhotoRecord p) => p.address.isEmpty ? t(context, 'Sin dirección', 'No address') : p.address;
       case 'distance':
-        return (PhotoRecord p) {
-          if (here == null || !p.hasLocation) {
-            return t(context, 'Sin distancia', 'No distance');
-          }
-          final double d = Coords.distanceMeters(here.latitude, here.longitude, p.latitude!, p.longitude!);
-          if (d < 100) {
-            return t(context, 'A menos de 100 m', 'Within 100 m');
-          }
-          if (d < 1000) {
-            return t(context, 'A menos de 1 km', 'Within 1 km');
-          }
-          if (d < 10000) {
-            return t(context, 'A menos de 10 km', 'Within 10 km');
-          }
-          return t(context, 'A más de 10 km', 'Farther than 10 km');
-        };
+        return (PhotoRecord p) => distanceGroup(p, here, spanish: spanish);
       default:
         return (PhotoRecord p) => formatDate(p.wallTime, 'EEE dd/MM/yyyy', spanish: spanish);
     }

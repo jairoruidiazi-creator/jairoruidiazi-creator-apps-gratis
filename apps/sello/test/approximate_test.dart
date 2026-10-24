@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:sello/core/app_state.dart';
 import 'package:sello/core/exports.dart';
 import 'package:sello/core/settings.dart';
@@ -10,6 +11,7 @@ import 'package:sello/model/models.dart';
 import 'package:sello/stamp/capture_pipeline.dart';
 import 'package:sello/stamp/composer.dart';
 import 'package:sello/stamp/stamp_data.dart';
+import 'package:sello/ui/gallery/gallery_screen.dart';
 import 'package:sello/ui/map/map_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -155,6 +157,107 @@ void main() {
       expect(MapScreen.distanceText(1234, approximate: true), '≈ 1 km');
       expect(MapScreen.distanceText(240, approximate: true), '≈ 1 km');
       expect(MapScreen.distanceText(5600, approximate: true), '≈ 6 km');
+    });
+  });
+
+  group('Comprobación final', () {
+    test('Los segundos del EXIF nunca llegan a 60: se acarrean a minutos y grados (O3)', () {
+      expect(exifDms(4.6), <int>[4, 36, 0]);
+      expect(exifDms(-4.6), <int>[4, 36, 0]);
+      expect(exifDms(-74.6), <int>[74, 36, 0]);
+      expect(exifDms(1.15), <int>[1, 9, 0]);
+      // 59,9999° = 59°59'59,64"; y un pelo menos de 60° redondea a 60°0'0".
+      expect(exifDms(59.9999), <int>[59, 59, 596400]);
+      expect(exifDms(59.99999999), <int>[60, 0, 0]);
+      expect(exifDms(-179.99999999), <int>[180, 0, 0]);
+      // Todos los valores de 0,00° a 179,99° (los de una ubicación aproximada
+      // y cualquier otro): minutos y segundos en rango y el mismo ángulo.
+      for (int i = 0; i < 18000; i++) {
+        final double v = i / 100;
+        final List<int> p = exifDms(v);
+        expect(p[1], inInclusiveRange(0, 59), reason: '$v');
+        expect(p[2], inInclusiveRange(0, 599999), reason: '$v');
+        expect(p[0] + p[1] / 60 + p[2] / 36000000, closeTo(v, 1e-7), reason: '$v');
+      }
+      // El texto (sello, hoja, detalle y PDF usan Coords.format) también acarrea.
+      expect(Coords.dms(4.6, -74.6), '4°36\'00.0"N 74°36\'00.0"W');
+      expect(Coords.dms(59.99999, -59.99999), '60°00\'00.0"N 60°00\'00.0"W');
+      expect(Coords.ddm(4.6, -74.6), '4°36.000\'N 74°36.000\'W');
+      expect(Coords.format(CoordFormat.dms, 59.9999, -4.6, coarse: true), '60°00\'N 4°36\'W');
+      for (final CoordFormat f in <CoordFormat>[CoordFormat.dms, CoordFormat.ddm]) {
+        for (final bool coarse in <bool>[false, true]) {
+          expect(Coords.format(f, 4.6, -1.15, coarse: coarse), isNot(contains('60')));
+        }
+      }
+    });
+
+    test('El EXIF escrito tiene las etiquetas en orden ascendente y los segundos acarreados (O2, O3)', () async {
+      await state.store.writeBytes('photos/general/o-orig.jpg', syntheticJpeg(64, 48));
+      final String out = '${tmp.path}/o.jpg';
+      composeStampedSync(ComposeJob(
+        originalPath: await state.store.absolutePath('photos/general/o-orig.jpg'),
+        outputPath: out,
+        quality: 85,
+        latitude: -4.6,
+        longitude: -74.6,
+        altitudeMsl: 2600,
+        accuracy: 2000,
+        positionMethod: kExifApproximate,
+        heading: 337,
+        headingTrue: true,
+        description: 'Obra · Bogotá',
+        takenAt: DateTime.utc(2026, 3, 9, 19),
+        utcOffsetMinutes: -300,
+      ));
+      final img.ExifData exif = img.decodeJpgExif(File(out).readAsBytesSync())!;
+      void ascending(String name, Iterable<int> keys) {
+        final List<int> k = keys.toList();
+        expect(k.length, greaterThan(3), reason: name);
+        expect(k, List<int>.of(k)..sort(), reason: name);
+      }
+
+      ascending('IFD0', exif.imageIfd.keys);
+      expect(exif.imageIfd.keys, containsAll(<int>[0x8769, 0x8825]));
+      ascending('EXIF', exif.exifIfd.keys);
+      ascending('GPS', exif.gpsIfd.keys);
+      expect(exif.gpsIfd.keys, containsAll(<int>[0x0007, 0x001B, 0x001D, 0x001F]));
+      for (final int tag in <int>[0x0002, 0x0004]) {
+        final img.IfdValue v = exif.gpsIfd[tag]!;
+        expect(<int>[v.toRational(0).numerator, v.toRational(1).numerator, v.toRational(2).numerator], <int>[tag == 2 ? 4 : 74, 36, 0]);
+      }
+      final StampExif e = readStampExif(File(out).readAsBytesSync());
+      expect(e.latitude, closeTo(-4.6, 1e-9));
+      expect(e.longitude, closeTo(-74.6, 1e-9));
+      expect(e.approximate, isTrue);
+    });
+
+    test('Por distancia, una foto aproximada va en su propio grupo y no «a menos de 100 m» (N2)', () {
+      PhotoRecord photo(String id, double lat, {bool approximate = false}) => PhotoRecord(id: id, projectId: 'general', originalFile: '$id-orig.jpg', stampedFile: '$id.jpg', takenAt: DateTime.utc(2026, 3, 9, 19), latitude: lat, longitude: -74.07, accuracy: approximate ? 2000 : 4, approximateLocation: approximate);
+      final Fix here = Fix(latitude: 4.71, longitude: -74.07, time: DateTime.utc(2026, 3, 9, 19), accuracy: 4);
+      final PhotoRecord near = photo('cerca', 4.7101);
+      final PhotoRecord approx = photo('aprox', 4.71, approximate: true);
+      final PhotoRecord far = photo('lejos', 4.9);
+      final PhotoRecord none = PhotoRecord(id: 'sin', projectId: 'general', originalFile: 's-orig.jpg', stampedFile: 's.jpg', takenAt: DateTime.utc(2026, 3, 9, 19));
+      expect(distanceGroup(near, here, spanish: true), 'A menos de 100 m');
+      expect(distanceGroup(approx, here, spanish: true), 'Ubicación aproximada (distancia incierta)');
+      expect(distanceGroup(approx, here, spanish: false), 'Approximate location (uncertain distance)');
+      expect(distanceGroup(far, here, spanish: true), 'A más de 10 km');
+      expect(distanceGroup(none, here, spanish: true), 'Sin distancia');
+      // Las aproximadas van después de las de distancia fiable (aunque estén
+      // «a 0 m») y antes de las que no tienen distancia: un solo grupo.
+      final List<PhotoRecord> list = <PhotoRecord>[none, approx, far, near];
+      sortByDistance(list, here);
+      expect(list.map((PhotoRecord p) => p.id), <String>['cerca', 'lejos', 'aprox', 'sin']);
+      // Si la aproximada es la posición propia, ninguna distancia es fiable.
+      final Fix coarseHere = Fix(latitude: 4.71, longitude: -74.07, time: DateTime.utc(2026, 3, 9, 19), accuracy: 2000, approximate: true);
+      expect(distanceGroup(near, coarseHere, spanish: true), 'Ubicación aproximada (distancia incierta)');
+    });
+
+    test('El círculo de una foto aproximada en el mapa es su precisión, de 1 a 10 km (O1)', () {
+      expect(MapScreen.approximateRadius(null), 1000);
+      expect(MapScreen.approximateRadius(300), 1000);
+      expect(MapScreen.approximateRadius(3000), 3000);
+      expect(MapScreen.approximateRadius(50000), 10000);
     });
   });
 }

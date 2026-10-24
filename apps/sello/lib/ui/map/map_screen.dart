@@ -20,6 +20,10 @@ import '../gallery/photo_detail_screen.dart';
 class MapScreen extends StatefulWidget {
   /// Distancia a una foto. Si alguno de los dos puntos es aproximado, en
   /// kilómetros enteros y con «≈»: más detalle sería falso.
+  /// Radio en metros del círculo de una foto aproximada: su precisión, entre
+  /// 1 km (el redondeo a 0,01° ya suma casi eso) y 10 km.
+  static double approximateRadius(double? accuracy) => accuracy == null || !accuracy.isFinite ? 1000.0 : accuracy.clamp(1000.0, 10000.0);
+
   static String distanceText(double m, {bool approximate = false}) {
     if (approximate) {
       return '≈ ${math.max(1, (m / 1000).round())} km';
@@ -152,13 +156,14 @@ class _MapScreenState extends State<MapScreen> {
                     tileProvider: MapScreen.tileProviderOverride ?? (_tiles ??= NetworkTileProvider(headers: <String, String>{'User-Agent': MapScreen.userAgent})),
                     maxNativeZoom: 19,
                   ),
-                // Las fotos con ubicación aproximada llevan un círculo de 1 km:
-                // la chincheta no es un punto exacto.
+                // Las fotos con ubicación aproximada llevan un círculo con su
+                // precisión (la misma del EXIF), de 1 km como mínimo: la
+                // chincheta no es un punto exacto.
                 if (photos.any((PhotoRecord p) => p.approximateLocation))
                   CircleLayer(
                     circles: <CircleMarker>[
                       for (final PhotoRecord p in photos)
-                        if (p.approximateLocation) CircleMarker(point: LatLng(p.latitude!, p.longitude!), radius: 1000, useRadiusInMeter: true, color: Colors.orange.withValues(alpha: 0.10), borderColor: Colors.orange.withValues(alpha: 0.5), borderStrokeWidth: 1),
+                        if (p.approximateLocation) CircleMarker(point: LatLng(p.latitude!, p.longitude!), radius: MapScreen.approximateRadius(p.accuracy), useRadiusInMeter: true, color: Colors.orange.withValues(alpha: 0.10), borderColor: Colors.orange.withValues(alpha: 0.5), borderStrokeWidth: 1),
                     ],
                   ),
                 // El círculo de la posición en vivo es su precisión real; con la

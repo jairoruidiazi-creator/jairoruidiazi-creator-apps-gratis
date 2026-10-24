@@ -255,6 +255,7 @@ img.ExifData _stampExif(img.ExifData camera, ComposeJob job) {
       gps['GPSTimeStamp'] = _rationals(<List<int>>[<int>[u.hour, 1], <int>[u.minute, 1], <int>[u.second, 1]]);
     }
   }
+  _sortTags(exif);
   return exif;
 }
 
@@ -269,11 +270,42 @@ Uint8List _utf16le(String text) {
 }
 
 img.IfdValueRational _dmsRational(double v) {
-  final int d = v.floor();
-  final double mFull = (v - d) * 60;
-  final int m = mFull.floor();
-  final double s = (mFull - m) * 60;
-  return _rationals(<List<int>>[<int>[d, 1], <int>[m, 1], <int>[(s * 10000).round(), 10000]]);
+  final List<int> p = exifDms(v);
+  return _rationals(<List<int>>[<int>[p[0], 1], <int>[p[1], 1], <int>[p[2], 10000]]);
+}
+
+/// Grados, minutos y diezmilésimas de segundo (sin signo) de un ángulo para
+/// el EXIF. Se redondea una sola vez, en diezmilésimas de segundo, y de ahí
+/// salen los minutos y los grados: así 4,6° da 4°36'0" y nunca 4°35'60".
+List<int> exifDms(double v) {
+  final int total = (v.abs() * 36000000).round();
+  return <int>[total ~/ 36000000, total % 36000000 ~/ 600000, total % 600000];
+}
+
+/// Pone las etiquetas de cada directorio en orden ascendente, como piden
+/// TIFF 6.0 y EXIF (el paquete `image` las escribe en el orden en que se
+/// insertaron). Los punteros a los subdirectorios EXIF y GPS se reservan aquí
+/// para que también queden en su sitio: al escribir, el paquete solo les
+/// cambia el valor.
+void _sortTags(img.ExifData exif) {
+  final img.IfdDirectory ifd0 = exif.imageIfd;
+  if (ifd0.sub.containsKey('exif')) {
+    ifd0.data[0x8769] = img.IfdValueLong(0); // ExifOffset
+  }
+  if (ifd0.sub.containsKey('gps')) {
+    ifd0.data[0x8825] = img.IfdValueLong(0); // GPSInfo
+  }
+  void sortDir(img.IfdDirectory d) {
+    final List<MapEntry<int, img.IfdValue>> entries = d.data.entries.toList()..sort((MapEntry<int, img.IfdValue> a, MapEntry<int, img.IfdValue> b) => a.key.compareTo(b.key));
+    d.data
+      ..clear()
+      ..addEntries(entries);
+  }
+
+  sortDir(ifd0);
+  for (final String name in ifd0.sub.keys.toList()) {
+    sortDir(ifd0.sub[name]);
+  }
 }
 
 /// Lista de racionales EXIF. El paquete `image` no exporta su clase

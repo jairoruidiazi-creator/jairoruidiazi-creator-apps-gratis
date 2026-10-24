@@ -80,12 +80,16 @@ class _GpsSheet extends StatelessWidget {
                   ],
                 ),
               ],
-              // Punto fijado cuando la ubicación era aproximada, con la precisa
-              // ya concedida: sigue siendo aproximado hasta liberarlo.
+              // Punto fijado cuando la ubicación era aproximada: sigue siendo
+              // aproximado hasta liberarlo. Solo se invita a liberarlo cuando
+              // hay una lectura precisa que lo reemplace (sin permiso, liberarlo
+              // dejaría la foto sin posición).
               if (f != null && f.approximate && !loc.approximate) ...<Widget>[
                 const SizedBox(height: 8),
                 Text(
-                  t(context, 'Esta posición fijada es aproximada: libérala para usar la precisa.', 'This locked position is approximate: unlock it to use the precise one.'),
+                  loc.status == 'ok'
+                      ? t(context, 'Esta posición fijada es aproximada: libérala para usar la precisa.', 'This locked position is approximate: unlock it to use the precise one.')
+                      : t(context, 'Esta posición fijada es aproximada (puede estar a kilómetros).', 'This locked position is approximate (it may be kilometres off).'),
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ],
