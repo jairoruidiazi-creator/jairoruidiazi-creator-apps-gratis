@@ -198,6 +198,30 @@ void main() {
     await t.shutdown(tester);
   });
 
+  testWidgets('Una nota bajo el rango del perfil se explica, también al lector, y se ofrece Cromático (4.ª ronda, M3)', (WidgetTester tester) async {
+    useScreen(tester, const Size(375, 667));
+    final SemanticsHandle handle = tester.ensureSemantics();
+    final TestServices t = TestServices(micEnabled: false);
+    t.services.settings.instrumentId = 'violin';
+    await t.services.settings.save();
+    await tester.pumpWidget(ClaveApp(services: t.services));
+    await tester.pump();
+    t.services.tuner.feed(aString(65.41)); // Do2: un violonchelo, no un violín
+    await tester.pump(const Duration(milliseconds: 1200));
+    expect(find.text('Suena más grave que el rango de Violín · usar Cromático'), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('más grave que el rango de Violín')), findsWidgets);
+    await tester.tap(find.text('Usar Cromático'));
+    await tester.pump();
+    expect(t.services.settings.instrumentId, 'cromatico');
+    expect(t.services.tuner.instrument.id, 'cromatico');
+    t.services.tuner.feed(aString(65.41));
+    await tester.pump();
+    expect(t.services.tuner.reading?.note.midi, 36);
+    expect(find.textContaining('más grave que el rango'), findsNothing);
+    handle.dispose();
+    await t.shutdown(tester);
+  });
+
   testWidgets('El afinador anuncia la nota al lector sin saturarlo: como mucho un aviso cada 1,1 s (G7)', (WidgetTester tester) async {
     useScreen(tester, const Size(360, 640));
     final SemanticsHandle handle = tester.ensureSemantics();

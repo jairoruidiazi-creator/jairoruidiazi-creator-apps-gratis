@@ -26,7 +26,8 @@ class ServiceLinks {
       ..permissionAsked = s.settings.micAsked
       ..onPermissionAsked = _onPermissionAsked
       ..onStableTone = _onStableTone
-      ..ownFrequencies = ownFrequencies;
+      ..ownFrequencies = ownFrequencies
+      ..ownTones = () => s.drone.soundingFrequencies;
     _lastConfig = jsonEncode(s.metronome.config.toJson());
     _onSettings();
   }
@@ -131,6 +132,7 @@ class ServiceLinks {
     s.tuner
       ..onStableTone = null
       ..onPermissionAsked = null
-      ..ownFrequencies = null;
+      ..ownFrequencies = null
+      ..ownTones = null;
   }
 }

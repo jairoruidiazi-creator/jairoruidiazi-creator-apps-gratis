@@ -216,15 +216,75 @@ void main() {
       final Tuner flute = fresh('flauta')..feed(s.next(hzAt(45, 0), 8192));
       expect(flute.reading, isNull);
       expect(flute.stableTone, isFalse);
-      flute.feed(s.next(hzAt(56, 0), 8192)); // Sol♯3, dentro del margen de 5 semitonos
-      expect(flute.reading?.note.midi, 56);
-      // Guitarra (Mi2 = 40): Do2 se muestra; La1 no. Con capo 5, el límite sube.
+      expect(flute.notice, TunerNotice.belowRange, reason: 'tono claro bajo el rango: se avisa');
+      flute.feed(s.next(hzAt(54, 0), 8192)); // Fa♯3, dentro del margen de 7 semitonos
+      expect(flute.reading?.note.midi, 54);
+      expect(flute.notice, TunerNotice.none);
+      // Guitarra (Mi2 = 40): Do2 y el Si1 de Drop B (aunque esté bajo) se
+      // muestran; Sol1 no. Con capo 5, el límite sube.
       expect((fresh('guitarra')..feed(s.next(hzAt(36, 0), 8192))).reading?.note.midi, 36);
-      expect((fresh('guitarra')..feed(s.next(hzAt(33, 0), 8192))).reading, isNull);
+      final Tuner dropB = fresh('guitarra')..feed(s.next(hzAt(35, -20), 8192));
+      expect(dropB.reading?.note.midi, 35);
+      expect(dropB.reading!.note.cents, closeTo(-20, 2));
+      expect((fresh('guitarra')..feed(s.next(hzAt(31, 0), 8192))).reading, isNull);
       expect((fresh('guitarra', capo: 5)..feed(s.next(hzAt(36, 0), 8192))).reading, isNull);
+      // Ukelele con Sol grave (Sol3 = 55, cinco semitonos bajo su Do4), unos
+      // cents bajo: se muestra para poder subirlo.
+      final Tuner uke = fresh('ukelele')..feed(s.next(hzAt(55, -15), 8192));
+      expect(uke.reading?.note.midi, 55);
+      // Trompa en Fa: el Si1 sonante (Fa♯2 escrito) está en su rango.
+      expect((fresh('trompa')..feed(s.next(hzAt(35, -10), 8192))).reading?.note.midi, 35);
       // Cromático: cualquier nota del rango del detector.
       expect((fresh('cromatico')..feed(s.next(hzAt(24, 0), 8192))).reading?.note.midi, 24);
       expect(Instruments.byId('cromatico').lowestReading(), lessThan(12.1));
+    });
+
+    test('El aviso de nota bajo el rango dura un momento y se va con el silencio (4.ª ronda, M3)', () {
+      fakeAsync((FakeAsync async) {
+        final Tuner tuner = Tuner(microphoneEnabled: false)
+          ..instrument = Instruments.byId('violin')
+          ..damping = 0;
+        final Sustained s = Sustained();
+        tuner.feed(s.next(hzAt(36, 0), 8192)); // el Do2 de un violonchelo
+        expect(tuner.reading, isNull);
+        expect(tuner.notice, TunerNotice.belowRange);
+        async.elapse(const Duration(milliseconds: 300));
+        tuner.feed(Float32List(8192));
+        expect(tuner.notice, TunerNotice.belowRange, reason: 'no parpadea');
+        async.elapse(const Duration(milliseconds: 400));
+        tuner.feed(Float32List(8192));
+        expect(tuner.notice, TunerNotice.none);
+        tuner.dispose();
+      });
+    });
+
+    test('Con el bordón sonando, una lectura en f/k de sus tonos no se muestra y se avisa (4.ª ronda, M1)', () {
+      final double root = hzAt(50, 0); // Re3 del bordón
+      Tuner fresh({bool drone = true}) {
+        final Tuner t = Tuner(microphoneEnabled: false)
+          ..instrument = Instruments.byId('voz')
+          ..damping = 0;
+        if (drone) {
+          t.ownTones = () => <double>[root, root * 1.5]; // con la quinta pura
+        }
+        return t;
+      }
+
+      final Sustained s = Sustained();
+      // La mezcla de una voz al unísono con bordón y quinta tiene periodo de
+      // Re2 (la mitad del bordón): esa lectura no es la nota.
+      final Tuner a = fresh()..feed(s.next(root / 2, 8192));
+      expect(a.reading, isNull);
+      expect(a.notice, TunerNotice.ownTone);
+      // La residual de la quinta (un tercio de La3 = Re2) también.
+      final Tuner b = fresh()..feed(s.next(root * 1.5 / 3, 8192));
+      expect(b.notice, TunerNotice.ownTone);
+      // La nota del bordón, su quinta y una nota cantada encima se muestran.
+      expect((fresh()..feed(s.next(root, 8192))).reading?.note.midi, 50);
+      expect((fresh()..feed(s.next(root * 1.5, 8192))).reading?.note.midi, 57);
+      expect((fresh()..feed(s.next(hzAt(54, 0), 8192))).reading?.note.midi, 54);
+      // Sin el bordón, el mismo Re2 es una nota más.
+      expect((fresh(drone: false)..feed(s.next(root / 2, 8192))).reading?.note.midi, 38);
     });
 
     test('Un tono sostenido cuenta como práctica a partir de 0,4 s; los clics no (B3)', () {

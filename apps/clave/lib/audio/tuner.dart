@@ -104,6 +104,18 @@ class ToneStability {
   }
 }
 
+/// Por qué el afinador no muestra lectura aunque oye un tono claro.
+enum TunerNotice {
+  none,
+
+  /// Suena más grave que el rango del perfil elegido.
+  belowRange,
+
+  /// La lectura cae en un subarmónico de un tono de la propia app (bordón,
+  /// quinta, teclas o acorde): es la mezcla con ese tono, no la nota.
+  ownTone,
+}
+
 /// Afinador: captura el micrófono, detecta el tono y lo interpreta según
 /// los ajustes (referencia, temperamento, transposición, instrumento y capo).
 ///
@@ -153,6 +165,17 @@ class Tuner extends ChangeNotifier {
   /// teclado): no cuentan como práctica del afinador.
   List<double> Function()? ownFrequencies;
 
+  /// Tonos sostenidos que suena la propia app ahora (bordón, quinta, teclas
+  /// y acordes, sin los clics del metrónomo): una lectura en f/k de uno de
+  /// ellos (k de 2 a 8) es la mezcla con ese tono y no se muestra.
+  List<double> Function()? ownTones;
+
+  /// Cuánto se mantiene un aviso sin que se repita.
+  static const Duration noticeHold = Duration(milliseconds: 600);
+
+  /// Claridad mínima para avisar que una nota queda bajo el rango.
+  static const double noticeClarity = 0.85;
+
   static const int bufferFrames = 8192;
   static const Duration analysisPeriod = Duration(milliseconds: 60);
 
@@ -182,6 +205,8 @@ class Tuner extends ChangeNotifier {
   double _lastHz = 0;
   final ToneStability stability = ToneStability();
   bool _stableNow = false;
+  TunerNotice _notice = TunerNotice.none;
+  DateTime? _noticeAt;
 
   MicStatus get status => _status;
 
@@ -198,6 +223,10 @@ class Tuner extends ChangeNotifier {
   bool get stableTone => _stableNow;
 
   TunerReading? get reading => _reading;
+
+  /// Por qué no hay lectura aunque suena un tono claro (se mantiene un
+  /// momento para que el aviso no parpadee).
+  TunerNotice get notice => _notice;
 
   double get lastHz => _lastHz;
 
@@ -365,6 +394,8 @@ class Tuner extends ChangeNotifier {
 
   void _clearReading() {
     _reading = null;
+    _notice = TunerNotice.none;
+    _noticeAt = null;
     _smoothMidi = -1;
     _stableNow = false;
     stability.reset();
@@ -426,9 +457,41 @@ class Tuner extends ChangeNotifier {
     final PitchResult r = _detector.detect(buf);
     final double t = now;
     // Muy por debajo del rango del perfil elegido no es la nota (ruido grave o
-    // un subarmónico): no se muestra. En Cromático no limita.
-    final bool belowRange = r.hasPitch && Notes.hzToMidi(r.frequency, a4: settings.a4) < instrument.lowestReading(capo: settings.capo);
-    if (!r.hasPitch || r.clarity < 0.6 || belowRange) {
+    // un subarmónico) y no se muestra; con un tono claro, se avisa (puede ser
+    // otro instrumento: Cromático lo lee). En Cromático no limita.
+    // Con el bordón o un acorde sonando, una lectura en f/k de uno de esos
+    // tonos es la mezcla con él: tampoco se muestra, y se avisa.
+    final bool voiced = r.hasPitch && r.clarity >= 0.6;
+    TunerNotice why = TunerNotice.none;
+    bool hide = false;
+    if (voiced) {
+      if (Notes.hzToMidi(r.frequency, a4: settings.a4) < instrument.lowestReading(capo: settings.capo)) {
+        hide = true;
+        if (r.clarity >= noticeClarity) {
+          why = TunerNotice.belowRange;
+        }
+      } else if (_isOwnToneResidue(r.frequency)) {
+        hide = true;
+        why = TunerNotice.ownTone;
+      }
+    }
+    if (why != TunerNotice.none) {
+      final bool changed = _notice != why || _reading != null;
+      _notice = why;
+      _noticeAt = wall;
+      if (_reading != null) {
+        _reading = null;
+        _smoothMidi = -1;
+      }
+      if (changed) {
+        notifyListeners();
+      }
+    } else if (_notice != TunerNotice.none && ((voiced && !hide) || (_noticeAt != null && wall.difference(_noticeAt!) > noticeHold))) {
+      _notice = TunerNotice.none;
+      _noticeAt = null;
+      notifyListeners();
+    }
+    if (!voiced || hide) {
       _stableNow = stability.update(wall, voiced: false, midi: 0, clarity: 0, impulsive: false, ownSound: false);
       // Mantiene la última lectura un momento para que la aguja no parpadee.
       final DateTime? lv = _lastVoiced;
@@ -474,6 +537,25 @@ class Tuner extends ChangeNotifier {
       onStableTone?.call();
     }
     notifyListeners();
+  }
+
+  /// true si [hz] cae (±60 cents) en f/k de un tono sostenido de la app.
+  bool _isOwnToneResidue(double hz) {
+    final List<double>? own = ownTones?.call();
+    if (own == null || own.isEmpty) {
+      return false;
+    }
+    for (final double f in own) {
+      if (f <= 0) {
+        continue;
+      }
+      for (int k = 2; k <= 8; k++) {
+        if ((1200 * log2(hz * k / f)).abs() <= 60) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   bool _isOwnSound(double hz) {

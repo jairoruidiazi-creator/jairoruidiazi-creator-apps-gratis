@@ -30,9 +30,10 @@ class Instrument {
 
   String name(bool spanish) => spanish ? nameEs : nameEn;
 
-  /// Margen bajo la nota más grave del perfil (afinaciones bajadas, voces
-  /// más graves de lo habitual).
-  static const int rangeMargin = 5;
+  /// Margen bajo la nota más grave del perfil: afinaciones bajadas (Drop B
+  /// en guitarra, Si1; ukelele con Sol grave, Sol3) y voces más graves de lo
+  /// habitual, aunque estén unos cents bajas.
+  static const int rangeMargin = 7;
 
   /// Nota sonante (MIDI) más grave que el afinador muestra con este perfil:
   /// la cuerda más grave con el capo, o el extremo grave del rango, menos
@@ -137,7 +138,8 @@ class Instruments {
     Instrument('trompeta', 'Trompeta en Si♭', 'B♭ trumpet', <List<int>>[], transposition: 2, lowMidi: 52, highMidi: 84),
     Instrument('saxo_alto', 'Saxofón alto en Mi♭', 'E♭ alto sax', <List<int>>[], transposition: 9, lowMidi: 49, highMidi: 81),
     Instrument('saxo_tenor', 'Saxofón tenor en Si♭', 'B♭ tenor sax', <List<int>>[], transposition: 14, lowMidi: 44, highMidi: 76),
-    Instrument('trompa', 'Trompa en Fa', 'F horn', <List<int>>[], transposition: 7, lowMidi: 41, highMidi: 77),
+    // Trompa en Fa: la escrita más grave es Fa♯2, que suena Si1.
+    Instrument('trompa', 'Trompa en Fa', 'F horn', <List<int>>[], transposition: 7, lowMidi: 35, highMidi: 77),
     Instrument('piano', 'Piano / teclado', 'Piano / keyboard', <List<int>>[], lowMidi: 21, highMidi: 108),
   ];
 

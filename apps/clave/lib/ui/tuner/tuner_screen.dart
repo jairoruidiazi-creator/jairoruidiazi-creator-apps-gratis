@@ -43,7 +43,24 @@ class _TunerScreenState extends State<TunerScreen> {
     super.dispose();
   }
 
+  /// Por qué no hay lectura aunque se oye un tono claro (o null).
+  String? _noticeText(BuildContext context, Tuner tuner) {
+    switch (tuner.notice) {
+      case TunerNotice.belowRange:
+        final String name = tuner.instrument.name(isSpanish(context));
+        return t(context, 'Suena más grave que el rango de $name · usar Cromático', 'Sounds lower than the $name range · use Chromatic');
+      case TunerNotice.ownTone:
+        return t(context, 'Con el bordón sonando, la lectura se confunde con él: bájale el volumen o usa audífonos', 'With the drone playing, the reading mixes with it: turn it down or use headphones');
+      case TunerNotice.none:
+        return null;
+    }
+  }
+
   String _statusText(BuildContext context, Tuner tuner) {
+    final String? notice = _noticeText(context, tuner);
+    if (notice != null) {
+      return notice;
+    }
     switch (tuner.status) {
       case MicStatus.listening:
         return t(context, 'Toca una nota', 'Play a note');
@@ -150,7 +167,8 @@ class _TunerScreenState extends State<TunerScreen> {
       }
       // La nota ya es grande: no se agranda más con el texto del sistema.
       final TextScaler noteScaler = MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.0);
-      return Semantics(
+      final String? notice = r == null ? _noticeText(context, tuner) : null;
+      final Widget block = Semantics(
         container: true,
         liveRegion: true,
         label: _announcement,
@@ -171,14 +189,21 @@ class _TunerScreenState extends State<TunerScreen> {
                 ],
               ),
               const SizedBox(height: 4),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  r == null ? _statusText(context, tuner) : '${formatCents(cents)} cents · ${formatHz(r.note.hz, comma: spanish)} Hz',
-                  maxLines: 1,
-                  style: TextStyle(fontSize: 18, color: cs.onSurfaceVariant, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()]),
+              if (notice != null)
+                // Un aviso puede ocupar dos o tres líneas: no se encoge.
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(notice, textAlign: TextAlign.center, maxLines: 3, style: TextStyle(fontSize: 16, color: cs.onSurfaceVariant)),
+                )
+              else
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    r == null ? _statusText(context, tuner) : '${formatCents(cents)} cents · ${formatHz(r.note.hz, comma: spanish)} Hz',
+                    maxLines: 1,
+                    style: TextStyle(fontSize: 18, color: cs.onSurfaceVariant, fontFeatures: const <FontFeature>[FontFeature.tabularFigures()]),
+                  ),
                 ),
-              ),
               if (r != null)
                 Text(
                   '${t(context, 'Meta', 'Target')}: ${formatHz(r.note.targetHz, comma: spanish)} Hz',
@@ -188,6 +213,24 @@ class _TunerScreenState extends State<TunerScreen> {
             ],
           ),
         ),
+      );
+      if (tuner.notice != TunerNotice.belowRange || r != null) {
+        return block;
+      }
+      // Fuera de la región en vivo, para que el lector lo ofrezca como botón.
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          block,
+          TextButton.icon(
+            onPressed: () {
+              s.settings.instrumentId = 'cromatico';
+              unawaited(s.settings.save());
+            },
+            icon: const Icon(Icons.swap_horiz_rounded),
+            label: Text(t(context, 'Usar Cromático', 'Use Chromatic')),
+          ),
+        ],
       );
     }
 
