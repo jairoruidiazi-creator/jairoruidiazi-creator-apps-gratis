@@ -312,8 +312,11 @@ class LedgerSnapshot {
     required this.periodSpec,
   });
 
-  /// Versión del formato que escribe esta app.
-  static const int currentVersion = 2;
+  /// Versión del formato que escribe esta app. 2: pagos hechos fuera de
+  /// Plata como movimientos (ronda 11). 3: `Tx.apartFrom` es una lista y los
+  /// abonos provisionales (`outsidePending`, `outsideTaken`, ronda 12): una
+  /// app con la versión 2 no los leería bien, así que los rechaza entera.
+  static const int currentVersion = 3;
 
   final List<Account> accounts;
   final List<Category> categories;

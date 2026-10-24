@@ -554,13 +554,14 @@ void main() {
       l.dispose();
     });
 
-    test('M2: el formato sube a la versión 2 y una versión más nueva no se abre', () async {
+    test('M2: el formato sube de versión (3 desde la ronda 12), lee las anteriores y una más nueva no se abre', () async {
       final Ledger l = await n1();
-      expect(LedgerSnapshot.currentVersion, 2);
-      expect(l.toJson()['version'], 2);
+      expect(LedgerSnapshot.currentVersion, 3);
+      expect(l.toJson()['version'], 3);
       final Map<String, dynamic> json = jsonDecode(jsonEncode(l.toJson())) as Map<String, dynamic>;
       expect(LedgerSnapshot.parse(json).accounts, isNotEmpty);
-      expect(() => LedgerSnapshot.parse(Map<String, dynamic>.from(json)..['version'] = 3), throwsFormatException);
+      expect(LedgerSnapshot.parse(Map<String, dynamic>.from(json)..['version'] = 2).accounts, isNotEmpty);
+      expect(() => LedgerSnapshot.parse(Map<String, dynamic>.from(json)..['version'] = 4), throwsFormatException);
       l.dispose();
     });
   });
