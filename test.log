@@ -1,0 +1,175 @@
+
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/legal_document_test.dart: el Markdown reducido se convierte en bloques
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/legal_document_test.dart: la política (es) está completa y solo usa la sintaxis que la app dibuja
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/legal_document_test.dart: la política (en) está completa y solo usa la sintaxis que la app dibuja
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/legal_document_test.dart: las dos versiones tienen la misma fecha y la misma estructura
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_controller_test.dart: entrenamiento completo: voz, sonidos, vibración y registro
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_controller_test.dart: sin cuenta hablada suenan pitidos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_controller_test.dart: la pausa congela el tiempo y apaga la pantalla
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_controller_test.dart: en segundo plano no suena nada y al volver no hay avisos atrasados
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_controller_test.dart: saltar intervalos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_controller_test.dart: el tiempo de un hábito se suma al día, aunque se detenga antes
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_controller_test.dart: cuenta regresiva libre y reemplazo de un entrenamiento en marcha
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_controller_test.dart: al abrir la app sigue el temporizador o lo registra si terminó
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_controller_test.dart: los intervalos sin nombre se anuncian con su tipo, como en la pantalla (M17)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_controller_test.dart: la vibración usa el motor del teléfono y respeta el ajuste (M17)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/legal_document_test.dart: la pantalla muestra la política de principio a fin
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Recordatorios un aviso a su hora; los hechos y los ya pasados sin insistencia no se programan
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Recordatorios la insistencia de la ocurrencia más próxima tiene un tope por elemento
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Recordatorios vencido: una sola solicitud que se repite hasta marcarlo hecho
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Recordatorios los que se repiten programan sus próximas ocurrencias y la insistencia para antes de la siguiente
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Recordatorios «la 1:30», no «las 1:30»
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Recordatorios pospuesto: suena a la nueva hora
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Recordatorios cuenta regresiva: insiste cada minuto en su propio canal
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Hábitos aviso diario mientras no esté hecho, con el avance en el texto
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Hábitos hecho o saltado hoy: el aviso de hoy no se programa
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Hábitos insiste hasta medianoche solo en la ocurrencia más próxima; los días que no tocan no avisan
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Hábitos archivados y sin horas de aviso no programan nada
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Cupo con los topes reales (B1) demo de la tienda: en iOS cubre casi una semana y no pierde ningún primer aviso antes de ese momento
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_engine_test.dart: Despliegue de bloques las plantillas duran lo que dicen
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_engine_test.dart: Despliegue de bloques bloques anidados: series de rondas con su número
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Cupo con los topes reales (B1) usuario típico: un hábito que insiste no deja sin avisos los días siguientes
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_engine_test.dart: Despliegue de bloques omitir el último descanso se puede apagar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_engine_test.dart: Despliegue de bloques tres niveles de bloques y nombres propios de las vueltas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_engine_test.dart: Despliegue de bloques colores y sonidos por tipo cuando no se eligen
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_engine_test.dart: Despliegue de bloques el entrenamiento viaja en JSON con sus bloques
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_engine_test.dart: Estado con el reloj el intervalo sale del tiempo transcurrido
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_engine_test.dart: Estado con el reloj la pausa congela el tiempo y al seguir no se pierde nada
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_engine_test.dart: Estado con el reloj saltar al siguiente y volver al anterior
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_engine_test.dart: Estado con el reloj saltar el último intervalo lo termina
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_engine_test.dart: Estado con el reloj viaja en JSON
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_engine_test.dart: Avisos de voz y sonido anuncia cada intervalo y cuenta 3, 2, 1 en los de 5 s o más
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_engine_test.dart: Avisos de voz y sonido los intervalos de menos de 5 s no tienen cuenta regresiva
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_engine_test.dart: Avisos de voz y sonido al volver de segundo plano no suelta avisos atrasados
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/timer_engine_test.dart: Avisos de voz y sonido en pausa no cuenta regresiva
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Cupo con los topes reales (B1) uso intenso: lo que cabe va sin huecos y termina con el aviso honesto
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Temporizador en segundo plano un aviso con sonido por cada cambio de intervalo que falta y uno al final
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Temporizador en segundo plano sonidos o vibración apagados en Ajustes también con la pantalla apagada (M2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Temporizador en segundo plano en pausa no se programa nada
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Temporizador en segundo plano si no caben todos, el último que cabe avisa que hay que abrir la app
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Temporizador en segundo plano el Tabata no cabe en iOS: se sabe hasta qué intervalo llegan los avisos (G6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Temporizador en segundo plano los cambios del temporizador van primero en el cupo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Claves y cargas útiles la misma clave da siempre el mismo número
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Claves y cargas útiles la carga útil lleva la ocurrencia y si es una alarma exacta (G3, G7)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Servicio de avisos iOS: solo programa y cancela lo que cambió
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Servicio de avisos Android: tras forzar la detención, al abrir la app se vuelve a programar todo (B2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Servicio de avisos reprogramar todo: primero se programa y después se cancela lo que sobra (M1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Servicio de avisos iOS: al aplicar diferencias se cancela antes de programar y nunca se pasa del cupo (M1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Servicio de avisos iOS: restaurar una copia no pasa nunca del cupo de pendientes (N1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Servicio de avisos Android: una copia restaurada en otro teléfono trae la lista del plugin pero no las alarmas (B2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Servicio de avisos al conceder las alarmas exactas, lo ya programado pasa a ser exacto (G7)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Servicio de avisos al cambiar el idioma, canales, botones y textos pasan al nuevo (M3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Servicio de avisos al volver a la app se quitan los avisos del temporizador
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Servicio de avisos con la app abierta, al sonar el primer aviso la insistencia pasa a una sola solicitud que se repite (B1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Servicio de avisos al marcarlo hecho se quitan del panel también los avisos de días anteriores (G3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Servicio de avisos si no cabe todo, el sistema guarda el aviso honesto y la app sabe hasta cuándo (B1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/notice_plan_test.dart: Servicio de avisos los toques en las notificaciones llegan al que los atiende, aunque llegue después
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Ocurrencias una vez no se repite
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Ocurrencias cada día y cada N días con la hora del ancla
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Ocurrencias días de la semana
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Ocurrencias mensual el 31 cae en el último día de los meses cortos y vuelve al 31
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Ocurrencias mensual el 30 en febrero
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Ocurrencias último día del mes
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Ocurrencias anual: el 29 de febrero cae el 28 en los años no bisiestos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Ocurrencias la primera fecha se ajusta a la regla
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Ocurrencias la regla se normaliza y viaja en JSON
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Recordatorios marcar hecho uno de una vez lo cierra
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Recordatorios marcar hecho uno que se repite pasa a la siguiente ocurrencia
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Recordatorios mensual del 31 mantiene el día al marcarlo hecho
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Recordatorios sin marcar, pasa a la ocurrencia más reciente cuando llega la siguiente
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Recordatorios posponer cambia la hora del aviso, no la del recordatorio
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Recordatorios posponer solo lo que ya sonó o suena dentro de una hora (G1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Recordatorios la regla guarda su hora (G8)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Recordatorios viaja en JSON
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Cambio de horario (G8) Nueva York: el día que no existe las 2:30 suena a las 3:30 y al otro día vuelve a las 2:30
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Cambio de horario (G8) America/New_York: un año de ocurrencias diarias sin correrse
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Cambio de horario (G8) America/Santiago: un año de ocurrencias diarias sin correrse
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/recurrence_test.dart: Cambio de horario (G8) Europe/Madrid: un año de ocurrencias diarias sin correrse
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stores_test.dart: Hábitos registros por día: se suman, se saltan, llevan nota y se limpian solos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stores_test.dart: Hábitos marcar y desmarcar un hábito de sí o no
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stores_test.dart: Hábitos orden, archivo y borrado
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stores_test.dart: Hábitos se guardan en disco y se vuelven a leer igual
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stores_test.dart: Hábitos un archivo dañado se aparta y no se sobrescribe
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stores_test.dart: Recordatorios cuenta regresiva rápida: hecho, repetir y limpiar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stores_test.dart: Recordatorios posponer, volver a abrir y pasar a la ocurrencia que toca
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stores_test.dart: Temporizador entrenamientos, cuentas atrás guardadas e historial
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stores_test.dart: Copia de seguridad exportar y restaurar en otro teléfono
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stores_test.dart: Copia de seguridad una copia dañada no toca nada de lo que hay (M1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stores_test.dart: Copia de seguridad restaurar quita el aviso del archivo dañado (M13)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stores_test.dart: Copia de seguridad archivos que no son una copia válida
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stores_test.dart: Hábitos con historia el tipo se bloquea en cuanto hay algo anotado (G5)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stores_test.dart: Hábitos con historia un archivado de una versión anterior toma la fecha de su último registro
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stopwatch_test.dart: cuenta desde el arranque y la pausa congela el tiempo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stopwatch_test.dart: vueltas con la más rápida y la más lenta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stopwatch_test.dart: sin resaltar con una sola vuelta o con todas iguales
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stopwatch_test.dart: reiniciar lo deja en cero y viaja en JSON
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/stopwatch_test.dart: formato del cronómetro
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/summary_test.dart: Límites de los periodos semana que empieza el lunes o el domingo, mes y año
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/summary_test.dart: Límites de los periodos ir al periodo anterior y al siguiente
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/summary_test.dart: Resumen semanal cumplimiento de cada hábito: hoy sin terminar no cuenta como fallado
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/summary_test.dart: Resumen semanal totales, mejor día, minutos con tiempo y entrenamientos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/summary_test.dart: Resumen semanal un hábito que empezó después del periodo no aparece
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/summary_test.dart: Resumen semanal una semana futura queda en blanco
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/summary_test.dart: Resumen mensual y anual el mes: días cerrados sin cumplir y el día de la semana más constante
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/summary_test.dart: Resumen mensual y anual veces por semana: cuentan las semanas que terminan en el mes; la saltada no falla
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/summary_test.dart: Resumen mensual y anual el año: barras por mes
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/summary_test.dart: Archivados (G4) no cuentan como fallados después de archivarlos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/summary_test.dart: Archivados (G4) al recuperarlo, el tiempo archivado no falla pero lo de después sí
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Diarios la racha cuenta los días seguidos y hoy sin terminar no la rompe
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Diarios un día saltado a propósito no rompe la racha ni la suma
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Diarios un día fallado la deja en cero hasta el siguiente hecho
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Diarios anotar un día anterior al inicio adelanta el inicio
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Diarios un hábito que empieza en el futuro no tiene periodos ni toca hoy
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Días de la semana los días que no tocan no rompen la racha
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Días de la semana hacerlo un día que no toca cuenta como hecho pero no como periodo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Cada N días basta una vez en cada bloque de N días
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Veces por semana cuenta semanas cumplidas; la semana de hoy no rompe y la primera a medias se excusa
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Veces por semana los días saltados cubren lo que faltó en la semana
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Veces por semana la semana empieza el día elegido
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Veces al mes cuenta meses cumplidos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Veces al mes la meta nunca pasa de los días del mes
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Con meta y con tiempo varias veces al día: solo cuenta al llegar a la meta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Con meta y con tiempo con tiempo: los segundos tienen que llegar a la meta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Dejar de… cuenta días completos sin recaer
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Dejar de… recaer hoy deja la racha en cero; empezar hoy también
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Dejar de… los hábitos negativos siempre tocan
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Cambios de regla con fecha de vigencia (G5) de lunes a viernes a todos los días: la racha y los fines de semana pasados no cambian
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Cambios de regla con fecha de vigencia (G5) de 3 por semana a todos los días: la racha no mezcla semanas con días (M2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Cambios de regla con fecha de vigencia (G5) de «cada 2 días» a «cada 3 días»: la racha sigue en veces
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Cambios de regla con fecha de vigencia (G5) dos cambios el mismo día: el aviso del editor se compara con la regla de ayer (N2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Cambios de regla con fecha de vigencia (G5) subir la meta no deshace los días que ya estaban hechos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Cambios de regla con fecha de vigencia (G5) dos cambios el mismo día que dejan todo como estaba no guardan nada
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Archivados (G4) desde que se archiva no hay días fallados; al recuperarlo, el tramo queda como pausa
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Días saltados y registros sin valor un día saltado que cubre la semana la saca de lo pendiente (M11)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Días saltados y registros sin valor una nota o un día saltado solos no adelantan el inicio (M16)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Días saltados y registros sin valor fechas absurdas de un archivo dañado no se leen (M1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Modelo la frecuencia se normaliza y viaja en JSON
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/habit_logic_test.dart: Modelo las claves de día se leen y se rechazan las inválidas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: recorrido completo en un teléfono de 360 × 740
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: los botones de las notificaciones marcan, suman y posponen
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: todas las pantallas sin desbordes (vertical, texto ×1.0)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: todas las pantallas sin desbordes (vertical, texto ×2.0)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: todas las pantallas sin desbordes (apaisado, texto ×1.0)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: todas las pantallas sin desbordes (apaisado, texto ×2.0)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: tema oscuro y otro color de acento
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: tableta: riel lateral y contenido a un ancho legible
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: tableta: la barra del temporizador queda sobre la barra del sistema (M6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: en inglés si el teléfono está en inglés
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: objetivos táctiles de 48 dp y con nombre en las pantallas principales
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: los días de la semana se marcan con la acción de toque de los lectores de pantalla (G9)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: posponer solo aparece en lo que ya sonó o está por sonar (G1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: abrir y guardar un recordatorio no cambia su regla ni su ocurrencia (G2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: el tipo de un hábito con días anotados no cambia y la meta nueva rige desde hoy (G5)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: un hábito saltado hoy deja de estar por hacer (M11)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: tocar una notificación no cierra un editor con cambios sin guardar (M12)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: los números se pueden escribir (M14)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: primer entrenamiento sin alarmas exactas: lo explica y lo advierte en la pantalla (G6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: iPhone: si los cambios del Tabata no caben, se dice antes de bloquear (G6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: si los avisos no caben, la app dice hasta cuándo llegan (B1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: con la app abierta, un vencido pasa a la ocurrencia siguiente cuando llega (M3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: textos de las cuentas regresivas que suenan (M5)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/rutinas/test/app_test.dart: los colores de hábitos, intervalos y acentos dejan leer texto blanco (AA)
+::endgroup::
+
+🎉 170 tests passed.
