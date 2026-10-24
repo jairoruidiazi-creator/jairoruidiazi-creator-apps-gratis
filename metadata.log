@@ -1,0 +1,9 @@
+== pilas
+  ok  capturas: 6 en Android y 6 en iOS, idiomas es
+  ok  play/es-419: título «Pilas: juegos para aprender»
+  ok  ios/es-MX: nombre «Pilas: juegos para aprender»
+  ok  versión 1.0.0 (build 1)
+  ok  lib/ui/legal/legal_document.dart idéntico al original
+  ok  test/store/store_shots.dart idéntico al original
+declarado: NSPrivacyAccessedAPICategoryUserDefaults ['CA92.1']
+pilas: el manifiesto de privacidad cubre las API del código nativo propio (3 archivos)
