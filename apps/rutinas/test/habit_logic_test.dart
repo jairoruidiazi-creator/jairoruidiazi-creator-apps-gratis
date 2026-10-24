@@ -289,6 +289,19 @@ void main() {
       expect(HabitLogic.streak(h, e, d(10, 16), weekStart: DateTime.monday).current, 2);
     });
 
+    test('de «cada 2 días» a «cada 3 días»: la racha sigue en veces', () {
+      final Habit h = habit(start: d(10, 1), frequency: const Frequency(type: FrequencyType.everyN, n: 2));
+      // Bloques del 1-2, 3-4, …, 11-12 hechos (6 veces).
+      final Map<String, HabitEntry> e = log(done(<DateTime>[d(10, 1), d(10, 3), d(10, 5), d(10, 7), d(10, 9), d(10, 11)]));
+      expect(HabitLogic.streak(h, e, d(10, 13), weekStart: DateTime.monday).current, 6);
+      h.changeRule(frequency: const Frequency(type: FrequencyType.everyN, n: 3), goal: 1, today: d(10, 13), since: d(10, 1));
+      e[dayKey(d(10, 13))] = HabitEntry(value: 1);
+      final StreakInfo s = HabitLogic.streak(h, e, d(10, 14), weekStart: DateTime.monday);
+      expect(s.unit, StreakUnit.times);
+      expect(s.current, 7);
+      expect(s.best, 7);
+    });
+
     test('subir la meta no deshace los días que ya estaban hechos', () {
       final Habit h = habit(kind: HabitKind.count, goal: 8, start: d(10, 1));
       final Map<String, HabitEntry> e = log(<DateTime, int>{for (final DateTime x in range(d(10, 1), d(10, 13))) x: 8, today: 8});

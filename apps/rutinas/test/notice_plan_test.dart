@@ -529,6 +529,34 @@ void main() {
       });
     });
 
+    test('iOS: restaurar una copia no pasa nunca del cupo de pendientes (N1)', () async {
+      await withClock(Clock.fixed(intenseNow), () async {
+        final FakeNotificationGateway ios = FakeNotificationGateway(ios: true);
+        final NoticeService s = make(ios);
+        reminders.reminders.addAll(intenseReminders());
+        habits.habits.addAll(intenseHabits());
+        await s.sync();
+        expect(ios.scheduled.length, kIosLimits.budget);
+        // La copia trae otros datos: el plan nuevo no comparte números con el viejo.
+        reminders.reminders
+          ..clear()
+          ..addAll(<Reminder>[
+            for (int i = 0; i < 10; i++) Reminder(id: 'copia$i', title: 'De la copia $i', dueAt: DateTime(2026, 10, 19, 9 + i), recurrence: const Recurrence(type: RecurrenceType.everyNDays), nagMinutes: 5, createdAt: DateTime(2026, 9, 1)),
+          ]);
+        habits.habits.clear();
+        ios.peak = 0;
+        ios.ops.clear();
+        await s.afterRestore();
+        expect(ios.peak, lessThanOrEqualTo(kIosLimits.budget));
+        expect(ios.scheduled.length, lessThanOrEqualTo(kIosLimits.budget));
+        expect(ios.scheduled.values.every((PlannedNotice n) => n.route.startsWith('reminder:copia') || n.kind == NoticeKind.coverage), isTrue);
+        final int lastCancel = ios.ops.lastIndexWhere((String o) => o.startsWith('cancelar:'));
+        final int firstSchedule = ios.ops.indexWhere((String o) => o.startsWith('programar:'));
+        expect(lastCancel, lessThan(firstSchedule));
+        s.dispose();
+      });
+    });
+
     test('Android: una copia restaurada en otro teléfono trae la lista del plugin pero no las alarmas (B2)', () async {
       await withClock(Clock.fixed(now), () async {
         reminders.reminders.add(reminder('a', at(14, 10), nag: 30));

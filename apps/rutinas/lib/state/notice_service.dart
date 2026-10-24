@@ -261,12 +261,26 @@ class NoticeService extends ChangeNotifier {
         for (final MapEntry<int, _Shown> e in _scheduled.entries)
           if (e.value.when.isAfter(now)) e.key,
       };
+      // En iOS, en cambio, se cancela primero: iOS guarda 64 pendientes y lo
+      // que pasa de ahí se descarta (al restaurar una copia, el plan nuevo y el
+      // viejo no comparten números). Allí la reprogramación total solo ocurre
+      // al restaurar o al cambiar de idioma, con la app abierta.
+      final bool cancelFirst = gateway.isIOS;
+      if (cancelFirst) {
+        for (final int id in stale) {
+          if (!byId.containsKey(id)) {
+            await gateway.cancel(id);
+          }
+        }
+      }
       for (final MapEntry<int, PlannedNotice> e in byId.entries) {
         await gateway.schedule(e.value, e.key, exact: exact, payload: e.value.payload(exact: exact));
       }
-      for (final int id in stale) {
-        if (!byId.containsKey(id)) {
-          await gateway.cancel(id);
+      if (!cancelFirst) {
+        for (final int id in stale) {
+          if (!byId.containsKey(id)) {
+            await gateway.cancel(id);
+          }
         }
       }
     } else {

@@ -132,6 +132,22 @@ class HabitLogic {
     }
   }
 
+  /// Unidad en que se cuenta la racha: días (diarios y días de la semana),
+  /// veces (cada N días, con cualquier N), semanas o meses.
+  static String streakUnitOf(Frequency f) {
+    switch (f.type) {
+      case FrequencyType.daily:
+      case FrequencyType.weekdays:
+        return 'day';
+      case FrequencyType.everyN:
+        return 'times';
+      case FrequencyType.perWeek:
+        return 'week';
+      case FrequencyType.perMonth:
+        return 'month';
+    }
+  }
+
   /// Tramos de [start] a [end] con la misma estructura de periodos, según las
   /// reglas que rigieron cada día.
   static List<_Run> _runs(Habit h, DateTime start, DateTime end) {
@@ -250,23 +266,24 @@ class HabitLogic {
   /// ni por los tramos archivados.
   ///
   /// La racha se cuenta en la unidad de la frecuencia vigente (días, veces,
-  /// semanas o meses). Si la frecuencia cambió de estructura (por ejemplo, de
-  /// 3 por semana a todos los días), la racha vuelve a contar desde el cambio,
-  /// y la mejor racha solo mira los tramos con la estructura de ahora: así el
-  /// número nunca mezcla semanas con días. Los periodos anteriores siguen en el
+  /// semanas o meses). Si la frecuencia cambió de unidad (por ejemplo, de 3
+  /// por semana a todos los días), la racha vuelve a contar desde el cambio,
+  /// y la mejor racha solo mira los tramos con la unidad de ahora: así el
+  /// número nunca mezcla semanas con días. Pasar de «cada 2 días» a «cada 3
+  /// días» no la reinicia (las dos se cuentan en veces). Los periodos anteriores siguen en el
   /// cumplimiento y en el calendario.
   static StreakInfo streak(Habit h, Map<String, HabitEntry> entries, DateTime today, {required int weekStart}) {
     if (h.isNegative) {
       return negativeStreak(h, entries, today);
     }
-    final String current = structureOf(h.frequency.normalized());
+    final String current = streakUnitOf(h.frequency.normalized());
     String? previous;
     int run = 0;
     int best = 0;
     int met = 0;
     int missed = 0;
     for (final HabitSlot s in slots(h, entries, today, weekStart: weekStart)) {
-      final String structure = structureOf(s.frequency.normalized());
+      final String structure = streakUnitOf(s.frequency.normalized());
       if (previous != null && structure != previous) {
         run = 0;
       }

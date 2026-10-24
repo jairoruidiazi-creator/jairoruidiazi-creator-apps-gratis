@@ -462,7 +462,7 @@ class _HabitEditorScreenState extends State<HabitEditorScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: Text(
-                  HabitLogic.structureOf(_frequency()) != HabitLogic.structureOf(old.frequency.normalized())
+                  HabitLogic.streakUnitOf(_frequency()) != HabitLogic.streakUnitOf(old.frequency.normalized())
                       ? t(context, 'El cambio rige desde hoy: los días anteriores se siguen contando con la frecuencia que tenían. La racha se cuenta en otra unidad, así que empieza de nuevo desde hoy; lo cumplido sigue en el calendario y en el cumplimiento.', 'The change applies from today: earlier days still count with the frequency they had. The streak is counted in a different unit, so it starts again from today; what you did stays in the calendar and the success rate.')
                       : t(context, 'El cambio rige desde hoy: los días anteriores se siguen contando con la frecuencia y la meta que tenían, y la racha no se recalcula.', 'The change applies from today: earlier days still count with the frequency and goal they had, and the streak is not recalculated.'),
                   style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary),
