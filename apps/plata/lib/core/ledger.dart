@@ -2821,7 +2821,7 @@ class Ledger extends ChangeNotifier {
   /// Devuelve lo necesario para deshacerlo ([undoLinkToStatement]).
   OutsideLinkUndo? linkToStatement(Tx t, DateTime cut) {
     final Account? card = _cardCredited(t);
-    final Map<String, String>? before = card == null ? null : _linkState(card, t);
+    final List<String> before = card == null ? <String>[] : _cardTxs(card);
     final List<String> marked = card == null ? <String>[] : List<String>.of(card.markedOnly);
     final Map<String, String> gone = card == null ? <String, String>{} : Map<String, String>.of(card.outsideGone);
     final Tx draft = Tx.fromJson(t.toJson())
@@ -2830,34 +2830,10 @@ class Ledger extends ChangeNotifier {
       ..outsideTaken = null;
     draft.apartFrom.remove(dayKey(dateOnly(cut)));
     updateTx(draft);
-    if (card == null || before == null) {
+    if (card == null) {
       return null;
     }
-    final Map<String, String> after = _linkState(card, t);
-    final Map<String, String?> txBefore = <String, String?>{};
-    final Map<String, String?> txAfter = <String, String?>{};
-    for (final String id in <String>{...before.keys, ...after.keys}) {
-      if (before[id] != after[id]) {
-        txBefore[id] = before[id];
-        txAfter[id] = after[id];
-      }
-    }
-    final Map<String, bool> markBefore = <String, bool>{};
-    for (final String k in <String>{...marked, ...card.markedOnly}) {
-      if (marked.contains(k) != card.markedOnly.contains(k)) {
-        markBefore[k] = marked.contains(k);
-      }
-    }
-    final Map<String, String?> goneBefore = <String, String?>{};
-    final Map<String, String?> goneAfter = <String, String?>{};
-    for (final String k in <String>{...gone.keys, ...card.outsideGone.keys}) {
-      if (gone[k] != card.outsideGone[k]) {
-        goneBefore[k] = gone[k];
-        goneAfter[k] = card.outsideGone[k];
-      }
-    }
-    final DateTime c = dateOnly(cut);
-    return OutsideLinkUndo._(card.id, t.id, c, _cutIds(card, c), card.markedOnly.contains(dayKey(c)), txBefore, txAfter, markBefore, goneBefore, goneAfter);
+    return OutsideLinkUndo._(card.id, before, marked, gone, _cardPrint(card));
   }
 
   /// Tarjeta de crédito a la que abona [t], o null.
@@ -2873,94 +2849,50 @@ class Ledger extends ChangeNotifier {
   /// Tarjeta de crédito a la que abona [t], o null (para el aviso).
   Account? cardCredited(Tx t) => _cardCredited(t);
 
-  /// Ids de los movimientos vinculados al extracto que cortó en [cut] (sus
-  /// pagos hechos fuera de Plata y los registrados).
-  Set<String> _cutIds(Account card, DateTime cut) => <String>{
-        for (final Tx x in txs)
-          if (x.statementOf != null && _linkedCut(card, x) == cut) x.id,
-      };
+  /// Los movimientos de [card] (con o hacia ella), en JSON y ordenados por id.
+  List<String> _cardTxs(Account card) {
+    final List<Tx> mine = txs.where((Tx x) => effectiveAccountId(x.accountId) == card.id || (x.toAccountId != null && effectiveAccountId(x.toAccountId!) == card.id)).toList()
+      ..sort((Tx a, Tx b) => a.id.compareTo(b.id));
+    return <String>[for (final Tx x in mine) jsonEncode(x.toJson())];
+  }
 
-  /// Estado (id → JSON) de los movimientos de [card] que el vínculo puede
-  /// cambiar: los pagos de fuera, los abonos vinculados y [t].
-  Map<String, String> _linkState(Account card, Tx t) => <String, String>{
-        for (final Tx x in txs)
-          if (x.id == t.id || (_creditAmount(card, x) > 0 && (x.statementOf != null || x.isOutsidePayment))) x.id: jsonEncode(x.toJson()),
-      };
+  /// Huella de todo lo de [card]: sus datos (marcas, mínimos, corte, pagos
+  /// de fuera que volverían) y sus movimientos.
+  String _cardPrint(Account card) => jsonEncode(<Object>[card.toJson(), _cardTxs(card)]);
 
-  /// «Deshacer» de «Ya lo anoté en Plata»: deshace solo lo que hizo el
-  /// vínculo. Cada movimiento que el vínculo cambió (el elegido, el pago de
-  /// fuera que reemplazó, lo que tomó de otros) vuelve a como estaba solo si
-  /// sigue como lo dejó el vínculo; lo que cambió después (otro pago, otra
-  /// marca, una edición, un borrado) no se toca. Si el elegido ya cambió o se
-  /// borró, no deshace nada. Lo mismo con la marca y con [Account.outsideGone]:
-  /// solo las claves que cambió el vínculo y que siguen igual. Devuelve si
-  /// deshizo.
-  bool undoLinkToStatement(OutsideLinkUndo undo) {
+  /// Si «Deshacer» de [undo] todavía se puede: nada de esa tarjeta cambió
+  /// después del vínculo.
+  bool canUndoLink(OutsideLinkUndo undo) {
     final Account? card = account(undo.cardId);
-    if (card == null) {
+    return card != null && _cardPrint(card) == undo.after;
+  }
+
+  /// «Deshacer» de «Ya lo anoté en Plata». Solo si nada de esa tarjeta cambió
+  /// después del vínculo (ningún movimiento, marca, pago de fuera, mínimo ni
+  /// el día de corte; M-d): entonces la tarjeta y sus movimientos vuelven
+  /// exactamente a como estaban antes del vínculo. Si algo cambió, no deshace
+  /// nada (la pantalla dice «No se deshizo: la tarjeta cambió después»).
+  /// Devuelve si deshizo.
+  bool undoLinkToStatement(OutsideLinkUndo undo) {
+    if (!canUndoLink(undo)) {
       return false;
     }
-    String? now(String id) {
-      for (final Tx x in txs) {
-        if (x.id == id) {
-          return jsonEncode(x.toJson());
-        }
-      }
-      return null;
-    }
-    if (undo.txAfter.containsKey(undo.txId) && now(undo.txId) != undo.txAfter[undo.txId]) {
-      return false;
-    }
-    // Si los pagos de ese extracto o su marca cambiaron después («Cambiar
-    // monto», «Desmarcar», otra marca, otro pago registrado), lo pagado fuera
-    // y la marca se quedan como la persona los dejó.
-    final String key = dayKey(undo.cut);
-    final Set<String> linked = _cutIds(card, undo.cut);
-    final bool outsideKept = linked.length == undo.linkedAfter.length && linked.containsAll(undo.linkedAfter) && card.markedOnly.contains(key) == undo.markedAfter;
-    bool changed = false;
-    undo.txAfter.forEach((String id, String? after) {
-      if (now(id) != after) {
-        return;
-      }
-      final String? before = undo.txBefore[id];
-      final Map<String, dynamic>? old = before == null ? null : jsonDecode(before) as Map<String, dynamic>;
-      if (!outsideKept && (old?['source'] == 'outside' || (after != null && (jsonDecode(after) as Map<String, dynamic>)['source'] == 'outside'))) {
-        return;
-      }
-      txs.removeWhere((Tx x) => x.id == id);
-      if (old != null) {
-        txs.add(Tx.fromJson(old));
-      }
-      changed = true;
-    });
-    undo.markBefore.forEach((String k, bool was) {
-      if ((outsideKept || k != key) && card.markedOnly.contains(k) == !was) {
-        if (was) {
-          card.markedOnly
-            ..add(k)
-            ..sort();
-        } else {
-          card.markedOnly.remove(k);
-        }
-        changed = true;
-      }
-    });
-    undo.goneAfter.forEach((String k, String? after) {
-      if ((outsideKept || k != key) && card.outsideGone[k] == after) {
-        final String? before = undo.goneBefore[k];
-        if (before == null) {
-          card.outsideGone.remove(k);
-        } else {
-          card.outsideGone[k] = before;
-        }
-        changed = true;
-      }
-    });
-    if (changed) {
-      _sortTxs();
-      save();
-    }
-    return changed;
+    final Account card = account(undo.cardId)!;
+    final Set<String> mine = <String>{
+      for (final Tx x in txs)
+        if (effectiveAccountId(x.accountId) == card.id || (x.toAccountId != null && effectiveAccountId(x.toAccountId!) == card.id)) x.id,
+    };
+    txs.removeWhere((Tx x) => mine.contains(x.id));
+    txs.addAll(undo.txs.map((String j) => Tx.fromJson(jsonDecode(j) as Map<String, dynamic>)));
+    card.markedOnly
+      ..clear()
+      ..addAll(undo.markedOnly);
+    card.outsideGone
+      ..clear()
+      ..addAll(undo.outsideGone);
+    _sortTxs();
+    save();
+    return true;
   }
 
   /// Días después de la marca durante los que sale el aviso: un abono
@@ -3843,32 +3775,19 @@ class Ledger extends ChangeNotifier {
 /// Lo necesario para deshacer «Ya lo anoté en Plata» (ver
 /// [Ledger.linkToStatement]).
 class OutsideLinkUndo {
-  const OutsideLinkUndo._(this.cardId, this.txId, this.cut, this.linkedAfter, this.markedAfter, this.txBefore, this.txAfter, this.markBefore, this.goneBefore, this.goneAfter);
+  const OutsideLinkUndo._(this.cardId, this.txs, this.markedOnly, this.outsideGone, this.after);
 
   final String cardId;
 
-  /// El abono elegido.
-  final String txId;
+  /// Los movimientos de la tarjeta antes del vínculo (JSON).
+  final List<String> txs;
 
-  /// Corte del extracto al que se vinculó.
-  final DateTime cut;
+  /// [Account.markedOnly] y [Account.outsideGone] antes del vínculo.
+  final List<String> markedOnly;
+  final Map<String, String> outsideGone;
 
-  /// Ids de los movimientos vinculados a ese extracto justo después del
-  /// vínculo, y si quedó como marca sola ([Account.markedOnly]).
-  final Set<String> linkedAfter;
-  final bool markedAfter;
-
-  /// Movimientos que cambió el vínculo: id → JSON de antes (null si no
-  /// existía) y de después (null si el vínculo lo borró).
-  final Map<String, String?> txBefore;
-  final Map<String, String?> txAfter;
-
-  /// Marcas ([Account.markedOnly]) que cambió el vínculo: clave → si estaba.
-  final Map<String, bool> markBefore;
-
-  /// Claves de [Account.outsideGone] que cambió el vínculo, antes y después.
-  final Map<String, String?> goneBefore;
-  final Map<String, String?> goneAfter;
+  /// Huella de la tarjeta justo después del vínculo: si cambió, no se deshace.
+  final String after;
 }
 
 /// Tarjeta y extracto al que está vinculado un abono.

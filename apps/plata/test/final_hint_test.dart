@@ -3,6 +3,7 @@
 // para un pago anotado tarde (G1), el remedio advierte cuando el abono es el
 // pago del mes, y «Deshacer» del remedio deshace solo lo que hizo (M-a).
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -190,7 +191,7 @@ void main() {
     l.dispose();
   });
 
-  group('M-a: «Deshacer» del remedio deshace solo lo que hizo el vínculo', () {
+  group('M-a y M-d: «Deshacer» del remedio', () {
     /// s_final, U2–U6: compra de 400.000 el 20 dic, mínimo de 120.000 del 15
     /// dic, y el pago del 15 nov anotado el 20 ene con fecha 7 dic, vinculado
     /// con el remedio.
@@ -218,77 +219,116 @@ void main() {
       l.dispose();
     });
 
-    test('U2: el pago registrado del 15 dic se queda', () async {
-      final List<Object> s = await linked();
-      final Ledger l = s[0] as Ledger;
-      final Account tc = s[1] as Account;
-      final Tx x = await l.addTx(Tx(id: 'x', kind: TxKind.transfer, amountMinor: pesos(120000), accountId: 'bank', toAccountId: 'tc', date: d(2027, 1, 5), statementOf: '2026-12-15'));
-      expect(l.undoLinkToStatement(s[3] as OutsideLinkUndo), isTrue);
-      expect(l.txs.firstWhere((Tx t) => t.id == x.id).amountMinor, pesos(120000));
-      expect(l.statementPayments(tc, dec15).map((Tx t) => t.id), <String>['x']);
-      expect(l.outsidePayment(tc, nov15), pesos(100000));
-      expect(debt(l), pesos(1380000));
-      l.dispose();
-    });
+    /// Todo lo de la tarjeta, para comparar antes y después de «Deshacer».
+    String card(Ledger l) => jsonEncode(<Object>[
+          l.account('tc')!.toJson(),
+          for (final Tx x in l.txs)
+            if (x.accountId == 'tc' || x.toAccountId == 'tc') x.toJson(),
+        ]);
 
-    test('U3: «Ya lo pagué» del 15 dic se queda', () async {
-      final List<Object> s = await linked();
-      final Ledger l = s[0] as Ledger;
-      final Account tc = s[1] as Account;
-      l.markStatementPaid(tc, dec15);
-      expect(l.undoLinkToStatement(s[3] as OutsideLinkUndo), isTrue);
-      expect(l.isStatementPaid(tc, dec15), isTrue);
-      expect(l.outsidePayment(tc, dec15), pesos(120000));
-      expect(l.outsidePayment(tc, nov15), pesos(100000));
-      l.dispose();
-    });
-
-    test('U4: si el elegido se editó después, no deshace nada', () async {
-      final List<Object> s = await linked();
-      final Ledger l = s[0] as Ledger;
-      final Tx n = s[2] as Tx;
-      l.updateTx(Tx.fromJson(l.txs.firstWhere((Tx x) => x.id == n.id).toJson())..amountMinor = pesos(90000));
-      expect(l.undoLinkToStatement(s[3] as OutsideLinkUndo), isFalse);
-      final Tx now = l.txs.firstWhere((Tx x) => x.id == n.id);
-      expect(now.amountMinor, pesos(90000));
-      expect(now.statementOf, '2026-11-15');
-      l.dispose();
-    });
-
-    test('U7–U9: si los pagos o la marca del 15 nov cambiaron después, lo pagado fuera se queda como quedó', () async {
-      for (int i = 0; i < 3; i++) {
+    test('M-d: si algo de la tarjeta cambió después del vínculo, «Deshacer» no deshace nada', () async {
+      const List<String> ops = <String>['U2 pago del 15 dic', 'U3 «Ya lo pagué» del 15 dic', 'U4 editar el elegido', 'U5 borrar el elegido', 'U6 abono nuevo', 'U7 «Desmarcar»', 'U8 «Cambiar monto»', 'U9 otro pago del 15 nov', 'mínimo', 'día de corte'];
+      for (final String op in ops) {
         final List<Object> s = await linked();
         final Ledger l = s[0] as Ledger;
         final Account tc = s[1] as Account;
         final Tx n = s[2] as Tx;
-        if (i == 0) {
+        final OutsideLinkUndo undo = s[3] as OutsideLinkUndo;
+        expect(l.canUndoLink(undo), isTrue, reason: op);
+        if (op.startsWith('U2')) {
+          await l.addTx(Tx(id: 'x', kind: TxKind.transfer, amountMinor: pesos(120000), accountId: 'bank', toAccountId: 'tc', date: d(2027, 1, 5), statementOf: '2026-12-15'));
+        } else if (op.startsWith('U3')) {
+          l.markStatementPaid(tc, dec15);
+        } else if (op.startsWith('U4')) {
+          l.updateTx(Tx.fromJson(l.txs.firstWhere((Tx x) => x.id == n.id).toJson())..amountMinor = pesos(90000));
+        } else if (op.startsWith('U5')) {
+          await l.deleteTx(n.id);
+        } else if (op.startsWith('U6')) {
+          await l.addTx(transfer(pesos(50000), d(2027, 1, 20)));
+        } else if (op.startsWith('U7')) {
           l.markStatementPaid(tc, nov15, paid: false);
-        } else if (i == 1) {
+        } else if (op.startsWith('U8')) {
           l.setOutsidePayment(tc, nov15, pesos(50000));
-        } else {
+        } else if (op.startsWith('U9')) {
           await l.addTx(Tx(id: 'y', kind: TxKind.transfer, amountMinor: pesos(30000), accountId: 'bank', toAccountId: 'tc', date: d(2027, 1, 10), statementOf: '2026-11-15'));
+        } else if (op == 'mínimo') {
+          l.setStatementMinimum(tc, dec15, pesos(130000));
+        } else {
+          final int? old = tc.cutDay;
+          tc.cutDay = 20;
+          l.moveCardCut(tc, old);
         }
-        final int out = l.outsidePayment(tc, nov15);
-        final bool paid = l.isStatementPaid(tc, nov15);
-        final int before = debt(l);
-        expect(l.undoLinkToStatement(s[3] as OutsideLinkUndo), isTrue, reason: 'caso $i');
-        expect(l.txs.firstWhere((Tx x) => x.id == n.id).statementOf, isNull, reason: 'caso $i');
-        expect(l.outsidePayment(tc, nov15), out, reason: 'caso $i');
-        expect(l.isStatementPaid(tc, nov15), paid, reason: 'caso $i');
-        expect(debt(l), before, reason: 'caso $i');
+        final String before = card(l);
+        final int owed = debt(l);
+        expect(l.canUndoLink(undo), isFalse, reason: op);
+        expect(l.undoLinkToStatement(undo), isFalse, reason: op);
+        expect(card(l), before, reason: op);
+        expect(debt(l), owed, reason: op);
         l.dispose();
       }
     });
 
-    test('U5: si el elegido se borró después, no vuelve', () async {
-      final List<Object> s = await linked();
-      final Ledger l = s[0] as Ledger;
-      final Tx n = s[2] as Tx;
-      await l.deleteTx(n.id);
-      final int before = debt(l);
-      expect(l.undoLinkToStatement(s[3] as OutsideLinkUndo), isFalse);
-      expect(l.txs.where((Tx x) => x.id == n.id), isEmpty);
-      expect(debt(l), before);
+    test('X2: un provisional al que el vínculo le quitó contesta «Es otro pago»: «Deshacer» no deshace y no pierde lo pagado fuera', () async {
+      final Ledger l = await base();
+      final Account tc = l.account('tc')!;
+      today = d(2026, 12, 20);
+      final Tx p = await l.addTx(transfer(pesos(60000), today));
+      expect(p.outsidePending, isTrue);
+      today = d(2026, 12, 21);
+      ids += 1;
+      final Tx t = await l.addTx(Tx(id: 'p$ids', kind: TxKind.transfer, amountMinor: pesos(100000), accountId: 'bank', toAccountId: 'tc', date: d(2026, 12, 7), apartFrom: <String>['2026-11-15']));
+      expect(t.outsidePending, isFalse);
+      final OutsideLinkUndo undo = l.linkToStatement(t, nov15)!;
+      l.answerOutsideMatch(l.txs.firstWhere((Tx x) => x.id == p.id), same: false);
+      final String before = card(l);
+      expect(l.undoLinkToStatement(undo), isFalse);
+      expect(card(l), before);
+      // Lo de fuera del 15 nov quedó reemplazado por el abono elegido: no se
+      // pierde ni se cuenta dos veces.
+      expect(l.statementPayments(tc, nov15).map((Tx x) => x.id), contains(t.id));
+      expect(l.statementMissing(tc, nov15), 0);
+      expect(debt(l), pesos(1300000 - 100000 - 60000));
+      l.dispose();
+    });
+
+    test('E7 con «Deshacer»: vincular el pago de abril a febrero, «Ya lo pagué» de abril y «Deshacer»: no deshace ni cuenta dos veces', () async {
+      today = d(2025, 1, 1);
+      final Ledger l = await newLedger();
+      final Account tc = await l.addAccount(Account(id: 'tc', name: 'Visa', type: AccountType.credit, cutDay: 15, payDay: 5));
+      DateTime k = DateTime(2025, 1, 15);
+      late Tx april;
+      for (int i = 0; i < 4; i++) {
+        today = d(k.year, k.month, k.day - 7);
+        await buy(l, pesos(600000), today);
+        today = d(k.year, k.month, k.day + 2);
+        l.setStatementMinimum(tc, k, pesos(i == 1 ? 300000 : 200000));
+        final DateTime due = l.effectivePayDate(tc, CardCycle.current(tc, k).payDate);
+        if (i == 1) {
+          today = d(due.year, due.month, due.day - 1);
+          l.markStatementPaid(tc, k);
+        } else {
+          today = d(due.year, due.month, due.day - 2);
+          april = await l.addTx(transfer(pesos(250000), today));
+        }
+        k = CardCycle.cutAfter(tc, k, 1);
+      }
+      final DateTime feb15 = DateTime(2025, 2, 15);
+      final DateTime apr15 = DateTime(2025, 4, 15);
+      today = d(2025, 5, 8);
+      expect(l.linkLeavesShort(april, feb15), apr15);
+      final OutsideLinkUndo undo = l.linkToStatement(april, feb15)!;
+      expect(l.cardDue(tc).overdueMinor, pesos(200000));
+      l.markStatementPaid(tc, apr15);
+      final String before = card(l);
+      final int owed = debt(l);
+      expect(l.undoLinkToStatement(undo), isFalse);
+      expect(card(l), before);
+      expect(debt(l), owed);
+      // Cada pago cuenta una vez: 250.000 (ene) + 50.000 de fuera de feb que
+      // quedan + 250.000 (mar) + 250.000 (abr, vinculado a feb) + 200.000 de
+      // fuera de abr.
+      expect(owed, pesos(2400000 - 1000000));
+      expect(l.cardDue(tc).overdue, isFalse);
       l.dispose();
     });
   });

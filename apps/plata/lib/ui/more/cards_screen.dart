@@ -769,21 +769,78 @@ Future<void> pickLoggedPayment(BuildContext context, Account card, DateTime cut)
   final OutsideLinkUndo? undo = l.linkToStatement(chosen, cut);
   final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
   final String undone = t(context, 'Se deshizo el vínculo.', 'The link was undone.');
-  final String kept = t(context, 'No se deshizo: ese pago cambió después.', 'Not undone: that payment changed afterwards.');
+  final String kept = t(context, 'No se deshizo: la tarjeta cambió después.', 'Not undone: the card changed afterwards.');
   messenger.hideCurrentSnackBar();
+  final Text text = Text(t(context, 'Vinculado al extracto del ${dayText(context, cut)}: reemplaza lo pagado fuera de Plata.', 'Linked to the ${dayText(context, cut)} statement: it replaces what was paid outside Plata.'));
+  final _UndoState state = _UndoState();
   messenger.showSnackBar(SnackBar(
-    content: Text(t(context, 'Vinculado al extracto del ${dayText(context, cut)}: reemplaza lo pagado fuera de Plata.', 'Linked to the ${dayText(context, cut)} statement: it replaces what was paid outside Plata.')),
-    // Un toque equivocado (E7) se deshace: solo lo que hizo el vínculo, y
-    // solo lo que no cambió después.
+    // La siguiente operación sobre la tarjeta cierra el mensaje: ya no se
+    // podría deshacer (M-d).
+    content: undo == null ? text : _LinkUndoWatch(ledger: l, undo: undo, state: state, child: text),
+    // Un toque equivocado (E7) se deshace, solo si nada de la tarjeta cambió
+    // después.
     action: undo == null
         ? null
         : SnackBarAction(
             label: t(context, 'Deshacer', 'Undo'),
-            onPressed: () => messenger.showSnackBar(SnackBar(content: Text(l.undoLinkToStatement(undo) ? undone : kept))),
+            onPressed: () {
+              state.acted = true;
+              messenger.showSnackBar(SnackBar(content: Text(l.undoLinkToStatement(undo) ? undone : kept)));
+            },
           ),
     duration: const Duration(seconds: 8),
     persist: undo != null && keep,
   ));
+}
+
+class _UndoState {
+  bool acted = false;
+}
+
+/// Contenido del mensaje «Vinculado… Deshacer»: mientras se ve, lo cierra en
+/// cuanto algo de la tarjeta cambia (ya no se podría deshacer).
+class _LinkUndoWatch extends StatefulWidget {
+  const _LinkUndoWatch({required this.ledger, required this.undo, required this.state, required this.child});
+
+  final Ledger ledger;
+  final OutsideLinkUndo undo;
+  final _UndoState state;
+  final Widget child;
+
+  @override
+  State<_LinkUndoWatch> createState() => _LinkUndoWatchState();
+}
+
+class _LinkUndoWatchState extends State<_LinkUndoWatch> {
+  @override
+  void initState() {
+    super.initState();
+    widget.ledger.addListener(_changed);
+  }
+
+  @override
+  void dispose() {
+    widget.ledger.removeListener(_changed);
+    super.dispose();
+  }
+
+  void _changed() {
+    if (widget.state.acted || widget.ledger.canUndoLink(widget.undo)) {
+      return;
+    }
+    widget.state.acted = true;
+    widget.ledger.removeListener(_changed);
+    // Fuera del ciclo en curso: el aviso del libro puede llegar en medio de
+    // una construcción.
+    Future<void>.microtask(() {
+      if (mounted) {
+        ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// Aviso que no bloquea (M1 de la ronda 13): si un abono recién guardado no
@@ -804,20 +861,46 @@ void offerOutsideHint(BuildContext context, Tx saved) {
   if (cut == null || card == null) {
     return;
   }
-  l.noteOutsideHintShown(card, cut);
   final NavigatorState nav = Navigator.of(context);
   final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
   final String day = dayText(context, cut);
   messenger.showSnackBar(SnackBar(
     duration: const Duration(seconds: 8),
     persist: MediaQuery.accessibleNavigationOf(context),
-    content: Text(t(context, '¿Es el pago del extracto del $day que marcaste como pagado fuera de Plata?', 'Is it the payment of the $day statement you marked as paid outside Plata?')),
+    // Se apunta como mostrado cuando se ve, no al ponerlo en la cola.
+    content: _SeenHint(
+      onSeen: () => l.noteOutsideHintShown(card, cut),
+      child: Text(t(context, '¿Es el pago del extracto del $day que marcaste como pagado fuera de Plata?', 'Is it the payment of the $day statement you marked as paid outside Plata?')),
+    ),
     action: _HintAction(
       label: t(context, 'Elegir', 'Choose'),
       semanticsLabel: t(context, 'Elegir el pago del extracto del $day', 'Choose the payment of the $day statement'),
       onPressed: () => pickLoggedPayment(nav.context, card, cut),
     ),
   ));
+}
+
+/// Contenido del aviso: llama a [onSeen] cuando aparece en pantalla.
+class _SeenHint extends StatefulWidget {
+  const _SeenHint({required this.onSeen, required this.child});
+
+  final VoidCallback onSeen;
+  final Widget child;
+
+  @override
+  State<_SeenHint> createState() => _SeenHintState();
+}
+
+class _SeenHintState extends State<_SeenHint> {
+  @override
+  void initState() {
+    super.initState();
+    // Fuera de la construcción: apuntarlo avisa a las pantallas.
+    Future<void>.microtask(widget.onSeen);
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 /// «Elegir» del aviso: un [SnackBarAction] con una etiqueta para TalkBack y

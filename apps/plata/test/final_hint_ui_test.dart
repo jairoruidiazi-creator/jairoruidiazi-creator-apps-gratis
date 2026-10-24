@@ -72,7 +72,7 @@ Future<void> payWithFab(WidgetTester tester, String amount) async {
 final Finder hint = find.textContaining('¿Es el pago del extracto del 15 sep');
 
 void main() {
-  testWidgets('sin lector de pantalla: el aviso se cierra a los 8 s, sale una sola vez, y «Vinculado… Deshacer» también se cierra', (WidgetTester tester) async {
+  testWidgets('sin lector de pantalla: el aviso se cierra a los 8 s y sale una sola vez; «Vinculado… Deshacer» se cierra con la siguiente operación sobre la tarjeta', (WidgetTester tester) async {
     await withClock(Clock.fixed(nov10), () async {
       usePhone(tester);
       late Account tc;
@@ -109,9 +109,15 @@ void main() {
       await syncLedger(tester, env);
       expect(l.outsidePayment(tc, sep15), 0);
       expect(find.textContaining('Vinculado al extracto del 15 sep'), findsOneWidget);
-      await tester.pump(const Duration(seconds: 9));
+      // M-d: la siguiente operación sobre la tarjeta cierra el mensaje (ya no
+      // se podría deshacer), antes de los 8 s.
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.textContaining('Vinculado al extracto del 15 sep'), findsOneWidget);
+      l.setStatementMinimum(tc, DateTime(2026, 10, 15), 12500000);
+      await tester.pump();
       await settle(tester);
       expect(find.textContaining('Vinculado al extracto del 15 sep'), findsNothing);
+      await syncLedger(tester, env);
       semantics.dispose();
       await finish(tester);
     });
