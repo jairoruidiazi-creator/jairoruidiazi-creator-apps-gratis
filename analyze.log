@@ -1,0 +1,7 @@
+Analyzing clave...                                              
+
+   info • Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this._capture') to initialize the field • lib/audio/take_recorder.dart:137:68 • prefer_initializing_formals
+   info • Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this._mic') to initialize the field • lib/audio/tuner.dart:128:9 • prefer_initializing_formals
+   info • Use 'const' for final variables initialized to a constant value. Try replacing 'final' with 'const' • test/flash_test.dart:179:7 • prefer_const_declarations
+
+3 issues found. (ran in 13.7s)
