@@ -235,12 +235,27 @@ void main() {
       await tester.pumpWidget(ClaveApp(services: t.services));
       await tester.pump();
       final Rect screen = Offset.zero & size;
+      // El aviso está dentro de una zona desplazable que cabe en la pantalla,
+      // y desplazando se llega a su primera y a su última línea (con la
+      // tipografía de prueba, de glifos cuadrados, puede ser más alto que la
+      // pantalla).
       Future<void> reachable(String text) async {
-        expect(find.text(text), findsOneWidget);
-        await tester.ensureVisible(find.text(text));
-        await tester.pump();
-        final Rect r = tester.getRect(find.text(text));
-        expect(screen.contains(r.topLeft) && screen.contains(r.bottomRight - const Offset(0.5, 0.5)), isTrue, reason: '$text en $r');
+        final Finder f = find.text(text);
+        expect(f, findsOneWidget);
+        final Finder scroll = find.ancestor(of: f, matching: find.byType(Scrollable)).first;
+        final Rect viewport = tester.getRect(scroll);
+        expect(viewport.top >= screen.top && viewport.bottom <= screen.bottom + 0.5 && viewport.left >= screen.left && viewport.right <= screen.right + 0.5, isTrue, reason: 'zona desplazable en $viewport');
+        for (final double alignment in <double>[0, 1]) {
+          await Scrollable.ensureVisible(tester.element(f), alignment: alignment);
+          await tester.pump();
+          final Rect r = tester.getRect(f);
+          expect(r.left >= viewport.left - 0.5 && r.right <= viewport.right + 0.5, isTrue, reason: '$text en $r, zona $viewport');
+          if (alignment == 0) {
+            expect(r.top >= viewport.top - 0.5 && r.top < viewport.bottom, isTrue, reason: 'primera línea de «$text»: $r, zona $viewport');
+          } else {
+            expect(r.bottom <= viewport.bottom + 0.5 && r.bottom > viewport.top, isTrue, reason: 'última línea de «$text»: $r, zona $viewport');
+          }
+        }
       }
 
       // Nota bajo el rango, sostenida.
@@ -249,6 +264,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 60));
       }
       await reachable('Suena más grave que el rango de Violín · usar Cromático');
+      await reachable('Usar Cromático');
       // Residuo con el bordón (La3 con quinta, que se oye en la señal: lo que
       // suena tiene periodo de La2 y en La2 no hay energía).
       t.services.settings.instrumentId = 'voz';

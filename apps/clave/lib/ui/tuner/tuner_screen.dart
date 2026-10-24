@@ -282,25 +282,43 @@ class _TunerScreenState extends State<TunerScreen> {
 
     final String summary =
         '${inst.name(spanish)} · ${t(context, 'La4', 'A4')} = ${formatHz(ps.a4, comma: spanish)} Hz · ${_temperamentName(ps.temperament, spanish)}${ps.transposition != 0 ? ' · ${t(context, 'transp.', 'transp.')} ${ps.transposition > 0 ? '+' : ''}${ps.transposition}' : ''}${ps.capo != 0 ? ' · capo ${ps.capo}' : ''}';
-    final Widget bar = Padding(
-      padding: const EdgeInsets.fromLTRB(12, 2, 8, 6),
-      child: Row(
-        children: <Widget>[
-          Expanded(child: Text(summary, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant), maxLines: 2, overflow: TextOverflow.ellipsis)),
-          IconButton(
-            tooltip: tuner.userEnabled ? t(context, 'Apagar micrófono', 'Stop microphone') : t(context, 'Encender micrófono', 'Start microphone'),
-            isSelected: tuner.userEnabled,
-            icon: Icon(tuner.userEnabled ? Icons.mic_rounded : Icons.mic_off_rounded),
-            onPressed: () => tuner.setUserEnabled(!tuner.userEnabled),
+    final Widget bar = LayoutBuilder(builder: (BuildContext context, BoxConstraints bc) {
+      final Widget summaryText = Text(summary, style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant), maxLines: 2, overflow: TextOverflow.ellipsis);
+      final Widget mic = IconButton(
+        tooltip: tuner.userEnabled ? t(context, 'Apagar micrófono', 'Stop microphone') : t(context, 'Encender micrófono', 'Start microphone'),
+        isSelected: tuner.userEnabled,
+        icon: Icon(tuner.userEnabled ? Icons.mic_rounded : Icons.mic_off_rounded),
+        onPressed: () => tuner.setUserEnabled(!tuner.userEnabled),
+      );
+      final Widget adjust = ConstrainedBox(
+        // Con poco ancho, el texto del botón se recorta en vez de desbordar.
+        constraints: BoxConstraints(maxWidth: math.max(48.0, bc.maxWidth - 20)),
+        child: FilledButton.tonalIcon(
+          onPressed: () => showTunerSettings(context),
+          icon: const Icon(Icons.tune_rounded),
+          label: Text(t(context, 'Ajustar', 'Adjust'), maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+      );
+      // En una columna angosta (la mitad derecha de un teléfono acostado) con
+      // letra grande, el resumen va arriba y los botones debajo.
+      if (bc.maxWidth < 248 + 54 * (textScale - 1)) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(12, 2, 8, 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              summaryText,
+              Wrap(alignment: WrapAlignment.end, crossAxisAlignment: WrapCrossAlignment.center, children: <Widget>[mic, adjust]),
+            ],
           ),
-          FilledButton.tonalIcon(
-            onPressed: () => showTunerSettings(context),
-            icon: const Icon(Icons.tune_rounded),
-            label: Text(t(context, 'Ajustar', 'Adjust')),
-          ),
-        ],
-      ),
-    );
+        );
+      }
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 2, 8, 6),
+        child: Row(children: <Widget>[Expanded(child: summaryText), mic, adjust]),
+      );
+    });
 
     return LayoutBuilder(builder: (BuildContext context, BoxConstraints c) {
       final bool wide = c.maxWidth > c.maxHeight * 1.2;

@@ -292,13 +292,26 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver, Rout
               children: <Widget>[
                 SafeArea(
                   right: false,
-                  child: NavigationRail(
-                    selectedIndex: _index,
-                    onDestinationSelected: _select,
-                    labelType: NavigationRailLabelType.all,
-                    destinations: <NavigationRailDestination>[
-                      for (final _Dest d in dests) NavigationRailDestination(icon: Icon(d.icon), label: Text(d.label)),
-                    ],
+                  // Con letra grande en horizontal (un teléfono acostado), las
+                  // cinco herramientas no caben a lo alto: el riel se desplaza.
+                  // Si caben, se ve igual que antes.
+                  child: LayoutBuilder(
+                    builder: (BuildContext context, BoxConstraints c) => SingleChildScrollView(
+                      primary: false,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minHeight: c.maxHeight),
+                        child: IntrinsicHeight(
+                          child: NavigationRail(
+                            selectedIndex: _index,
+                            onDestinationSelected: _select,
+                            labelType: NavigationRailLabelType.all,
+                            destinations: <NavigationRailDestination>[
+                              for (final _Dest d in dests) NavigationRailDestination(icon: Icon(d.icon), label: Text(d.label)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 const VerticalDivider(width: 1),
