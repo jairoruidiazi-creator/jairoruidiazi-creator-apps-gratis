@@ -532,17 +532,21 @@ void main() {
     expect(find.text('Coordenadas no válidas.'), findsOneWidget);
 
     // Punto fijado mientras era aproximada y la precisa ya concedida (M1).
+    void press(String label) => tester.widget<ButtonStyleButton>(find.ancestor(of: find.text(label), matching: find.bySubtype<ButtonStyleButton>()).first).onPressed!();
     await reveal(find.text('Fijar posición'));
     await pumpMany(tester, 3);
-    await tester.tap(find.text('Fijar posición'));
+    press('Fijar posición');
     await pumpMany(tester, 5);
+    expect(services.location.locked, isTrue);
+    expect(services.location.fix!.approximate, isTrue);
     await reveal(find.text('Pedir ubicación precisa'));
     await pumpMany(tester, 3);
     // Con la hoja desplazada el botón puede quedar bajo el borde superior:
     // se acciona directamente.
-    tester.widget<ButtonStyleButton>(find.ancestor(of: find.text('Pedir ubicación precisa'), matching: find.bySubtype<ButtonStyleButton>()).first).onPressed!();
+    press('Pedir ubicación precisa');
     await pumpMany(tester, 10);
     expect(services.location.approximate, isFalse);
+    await reveal(find.textContaining('Esta posición fijada es aproximada'));
     expect(find.textContaining('Esta posición fijada es aproximada: libérala para usar la precisa.'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
     await pumpMany(tester);
