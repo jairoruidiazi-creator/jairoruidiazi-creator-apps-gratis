@@ -170,8 +170,8 @@ class _CardPanelState extends State<_CardPanel> {
                     ),
                   ),
                   // Con letra grande la cifra se reduce antes que aplastar el texto.
-                  const SizedBox(width: 8),
-                  Flexible(
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.4),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerRight,
@@ -278,10 +278,9 @@ class _CardPanelState extends State<_CardPanel> {
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
           children: <Widget>[
-            Expanded(flex: 3, child: Text(label)),
-            const SizedBox(width: 8),
-            Flexible(
-              flex: 2,
+            Expanded(child: Text(label)),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.4),
               child: FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerRight,
