@@ -111,7 +111,7 @@ void main() {
       final Account tc = l.account('tc')!;
       l.markStatementPaid(tc, nov15);
       final Tx out = l.outsidePayments(tc, nov15).single;
-      expect(l.search(TxFilter(accountIds: <String>{'tc'})), contains(out));
+      expect(l.search(const TxFilter(accountIds: <String>{'tc'})), contains(out));
       expect(l.search(const TxFilter(text: 'fuera de plata')), <Tx>[out]);
       final List<List<String>> rows = Exports.rows(l, l.txs);
       final List<String> row = rows.firstWhere((List<String> r) => r.last == out.id);

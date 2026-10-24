@@ -78,6 +78,8 @@ void main() {
         await openMore(tester, 'Tarjetas de crédito');
         final Finder pay = find.text('Abonar a la tarjeta');
         await tester.scrollUntilVisible(pay, 150, scrollable: find.byType(Scrollable).first);
+        await tester.ensureVisible(pay);
+        await settle(tester);
         await tester.tap(pay);
         await settle(tester);
         expect(find.byType(TxEditor), findsOneWidget);
@@ -127,6 +129,8 @@ void main() {
       final Finder question = find.textContaining('¿El abono del 15 oct');
       await tester.scrollUntilVisible(question, 150, scrollable: find.byType(Scrollable).first);
       expect(question, findsOneWidget);
+      await tester.ensureVisible(find.text('Sí, es ese'));
+      await settle(tester);
       await tester.tap(find.text('Sí, es ese'));
       await settle(tester);
       await syncLedger(tester, env);
@@ -151,6 +155,8 @@ void main() {
       await openMore(tester, 'Tarjetas de crédito');
       final Finder change = find.text('Cambiar monto');
       await tester.scrollUntilVisible(change, 150, scrollable: find.byType(Scrollable).first);
+      await tester.ensureVisible(change);
+      await settle(tester);
       await tester.tap(change);
       await settle(tester);
       // El teclado empieza en lo guardado: se borra (tecla de borrar
