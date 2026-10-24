@@ -538,7 +538,9 @@ void main() {
     await pumpMany(tester, 5);
     await reveal(find.text('Pedir ubicación precisa'));
     await pumpMany(tester, 3);
-    await tester.tap(find.text('Pedir ubicación precisa'));
+    // Con la hoja desplazada el botón puede quedar bajo el borde superior:
+    // se acciona directamente.
+    tester.widget<ButtonStyleButton>(find.ancestor(of: find.text('Pedir ubicación precisa'), matching: find.bySubtype<ButtonStyleButton>()).first).onPressed!();
     await pumpMany(tester, 10);
     expect(services.location.approximate, isFalse);
     expect(find.textContaining('Esta posición fijada es aproximada: libérala para usar la precisa.'), findsOneWidget);
