@@ -16,6 +16,14 @@ enum SlotState { met, excused, missed, open }
 enum StreakUnit { days, times, weeks, months }
 
 /// Estado de un día para pintar el calendario.
+/// Qué hace con la racha cambiar la regla de un hábito hoy (lo que el editor
+/// anuncia antes de guardar):
+/// - none: no cambia nada.
+/// - revert: vuelve a la regla que regía ayer (un segundo cambio del mismo día).
+/// - keepsStreak: la racha sigue (misma unidad).
+/// - restartsStreak: la racha vuelve a contar desde hoy (otra unidad).
+enum RuleChange { none, revert, keepsStreak, restartsStreak }
+
 enum DayStatus { beforeStart, future, done, partial, skipped, missed, notDue, pending, relapse, clean, paused }
 
 class HabitSlot {
@@ -146,6 +154,27 @@ class HabitLogic {
       case FrequencyType.perMonth:
         return 'month';
     }
+  }
+
+  /// Efecto de pasar hoy a [frequency] y [goal]. Se compara con la regla que
+  /// de verdad quedará como anterior, igual que [Habit.changeRule]: si ya hubo
+  /// un cambio hoy, la de ayer (la intermedia no rige ningún día).
+  static RuleChange ruleChange(Habit h, Frequency frequency, int goal, DateTime today) {
+    final Frequency next = frequency.normalized();
+    if (next == h.frequency.normalized() && goal == h.goal) {
+      return RuleChange.none;
+    }
+    Frequency before = h.frequency.normalized();
+    int beforeGoal = h.goal;
+    final DateTime yesterday = addDays(dateOnly(today), -1);
+    if (h.pastRules.isNotEmpty && sameDay(h.pastRules.last.until, yesterday)) {
+      before = h.pastRules.last.frequency.normalized();
+      beforeGoal = h.pastRules.last.goal;
+    }
+    if (next == before && goal == beforeGoal) {
+      return RuleChange.revert;
+    }
+    return streakUnitOf(next) == streakUnitOf(before) ? RuleChange.keepsStreak : RuleChange.restartsStreak;
   }
 
   /// Tramos de [start] a [end] con la misma estructura de periodos, según las

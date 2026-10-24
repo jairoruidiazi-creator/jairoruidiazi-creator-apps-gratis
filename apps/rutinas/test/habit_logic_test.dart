@@ -302,6 +302,37 @@ void main() {
       expect(s.best, 7);
     });
 
+    test('dos cambios el mismo día: el aviso del editor se compara con la regla de ayer (N2)', () {
+      // I: «cada 2» → «1 por semana» → «cada 3», todo hoy. La racha sigue en 7.
+      final Habit h = habit(start: d(10, 1), frequency: const Frequency(type: FrequencyType.everyN, n: 2));
+      final Map<String, HabitEntry> e = log(done(<DateTime>[d(10, 1), d(10, 3), d(10, 5), d(10, 7), d(10, 9), d(10, 11), d(10, 13)]));
+      expect(HabitLogic.streak(h, e, today, weekStart: DateTime.monday).current, 7);
+      const Frequency weekly = Frequency(type: FrequencyType.perWeek, n: 1);
+      const Frequency every3 = Frequency(type: FrequencyType.everyN, n: 3);
+      expect(HabitLogic.ruleChange(h, weekly, 1, today), RuleChange.restartsStreak);
+      h.changeRule(frequency: weekly, goal: 1, today: today, since: d(10, 1));
+      // Comparado con la regla intermedia sería «otra unidad»; con la de ayer, no.
+      expect(HabitLogic.ruleChange(h, every3, 1, today), RuleChange.keepsStreak);
+      h.changeRule(frequency: every3, goal: 1, today: today, since: d(10, 1));
+      expect(h.pastRules.single.frequency.n, 2);
+      expect(HabitLogic.streak(h, e, today, weekStart: DateTime.monday).current, 7);
+
+      // J: «3 por semana» → «cada 2» → «3 por semana»: vuelve a la de ayer y no cambia nada.
+      const Frequency three = Frequency(type: FrequencyType.perWeek, n: 3);
+      final Habit g = habit(start: d(9, 14), frequency: three);
+      final List<DateTime> mwf = range(d(9, 14), d(10, 11)).where((DateTime x) => x.weekday == DateTime.monday || x.weekday == DateTime.wednesday || x.weekday == DateTime.friday).toList();
+      final Map<String, HabitEntry> ge = log(done(mwf));
+      expect(HabitLogic.streak(g, ge, today, weekStart: DateTime.monday).current, 4);
+      expect(HabitLogic.ruleChange(g, three, 1, today), RuleChange.none);
+      g.changeRule(frequency: const Frequency(type: FrequencyType.everyN, n: 2), goal: 1, today: today, since: d(9, 14));
+      expect(HabitLogic.ruleChange(g, three, 1, today), RuleChange.revert);
+      g.changeRule(frequency: three, goal: 1, today: today, since: d(9, 14));
+      expect(g.pastRules, isEmpty);
+      final StreakInfo back = HabitLogic.streak(g, ge, today, weekStart: DateTime.monday);
+      expect(back.current, 4);
+      expect(back.unit, StreakUnit.weeks);
+    });
+
     test('subir la meta no deshace los días que ya estaban hechos', () {
       final Habit h = habit(kind: HabitKind.count, goal: 8, start: d(10, 1));
       final Map<String, HabitEntry> e = log(<DateTime, int>{for (final DateTime x in range(d(10, 1), d(10, 13))) x: 8, today: 8});

@@ -291,11 +291,10 @@ class _HabitEditorScreenState extends State<HabitEditorScreen> {
     final Habit? old = widget.habit;
     final bool kindLocked = old != null && s.habits.hasValues(old.id);
     // ¿Cambia la regla de un hábito que ya tiene días contados?
-    final bool ruleChanged = old != null &&
-        _kind == old.kind &&
-        _kind != HabitKind.negative &&
-        (_frequency() != old.frequency.normalized() || (_kind == HabitKind.count ? _goal : (_kind == HabitKind.timed ? _minutes * 60 : 1)) != old.goal) &&
-        dateOnly(clock.now()).isAfter(HabitLogic.effectiveStart(old, s.habits.entriesOf(old.id)));
+    final DateTime today = dateOnly(clock.now());
+    final RuleChange change = old != null && _kind == old.kind && _kind != HabitKind.negative && today.isAfter(HabitLogic.effectiveStart(old, s.habits.entriesOf(old.id)))
+        ? HabitLogic.ruleChange(old, _frequency(), _kind == HabitKind.count ? _goal : (_kind == HabitKind.timed ? _minutes * 60 : 1), today)
+        : RuleChange.none;
     return Scaffold(
       appBar: AppBar(
         title: Text(_editing ? t(context, 'Editar hábito', 'Edit habit') : t(context, 'Nuevo hábito', 'New habit')),
@@ -458,11 +457,13 @@ class _HabitEditorScreenState extends State<HabitEditorScreen> {
                   child: NumberStepper(value: _perMonth, min: 1, max: 31, onChanged: (int v) => setState(() => _perMonth = v), label: t(context, 'Veces al mes', 'Times a month')),
                 ),
             ],
-            if (ruleChanged)
+            if (change != RuleChange.none)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
                 child: Text(
-                  HabitLogic.streakUnitOf(_frequency()) != HabitLogic.streakUnitOf(old.frequency.normalized())
+                  change == RuleChange.revert
+                      ? t(context, 'Vuelve a la regla que tenía hasta ayer: los días pasados y la racha quedan como estaban.', 'Back to the rule it had until yesterday: past days and the streak stay as they were.')
+                      : change == RuleChange.restartsStreak
                       ? t(context, 'El cambio rige desde hoy: los días anteriores se siguen contando con la frecuencia que tenían. La racha se cuenta en otra unidad, así que empieza de nuevo desde hoy; lo cumplido sigue en el calendario y en el cumplimiento.', 'The change applies from today: earlier days still count with the frequency they had. The streak is counted in a different unit, so it starts again from today; what you did stays in the calendar and the success rate.')
                       : t(context, 'El cambio rige desde hoy: los días anteriores se siguen contando con la frecuencia y la meta que tenían, y la racha no se recalcula.', 'The change applies from today: earlier days still count with the frequency and goal they had, and the streak is not recalculated.'),
                   style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.primary),
