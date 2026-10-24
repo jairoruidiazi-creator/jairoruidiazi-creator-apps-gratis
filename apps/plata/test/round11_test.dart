@@ -519,17 +519,15 @@ void main() {
                 excepted += t.amountMinor < held ? t.amountMinor : held;
               } else if (t.outsidePending && l.pendingOutsideCut(t) != k) {
                 // La pregunta pendiente es por otro extracto (el más reciente):
-                // se contesta «Es otro pago» y se usa el remedio.
-                final int rest = t.amountMinor - (t.outsideTaken ?? 0);
-                excepted += rest < held ? rest : held;
+                // se contesta «Es otro pago» y se usa el remedio. Lo que tomó
+                // de ese otro extracto le falta a su pago de verdad: cuenta el
+                // abono entero.
+                excepted += t.amountMinor < held ? t.amountMinor : held;
               }
             }
           }
           if (plata < real - excepted) {
             failures.add('$at: P8 deuda de Plata ${plata ~/ 100} < real ${real ~/ 100} (excepción documentada ${excepted ~/ 100})');
-            if (failures.length == 1) {
-              failures.add('DEPURACIÓN pagos ${pays.map((_Pay p) => '${p.amount ~/ 100}/${p.cut}/${p.plata}/${p.txId}/${p.outId}').join(' ')} | movs ${l.txs.where((Tx t) => t.toAccountId == 'tc' || t.isOutsidePayment || (t.accountId == 'tc' && t.kind == TxKind.income)).map((Tx t) => '${t.id}:${t.kind.name}:${t.amountMinor ~/ 100}:${dayKey(t.date)}:${t.statementOf}:${t.outsidePending}:${(t.outsideTaken ?? 0) ~/ 100}:${t.apartFrom}:${t.loggedOn == null ? '-' : dayKey(t.loggedOn!)}:${t.source}').join(' ')} | mínimos ${tc.statementMinimums} | marcas ${tc.markedOnly} | otros $others | excepción $exception');
-            }
           }
           final int pendingOther = l.pendingOutsideMatches().where((Tx t) => !truthSame(t, l.pendingOutsideCut(t)!)).fold<int>(0, (int a, Tx t) => a + (t.outsideTaken ?? 0));
           // Documentado (A4): un pago real anotado desde Plata cuenta entero
