@@ -22,8 +22,9 @@ class TxTile extends StatelessWidget {
     final Category? c = tx.splits.isEmpty ? l.category(tx.categoryId) : null;
     final bool refund = tx.kind == TxKind.income && tx.splits.isEmpty && l.isRefundCategory(tx.categoryId);
     final Color color = tx.isNeutral ? Theme.of(context).colorScheme.onSurfaceVariant : kindColor(context, tx.kind);
-    final String title = tx.description.isNotEmpty
-        ? tx.description
+    final String shown = Ledger.shownDescription(tx, spanish: s.settings.spanish);
+    final String title = shown.isNotEmpty
+        ? shown
         : (tx.kind == TxKind.transfer
             ? '${a?.name ?? '?'} → ${to?.name ?? '?'}'
             : (tx.isAdjustment ? t(context, 'Ajuste de saldo', 'Balance adjustment') : (tx.splits.isNotEmpty ? t(context, 'Dividido', 'Split') : (c?.name ?? t(context, 'Sin categoría', 'Uncategorized')))));
@@ -33,7 +34,10 @@ class TxTile extends StatelessWidget {
     final List<String> subtitle = <String>[
       if (showDate) formatDate(tx.date, 'dd MMM', spanish: s.settings.spanish),
       if (tx.isAdjustment) t(context, 'Ajuste (no cuenta en informes)', 'Adjustment (not in reports)'),
-      if (tx.isOutsidePayment) t(context, 'Pago hecho fuera de Plata${stmt != null ? ' · extracto del ${formatDate(stmt, 'dd MMM', spanish: true)}' : ''} (no sale de ninguna cuenta)', 'Payment made outside Plata${stmt != null ? ' · ${formatDate(stmt, 'MMM dd', spanish: false)} statement' : ''} (not from any account)'),
+      // El nombre ya va en el título: aquí solo el extracto.
+      if (tx.isOutsidePayment) t(context, '${stmt != null ? 'Extracto del ${formatDate(stmt, 'dd MMM', spanish: true)}, ' : ''}no sale de ninguna cuenta', '${stmt != null ? '${formatDate(stmt, 'MMM dd', spanish: false)} statement, ' : ''}not from any account'),
+      // Tomado provisionalmente por el pago hecho fuera de Plata.
+      if (tx.outsidePending && stmt != null) t(context, '¿Pago del extracto del ${formatDate(stmt, 'dd MMM', spanish: true)}? Por confirmar', '${formatDate(stmt, 'MMM dd', spanish: false)} statement payment? To confirm'),
       if (refund) t(context, 'Reembolso', 'Refund'),
       if (tx.kind == TxKind.transfer) '${a?.name ?? ''} → ${to?.name ?? ''}' else if (tx.splits.isNotEmpty) counted(context, tx.splits.length, oneEs: 'categoría', manyEs: 'categorías', oneEn: 'category', manyEn: 'categories') else if (c != null) l.categoryPath(c.id),
       if (tx.kind != TxKind.transfer && a != null) a.name,

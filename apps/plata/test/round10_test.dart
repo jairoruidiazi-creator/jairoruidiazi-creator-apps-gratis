@@ -13,7 +13,6 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plata/core/crypto_store.dart';
@@ -99,7 +98,10 @@ void main() {
       expect(out.statementOf, '2026-11-15');
       expect(out.amountMinor, pesos(100000));
       expect(dateOnly(out.date), DateTime(2026, 12, 8));
-      expect(out.description, 'Pago hecho fuera de Plata');
+      // El nombre se genera al mostrarlo, en el idioma actual (M4 de la ronda 11).
+      expect(out.description, isEmpty);
+      expect(Ledger.shownDescription(out, spanish: true), 'Pago hecho fuera de Plata');
+      expect(Ledger.shownDescription(out, spanish: false), 'Payment made outside Plata');
       expect(l.balanceMinor('bank'), bank);
       expect(debt(l), pesos(1200000));
       expect(december(l), pesos(1200000));
@@ -116,6 +118,7 @@ void main() {
       final List<List<String>> rows = Exports.rows(l, l.txs);
       final List<String> row = rows.firstWhere((List<String> r) => r.last == out.id);
       expect(row[6], 'Pago hecho fuera de Plata');
+      expect(Exports.rows(l, l.txs, spanish: false).firstWhere((List<String> r) => r.last == out.id)[6], 'Payment made outside Plata');
       expect(row[15], 'outside');
       expect(Exports.csv(l, l.txs), contains('Pago hecho fuera de Plata'));
       final Period month = Period(DateTime(2026, 12), DateTime(2027));
@@ -189,51 +192,62 @@ void main() {
     });
   });
 
-  group('G1: un abono sin vínculo después de «Ya lo pagué»', () {
-    test('caso A1: el aviso del banco del 7 dic, confirmado el 9: Plata pregunta; «Sí, es ese pago» lo reemplaza', () async {
+  group('G1: un abono sin vínculo después de «Ya lo pagué» (con la regla de la ronda 12)', () {
+    test('caso A1: el aviso del banco del 7 dic, confirmado el 9: queda provisional y «Sí, es ese pago» lo confirma', () async {
       final Ledger l = await n1();
       final Account tc = l.account('tc')!;
       l.markStatementPaid(tc, nov15);
       today = d(2026, 12, 9);
       final Tx t = await pay(l, pesos(100000), d(2026, 12, 7));
-      expect(l.outsideCandidate(t), nov15);
-      expect(l.pendingOutsideMatches(tc, nov15), <Tx>[t]);
-      l.answerOutsideMatch(t, nov15, same: true);
+      // Mientras no se contesta, cuenta una sola vez.
+      expect(t.outsidePending, isTrue);
+      expect(t.statementOf, '2026-11-15');
+      expect(l.pendingOutsideMatches(card: tc), <Tx>[t]);
+      expect(debt(l), pesos(1200000));
+      l.answerOutsideMatch(t, same: true);
+      expect(byId(l, t.id).outsidePending, isFalse);
       expect(byId(l, t.id).statementOf, '2026-11-15');
       expect(l.outsidePayments(tc, nov15), isEmpty);
       expect(l.isStatementPaid(tc, nov15), isTrue);
       expect(december(l), pesos(1200000));
       expect(debt(l), pesos(1200000));
       expect(l.cardDue(tc, now: DateTime(2026, 12, 9)).next.dueMinor, pesos(1200000));
-      expect(l.pendingOutsideMatches(tc, nov15), isEmpty);
+      expect(l.pendingOutsideMatches(), isEmpty);
       l.dispose();
     });
 
-    test('caso A1: «Es otro pago» lo deja aparte y no vuelve a preguntar', () async {
+    test('caso A1: «Es otro pago» lo deja aparte, devuelve lo de fuera y no vuelve a preguntar', () async {
       final Ledger l = await n1();
       final Account tc = l.account('tc')!;
       l.markStatementPaid(tc, nov15);
       final Tx t = await pay(l, pesos(100000), d(2026, 12, 9));
-      l.answerOutsideMatch(t, nov15, same: false);
+      l.answerOutsideMatch(t, same: false);
       final Tx kept = byId(l, t.id);
       expect(kept.statementOf, isNull);
-      expect(kept.apartFrom, '2026-11-15');
+      expect(kept.outsidePending, isFalse);
+      expect(kept.apartFrom, <String>['2026-11-15']);
       expect(l.outsideCandidate(kept), isNull);
-      expect(l.pendingOutsideMatches(tc, nov15), isEmpty);
+      expect(l.pendingOutsideMatches(), isEmpty);
+      expect(l.outsidePayment(tc, nov15), pesos(100000));
       // Pagó 200.000 en total: 100.000 fuera y este.
       expect(december(l), pesos(1100000));
-      // Se guarda.
-      expect(Tx.fromJson(kept.toJson()).apartFrom, '2026-11-15');
+      // Se guarda (y se lee la forma de la ronda 11, un texto).
+      expect(Tx.fromJson(kept.toJson()).apartFrom, <String>['2026-11-15']);
+      expect(Tx.fromJson(kept.toJson()..['apartFrom'] = '2026-11-15').apartFrom, <String>['2026-11-15']);
+      // Editarlo no vuelve a preguntar.
+      l.updateTx(Tx.fromJson(kept.toJson())..description = 'Quincena');
+      expect(byId(l, t.id).outsidePending, isFalse);
+      expect(december(l), pesos(1100000));
       l.dispose();
     });
 
-    test('caso A1b: «Abonar a la tarjeta» el mismo día de la marca también pregunta', () async {
+    test('caso A1b: «Abonar a la tarjeta» el mismo día de la marca también queda provisional', () async {
       final Ledger l = await n1();
       final Account tc = l.account('tc')!;
       l.markStatementPaid(tc, nov15);
       final Tx t = await pay(l, pesos(100000), d(2026, 12, 8));
-      expect(l.outsideCandidate(t), nov15);
-      l.answerOutsideMatch(t, nov15, same: true);
+      expect(l.pendingOutsideCut(t), nov15);
+      l.answerOutsideMatch(t, same: true);
       expect(december(l), pesos(1200000));
       l.dispose();
     });
@@ -243,26 +257,31 @@ void main() {
       final Account tc = l.account('tc')!;
       l.markStatementPaid(tc, nov15);
       final Tx t = await pay(l, pesos(250000), d(2026, 12, 9));
-      l.answerOutsideMatch(t, nov15, same: true);
+      l.answerOutsideMatch(t, same: true);
       expect(l.outsidePayments(tc, nov15), isEmpty);
       expect(december(l), pesos(1050000));
       l.dispose();
     });
 
-    test('no pregunta por una devolución, por un abono de antes del corte ni por uno de más de diez días después', () async {
+    test('regla sin ventana de días: B2 (19 dic) y meses después preguntan si cabe; N2 y las devoluciones no', () async {
       final Ledger l = await n1();
       final Account tc = l.account('tc')!;
       l.markStatementPaid(tc, nov15);
       final Tx refund = await l.addTx(Tx(id: 'r', kind: TxKind.income, amountMinor: pesos(30000), accountId: 'tc', categoryId: 'c_food', date: d(2026, 12, 9)));
-      expect(l.outsideCandidate(refund), isNull);
-      final Tx early = await pay(l, pesos(50000), d(2026, 11, 14));
-      expect(l.outsideCandidate(early), isNull);
-      today = d(2026, 12, 30);
-      final Tx late = await pay(l, pesos(100000), d(2026, 12, 19));
-      expect(l.outsideCandidate(late), isNull);
-      final Tx inWindow = await pay(l, pesos(100000), d(2026, 12, 18));
-      expect(l.outsideCandidate(inWindow), nov15);
-      expect(l.pendingOutsideMatches(tc, nov15), <Tx>[inWindow]);
+      expect(refund.outsidePending, isFalse);
+      // Antes del corte y más que lo de fuera: es de otro extracto.
+      expect(l.outsideCandidate(Tx(id: 'x1', kind: TxKind.transfer, amountMinor: pesos(150000), accountId: 'bank', toAccountId: 'tc', date: d(2026, 11, 14))), isNull);
+      // B2: el 19 dic con la fecha que propone el editor.
+      today = d(2026, 12, 19);
+      expect(l.outsideCandidate(Tx(id: 'x2', kind: TxKind.transfer, amountMinor: pesos(100000), accountId: 'bank', toAccountId: 'tc', date: d(2026, 12, 19))), nov15);
+      // N2: el pago de 1.200.000 del extracto del 15 dic, el 16 dic.
+      expect(l.outsideCandidate(Tx(id: 'x3', kind: TxKind.transfer, amountMinor: pesos(1200000), accountId: 'bank', toAccountId: 'tc', date: d(2026, 12, 16))), isNull);
+      // Antes del corte siguiente, cualquier monto.
+      expect(l.outsideCandidate(Tx(id: 'x4', kind: TxKind.transfer, amountMinor: pesos(1200000), accountId: 'bank', toAccountId: 'tc', date: d(2026, 12, 14))), nov15);
+      // Meses después: si cabe en lo de fuera, sí; si no, no.
+      today = d(2027, 3, 1);
+      expect(l.outsideCandidate(Tx(id: 'x5', kind: TxKind.transfer, amountMinor: pesos(100000), accountId: 'bank', toAccountId: 'tc', date: d(2027, 3, 1))), nov15);
+      expect(l.outsideCandidate(Tx(id: 'x6', kind: TxKind.transfer, amountMinor: pesos(300000), accountId: 'bank', toAccountId: 'tc', date: d(2027, 3, 1))), isNull);
       l.dispose();
     });
 
@@ -283,14 +302,18 @@ void main() {
       l.dispose();
     });
 
-    test('caso A4 con updateTx: vincular al editar un abono que estaba suelto también reemplaza', () async {
+    test('editar un abono provisional lo deja provisional con lo que toma recalculado; borrarlo devuelve lo de fuera', () async {
       final Ledger l = await n1();
       final Account tc = l.account('tc')!;
       l.markStatementPaid(tc, nov15);
       final Tx t = await pay(l, pesos(100000), d(2026, 12, 9));
-      expect(december(l), pesos(1100000));
-      l.updateTx(Tx.fromJson(t.toJson())..statementOf = '2026-11-15');
-      expect(l.outsidePayment(tc, nov15), 0);
+      expect(december(l), pesos(1200000));
+      l.updateTx(Tx.fromJson(t.toJson())..amountMinor = pesos(60000));
+      expect(byId(l, t.id).outsidePending, isTrue);
+      expect(l.outsidePayment(tc, nov15), pesos(40000));
+      expect(december(l), pesos(1200000));
+      await l.deleteTx(t.id);
+      expect(l.outsidePayment(tc, nov15), pesos(100000));
       expect(december(l), pesos(1200000));
       l.dispose();
     });
@@ -541,169 +564,6 @@ void main() {
       l.dispose();
     });
   });
-
-  // Secuencias al azar con todo lo que puede hacer la persona. «real» es la
-  // deuda que tiene de verdad según lo que hizo:
-  // - compra: +; abono sin vínculo (dinero nuevo) y devolución: −;
-  // - «Ya lo pagué» (diálogo o aviso rojo): pagó fuera lo que Plata dijo que
-  //   faltaba: −;
-  // - «Registrar el pago» desde la fila: el mismo pago, desde una cuenta de
-  //   Plata: sin cambio;
-  // - «Sí, es ese pago» (G1): el abono no era dinero nuevo: + lo que
-  //   reemplazó; «Es otro pago»: sin cambio;
-  // - borrar un abono sin vínculo (anotado por error): +; borrar un pago
-  //   registrado desde la fila: sin cambio (caso A5, documentado: Plata
-  //   vuelve a subir la deuda, del lado seguro);
-  // - «Cambiar monto» de v0 a v: + v0 − v; «Desmarcar»: + lo de fuera;
-  // - cambiar el corte o el pago: sin cambio.
-  // Después de cada operación:
-  // - P1: deuda = lo que queda del estado de cuenta a futuro + deuda aparte;
-  // - P6: ningún pago de fuera en un extracto que no había cerrado su día;
-  // - P8: la deuda de Plata nunca es menor que la real;
-  // - P9: nunca pide más de lo que se debe, salvo lo de un pago registrado
-  //   que se borró a propósito (A5).
-  test('propiedades P1, P6, P8 y P9 con secuencias al azar', () async {
-    final List<String> failures = <String>[];
-    int outsideSeen = 0;
-    for (int seed = 0; seed < 80 && failures.length < 10; seed++) {
-      final Random rnd = Random(1000 + seed);
-      today = d(2026, 6, 1);
-      final Ledger l = await newLedger();
-      final Account tc = await l.addAccount(Account(id: 'tc', name: 'Visa', type: AccountType.credit, cutDay: 1 + rnd.nextInt(28), payDay: 1 + rnd.nextInt(28)));
-      int real = 0;
-      int documented = 0;
-      final List<String> unlinked = <String>[];
-      final List<String> registered = <String>[];
-      const List<String> ops = <String>['compra', 'abono', 'devolución', 'mínimo', 'aviso', 'registrar', 'borrar registrado', 'borrar abono', 'cambiar monto', 'desmarcar', 'corte', 'pregunta', 'abono', 'pregunta'];
-      for (int i = 0; i < 40; i++) {
-        today = d(today.year, today.month, today.day + 1 + rnd.nextInt(9));
-        final DateTime now = dateOnly(today);
-        final DateTime lc = CardCycle.current(tc, now).previous(tc).cut;
-        final String op = ops[rnd.nextInt(ops.length)];
-        if (op == 'compra') {
-          final int a = pesos(50000 * (1 + rnd.nextInt(8)));
-          await buy(l, a, d(now.year, now.month, now.day - rnd.nextInt(4)));
-          real += a;
-        } else if (op == 'abono') {
-          final int a = pesos(20000 * (1 + rnd.nextInt(6)));
-          unlinked.add((await pay(l, a, d(now.year, now.month, now.day - rnd.nextInt(4)))).id);
-          real -= a;
-        } else if (op == 'devolución') {
-          final int a = pesos(20000 * (1 + rnd.nextInt(3)));
-          ids += 1;
-          unlinked.add((await l.addTx(Tx(id: 'r$ids', kind: TxKind.income, amountMinor: a, accountId: 'tc', categoryId: 'c_food', date: today))).id);
-          real -= a;
-        } else if (op == 'mínimo') {
-          l.setStatementMinimum(tc, lc, pesos(30000 * (1 + rnd.nextInt(5))));
-          final bool yes = rnd.nextBool();
-          if (yes && !l.isStatementPaid(tc, lc)) {
-            l.markStatementPaid(tc, lc);
-            real -= l.outsidePayment(tc, lc);
-          } else if (!yes && l.isStatementPaid(tc, lc)) {
-            real += l.outsidePayment(tc, lc);
-            l.markStatementPaid(tc, lc, paid: false);
-          }
-        } else if (op == 'aviso') {
-          final CardDue due = l.cardDue(tc);
-          if (due.overdue && !l.isStatementPaid(tc, due.statementCut!)) {
-            l.markStatementPaid(tc, due.statementCut!, amount: due.overdueMinor);
-            real -= due.overdueMinor;
-          }
-        } else if (op == 'registrar') {
-          for (final DateTime k in <DateTime>[lc, CardCycle.current(tc, lc).previous(tc).cut]) {
-            final int o = l.outsidePayment(tc, k);
-            if (l.isStatementPaid(tc, k) && o > 0) {
-              final int a = rnd.nextBool() ? o : (o ~/ 2 < 1 ? 1 : o ~/ 2);
-              final DateTime due = l.effectivePayDate(tc, CardCycle.current(tc, k).payDate);
-              final DateTime on = due.isAfter(now) ? now : due;
-              registered.add((await pay(l, a, d(on.year, on.month, on.day), statement: k)).id);
-              break;
-            }
-          }
-        } else if (op == 'borrar registrado' && registered.isNotEmpty) {
-          final String id = registered.removeAt(rnd.nextInt(registered.length));
-          final Iterable<Tx> found = l.txs.where((Tx t) => t.id == id);
-          if (found.isNotEmpty) {
-            documented += found.first.amountMinor;
-            await l.deleteTx(id);
-          }
-        } else if (op == 'borrar abono' && unlinked.isNotEmpty) {
-          final String id = unlinked.removeAt(rnd.nextInt(unlinked.length));
-          final Iterable<Tx> found = l.txs.where((Tx t) => t.id == id);
-          if (found.isNotEmpty) {
-            real += found.first.amountMinor;
-            await l.deleteTx(id);
-          }
-        } else if (op == 'cambiar monto') {
-          final List<Tx> outs = l.txs.where((Tx t) => t.isOutsidePayment).toList();
-          if (outs.isNotEmpty) {
-            // La fila muestra y cambia el total de fuera del extracto.
-            final DateTime k = CardCycle.current(tc, DateTime.parse(outs[rnd.nextInt(outs.length)].statementOf!)).cut;
-            final int total = l.outsidePayment(tc, k);
-            final List<int> choices = <int>[0, total ~/ 2, total * 2, pesos(1000000)];
-            final int v = choices[rnd.nextInt(choices.length)];
-            real += total - v;
-            l.setOutsidePayment(tc, k, v);
-          }
-        } else if (op == 'desmarcar') {
-          final List<Tx> outs = l.txs.where((Tx t) => t.isOutsidePayment).toList();
-          if (outs.isNotEmpty) {
-            final DateTime k = CardCycle.current(tc, DateTime.parse(outs[rnd.nextInt(outs.length)].statementOf!)).cut;
-            real += l.outsidePayment(tc, k);
-            l.markStatementPaid(tc, k, paid: false);
-          }
-        } else if (op == 'corte') {
-          final int old = tc.cutDay!;
-          final int oldPay = tc.payDay!;
-          tc.cutDay = 1 + rnd.nextInt(28);
-          if (rnd.nextInt(10) < 3) {
-            tc.payDay = 1 + rnd.nextInt(28);
-          }
-          l.moveCardCut(tc, old, oldPayDay: oldPay);
-        } else if (op == 'pregunta') {
-          for (final String id in List<String>.of(unlinked)) {
-            final Iterable<Tx> found = l.txs.where((Tx t) => t.id == id);
-            if (found.isEmpty) {
-              continue;
-            }
-            final Tx t = found.first;
-            final DateTime? k = l.outsideCandidate(t);
-            if (k == null) {
-              continue;
-            }
-            final bool same = rnd.nextBool();
-            if (same) {
-              final int o = l.outsidePayment(tc, k);
-              real += t.amountMinor < o ? t.amountMinor : o;
-              unlinked.remove(id);
-            }
-            l.answerOutsideMatch(t, k, same: same);
-            break;
-          }
-        }
-        final String at = 'semilla $seed, op $i ($op, hoy ${dayKey(now)}, corte ${tc.cutDay}, pago ${tc.payDay})';
-        final CardStatement far = l.statement(tc, date: DateTime(2032));
-        final int plata = debt(l);
-        if (plata != far.balanceMinor + far.legacyMinor) {
-          failures.add('$at: P1 deuda ${plata ~/ 100} ≠ estado ${far.balanceMinor ~/ 100} + aparte ${far.legacyMinor ~/ 100}');
-        }
-        for (final Tx p in l.txs.where((Tx t) => t.isOutsidePayment)) {
-          if (!CardCycle.current(tc, DateTime.parse(p.statementOf!)).cut.isBefore(dateOnly(p.date))) {
-            failures.add('$at: P6 pago de fuera en el extracto ${p.statementOf}, marcado el ${dayKey(p.date)}');
-          }
-        }
-        if (plata < real) {
-          failures.add('$at: P8 deuda de Plata ${plata ~/ 100} < real ${real ~/ 100}');
-        }
-        if (plata > real + documented) {
-          failures.add('$at: P9 deuda de Plata ${plata ~/ 100} > real ${real ~/ 100} + borrado a propósito ${documented ~/ 100}');
-        }
-      }
-      outsideSeen += l.txs.where((Tx t) => t.isOutsidePayment).length;
-      l.dispose();
-    }
-    expect(failures, isEmpty, reason: failures.join('\n'));
-    // La prueba de verdad ejercita los pagos de fuera.
-    expect(outsideSeen, greaterThan(20));
-  });
+  // Las propiedades P1, P6, P8 y P9 al azar, con la verdad llevada aparte, están
+  // en round11_test.dart.
 }

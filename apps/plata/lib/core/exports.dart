@@ -74,7 +74,7 @@ class Exports {
           l.account(t.toAccountId)?.name ?? '',
           parent?.name ?? c?.name ?? '',
           parent == null ? '' : (c?.name ?? ''),
-          t.description,
+          Ledger.shownDescription(t, spanish: spanish),
           t.payee,
           _decimal(signed),
           t.currency,

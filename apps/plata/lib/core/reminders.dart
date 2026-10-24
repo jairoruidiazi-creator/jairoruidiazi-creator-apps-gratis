@@ -159,11 +159,15 @@ class Reminders {
           if (worth && when.isAfter(moment)) {
             final String date = spanish ? formatDate(real, 'dd MMM') : formatDate(real, 'MMM dd', spanish: false);
             final String due0 = amountOf(st.dueMinor, a.currency);
+            // Si hay un abono que Plata tomó por el pago hecho fuera de Plata y
+            // nadie lo ha confirmado, el aviso lo recuerda: la cifra depende
+            // de la respuesta.
+            final String ask = first && ledger.pendingOutsideMatches(card: a).isNotEmpty ? (spanish ? '. Tienes un abono por confirmar en Plata' : '. You have a payment to confirm in Plata') : '';
             planned[idFor('c:${a.id}:${dayKey(pay)}')] = _Planned(
               when: when,
               title: spanish ? 'Pago de ${a.name}' : '${a.name} payment',
               // Es el capital estimado: el extracto del banco suma intereses y cuota de manejo.
-              body: private || !first ? (spanish ? 'Vence el $date (revisa tu extracto)' : 'Due $date (check your statement)') : (spanish ? 'Vence el $date: unos $due0 de capital (revisa tu extracto)' : 'Due $date: about $due0 in principal (check your statement)'),
+              body: '${private || !first ? (spanish ? 'Vence el $date (revisa tu extracto)' : 'Due $date (check your statement)') : (spanish ? 'Vence el $date: unos $due0 de capital (revisa tu extracto)' : 'Due $date: about $due0 in principal (check your statement)')}$ask',
             );
           }
           cycle = CardCycle.current(a, addDays(cycle.cut, 1));

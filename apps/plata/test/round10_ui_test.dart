@@ -59,7 +59,8 @@ void main() {
       expect(env.services.ledger.outsidePayment(env.services.ledger.account('tc')!, cut), 8000000);
       await goTab(tester, 'Movimientos');
       expect(find.text('Pago hecho fuera de Plata'), findsWidgets);
-      expect(find.textContaining('extracto del 30 sep'), findsWidgets);
+      // El nombre una vez (título) y el extracto en el subtítulo.
+      expect(find.textContaining('Extracto del 30 sep, no sale de ninguna cuenta'), findsWidgets);
       await syncLedger(tester, env);
       await finish(tester);
     });
@@ -102,12 +103,12 @@ void main() {
           expect(-l.balanceMinor('tc'), 8000000);
         } else {
           expect(paid.statementOf, isNull);
-          expect(paid.apartFrom, '2026-09-30');
+          expect(paid.apartFrom, <String>['2026-09-30']);
           expect(l.outsidePayment(tc, cut), 8000000);
           expect(-l.balanceMinor('tc'), 0);
         }
         expect(l.isStatementPaid(tc, cut), isTrue);
-        expect(l.pendingOutsideMatches(tc, cut), isEmpty);
+        expect(l.pendingOutsideMatches(), isEmpty);
         await finish(tester);
       });
     });
@@ -123,22 +124,25 @@ void main() {
         await e.services.ledger.addTx(Tx(id: 'n', kind: TxKind.transfer, amountMinor: 8000000, accountId: 'ah', toAccountId: 'tc', date: DateTime(2026, 10, 15, 12), source: 'notice'));
       });
       final Ledger l = env.services.ledger;
-      expect(l.pendingOutsideMatches(tc, cut), hasLength(1));
+      // Ya cuenta una sola vez: provisional, con la pregunta pendiente.
+      expect(l.pendingOutsideMatches(card: tc), hasLength(1));
+      expect(-l.balanceMinor('tc'), 92000000);
       await goTab(tester, 'Más');
       await openMore(tester, 'Tarjetas de crédito');
-      final Finder question = find.textContaining('¿El abono del 15 oct');
+      final Finder question = find.text('¿Es el pago del extracto del 30 sep?');
       await tester.scrollUntilVisible(question, 150, scrollable: find.byType(Scrollable).first);
       expect(question, findsOneWidget);
-      await tester.ensureVisible(find.text('Sí, es ese'));
+      await tester.ensureVisible(find.text('Sí, es ese pago'));
       await settle(tester);
-      await tester.tap(find.text('Sí, es ese'));
+      await tester.tap(find.text('Sí, es ese pago'));
       await settle(tester);
       await syncLedger(tester, env);
       expect(l.txs.firstWhere((Tx t) => t.id == 'n').statementOf, '2026-09-30');
       expect(l.outsidePayment(tc, cut), 0);
       expect(l.isStatementPaid(tc, cut), isTrue);
       expect(-l.balanceMinor('tc'), 92000000);
-      expect(find.textContaining('¿El abono del 15 oct'), findsNothing);
+      expect(l.txs.firstWhere((Tx t) => t.id == 'n').outsidePending, isFalse);
+      expect(find.text('¿Es el pago del extracto del 30 sep?'), findsNothing);
       await finish(tester);
     });
   });

@@ -10,6 +10,7 @@ import '../../core/camera_draft.dart';
 import '../../core/ledger.dart';
 import '../../model/models.dart';
 import '../../model/money.dart';
+import '../more/cards_screen.dart';
 import '../widgets/adaptive.dart';
 import '../widgets/amount_keypad.dart';
 import '../widgets/common.dart';
@@ -467,46 +468,6 @@ class _TxEditorState extends State<TxEditor> {
         }
       }
     }
-    // Un abono sin vínculo a una tarjeta poco después de «Ya lo pagué»: ¿es ese
-    // mismo pago? Si lo es, reemplaza el pago hecho fuera de Plata y no se
-    // cuenta dos veces; si no, queda aparte.
-    final DateTime? match = l.outsideCandidate(tx);
-    if (match != null) {
-      final Account? card = l.account(tx.kind == TxKind.transfer ? tx.toAccountId : tx.accountId);
-      final List<Tx> outside = card == null ? const <Tx>[] : l.outsidePayments(card, match);
-      final bool es = _s!.settings.spanish;
-      final String day = formatDate(match, es ? 'dd MMM' : 'MMM dd', spanish: es);
-      final String marked = outside.isEmpty ? '' : formatDate(outside.first.date, es ? 'dd MMM' : 'MMM dd', spanish: es);
-      final String amount = outside.isEmpty ? '' : Money.format(outside.fold<int>(0, (int a, Tx o) => a + o.amountMinor), outside.first.currency, spanish: es);
-      final bool? same = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext c) => PopScope(
-          canPop: false,
-          child: AlertDialog(
-            scrollable: true,
-            title: Text(t(c, '¿Es el pago del extracto del $day?', 'Is it the payment of the $day statement?')),
-            content: Text(t(
-              c,
-              'El $marked marcaste ese extracto como pagado y Plata anotó $amount como pagados fuera de Plata. Si este abono es ese mismo pago, lo reemplaza y no se cuenta dos veces. Si es otro pago, queda aparte y baja el próximo pago.',
-              'On $marked you marked that statement as paid and Plata logged $amount as paid outside Plata. If this payment is that same one, it replaces it and is not counted twice. If it is another payment, it stays separate and lowers the next payment.',
-            )),
-            actions: <Widget>[
-              TextButton(onPressed: () => Navigator.pop(c, false), child: Text(t(c, 'Es otro pago', 'It is another payment'))),
-              FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(t(c, 'Sí, es ese pago', 'Yes, it is that payment'))),
-            ],
-          ),
-        ),
-      );
-      if (!mounted || same == null) {
-        return;
-      }
-      if (same) {
-        tx.statementOf = dayKey(match);
-      } else {
-        tx.apartFrom = dayKey(match);
-      }
-    }
     setState(() => _saving = true);
     try {
       if (e == null) {
@@ -533,6 +494,12 @@ class _TxEditorState extends State<TxEditor> {
     await l.deleteAttachmentFiles(_savedAttachments.difference(_attachments.toSet()));
     _s!.settings.defaultAccountId = _accountId!;
     await _s!.settings.save();
+    // Un abono a la tarjeta que puede ser el pago hecho fuera de Plata de un
+    // extracto marcado: el libro lo tomó provisionalmente por ese pago; se
+    // pregunta aquí mismo (G1).
+    if (mounted) {
+      await askOutsideMatch(context, tx);
+    }
     if (mounted) {
       Navigator.of(context).pop(tx);
     }
@@ -632,8 +599,9 @@ class _TxEditorState extends State<TxEditor> {
                   }
                 }
               } else if (v == 'duplicate' && widget.existing != null) {
+                final Tx copy;
                 try {
-                  await l.duplicateTx(widget.existing!);
+                  copy = await l.duplicateTx(widget.existing!);
                 } on TxRejected catch (err) {
                   if (context.mounted) {
                     _showMessage(txProblemText(context, err));
@@ -641,13 +609,18 @@ class _TxEditorState extends State<TxEditor> {
                   return;
                 }
                 if (context.mounted) {
+                  await askOutsideMatch(context, copy);
+                }
+                if (context.mounted) {
                   Navigator.of(context).pop();
                 }
               }
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              PopupMenuItem<String>(value: 'template', child: Text(t(context, 'Guardar como plantilla', 'Save as template'))),
-              if (widget.existing != null) PopupMenuItem<String>(value: 'duplicate', child: Text(t(context, 'Duplicar hoy', 'Duplicate today'))),
+              // Un pago hecho fuera de Plata no se copia ni se vuelve plantilla:
+              // la copia sería un ingreso de verdad (se marca con «Ya lo pagué»).
+              if (!(widget.existing?.isOutsidePayment ?? false)) PopupMenuItem<String>(value: 'template', child: Text(t(context, 'Guardar como plantilla', 'Save as template'))),
+              if (widget.existing != null && !widget.existing!.isOutsidePayment) PopupMenuItem<String>(value: 'duplicate', child: Text(t(context, 'Duplicar hoy', 'Duplicate today'))),
               if (widget.existing != null) PopupMenuItem<String>(value: 'delete', child: Text(t(context, 'Borrar', 'Delete'))),
             ],
           ),

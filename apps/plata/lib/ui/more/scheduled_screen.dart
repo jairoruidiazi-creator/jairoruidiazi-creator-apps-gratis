@@ -6,6 +6,7 @@ import '../../core/ledger.dart';
 import '../../model/models.dart';
 import '../widgets/adaptive.dart';
 import '../widgets/common.dart';
+import 'cards_screen.dart';
 
 String frequencyName(BuildContext context, Frequency f) {
   final bool es = AppScope.of(context).settings.spanish;
@@ -218,13 +219,19 @@ class _ScheduledEditorState extends State<ScheduledEditor> {
                   if (!context.mounted) {
                     return;
                   }
+                  final Tx posted;
                   try {
-                    await l.postScheduled(e);
+                    posted = await l.postScheduled(e);
                   } on TxRejected catch (err) {
                     if (context.mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(txProblemText(context, err))));
                     }
                     return;
+                  }
+                  // Un pago a la tarjeta que puede ser el pago hecho fuera de
+                  // Plata de un extracto marcado: la misma pregunta, enseguida.
+                  if (context.mounted) {
+                    await askOutsideMatch(context, posted);
                   }
                   if (context.mounted) {
                     Navigator.pop(context);

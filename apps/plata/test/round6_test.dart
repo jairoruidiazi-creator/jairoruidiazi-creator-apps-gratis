@@ -34,7 +34,17 @@ void main() {
     return l;
   }
 
-  Future<Tx> pay(Ledger l, int amount, DateTime date, {String id = 'p', DateTime? statement}) => l.addTx(Tx(id: id, kind: TxKind.transfer, amountMinor: amount, accountId: 'bank', toAccountId: 'tc', date: date, statementOf: statement == null ? null : dayKey(statement)));
+  // Desde la ronda 12, un abono sin vínculo que puede ser el pago hecho fuera
+  // de Plata de un extracto marcado se toma provisionalmente por ese pago y
+  // queda la pregunta. En estas pruebas un abono anotado después de marcar es
+  // otro pago: se contesta «Es otro pago».
+  Future<Tx> pay(Ledger l, int amount, DateTime date, {String id = 'p', DateTime? statement}) async {
+    final Tx t = await l.addTx(Tx(id: id, kind: TxKind.transfer, amountMinor: amount, accountId: 'bank', toAccountId: 'tc', date: date, statementOf: statement == null ? null : dayKey(statement)));
+    for (int i = 0; i < 12 && l.txs.any((Tx x) => x.id == t.id && x.outsidePending); i++) {
+      l.answerOutsideMatch(t, same: false);
+    }
+    return t;
+  }
 
   setUp(() async {
     today = d(2026, 12, 20);

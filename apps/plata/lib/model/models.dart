@@ -305,9 +305,12 @@ class Tx {
     this.source = 'manual',
     this.rateToBase,
     this.statementOf,
-    this.apartFrom,
+    List<String>? apartFrom,
+    this.outsideTaken,
+    this.outsidePending = false,
     DateTime? createdAt,
-  })  : tags = tags ?? <String>[],
+  })  : apartFrom = apartFrom ?? <String>[],
+        tags = tags ?? <String>[],
         splits = splits ?? <TxSplit>[],
         attachments = attachments ?? <String>[],
         createdAt = createdAt ?? clock.now();
@@ -359,9 +362,22 @@ class Tx {
   /// Null en los demás movimientos (y en las copias anteriores).
   String? statementOf;
 
-  /// Abono sin vínculo que la persona dijo que **no** es el pago del extracto
-  /// marcado «Ya lo pagué» que cortó ese día (`dayKey`): ya no se pregunta.
-  String? apartFrom;
+  /// Extractos marcados «Ya lo pagué» (`dayKey` de su corte) de cuyo pago
+  /// hecho fuera de Plata este abono **no** es parte: la persona contestó «Es
+  /// otro pago», o el abono ya estaba anotado al marcar y contó en lo que
+  /// faltaba. No se vuelve a preguntar por ellos.
+  final List<String> apartFrom;
+
+  /// Cuánto del pago hecho fuera de Plata de su extracto reemplazó este abono
+  /// vinculado (al registrarlo desde la fila, al contestar «Sí, es ese pago»
+  /// o provisionalmente). Null si no reemplazó nada.
+  int? outsideTaken;
+
+  /// Abono que Plata tomó provisionalmente por el pago hecho fuera de Plata
+  /// de su extracto (llegó sin pasar por una pantalla, o la pregunta no se ha
+  /// contestado): cuenta una sola vez y la pregunta «¿Es el pago del
+  /// extracto…?» sigue en Inicio y en Tarjetas.
+  bool outsidePending;
   final DateTime createdAt;
 
   bool get isSplit => splits.isNotEmpty;
@@ -407,7 +423,9 @@ class Tx {
         'source': source,
         'rateToBase': rateToBase,
         if (statementOf != null) 'statementOf': statementOf,
-        if (apartFrom != null) 'apartFrom': apartFrom,
+        if (apartFrom.isNotEmpty) 'apartFrom': apartFrom,
+        if (outsideTaken != null) 'outsideTaken': outsideTaken,
+        if (outsidePending) 'outsidePending': true,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -435,9 +453,22 @@ class Tx {
         source: j['source'] as String? ?? 'manual',
         rateToBase: (j['rateToBase'] as num?)?.toDouble(),
         statementOf: j['statementOf'] as String?,
-        apartFrom: j['apartFrom'] as String?,
+        apartFrom: _keys(j['apartFrom']),
+        outsideTaken: (j['outsideTaken'] as num?)?.toInt(),
+        outsidePending: j['outsidePending'] as bool? ?? false,
         createdAt: _parseDate(j['createdAt']),
       );
+
+  /// Claves de extractos: una lista o, en la versión de la ronda 11, un texto.
+  static List<String> _keys(Object? v) {
+    if (v is String) {
+      return <String>[v];
+    }
+    if (v is List<dynamic>) {
+      return v.map((dynamic e) => e.toString()).toList();
+    }
+    return <String>[];
+  }
 
   Tx copy({String? id, DateTime? date}) => Tx.fromJson(toJson()..['id'] = id ?? this.id..['date'] = (date ?? this.date).toIso8601String()..['createdAt'] = clock.now().toIso8601String());
 }

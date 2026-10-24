@@ -140,6 +140,12 @@ class _CardPanelState extends State<_CardPanel> {
                 IconButton(tooltip: t(context, 'Editar tarjeta', 'Edit card'), icon: const Icon(Icons.edit_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => AccountEditor(existing: c)))),
               ],
             ),
+            // Abonos que Plata tomó por el pago hecho fuera de Plata de un
+            // extracto marcado (de cualquier extracto) y esperan respuesta.
+            for (final Tx p in l.pendingOutsideMatches(card: c)) ...<Widget>[
+              const SizedBox(height: 8),
+              OutsideMatchCard(tx: p),
+            ],
             if (due.overdue) ...<Widget>[
               const SizedBox(height: 8),
               OverdueBanner(card: c, due: due),
@@ -539,7 +545,6 @@ class _PaidStatementRow extends StatelessWidget {
     final bool marked = l.isStatementPaid(card, cut);
     final int linkedTotal = l.linkedPayments(card, cut);
     final int outside = l.outsidePayment(card, cut);
-    final List<Tx> pending = marked ? l.pendingOutsideMatches(card, cut) : const <Tx>[];
     final String when = linked.map((Tx x) => dayText(context, x.date)).toSet().join(', ');
     final String withTx = linked.length == 1 ? t(context, 'con el movimiento del $when', 'with the $when transaction') : t(context, 'con los movimientos del $when', 'with the $when transactions');
     final String text;
@@ -570,7 +575,9 @@ class _PaidStatementRow extends StatelessWidget {
                 onPressed: () => openCardPayment(context, card, outside, date: proposedPaymentDate(l, card, cut), statement: cut),
                 child: Text(t(context, 'Registrar el pago', 'Log the payment'), semanticsLabel: t(context, 'Registrar el pago del extracto del $day', 'Log the payment of the $day statement')),
               ),
-            if (marked && outside > 0)
+            // También en cero (después de reemplazarlo, de borrar el pago
+            // registrado o de contestar «Antes»): así se vuelve a anotar.
+            if (marked)
               TextButton(
                 onPressed: () async {
                   final int? v = await pickAmount(context, initialMinor: outside, currency: card.currency, title: t(context, 'Pagado fuera de Plata (extracto del $day)', 'Paid outside Plata ($day statement)'));
@@ -587,24 +594,108 @@ class _PaidStatementRow extends StatelessWidget {
               ),
           ],
         ),
-        // Un abono que llegó sin pasar por el editor (por ejemplo, anotado
-        // solo desde un aviso del banco) y que podría ser el pago de fuera.
-        for (final Tx p in pending)
+      ],
+    );
+  }
+}
+
+/// Texto de la pregunta por un abono que Plata tomó provisionalmente por el
+/// pago hecho fuera de Plata de un extracto.
+String _outsideMatchText(BuildContext context, Ledger l, Tx p) {
+  final Account? card = l.pendingOutsideCard(p);
+  final DateTime? cut = l.pendingOutsideCut(p);
+  if (card == null || cut == null) {
+    return '';
+  }
+  final int marked = l.outsidePayment(card, cut) + l.pendingOutsideMatches(card: card, cut: cut).fold<int>(0, (int a, Tx x) => a + (x.outsideTaken ?? 0));
+  final String amount = money(context, p.kind == TxKind.transfer ? l.receivedMinor(p) : p.amountMinor, card.currency);
+  return t(
+    context,
+    'Marcaste el extracto del ${dayText(context, cut)} de ${card.name} como pagado fuera de Plata (${money(context, marked, card.currency)}). Si el abono del ${dayText(context, p.date)} ($amount) es ese mismo pago, se cuenta una sola vez. Si es otro pago, queda aparte y baja el próximo pago. Mientras no contestes, Plata lo cuenta como ese pago.',
+    'You marked the ${dayText(context, cut)} ${card.name} statement as paid outside Plata (${money(context, marked, card.currency)}). If the ${dayText(context, p.date)} payment ($amount) is that same payment, it is counted once. If it is another payment, it stays separate and lowers the next payment. Until you answer, Plata counts it as that payment.',
+  );
+}
+
+/// La pregunta «¿Es el pago del extracto…?» justo después de anotar un abono
+/// que Plata tomó provisionalmente por un pago hecho fuera de Plata (el
+/// editor, el favorito de un toque, «Anotar ahora» y «Duplicar hoy» la
+/// hacen con este mismo diálogo). Si con «Es otro pago» puede ser el de otro
+/// extracto, pregunta otra vez. Si se cierra sin contestar (no se puede
+/// tocando fuera ni con Atrás), la pregunta sigue en Inicio y en Tarjetas.
+Future<void> askOutsideMatch(BuildContext context, Tx saved) async {
+  final Ledger l = AppScope.of(context).ledger;
+  for (int i = 0; i < 12; i++) {
+    final Iterable<Tx> found = l.txs.where((Tx x) => x.id == saved.id);
+    if (found.isEmpty || !found.first.outsidePending || !context.mounted) {
+      return;
+    }
+    final Tx p = found.first;
+    final DateTime cut = l.pendingOutsideCut(p)!;
+    final bool? same = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext c) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          scrollable: true,
+          title: Text(t(c, '¿Es el pago del extracto del ${dayText(c, cut)}?', 'Is it the payment of the ${dayText(c, cut)} statement?')),
+          content: Text(_outsideMatchText(c, l, p)),
+          actions: <Widget>[
+            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(t(c, 'Es otro pago', 'It is another payment'))),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(t(c, 'Sí, es ese pago', 'Yes, it is that payment'))),
+          ],
+        ),
+      ),
+    );
+    if (same == null) {
+      return;
+    }
+    l.answerOutsideMatch(p, same: same);
+  }
+}
+
+/// La pregunta pendiente de un abono que llegó sin pasar por una pantalla (un
+/// programado automático, un aviso) o que nadie contestó: en Inicio y en
+/// Tarjetas, hasta que se conteste.
+class OutsideMatchCard extends StatelessWidget {
+  const OutsideMatchCard({super.key, required this.tx});
+
+  final Tx tx;
+
+  @override
+  Widget build(BuildContext context) {
+    final Ledger l = AppScope.of(context).ledger;
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final DateTime? cut = l.pendingOutsideCut(tx);
+    if (cut == null) {
+      return const SizedBox.shrink();
+    }
+    final String day = dayText(context, tx.date);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      decoration: BoxDecoration(color: cs.tertiaryContainer, borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(t(context, '¿Es el pago del extracto del ${dayText(context, cut)}?', 'Is it the payment of the ${dayText(context, cut)} statement?'), style: TextStyle(fontWeight: FontWeight.w700, color: cs.onTertiaryContainer)),
+          const SizedBox(height: 2),
+          Text(_outsideMatchText(context, l, tx), style: TextStyle(fontSize: 12, color: cs.onTertiaryContainer)),
           Wrap(
-            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.end,
             children: <Widget>[
-              Text(t(context, '¿El abono del ${dayText(context, p.date)} (${m(p.amountMinor)}) es el pago de este extracto?', 'Is the ${dayText(context, p.date)} payment (${m(p.amountMinor)}) the payment of this statement?'), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
               TextButton(
-                onPressed: () => l.answerOutsideMatch(p, cut, same: true),
-                child: Text(t(context, 'Sí, es ese', 'Yes, it is'), semanticsLabel: t(context, 'Sí, el abono del ${dayText(context, p.date)} es el pago del extracto del $day', 'Yes, the ${dayText(context, p.date)} payment is the payment of the $day statement')),
+                onPressed: () => l.answerOutsideMatch(tx, same: false),
+                child: Text(t(context, 'Es otro pago', 'It is another payment'), semanticsLabel: t(context, 'No, el abono del $day es otro pago', 'No, the $day payment is another one'), style: TextStyle(color: cs.onTertiaryContainer)),
               ),
               TextButton(
-                onPressed: () => l.answerOutsideMatch(p, cut, same: false),
-                child: Text(t(context, 'Es otro', 'It is another'), semanticsLabel: t(context, 'No, el abono del ${dayText(context, p.date)} es otro pago', 'No, the ${dayText(context, p.date)} payment is another one')),
+                onPressed: () => l.answerOutsideMatch(tx, same: true),
+                child: Text(t(context, 'Sí, es ese pago', 'Yes, it is that payment'), semanticsLabel: t(context, 'Sí, el abono del $day es el pago del extracto del ${dayText(context, cut)}', 'Yes, the $day payment is the payment of the ${dayText(context, cut)} statement'), style: TextStyle(color: cs.onTertiaryContainer, fontWeight: FontWeight.w700)),
               ),
             ],
           ),
-      ],
+        ],
+      ),
     );
   }
 }

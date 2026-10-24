@@ -79,6 +79,12 @@ class HomeScreen extends StatelessWidget {
             children: <Widget>[
               if (!s.settings.onboarded) _welcome(context, s),
               if (s.settings.notificationsAllowed == false && Reminders.wanted(l, s.settings)) _notificationsOff(context),
+              // Abonos que Plata tomó por el pago hecho fuera de Plata de un
+              // extracto marcado y esperan respuesta: se ven hasta contestar.
+              for (final Tx p in l.pendingOutsideMatches()) ...<Widget>[
+                OutsideMatchCard(tx: p),
+                const SizedBox(height: 8),
+              ],
               _netWorth(context, l, period),
               const SizedBox(height: 12),
               _sectionTitle(context, t(context, 'Cuentas', 'Accounts'), action: t(context, 'Ver todas', 'See all'), onAction: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const AccountsScreen()))),
@@ -329,6 +335,12 @@ class HomeScreen extends StatelessWidget {
     }
     if (tx == null) {
       await Navigator.push(context, MaterialPageRoute<void>(builder: (_) => TxEditor(template: tpl)));
+      return;
+    }
+    // Un pago a la tarjeta que puede ser el pago hecho fuera de Plata de un
+    // extracto marcado: la misma pregunta del editor, enseguida.
+    await askOutsideMatch(context, tx);
+    if (!context.mounted) {
       return;
     }
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
