@@ -1,0 +1,270 @@
+
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/legal_document_test.dart: el Markdown reducido se convierte en bloques
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Altitud (G2, G15) Android: la altura del GPS es elipsoidal y el geoide se resta una sola vez
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/legal_document_test.dart: la política (es) está completa y solo usa la sintaxis que la app dibuja
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/legal_document_test.dart: la política (en) está completa y solo usa la sintaxis que la app dibuja
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Altitud (G2, G15) Android: sin lectura del GPS cercana en el tiempo la altitud queda desconocida
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/legal_document_test.dart: las dos versiones tienen la misma fecha y la misma estructura
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Altitud (G2, G15) iPhone: la altitud del sistema ya es sobre el nivel del mar
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Dirección (G3) Solo se usa cerca de donde se buscó y se borra al apagarla
+Geocodificación: Exception: sin red
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Dirección (G3) Sin conexión no se reintenta en cada lectura
+Geocodificación: Exception: sin red
+Geocodificación: Exception: sin red
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Promedio (G4) El promedio queda fijado y su precisión no se divide por √N
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Promedio (G4) La dispersión manda cuando las lecturas se alejan entre sí
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Lecturas viejas y permisos (M13, G13) Una lectura de hace más de 10 s se marca como vieja
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Lecturas viejas y permisos (M13, G13) Una petición de permiso sin respuesta no deja el GPS colgado: reintentar lo arranca
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Lecturas viejas y permisos (M13, G13) Permiso negado para siempre: se ofrece abrir los ajustes
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Solo mientras se ve (M5, M6) Se lee mientras una pantalla la usa y la app está a la vista; si no, se detiene
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Solo mientras se ve (M5, M6) Android: reintentar con las lecturas en marcha vuelve a abrir el canal de altitud
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Ubicación aproximada (G1 de la ronda 6) Se detecta al arrancar, marca las lecturas, no da dirección y se puede pedir la precisa
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Ubicación aproximada (G1 de la ronda 6) Al volver a la app se vuelve a consultar (el usuario la cambió en los ajustes)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Ubicación aproximada (G1 de la ronda 6) Si al volver el permiso quedó denegado, ya no es «aproximada» ni queda la lectura vieja (M1 de la ronda 7)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/location_test.dart: Ubicación aproximada (G1 de la ronda 6) Sin dato de precisión (Android 11 o anterior, iOS 13) se toma como precisa
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/store_listing_test.dart: Ninguna frase promete algo que la app no hace
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/store_listing_test.dart: La ficha de Android no habla del iPhone ni la de iOS de Android
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/legal_document_test.dart: la pantalla muestra la política de principio a fin
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Composición del sello Superpone la capa en su lugar y escribe un EXIF nuevo con los datos de Sello
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/storage_test.dart: Índice de fotos (B3) Cincuenta guardados simultáneos no pierden ninguna ficha
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Composición del sello Rumbo magnético y altitud bajo el nivel del mar llevan su referencia (M1, M2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/storage_test.dart: Índice de fotos (B3) Escrituras seguidas quedan en orden y la última gana
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/storage_test.dart: Índice de fotos (B3) Un índice dañado se recupera de la copia anterior y se aparta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Composición del sello Aplica la orientación EXIF antes de sellar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Composición del sello Sin orientación EXIF devuelve 1
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Composición del sello Las fotos muy grandes se sellan reducidas desde el JPEG (G1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Composición del sello Compartir sin EXIF quita los datos pero conserva la orientación (M4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/storage_test.dart: Índice de fotos (B3) Sin índice ni copia: aviso y fotos recuperadas de la carpeta con su EXIF
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/storage_test.dart: Índice de fotos (B3) Borrar quita primero los archivos: el reindexado no las resucita
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/storage_test.dart: Índice de fotos (B3) Proyectos dañados: se usan los de la copia
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/storage_test.dart: Índice de fotos (B3) Un índice con tipos inesperados no impide abrir la app (M10)
+Ficha ilegible: FormatException: Ficha de foto sin id o sin archivo
+Ficha ilegible: FormatException: Ficha de foto sin id o sin archivo
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Capa del sello Se dibuja a tamaño real y solo donde hay algo (M19)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Capa del sello En la rosa de los vientos la N nunca pisa los grados ni la flecha (M4 de la ronda 3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Capa del sello En horizontal el sello mide lo mismo que en vertical y nunca pasa de un cuarto del alto (G4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Capa del sello El logo queda dentro de la foto y fuera del texto, también con el sello arriba (M10)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Exportaciones CSV en español: punto y coma, coma decimal, rótulos y fórmulas neutralizadas (G8, G10)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Exportaciones El CSV nunca nombra un archivo que no existe (M3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Exportaciones CSV en inglés: coma y punto decimal; con BOM al compartir
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Exportaciones KML con rótulos, nombre corto del marcador y nombres en el idioma (G8, M6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Exportaciones Un rótulo con comillas no rompe el KML (M1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Exportaciones ZIP y KMZ: enlaces que coinciden con los archivos, CSV con BOM y nombres en el idioma (G9, G10, M5, M6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Exportaciones Cancelar una exportación borra el archivo a medias (G9)
+Shell: Helvetica has no Unicode support see https://github.com/DavBfr/dart_pdf/wiki/Fonts-Management
+Shell: Helvetica-Bold has no Unicode support see https://github.com/DavBfr/dart_pdf/wiki/Fonts-Management
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Informe PDF Se arma en un isolate desde los archivos y solo nombra los que existen (M17, M3)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Informe PDF Orden cronológico, imagen incrustada y rótulos en inglés (M6, M21)
+Helvetica has no Unicode support see https://github.com/DavBfr/dart_pdf/wiki/Fonts-Management
+Helvetica-Bold has no Unicode support see https://github.com/DavBfr/dart_pdf/wiki/Fonts-Management
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Informe PDF Una foto aproximada sale marcada y sin decimales de más (M6 de la ronda 7)
+Helvetica has no Unicode support see https://github.com/DavBfr/dart_pdf/wiki/Fonts-Management
+Helvetica-Bold has no Unicode support see https://github.com/DavBfr/dart_pdf/wiki/Fonts-Management
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/pipeline_test.dart: Estado Proyectos, plantillas y fotos se guardan y recargan
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/approximate_test.dart: Formatos sin detalle de más: ~1 km en todos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/approximate_test.dart: La foto guarda la posición redondeada y marcada; el sello lo dice
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/approximate_test.dart: CSV y KML: marcada en el origen de la posición y sin decimales de más
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/approximate_test.dart: Séptima ronda El EXIF dice la precisión y que la posición es aproximada, y el reindexado lo recupera (M4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/approximate_test.dart: Séptima ronda El sello dice a la vez que es aproximada y que la lectura es vieja (M1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/approximate_test.dart: Séptima ronda Con la aproximada: una sola fila de grados y minutos, y distancias en km enteros (M2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/approximate_test.dart: Comprobación final Los segundos del EXIF nunca llegan a 60: se acarrean a minutos y grados (O3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/approximate_test.dart: Comprobación final El EXIF escrito tiene las etiquetas en orden ascendente y los segundos acarreados (O2, O3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/approximate_test.dart: Comprobación final Por distancia, una foto aproximada va en su propio grupo y no «a menos de 100 m» (N2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/approximate_test.dart: Comprobación final El círculo de una foto aproximada en el mapa es su precisión, de 1 a 10 km (O1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Coordenadas (valores de referencia de pyproj, mgrs y Open Location Code) UTM coincide con PROJ al centímetro
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Coordenadas (valores de referencia de pyproj, mgrs y Open Location Code) MGRS a 1 m
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Coordenadas (valores de referencia de pyproj, mgrs y Open Location Code) Plus Codes de 10 y 11 caracteres
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Coordenadas (valores de referencia de pyproj, mgrs y Open Location Code) Plus Codes en los bordes de celda: se trunca como la referencia (M7)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Coordenadas (valores de referencia de pyproj, mgrs y Open Location Code) Origen Nacional (CTM12) y zonas MAGNA-SIRGAS coinciden con PROJ al milímetro
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Coordenadas (valores de referencia de pyproj, mgrs y Open Location Code) Formatos de grados
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Coordenadas (valores de referencia de pyproj, mgrs y Open Location Code) Distancia, puntos cardinales y fachada
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Geoide EGM96 Ondulación en Colombia (rejilla de 5') y en el mundo (30')
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Geoide EGM96 La posición manual no inventa altitud ni precisión (G2)
+Geocodificación: Null check operator used on a null value
+Geocodificación: Null check operator used on a null value
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Modelo magnético WMM2025 Declinación coincide con el cálculo de referencia (NOAA)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Modelo magnético WMM2025 Los valores de Colombia que cita Ajustes salen del modelo (M8)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Brújula Teléfono vertical con la cámara al norte
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Brújula Teléfono vertical con la cámara al este
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Brújula Inclinar la cámara hacia el suelo no cambia el rumbo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Brújula Teléfono plano sobre la mesa usa el borde superior
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Brújula La declinación se suma al rumbo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Brújula Sin campo o sin gravedad no hay lectura
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Brújula Sin declinación conocida el rumbo queda marcado como magnético (M1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Brújula Cámara frontal: rumbo opuesto e inclinación invertida (M3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Rumbo del sistema en iPhone (G5) Lee el evento del canal propio
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Rumbo del sistema en iPhone (G5) Vertical usa el eje de la cámara; plano, el borde superior
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Rumbo del sistema en iPhone (G5) Declinación: la del sistema, la conocida o ninguna (magnético)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Rumbo del sistema en iPhone (G5) El servicio usa el canal del sistema y no el magnetómetro
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Detener y volver a arrancar la brújula enseguida no la deja congelada (M2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Orientación física del teléfono (B2) Sale de la gravedad, con histéresis y sin cambiar cuando está plano
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Orientación física del teléfono (B2) Giro del sello respecto a la interfaz
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Datos del sello Las líneas siguen la plantilla y el orden de StampItem
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Datos del sello Posición manual, fijada, vieja y rumbo magnético se dicen en el sello (G2, M1, M13)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Datos del sello CTM12 y MAGNA fuera de Colombia salen como grados con rótulo GPS (M14)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Datos del sello Los campos sin rótulo conocido no se escriben con la clave interna (G8)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Datos del sello Sin GPS se avisa y en inglés cambian los rótulos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Datos del sello Nombres de archivo seguros
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Datos del sello Plantillas y proyectos sobreviven al JSON
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Datos del sello La hora de la foto no cambia si el teléfono cambia de zona horaria (M9)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/geo_test.dart: Datos del sello Formato de fecha y desfase horario
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: Detalle: compartir y compartir sin EXIF
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: El detalle no decodifica la foto entera; con zoom, más detalle pero con tope (M3 de la ronda 3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: Las filas del detalle copian, miden 48 dp y dicen «copiar», también con letra al doble (M2 de la ronda 6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: Detalle de una foto aproximada: marcada, sin detalle de más y así también en «Copiar datos» (M6 de la ronda 7)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/map_test.dart: El mapa no se crea ni pide teselas hasta abrir su pestaña; la atribución se ve siempre (G11)
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: Galería: compartir lo seleccionado y exportar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: Galería por distancia: se reordena cuando la ubicación propia cambia de estado o de precisión, no con cada lectura (OB2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: Ajustes: la copia completa se comparte anclada en su botón
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: Las salidas selladas no llevan originales a escondidas (M3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: Copia completa en Android, sin pasar entera por la memoria (G2) Dice cuánto ocupa, la guarda donde se elija y borra la de la app
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: Copia completa en Android, sin pasar entera por la memoria (G2) Sin espacio suficiente no deja crearla
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: Copia completa en Android, sin pasar entera por la memoria (G2) Restaurar copia el documento a un archivo, restaura desde él y lo borra
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: Copia completa en Android, sin pasar entera por la memoria (G2) Restaurar sin espacio para traer la copia y agregar sus fotos: no copia nada (M5 de la ronda 3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: Copia completa en Android, sin pasar entera por la memoria (G2) Cancelar mientras se trae la copia no deja nada a medias
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: Copia completa en Android, sin pasar entera por la memoria (G2) Si el teléfono se llena al traer la copia se dice claro y no queda nada a medias
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/app_test.dart: La app recorre sus pestañas, crea un proyecto y edita la plantilla sin errores
+[prueba] inicio
+[prueba] hoja de datos
+[prueba] hoja GPS
+Geocodificación: Null check operator used on a null value
+[prueba] pestañas
+[prueba] nuevo proyecto
+No se pudo iniciar la ubicación: MissingPluginException(No implementation found for method isLocationServiceEnabled on channel flutter.baseflow.com/geolocator)
+[prueba] plantilla
+[prueba] ajustes
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/app_test.dart: La galería muestra una foto guardada y abre su detalle
+[prueba] galería: montar
+[prueba] galería: con foto
+[prueba] galería: buscar
+[prueba] galería: desenfocar
+[prueba] galería: abrir detalle
+[prueba] galería: detalle abierto
+[prueba] galería: volver
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/app_test.dart: Volver a sellar olvida también las miniaturas en caché (M11)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/app_test.dart: La plantilla de fábrica se nombra en el idioma de la app (M7)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/app_test.dart: Editar datos: al cambiar de proyecto se llenan y guardan los campos del nuevo (M18)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/app_test.dart: Sin idioma elegido, la app usa el del teléfono: en_US (G1 de la ronda 4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/app_test.dart: Sin idioma elegido, la app usa el del teléfono: es_CO (G1 de la ronda 4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/app_test.dart: Sin idioma elegido, la app usa el del teléfono: es_MX (G1 de la ronda 4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/app_test.dart: Sin idioma elegido, la app usa el del teléfono: pt_BR (G1 de la ronda 4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/app_test.dart: Con la app abierta sigue el cambio de idioma del teléfono, y «Idioma del teléfono» vuelve a seguirlo (M3 de la ronda 5)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/app_test.dart: Los ajustes se guardan en preferencias
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: iPhone: la copia del selector de archivos y las carpetas temporales iPhone: la copia que deja el selector en tmp/…-Inbox se borra al terminar, al fallar o al cancelar (M1 de la ronda 5)
+No se borra (no está en una carpeta temporal): /tmp/sello_shareHXDJRF/Documents/mia.zip
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: iPhone: la copia del selector de archivos y las carpetas temporales Qué cuenta como copia del selector: rutas reales de iOS (M1 de la ronda 5)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: iPhone: la copia del selector de archivos y las carpetas temporales temporaryDirs() de verdad: TMPDIR del contenedor y la carpeta de getTemporaryDirectory() (M3 de la ronda 6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: El origen nunca es un rectángulo vacío
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/sharing_test.dart: share_plus con el arreglo del origen en iOS (13.3.1 o posterior)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/stamp_queue_test.dart: Cola de sellado (G1) La ficha queda guardada como pendiente antes de sellar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/stamp_queue_test.dart: Cola de sellado (G1) Sella de a una foto aunque se dispare seguido
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/stamp_queue_test.dart: Cola de sellado (G1) Un fallo deja la foto como fallida, lo anuncia y se puede reintentar
+No se pudo sellar hnieanuc7w00076af: StampException: unreadable
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/stamp_queue_test.dart: Cola de sellado (G1) El sellado real escribe la copia, actualiza la ficha y avisa si falta el original
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/stamp_queue_test.dart: El borrado gana siempre (G1) Borrada antes de que se lea el original: no queda nada
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/stamp_queue_test.dart: El borrado gana siempre (G1) Borrada después de componer: se descarta la copia escrita
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/stamp_queue_test.dart: El borrado gana siempre (G1) Sin borrar, la misma tubería sella y copia a la fototeca
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/stamp_queue_test.dart: El número {n} del nombre de archivo no se repite al borrar fotos (M8)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/session_test.dart: Al cambiar de proyecto por cualquier vía los campos vuelven a sus valores iniciales (G8)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/session_test.dart: El logo se recarga si cambia en la plantilla o cambia la plantilla del proyecto (G6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/session_test.dart: Al reemplazar o quitar un logo el archivo viejo se borra si nadie más lo usa (M21)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/session_test.dart: El editor de proyecto trabaja sobre una copia (M21)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/session_test.dart: Las notas y etiquetas no pasan de un proyecto a otro (M11)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/notices_test.dart: Si una foto no se puede sellar, se avisa y se puede ir a ella
+No se pudo sellar p1: StampException: missing-original
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/notices_test.dart: Sin permiso de fototeca se avisa una sola vez, con el botón a los ajustes (M15)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/notices_test.dart: Al abrir con el índice dañado se dice qué se recuperó
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/backup_test.dart: La copia completa lleva fotos, fichas, proyectos, plantillas y logos, y restaurar no duplica
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/backup_test.dart: Restaurar avisa el avance y cancelar no agrega nada (M5 de la ronda 3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/backup_test.dart: Si la restauración falla a mitad se deshace lo copiado (M3 de la ronda 4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/backup_test.dart: Un ZIP cualquiera no se toma por una copia
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/backup_test.dart: Rutas peligrosas dentro de la copia se ignoran
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: Cada foto se toma con la orientación física del teléfono (B2, Android)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: En iPhone la vista previa queda vertical y cada foto se gira al dispararla (B2, iOS) (variant: TargetPlatform.iOS)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: Cámara frontal: rumbo opuesto y marcada en la ficha (M3); rumbo sin GPS, magnético (M1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: Primero el permiso de cámara y después el de ubicación (G13)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: Cambiar la resolución vuelve a abrir la cámara con la nueva (G7)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: Controles con nombre y de 48 dp, también con letra al doble (G14)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: Fuera de su pestaña, tapada por otra pantalla o en segundo plano, la cámara se libera del todo (G3, M12, M5)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: Los avisos de CameraX no cierran la cámara: exposición, enfoque, linterna (G1)
+Aviso de la cámara (se ignora): Starting focus and metering was canceled due to the camera being closed or a new request being submitted.
+Aviso de la cámara (se ignora): Setting exposure compensation index was canceled due to the camera being closed or a new request being submitted.
+Aviso de la cámara (se ignora): Starting focus and metering was canceled due to the camera being closed or a new request being submitted.
+Aviso de la cámara (se ignora): The camera was unable to change torch modes.
+Aviso de la cámara (se ignora): Zoom ratio was unable to be set. If ratio was not out of range, newer value may have been set; otherwise, the camera may be closed.
+Aviso de la cámara (se ignora): The camera device has encountered a recoverable error. CameraX will attempt to recover from the error.
+Error de la cámara: Optional(Error Domain=AVFoundationErrorDomain Code=-11819 "Cannot Complete Action")
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: Salir de la cámara mientras dispara no pierde la foto (M1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: Ubicación aproximada: el chip y la hoja lo dicen, se puede pedir la precisa y la foto queda marcada (G1 de la ronda 6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: Aproximada y vieja, filas de la hoja de 48 dp, posición manual sin decimales heredados y punto fijado aproximado (ronda 7: M1, M3, M5)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: Si la cámara deja de responder se dice y se puede reintentar (M19)
+Error de la cámara: The camera was already in use, possibly by a higher-priority camera client.
+Error de la cámara: The camera could not be opened because "Do Not Disturb" mode is enabled. Please disable this mode, and try opening the camera again.
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: Un error que llega mientras la cámara se abre también se atiende (M5 de la ronda 4)
+Error de la cámara: The camera was closed due to a fatal error. This may require the Android device be shut down and restarted to restore camera function or may indicate a persistent camera hardware problem.
+Aviso de la cámara (se ignora): Setting exposure compensation index was canceled due to the camera being closed or a new request being submitted.
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: iPad ya en Split View: la interrupción que llega mientras la cámara se abre también se dice
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: iPad con otra app en pantalla: se dice por qué la cámara no está y vuelve sola (M1 de la ronda 4)
+Sesión de cámara interrumpida: motivo 4
+Sesión de cámara interrumpida: motivo 3
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/camera_test.dart: El temporizador se cancela tocando el obturador (M21)
+::endgroup::
+
+🎉 164 tests passed.
