@@ -230,6 +230,7 @@ class Tx {
     this.reconciled = false,
     this.source = 'manual',
     this.rateToBase,
+    this.statementOf,
     DateTime? createdAt,
   })  : tags = tags ?? <String>[],
         splits = splits ?? <TxSplit>[],
@@ -275,6 +276,13 @@ class Tx {
 
   /// Tasa a la moneda base en el momento del registro (1 unidad = rate base).
   double? rateToBase;
+
+  /// Pago de tarjeta registrado desde la fila de un extracto («Registrar el
+  /// pago de este extracto»): la fecha del corte de ese extracto
+  /// (`aaaa-mm-dd`). Cuenta para ese extracto sea cual sea su fecha y
+  /// reemplaza el pago que Plata daba por hecho al marcarlo «Ya lo pagué».
+  /// Null en los demás movimientos (y en las copias anteriores).
+  String? statementOf;
   final DateTime createdAt;
 
   bool get isSplit => splits.isNotEmpty;
@@ -311,6 +319,7 @@ class Tx {
         'reconciled': reconciled,
         'source': source,
         'rateToBase': rateToBase,
+        if (statementOf != null) 'statementOf': statementOf,
         'createdAt': createdAt.toIso8601String(),
       };
 
@@ -337,6 +346,7 @@ class Tx {
         reconciled: j['reconciled'] as bool? ?? false,
         source: j['source'] as String? ?? 'manual',
         rateToBase: (j['rateToBase'] as num?)?.toDouble(),
+        statementOf: j['statementOf'] as String?,
         createdAt: _parseDate(j['createdAt']),
       );
 

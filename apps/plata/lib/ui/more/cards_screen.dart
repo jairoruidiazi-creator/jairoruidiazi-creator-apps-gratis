@@ -181,16 +181,10 @@ class _CardPanelState extends State<_CardPanel> {
                 TextButton(onPressed: () => askStatementMinimum(context, c, lastClosed.cut), child: Text(lastMinimum == null ? t(context, 'Anotar', 'Enter') : t(context, 'Cambiar', 'Change'))),
               ],
             ),
-            // Extractos marcados «Ya lo pagué»: se pueden registrar o desmarcar.
-            for (final CardCycle paid in <CardCycle>[lastClosed, lastClosed.previous(c), lastClosed.previous(c).previous(c)].where((CardCycle x) => l.isStatementPaid(c, x.cut)))
-              Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: <Widget>[
-                  Text(t(context, 'Extracto del ${dayText(context, paid.cut)} marcado como pagado', '${dayText(context, paid.cut)} statement marked as paid'), style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
-                  TextButton(onPressed: () => openCardPayment(context, c, l.statementMinimum(c, paid.cut) ?? 0, date: proposedPaymentDate(l, c, paid.cut)), child: Text(t(context, 'Registrar el pago', 'Log the payment'))),
-                  TextButton(onPressed: () => l.markStatementPaid(c, paid.cut, paid: false), child: Text(t(context, 'Desmarcar', 'Unmark'))),
-                ],
-              ),
+            // Extractos marcados «Ya lo pagué» o pagados con un movimiento
+            // vinculado: se ve cuál, y se registra el pago o se desmarca.
+            for (final CardCycle paid in <CardCycle>[lastClosed, lastClosed.previous(c), lastClosed.previous(c).previous(c)].where((CardCycle x) => l.isStatementPaid(c, x.cut) || l.statementPayments(c, x.cut).isNotEmpty))
+              _PaidStatementRow(card: c, cut: paid.cut),
             Row(
               children: <Widget>[
                 IconButton(tooltip: t(context, 'Ciclo anterior', 'Previous cycle'), icon: const Icon(Icons.chevron_left), onPressed: () => setState(() => _back += 1)),
@@ -246,7 +240,7 @@ class _CardPanelState extends State<_CardPanel> {
               child: FilledButton.tonalIcon(
                 onPressed: next.dueMinor <= 0 ? null : () => openCardPayment(context, c, next.dueMinor),
                 icon: const Icon(Icons.payments_outlined),
-                label: Text(t(context, 'Registrar pago', 'Log payment')),
+                label: Text(t(context, 'Pagar el próximo pago', 'Pay the next payment')),
               ),
             ),
           ],
@@ -330,12 +324,16 @@ Future<void> askStatementMinimum(BuildContext context, Account card, DateTime cu
   if (v == 0) {
     return;
   }
-  _Paid answer = _Paid.paid;
+  _Paid? answer = _Paid.paid;
   if (!alreadyPaid) {
     answer = await showDialog<_Paid>(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext c) => AlertDialog(
+      context: context,
+      barrierDismissible: false,
+      // Ni tocando fuera ni con Atrás: hay que contestar. Si aun así se cierra
+      // sin respuesta, la marca queda como estaba.
+      builder: (BuildContext c) => PopScope(
+        canPop: false,
+        child: AlertDialog(
             title: Text(t(c, '¿Ya lo pagaste?', 'Have you already paid it?')),
             content: Text(t(c, 'Si ya pagaste este mínimo (en la app del banco, por ejemplo), Plata lo da por pagado y no te avisará mora por este extracto. Si lo pagaste desde una cuenta que tienes en Plata, regístralo para que el saldo cuadre.', 'If you already paid this minimum (in your bank app, for example), Plata counts it as paid and will not warn you about this statement. If you paid from an account you have in Plata, log it so the balance adds up.')),
             actions: <Widget>[
@@ -344,8 +342,11 @@ Future<void> askStatementMinimum(BuildContext context, Account card, DateTime cu
               FilledButton(onPressed: () => Navigator.pop(c, _Paid.paidAndLog), child: Text(t(c, 'Sí, registrar el pago', 'Yes, log the payment'))),
             ],
           ),
-        ) ??
-        _Paid.notYet;
+      ),
+    );
+  }
+  if (answer == null) {
+    return;
   }
   if (answer == _Paid.notYet) {
     // «Todavía no» también deshace un «Ya lo pagué» anterior de ese extracto.
@@ -359,7 +360,7 @@ Future<void> askStatementMinimum(BuildContext context, Account card, DateTime cu
   }
   l.markStatementPaid(card, cut);
   if (answer == _Paid.paidAndLog) {
-    await openCardPayment(context, card, v, date: proposedPaymentDate(l, card, cut));
+    await openCardPayment(context, card, v, date: proposedPaymentDate(l, card, cut), statement: cut);
   } else if (alreadyPaid) {
     showPaidSnackBar(context, card, cut);
   }
@@ -434,4 +435,49 @@ String unconfirmedText(BuildContext context, CardDue due, String currency) {
   return es
       ? 'Según lo anotado, quedan $amount del extracto del ${dayText(context, due.statementCut!)}. Si ya pagaste, regístralo; si pagaste solo el mínimo del banco, anótalo.'
       : 'According to what you logged, $amount is left of the ${dayText(context, due.statementCut!)} statement. If you already paid, log it; if you paid only the bank minimum, enter it.';
+}
+
+/// Fila de un extracto marcado «Ya lo pagué» o pagado con un movimiento
+/// vinculado. Cada botón dice en su nombre accesible de qué extracto es.
+class _PaidStatementRow extends StatelessWidget {
+  const _PaidStatementRow({required this.card, required this.cut});
+
+  final Account card;
+  final DateTime cut;
+
+  @override
+  Widget build(BuildContext context) {
+    final Ledger l = AppScope.of(context).ledger;
+    final ColorScheme cs = Theme.of(context).colorScheme;
+    final String day = dayText(context, cut);
+    final List<Tx> linked = l.statementPayments(card, cut);
+    final bool marked = l.isStatementPaid(card, cut);
+    final String text;
+    if (linked.isEmpty) {
+      text = t(context, 'Extracto del $day marcado como pagado', '$day statement marked as paid');
+    } else {
+      final String when = linked.map((Tx x) => dayText(context, x.date)).join(', ');
+      final int total = linked.fold<int>(0, (int a, Tx x) => a + l.receivedMinor(x));
+      text = linked.length == 1
+          ? t(context, 'Extracto del $day pagado con el movimiento del $when (${money(context, total, card.currency)})', '$day statement paid with the $when transaction (${money(context, total, card.currency)})')
+          : t(context, 'Extracto del $day pagado con los movimientos del $when (${money(context, total, card.currency)})', '$day statement paid with the $when transactions (${money(context, total, card.currency)})');
+    }
+    return Wrap(
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: <Widget>[
+        Text(text, style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+        // Con el pago ya vinculado no se ofrece registrarlo otra vez.
+        if (linked.isEmpty)
+          TextButton(
+            onPressed: () => openCardPayment(context, card, l.statementMinimum(card, cut) ?? 0, date: proposedPaymentDate(l, card, cut), statement: cut),
+            child: Text(t(context, 'Registrar el pago', 'Log the payment'), semanticsLabel: t(context, 'Registrar el pago del extracto del $day', 'Log the payment of the $day statement')),
+          ),
+        if (marked)
+          TextButton(
+            onPressed: () => l.markStatementPaid(card, cut, paid: false),
+            child: Text(t(context, 'Desmarcar', 'Unmark'), semanticsLabel: t(context, 'Desmarcar el extracto del $day', 'Unmark the $day statement')),
+          ),
+      ],
+    );
+  }
 }

@@ -290,8 +290,8 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   StreamSubscription<NotifierResponse>? _notificationTaps;
   bool _listeningLock = false;
 
-  /// Respuesta a un aviso que llegó con la app bloqueada: se aplica al
-  /// desbloquear, nunca detrás de la pantalla de la clave.
+  /// Respuesta a un aviso que espera a que la persona ponga la clave: se
+  /// aplica al desbloquear, nunca detrás de la pantalla de la clave.
   NotifierResponse? _pendingResponse;
 
   void _onLockChanged() {
@@ -319,8 +319,17 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     if (card == null || cut == null) {
       return;
     }
-    if (s.lock.locked) {
+    // Con clave, la respuesta que llega con la app fuera de primer plano (el
+    // botón de la notificación entra antes de que la app vuelva: onNewIntent
+    // en Android, la acción en primer plano en iOS) espera a que la persona
+    // se identifique en esta vuelta, aunque esté dentro de los segundos de
+    // gracia del bloqueo: se bloquea ya y se aplica al desbloquear.
+    final bool active = WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+    if (s.lock.enabled && (s.lock.locked || s.lock.obscured || !active)) {
       _pendingResponse = r;
+      if (!s.lock.locked) {
+        s.lock.lockNow();
+      }
       return;
     }
     if (r.actionId == Notifier.paidAction) {

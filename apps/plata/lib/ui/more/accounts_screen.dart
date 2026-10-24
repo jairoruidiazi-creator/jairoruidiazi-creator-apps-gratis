@@ -196,6 +196,7 @@ class _AccountEditorState extends State<AccountEditor> {
     final Account? e = widget.existing;
     final bool wasCardWithDay = e != null && e.isCredit && e.payDay != null;
     final Account a = e ?? Account(id: newId(), name: name);
+    final int? oldCutDay = e?.cutDay;
     // Deuda en tarjetas y préstamos: negativa, como la lee el libro.
     final int initial = _isDebtType ? -_initial.abs() : _initial;
     a
@@ -214,6 +215,12 @@ class _AccountEditorState extends State<AccountEditor> {
       ..bank = _bank
       ..last4 = _last4.text.trim()
       ..notes = _notes.text.trim();
+    if (e != null && a.isCredit) {
+      // Con otro día de corte, los mínimos, las marcas «Ya lo pagué», el
+      // extracto de referencia y los pagos vinculados pasan al extracto del
+      // mismo mes: nada de lo anotado queda huérfano.
+      l.moveCardCut(a, oldCutDay);
+    }
     if (_type == AccountType.credit && initial < 0 && _statementDue != null) {
       final int debt = -initial;
       a.statementDueMinor = _statementDue!.clamp(0, debt);
@@ -425,11 +432,14 @@ class _AccountEditorState extends State<AccountEditor> {
   /// dice de qué extracto se trata (corte y fecha límite), porque cambia con
   /// los días de corte y pago.
   Widget _statementField(BuildContext context, Ledger l) {
+    final DateTime? fixed = widget.existing?.statementCut;
     final Account probe = Account(id: widget.existing?.id ?? '', name: '', type: AccountType.credit)
       ..cutDay = _cutDay
       ..payDay = _payDay
-      ..statementCut = widget.existing?.statementCut
       ..currency = _currency;
+    // Con otro día de corte, el extracto fijo pasa al corte del mismo mes
+    // (como al guardar, ver Ledger.moveCardCut).
+    probe.statementCut = fixed == null ? null : CardCycle.cutAfter(probe, DateTime(fixed.year, fixed.month), 0);
     final DateTime cut = l.referenceStatementCut(probe);
     final CardCycle cycle = CardCycle.current(probe, cut);
     final bool es = l.spanish;

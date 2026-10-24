@@ -58,14 +58,17 @@ void main() {
       return l;
     }
 
+    // Desde la ronda 7, el pago de un extracto marcado se registra desde su
+    // fila y queda vinculado: cuenta con cualquier fecha (ver round7_test).
+    // Sin vínculo, solo lo anotado hasta la fecha límite real es parte del
+    // mínimo.
     final Map<String, DateTime> n1Dates = <String, DateTime>{
-      'con la fecha de hoy (8 dic, después de la fecha límite)': d(2026, 12, 8),
       'con la fecha límite real (lun 7 dic)': d(2026, 12, 7),
       'con la fecha nominal (sáb 5 dic)': d(2026, 12, 5),
       'antes de la fecha límite (1 dic)': d(2026, 12, 1),
     };
     for (final MapEntry<String, DateTime> c in n1Dates.entries) {
-      test('caso N1: el pago registrado ${c.key} reemplaza al abono supuesto', () async {
+      test('caso N1: el pago sin vínculo registrado ${c.key} completa el abono supuesto', () async {
         final Ledger l = await n1();
         final Account tc = l.account('tc')!;
         // Marcado y sin registrar: el abono supuesto es el mínimo.
@@ -82,8 +85,8 @@ void main() {
 
     test('caso N1: un pago mayor que el mínimo cuenta completo, una sola vez', () async {
       final Ledger l = await n1();
-        final Account tc = l.account('tc')!;
-      await pay(l, pesos(1000000), d(2026, 12, 8));
+      final Account tc = l.account('tc')!;
+      await pay(l, pesos(1000000), d(2026, 12, 4));
       expect(l.statement(tc, date: DateTime(2026, 12, 15)).dueMinor, pesos(300000));
       l.dispose();
     });
@@ -233,7 +236,10 @@ void main() {
                 added = true;
               }
               final int logged = added ? p!.amount : 0;
-              final int counted = marked && known ? (logged > minimum ? logged : minimum) : logged;
+              // Marcado: el pago de fuera completa el mínimo con lo anotado hasta
+              // la fecha límite real; lo anotado después es un abono más.
+              final int inWindow = added && !p!.date.isAfter(effective) ? logged : 0;
+              final int counted = marked && known ? (inWindow > minimum ? inWindow : minimum) + logged - inWindow : logged;
               final bool late = day.isAfter(effective);
               // Próximo pago: el extracto del 15 nov hasta su fecha límite real
               // (si no está marcado y queda algo), después el ciclo en curso.
@@ -257,7 +263,9 @@ void main() {
             }
             // El extracto de diciembre nunca cuenta el pago dos veces.
             final int december = l.statement(tc, date: DateTime(2026, 12, 15)).dueMinor;
-            final int counted = marked && known ? ((p?.amount ?? 0) > minimum ? p!.amount : minimum) : (p?.amount ?? 0);
+            final int all = p?.amount ?? 0;
+            final int window = p != null && !p.date.isAfter(effective) ? all : 0;
+            final int counted = marked && known ? (window > minimum ? window : minimum) + all - window : all;
             if (december != purchase1 + purchase2 - counted) {
               failures.add('$label: extracto del 15 dic ${december ~/ 100}, esperado ${(purchase1 + purchase2 - counted) ~/ 100}');
             }

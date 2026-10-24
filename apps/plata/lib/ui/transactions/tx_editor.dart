@@ -17,7 +17,7 @@ import '../widgets/icons.dart';
 
 /// Alta y edición de un movimiento.
 class TxEditor extends StatefulWidget {
-  const TxEditor({super.key, this.existing, this.kind, this.template, this.inbox, this.initialAccountId, this.initialToAccountId, this.initialMinor, this.initialToMinor, this.initialDate, this.initialDescription, this.draft});
+  const TxEditor({super.key, this.existing, this.kind, this.template, this.inbox, this.initialAccountId, this.initialToAccountId, this.initialMinor, this.initialToMinor, this.initialDate, this.initialDescription, this.draft, this.statementOf});
 
   final Tx? existing;
   final TxKind? kind;
@@ -37,6 +37,10 @@ class TxEditor extends StatefulWidget {
   /// Movimiento a medio escribir que se recuperó después de que Android
   /// cerrara la app con la cámara abierta (trae la foto ya adjunta).
   final Tx? draft;
+
+  /// Pago de tarjeta que se registra desde la fila de un extracto: la fecha
+  /// de su corte (`aaaa-mm-dd`). El movimiento queda vinculado a él.
+  final String? statementOf;
 
   @override
   State<TxEditor> createState() => _TxEditorState();
@@ -366,6 +370,15 @@ class _TxEditorState extends State<TxEditor> {
     return null;
   }
 
+  /// Extracto al que queda vinculado el pago: el de la fila desde la que se
+  /// abrió (o el que ya tenía), mientras siga siendo una transferencia a la
+  /// misma tarjeta.
+  String? get _linkKey {
+    final String? key = widget.existing?.statementOf ?? widget.draft?.statementOf ?? widget.statementOf;
+    final String? card = widget.existing?.toAccountId ?? widget.draft?.toAccountId ?? widget.initialToAccountId;
+    return key != null && _kind == TxKind.transfer && _toAccountId != null && _toAccountId == card ? key : null;
+  }
+
   /// El movimiento tal como está escrito en el formulario (sin validar).
   Tx _compose() {
     final Tx? e = widget.existing;
@@ -394,6 +407,7 @@ class _TxEditorState extends State<TxEditor> {
       ..addAll(_attachments);
     tx.installments = (_account?.isCredit ?? false) && (_kind == TxKind.expense || _kind == TxKind.transfer) ? _shownInstallments : 1;
     tx.reconciled = _reconciled;
+    tx.statementOf = _linkKey;
     if (widget.inbox != null) {
       tx.source = 'notice';
     }
@@ -621,6 +635,18 @@ class _TxEditorState extends State<TxEditor> {
                 const SizedBox(height: 12),
                 AmountTile(minor: _minor, currency: _currency, color: kindColor(context, _kind), onTap: () => _keypad ? _closeKeypad() : setState(() => _keypad = true), label: _calc.expression.isNotEmpty && _calc.hasPendingOp ? _calc.expression : null),
                 if (_noticeNote != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(_noticeNote!, style: TextStyle(fontSize: 12, color: cs.tertiary))),
+                if (_linkKey != null && DateTime.tryParse(_linkKey!) != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      t(
+                        context,
+                        'Queda asociado al extracto del ${dayText(context, DateTime.parse(_linkKey!))}: cuenta para ese extracto con cualquier fecha y reemplaza el pago que Plata daba por hecho. Si lo pagaste desde una cuenta que no tienes en Plata, no lo registres: basta con la marca «Ya lo pagué».',
+                        'It is linked to the ${dayText(context, DateTime.parse(_linkKey!))} statement: it counts for that statement whatever its date and replaces the payment Plata took for granted. If you paid from an account you do not have in Plata, do not log it: the "Already paid" mark is enough.',
+                      ),
+                      style: TextStyle(fontSize: 12, color: cs.tertiary),
+                    ),
+                  ),
                 if (crossCurrency && to != null) ...<Widget>[
                   const SizedBox(height: 8),
                   ListTile(

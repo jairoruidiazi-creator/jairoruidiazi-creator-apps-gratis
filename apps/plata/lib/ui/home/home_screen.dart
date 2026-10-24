@@ -559,8 +559,9 @@ IconData noticeIcon(InboxItem item) {
 /// monedas: el monto que llega a la tarjeta es lo que vence y el que sale se
 /// calcula con la tasa guardada.
 /// [date] propone la fecha del pago: al registrar un extracto que se marcó
-/// como pagado, su fecha límite (el pago se hizo antes, no hoy).
-Future<void> openCardPayment(BuildContext context, Account card, int dueMinor, {DateTime? date}) {
+/// como pagado, su fecha límite (el pago se hizo antes, no hoy). Con
+/// [statement], el pago queda vinculado al extracto que cortó ese día.
+Future<void> openCardPayment(BuildContext context, Account card, int dueMinor, {DateTime? date, DateTime? statement}) {
   final Services s = AppScope.of(context);
   final Account? source = s.ledger.paymentSourceFor(card, preferredId: s.settings.defaultAccountId);
   return Navigator.push(
@@ -573,6 +574,7 @@ Future<void> openCardPayment(BuildContext context, Account card, int dueMinor, {
         initialToMinor: dueMinor,
         initialDate: date,
         initialDescription: t(context, 'Pago ${card.name}', '${card.name} payment'),
+        statementOf: statement == null ? null : dayKey(statement),
       ),
     ),
   );

@@ -1092,6 +1092,8 @@ class Ledger extends ChangeNotifier {
     }
     c.reconciled = false;
     c.scheduledId = null;
+    // Una copia no es el pago de ese extracto.
+    c.statementOf = null;
     c.source = 'manual';
     c.attachments.clear();
     return addTx(c);
@@ -1918,8 +1920,11 @@ class Ledger extends ChangeNotifier {
       }
     }
 
-    void credit(DateTime d, int amount) {
-      final DateTime cut = _paymentCut(card, d);
+    void credit(DateTime d, int amount, Tx t) {
+      // Un pago vinculado a un extracto cuenta para ese extracto, sea cual
+      // sea su fecha; los demás, para el que tiene la primera fecha límite
+      // real en o después del día del abono.
+      final DateTime cut = _linkedCut(card, t) ?? _paymentCut(card, d);
       if (cut.isBefore(book.firstCut)) {
         book.opening -= amount;
       } else {
@@ -1979,10 +1984,10 @@ class Ledger extends ChangeNotifier {
       } else if (from && t.kind == TxKind.transfer) {
         charge(_cutOf(card, d), t.amountMinor, true);
       } else if (from && t.kind == TxKind.income) {
-        credit(d, t.amountMinor);
+        credit(d, t.amountMinor, t);
       }
       if (t.kind == TxKind.transfer && t.toAccountId != null && effectiveAccountId(t.toAccountId!) == card.id) {
-        credit(d, receivedMinor(t));
+        credit(d, receivedMinor(t), t);
       }
     }
     if (book.legacy < 0) {
@@ -2036,10 +2041,9 @@ class Ledger extends ChangeNotifier {
       int payments = s.payments + adjustCredit;
       // Un extracto que la persona dijo que ya pagó (fuera de Plata) cuenta
       // como abonado su mínimo conocido: así el estado siguiente no lo
-      // arrastra como saldo sin pagar. Es un abono supuesto y lo reemplaza
-      // cualquier abono anotado después del corte y hasta el corte siguiente
-      // (el pago de verdad, registrado con su fecha o con la de hoy): nunca
-      // se cuenta dos veces.
+      // arrastra como saldo sin pagar. Es un abono supuesto: lo completa lo
+      // anotado después del corte y hasta la fecha límite real, y lo
+      // reemplaza el pago vinculado a ese extracto (ver [_assumedPayment]).
       if (card.paidStatements.isNotEmpty && isStatementPaid(card, cut)) {
         payments += _assumedPayment(card, cut);
       }
@@ -2058,19 +2062,28 @@ class Ledger extends ChangeNotifier {
     return CardStatement(cycle: cycle, previousMinor: carry, purchasesMinor: 0, advancesMinor: 0, installmentsMinor: 0, paymentsMinor: 0, legacyMinor: legacy);
   }
 
-  /// Abonos a una tarjeta hechos después de [after] y hasta el final de [until].
-  /// Sin [refunds], solo los pagos (no las devoluciones de compras).
-  int _creditsBetween(Account card, DateTime after, DateTime until, {bool refunds = true}) {
+  /// Abonos a una tarjeta hechos después de [after] y hasta el final de
+  /// [until], sin los vinculados a un extracto. Con [statement], también los
+  /// vinculados a ese extracto, sea cual sea su fecha. Sin [refunds], solo
+  /// los pagos (no las devoluciones de compras).
+  int _creditsBetween(Account card, DateTime after, DateTime until, {bool refunds = true, DateTime? statement}) {
     final DateTime a = dateOnly(after);
     final DateTime u = dateOnly(until);
     int sum = 0;
     for (final Tx t in txs) {
-      final DateTime d = dateOnly(t.date);
-      if (!d.isAfter(a) || d.isAfter(u)) {
-        continue;
-      }
       if (t.isAdjustment) {
         continue;
+      }
+      final DateTime? linked = _linkedCut(card, t);
+      if (linked != null) {
+        if (statement == null || linked != dateOnly(statement)) {
+          continue;
+        }
+      } else {
+        final DateTime d = dateOnly(t.date);
+        if (!d.isAfter(a) || d.isAfter(u)) {
+          continue;
+        }
       }
       if (effectiveAccountId(t.accountId) == card.id && t.kind == TxKind.income) {
         if (!refunds && _parts(t).every((TxSplit p) => isRefundCategory(p.categoryId))) {
@@ -2097,15 +2110,23 @@ class Ledger extends ChangeNotifier {
     final DateTime today = dateOnly(now ?? _clock());
     final CardCycle current = CardCycle.current(card, today);
     final CardCycle prev = current.previous(card);
-    CardStatement next;
-    // La fecha límite que cae en sábado, domingo o festivo se corre al
-    // siguiente día hábil: hasta ese día el extracto sigue siendo el próximo.
-    if (!effectivePayDate(card, prev.payDate).isBefore(today) && !isStatementPaid(card, prev.cut)) {
-      final CardStatement closed = statement(card, date: prev.cut);
-      next = closed.dueMinor > 0 ? closed : statement(card, date: today);
-    } else {
-      next = statement(card, date: today);
+    CardStatement? next;
+    // El próximo pago es el extracto cerrado más antiguo cuya fecha límite
+    // real no ha pasado, si debe algo y no está marcado como pagado. La fecha
+    // que cae en sábado, domingo o festivo se corre al siguiente día hábil:
+    // hasta ese día el extracto sigue siendo el próximo. Con el día de pago
+    // igual al corte o uno o dos días antes, la fecha corrida puede caer
+    // después del corte siguiente: por eso se miran dos extractos.
+    for (final CardCycle closed in <CardCycle>[prev.previous(card), prev]) {
+      if (!effectivePayDate(card, closed.payDate).isBefore(today) && !isStatementPaid(card, closed.cut)) {
+        final CardStatement st = statement(card, date: closed.cut);
+        if (st.dueMinor > 0) {
+          next = st;
+          break;
+        }
+      }
     }
+    next ??= statement(card, date: today);
     CardCycle passed = prev;
     for (int i = 0; i < 3 && !effectivePayDate(card, passed.payDate).isBefore(today); i++) {
       passed = passed.previous(card);
@@ -2118,7 +2139,7 @@ class Ledger extends ChangeNotifier {
     }
     final int? minimum = statementMinimum(card, passed.cut);
     if (minimum != null) {
-      final int late = minimum - _creditsBetween(card, passed.cut, today);
+      final int late = minimum - _creditsBetween(card, passed.cut, today, statement: passed.cut);
       return CardDue(next: next, overdueMinor: late > 0 ? late : 0, overdueSince: late > 0 ? due : null, statementCut: passed.cut, statementPayDate: due);
     }
     final int left = statement(card, date: passed.cut).dueMinor - _creditsBetween(card, due, today);
@@ -2136,18 +2157,83 @@ class Ledger extends ChangeNotifier {
     return ColombianHolidays.nextBusinessDay(nominal);
   }
 
-  /// Abono supuesto de un extracto marcado como pagado: su mínimo conocido,
-  /// menos lo que se haya anotado como abonado después de su corte y hasta el
-  /// corte siguiente (ese registro es el pago de verdad y lo reemplaza).
+  /// Abono supuesto de un extracto marcado como pagado («Ya lo pagué»): su
+  /// mínimo conocido, menos los pagos anotados después de su corte y hasta
+  /// su fecha límite real (los que el banco aplica a ese extracto). Un pago
+  /// vinculado al extracto lo reemplaza del todo. Los abonos sin vínculo
+  /// posteriores a la fecha límite real nunca lo tocan: son del extracto
+  /// siguiente y bajan el próximo pago.
   int _assumedPayment(Account card, DateTime cut) {
     final int? minimum = statementMinimum(card, cut);
-    if (minimum == null) {
+    if (minimum == null || statementPayments(card, cut).isNotEmpty) {
       return 0;
     }
-    final DateTime nextCut = CardCycle.cutAfter(card, CardCycle.current(card, cut).cut, 1);
-    // Una devolución de una compra no es el pago: no lo reemplaza.
-    final int logged = _creditsBetween(card, cut, nextCut, refunds: false);
+    final DateTime due = effectivePayDate(card, CardCycle.current(card, cut).payDate);
+    // Una devolución de una compra no es el pago: no lo completa.
+    final int logged = _creditsBetween(card, cut, due, refunds: false);
     return minimum > logged ? minimum - logged : 0;
+  }
+
+  /// Corte del extracto al que está vinculado un abono a [card], o null si
+  /// no es un abono a esa tarjeta o no está vinculado.
+  DateTime? _linkedCut(Account card, Tx t) {
+    final String? key = t.statementOf;
+    if (key == null) {
+      return null;
+    }
+    final bool credits = (t.kind == TxKind.income && effectiveAccountId(t.accountId) == card.id) || (t.kind == TxKind.transfer && t.toAccountId != null && effectiveAccountId(t.toAccountId!) == card.id);
+    if (!credits) {
+      return null;
+    }
+    final DateTime? d = DateTime.tryParse(key);
+    return d == null ? null : CardCycle.current(card, d).cut;
+  }
+
+  /// Pagos vinculados al extracto que cortó en [cut] (registrados desde su
+  /// fila en Tarjetas), del más antiguo al más reciente.
+  List<Tx> statementPayments(Account card, DateTime cut) {
+    final DateTime c = dateOnly(cut);
+    return txs.where((Tx t) => t.statementOf != null && _linkedCut(card, t) == c).toList()..sort((Tx a, Tx b) => a.date.compareTo(b.date));
+  }
+
+  /// Al cambiar el día de corte de una tarjeta (de [oldCutDay] al que ya
+  /// tiene), lo anotado por extracto pasa al extracto del mismo mes con el
+  /// corte nuevo: los mínimos, las marcas «Ya lo pagué», el extracto de
+  /// referencia y los pagos vinculados. El día de pago no cambia las claves
+  /// (son la fecha del corte).
+  void moveCardCut(Account card, int? oldCutDay) {
+    if (oldCutDay == null || card.cutDay == null || oldCutDay == card.cutDay) {
+      return;
+    }
+    DateTime moved(DateTime old) => CardCycle.cutAfter(card, DateTime(old.year, old.month), 0);
+    String movedKey(String key) {
+      final DateTime? d = DateTime.tryParse(key);
+      return d == null ? key : dayKey(moved(d));
+    }
+
+    final Map<String, int> minimums = <String, int>{for (final MapEntry<String, int> e in card.statementMinimums.entries) movedKey(e.key): e.value};
+    card.statementMinimums
+      ..clear()
+      ..addAll(minimums);
+    final List<String> paid = card.paidStatements.map(movedKey).toSet().toList()..sort();
+    card.paidStatements
+      ..clear()
+      ..addAll(paid);
+    final DateTime? ref = card.statementCut;
+    if (ref != null) {
+      card.statementCut = moved(ref);
+    }
+    for (final Tx t in txs) {
+      final String? key = t.statementOf;
+      if (key == null) {
+        continue;
+      }
+      final bool credits = (t.kind == TxKind.income && effectiveAccountId(t.accountId) == card.id) || (t.kind == TxKind.transfer && t.toAccountId != null && effectiveAccountId(t.toAccountId!) == card.id);
+      if (credits) {
+        t.statementOf = movedKey(key);
+      }
+    }
+    save();
   }
 
   /// Si la persona dijo que ya pagó el extracto que cortó en [cut].
