@@ -327,6 +327,9 @@ class HomeScreen extends StatelessWidget {
   }
 
   Future<void> _applyTemplate(BuildContext context, Services s, TxTemplate tpl) async {
+    // Desde Flutter 3.38 un aviso con acción no se cierra solo; aquí se cierra a
+    // los 8 s, salvo con lector de pantalla, donde se queda hasta que se atienda.
+    final bool keep = MediaQuery.accessibleNavigationOf(context);
     // Sin monto, sin cuenta, una transferencia sin destino o entre monedas sin
     // tasa: no se anota a ciegas, se abre el editor con la plantilla.
     final Tx? tx = s.ledger.account(tpl.accountId) == null ? null : await s.ledger.applyTemplate(tpl);
@@ -355,6 +358,8 @@ class HomeScreen extends StatelessWidget {
           s.ledger.deleteTx(tx.id, restoreOutside: true);
         },
       ),
+      duration: const Duration(seconds: 8),
+      persist: keep,
     ));
     offerOutsideHint(context, tx);
   }

@@ -67,7 +67,7 @@ void main() {
   }
 
   group('M1: aviso que no bloquea', () {
-    test('E3: con el mínimo del 15 dic anotado no pregunta, pero el aviso sugiere el extracto del 15 nov', () async {
+    test('E3: con el mínimo del 15 dic anotado no pregunta, y tampoco avisa (es el pago del 15 dic); el remedio lo advierte', () async {
       final Ledger l = await base();
       final Account tc = l.account('tc')!;
       today = d(2026, 12, 17);
@@ -75,8 +75,11 @@ void main() {
       today = d(2026, 12, 19);
       final Tx t = await l.addTx(transfer(pesos(100000), today));
       expect(t.outsidePending, isFalse);
-      expect(l.outsideHint(t), nov15);
-      // El aviso no deja nada pendiente ni cambia cifras.
+      // Comprobación final (G1): el extracto del 15 dic, más nuevo, tiene su
+      // mínimo sin pagar sin este abono: no hay aviso, y elegirlo en el
+      // remedio dejaría el 15 dic sin pagar.
+      expect(l.outsideHint(t), isNull);
+      expect(l.linkLeavesShort(t, nov15), dec15);
       expect(l.pendingOutsideMatches(), isEmpty);
       expect(debt(l), pesos(1100000));
       l.dispose();

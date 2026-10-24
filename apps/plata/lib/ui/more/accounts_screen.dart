@@ -576,6 +576,9 @@ class _AccountEditorState extends State<AccountEditor> {
   /// contar como gasto ni ingreso en informes ni presupuestos.
   Future<void> _adjust(BuildContext context, Account a) async {
     final Ledger l = AppScope.of(context).ledger;
+    // Desde Flutter 3.38 un aviso con acción no se cierra solo; aquí se cierra a
+    // los 8 s, salvo con lector de pantalla, donde se queda hasta que se atienda.
+    final bool keep = MediaQuery.accessibleNavigationOf(context);
     final int current = l.balanceMinor(a.id);
     final bool debt = isDebtAccount(a);
     int target;
@@ -619,6 +622,8 @@ class _AccountEditorState extends State<AccountEditor> {
     messenger.showSnackBar(SnackBar(
       content: Text(tx == null ? t(context, 'El saldo ya coincidía.', 'The balance already matched.') : t(context, 'Saldo ajustado. El ajuste no cuenta como gasto ni ingreso.', 'Balance adjusted. The adjustment does not count as spending or income.')),
       action: tx == null ? null : SnackBarAction(label: t(context, 'Deshacer', 'Undo'), onPressed: () => l.deleteTx(tx.id)),
+      duration: const Duration(seconds: 8),
+      persist: tx != null && keep,
     ));
   }
 }

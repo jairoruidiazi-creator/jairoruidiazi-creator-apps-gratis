@@ -62,8 +62,10 @@ class Account {
     List<OutsidePayment>? outsidePayments,
     List<String>? markedOnly,
     Map<String, String>? outsideGone,
+    List<String>? outsideHinted,
     this.statementNotedOn,
   })  : outsideGone = outsideGone ?? <String, String>{},
+        outsideHinted = outsideHinted ?? <String>[],
         statementMinimums = statementMinimums ?? <String, int>{},
         paidStatements = paidStatements ?? <String>[],
         paidOn = paidOn ?? <String, String>{},
@@ -136,6 +138,11 @@ class Account {
   /// y la misma fecha (la de la marca).
   final Map<String, String> outsideGone;
 
+  /// Extractos (`dayKey` del corte) por los que ya salió el aviso «¿Es el
+  /// pago del extracto del …? Elegir»: sale a lo sumo una vez por extracto
+  /// marcado ([Ledger.outsideHint]).
+  final List<String> outsideHinted;
+
   /// Pagos hechos fuera de Plata de la versión 1.0.0 (ronda 10), guardados
   /// aparte. Al abrir el libro se convierten una sola vez en movimientos y
   /// quedan vacíos.
@@ -182,6 +189,7 @@ class Account {
         'outsidePayments': outsidePayments.map((OutsidePayment p) => p.toJson()).toList(),
         'markedOnly': markedOnly,
         if (outsideGone.isNotEmpty) 'outsideGone': outsideGone,
+        if (outsideHinted.isNotEmpty) 'outsideHinted': outsideHinted,
       };
 
   static Account fromJson(Map<String, dynamic> j) => Account(
@@ -224,6 +232,7 @@ class Account {
           for (final MapEntry<String, dynamic> e in ((j['outsideGone'] as Map<String, dynamic>?) ?? <String, dynamic>{}).entries)
             if (e.value is String) e.key: e.value as String,
         },
+        outsideHinted: <String>[for (final dynamic x in (j['outsideHinted'] as List<dynamic>?) ?? <dynamic>[]) x.toString()],
         outsidePayments: <OutsidePayment>[
           for (final dynamic x in (j['outsidePayments'] as List<dynamic>?) ?? <dynamic>[])
             if (x is Map<String, dynamic>) OutsidePayment.fromJson(x),

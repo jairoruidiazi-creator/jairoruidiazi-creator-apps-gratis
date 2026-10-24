@@ -473,6 +473,10 @@ void showPaidSnackBar(BuildContext context, Account card, DateTime cut) {
         ? t(context, 'Marcado como pagado: $amount por fuera de Plata. Si lo pagaste desde una cuenta que tienes en Plata, regístralo en Tarjetas.', 'Marked as paid: $amount outside Plata. If you paid from an account you have in Plata, log it in Cards.')
         : t(context, 'Marcado como pagado.', 'Marked as paid.')),
     action: SnackBarAction(label: t(context, 'Deshacer', 'Undo'), onPressed: () => l.markStatementPaid(card, cut, paid: false)),
+    // Desde Flutter 3.38 un aviso con acción no se cierra solo; aquí se cierra a
+    // los 8 s, salvo con lector de pantalla, donde se queda hasta que se atienda.
+    duration: const Duration(seconds: 8),
+    persist: MediaQuery.accessibleNavigationOf(context),
   ));
 }
 
@@ -694,9 +698,21 @@ Future<void> askOutsideMatch(BuildContext context, Tx saved) async {
 /// marcado: lista los abonos sin vínculo a la tarjeta posteriores al corte;
 /// el elegido queda vinculado y reemplaza el pago hecho fuera de Plata. Es el
 /// remedio para quien anota el pago después de la ventana de la pregunta.
+/// Un abono que hoy paga el mínimo de otro extracto lo dice en la lista, y
+/// antes de vincularlo se pide confirmar: ese extracto quedaría sin pagar.
 Future<void> pickLoggedPayment(BuildContext context, Account card, DateTime cut) async {
   final Ledger l = AppScope.of(context).ledger;
+  // Desde Flutter 3.38 un aviso con acción no se cierra solo; aquí se cierra a
+  // los 8 s, salvo con lector de pantalla, donde se queda hasta que se atienda.
+  final bool keep = MediaQuery.accessibleNavigationOf(context);
   final List<Tx> options = l.unlinkedCreditsAfter(card, cut);
+  final Map<String, DateTime> pays = <String, DateTime>{};
+  for (final Tx o in options) {
+    final DateTime? other = l.linkLeavesShort(o, cut);
+    if (other != null) {
+      pays[o.id] = other;
+    }
+  }
   final Tx? chosen = await showDialog<Tx>(
     context: context,
     builder: (BuildContext c) => SimpleDialog(
@@ -710,7 +726,17 @@ Future<void> pickLoggedPayment(BuildContext context, Account card, DateTime cut)
         for (final Tx o in options)
           SimpleDialogOption(
             onPressed: () => Navigator.pop(c, o),
-            child: Text('${dayText(c, o.date)} · ${money(c, o.kind == TxKind.transfer ? l.receivedMinor(o) : o.amountMinor, card.currency)}${o.description.isEmpty ? '' : ' · ${o.description}'}'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text('${dayText(c, o.date)} · ${money(c, o.kind == TxKind.transfer ? l.receivedMinor(o) : o.amountMinor, card.currency)}${o.description.isEmpty ? '' : ' · ${o.description}'}'),
+                if (pays[o.id] != null)
+                  Text(
+                    t(c, 'Es el pago del extracto del ${dayText(c, pays[o.id]!)}', 'It is the payment of the ${dayText(c, pays[o.id]!)} statement'),
+                    style: TextStyle(color: Theme.of(c).colorScheme.error),
+                  ),
+              ],
+            ),
           ),
       ],
     ),
@@ -718,22 +744,55 @@ Future<void> pickLoggedPayment(BuildContext context, Account card, DateTime cut)
   if (chosen == null || !context.mounted) {
     return;
   }
+  final DateTime? other = pays[chosen.id];
+  if (other != null) {
+    final bool? sure = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext c) => AlertDialog(
+        scrollable: true,
+        title: Text(t(c, '¿Vincularlo de todos modos?', 'Link it anyway?')),
+        content: Text(t(
+          c,
+          'Ese abono cuenta para el pago mínimo del extracto del ${dayText(c, other)}. Si lo vinculas al del ${dayText(c, cut)}, el del ${dayText(c, other)} queda sin pagar y Plata lo mostrará vencido cuando pase su fecha límite.',
+          'That payment counts toward the minimum of the ${dayText(c, other)} statement. If you link it to the ${dayText(c, cut)} one, the ${dayText(c, other)} statement is left unpaid and Plata will show it overdue after its due date.',
+        )),
+        actions: <Widget>[
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(t(c, 'No vincular', 'Do not link'))),
+          TextButton(onPressed: () => Navigator.pop(c, true), child: Text(t(c, 'Vincular', 'Link'))),
+        ],
+      ),
+    );
+    if (sure != true || !context.mounted) {
+      return;
+    }
+  }
   final OutsideLinkUndo? undo = l.linkToStatement(chosen, cut);
   final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+  final String undone = t(context, 'Se deshizo el vínculo.', 'The link was undone.');
+  final String kept = t(context, 'No se deshizo: ese pago cambió después.', 'Not undone: that payment changed afterwards.');
   messenger.hideCurrentSnackBar();
   messenger.showSnackBar(SnackBar(
     content: Text(t(context, 'Vinculado al extracto del ${dayText(context, cut)}: reemplaza lo pagado fuera de Plata.', 'Linked to the ${dayText(context, cut)} statement: it replaces what was paid outside Plata.')),
-    // Un toque equivocado (E7) se deshace: el vínculo y lo de fuera quedan
-    // como estaban.
-    action: undo == null ? null : SnackBarAction(label: t(context, 'Deshacer', 'Undo'), onPressed: () => l.undoLinkToStatement(undo)),
+    // Un toque equivocado (E7) se deshace: solo lo que hizo el vínculo, y
+    // solo lo que no cambió después.
+    action: undo == null
+        ? null
+        : SnackBarAction(
+            label: t(context, 'Deshacer', 'Undo'),
+            onPressed: () => messenger.showSnackBar(SnackBar(content: Text(l.undoLinkToStatement(undo) ? undone : kept))),
+          ),
+    duration: const Duration(seconds: 8),
+    persist: undo != null && keep,
   ));
 }
 
 /// Aviso que no bloquea (M1 de la ronda 13): si un abono recién guardado no
-/// preguntó (fuera de la ventana, o con un extracto más nuevo sin pagar) y
-/// cabe en lo pagado fuera de un extracto marcado, un SnackBar ofrece
+/// preguntó y parece el pago de un extracto marcado que se anotó tarde
+/// ([Ledger.outsideHint]: reciente, no es el pago de un extracto más nuevo,
+/// no deja otro sin pagar, una sola vez por extracto), un SnackBar ofrece
 /// elegirlo como ese pago («Elegir» abre «Ya lo anoté en Plata»). No deja
-/// nada pendiente ni cambia la mora.
+/// nada pendiente ni cambia la mora. Se cierra a los 8 s, salvo con lector
+/// de pantalla.
 void offerOutsideHint(BuildContext context, Tx saved) {
   final Ledger l = AppScope.of(context).ledger;
   final Iterable<Tx> found = l.txs.where((Tx x) => x.id == saved.id);
@@ -741,16 +800,57 @@ void offerOutsideHint(BuildContext context, Tx saved) {
     return;
   }
   final DateTime? cut = l.outsideHint(found.first);
-  final Account? card = cut == null ? null : l.accounts.where((Account a) => a.isCredit && (a.id == found.first.accountId || a.id == found.first.toAccountId)).firstOrNull;
+  final Account? card = cut == null ? null : l.cardCredited(found.first);
   if (cut == null || card == null) {
     return;
   }
+  l.noteOutsideHintShown(card, cut);
   final NavigatorState nav = Navigator.of(context);
-  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+  final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+  final String day = dayText(context, cut);
+  messenger.showSnackBar(SnackBar(
     duration: const Duration(seconds: 8),
-    content: Text(t(context, '¿Es el pago del extracto del ${dayText(context, cut)} que marcaste como pagado fuera de Plata?', 'Is it the payment of the ${dayText(context, cut)} statement you marked as paid outside Plata?')),
-    action: SnackBarAction(label: t(context, 'Elegir', 'Choose'), onPressed: () => pickLoggedPayment(nav.context, card, cut)),
+    persist: MediaQuery.accessibleNavigationOf(context),
+    content: Text(t(context, '¿Es el pago del extracto del $day que marcaste como pagado fuera de Plata?', 'Is it the payment of the $day statement you marked as paid outside Plata?')),
+    action: _HintAction(
+      label: t(context, 'Elegir', 'Choose'),
+      semanticsLabel: t(context, 'Elegir el pago del extracto del $day', 'Choose the payment of the $day statement'),
+      onPressed: () => pickLoggedPayment(nav.context, card, cut),
+    ),
   ));
+}
+
+/// «Elegir» del aviso: un [SnackBarAction] con una etiqueta para TalkBack y
+/// VoiceOver que dice el extracto («Elegir el pago del extracto del 15
+/// nov»), que [SnackBarAction] no permite dar.
+class _HintAction extends SnackBarAction {
+  const _HintAction({required super.label, required this.semanticsLabel, required super.onPressed});
+
+  final String semanticsLabel;
+
+  @override
+  State<SnackBarAction> createState() => _HintActionState();
+}
+
+class _HintActionState extends State<SnackBarAction> {
+  bool _done = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final _HintAction w = widget as _HintAction;
+    final ThemeData theme = Theme.of(context);
+    return TextButton(
+      style: TextButton.styleFrom(foregroundColor: theme.snackBarTheme.actionTextColor ?? theme.colorScheme.inversePrimary),
+      onPressed: _done
+          ? null
+          : () {
+              setState(() => _done = true);
+              w.onPressed();
+              ScaffoldMessenger.of(context).hideCurrentSnackBar(reason: SnackBarClosedReason.action);
+            },
+      child: Text(w.label, semanticsLabel: w.semanticsLabel),
+    );
+  }
 }
 
 /// La pregunta pendiente de un abono que llegó sin pasar por una pantalla (un

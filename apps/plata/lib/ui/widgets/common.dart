@@ -452,6 +452,9 @@ Future<bool> confirm(BuildContext context, String title, String body, {String? y
 /// quedó concedido.
 Future<bool> ensureNotifications(BuildContext context, {required String why, bool force = false}) async {
   final Services s = AppScope.of(context);
+  // Desde Flutter 3.38 un aviso con acción no se cierra solo; aquí se cierra a
+  // los 8 s, salvo con lector de pantalla, donde se queda hasta que se atienda.
+  final bool keep = MediaQuery.accessibleNavigationOf(context);
   final bool? status = await s.notifier.permissionStatus();
   s.settings.setNotificationsAllowed(status);
   if (status == true) {
@@ -464,6 +467,8 @@ Future<bool> ensureNotifications(BuildContext context, {required String why, boo
   final SnackBar off = SnackBar(
     content: Text(t(context, 'Las notificaciones están apagadas: los recordatorios no aparecerán. Puedes activarlas en Más › Ajustes.', 'Notifications are off: reminders will not show. You can turn them on under More › Settings.')),
     action: SnackBarAction(label: t(context, 'Activar', 'Turn on'), onPressed: () => s.notifier.openSettings()),
+    duration: const Duration(seconds: 8),
+    persist: keep,
   );
   if (s.settings.notificationsAsked && !force) {
     messenger.showSnackBar(off);

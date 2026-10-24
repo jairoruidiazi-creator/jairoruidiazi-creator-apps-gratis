@@ -3,6 +3,7 @@
 // el movimiento caben; el aviso que no bloquea abre el remedio (M1) y el
 // remedio se deshace (M2).
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plata/app.dart';
@@ -75,11 +76,15 @@ void main() {
   });
 
   testWidgets('M1 y M2: el pago que no preguntó trae el aviso «Elegir», que lo vincula; «Deshacer» lo deja como estaba', (WidgetTester tester) async {
-    await atTestTime(() async {
+    // Comprobación final (G1): el aviso es para el pago anotado tarde. Hoy es
+    // el 10 nov, después de la ventana (5 nov); el extracto del 15 oct ya se
+    // pagó el 3 nov desde Plata.
+    await withClock(Clock.fixed(DateTime(2026, 11, 10, 12)), () async {
       usePhone(tester);
       late Account tc;
       final TestEnv env = await start(tester, before: (TestEnv e) async {
         tc = await seed(e.services.ledger);
+        await e.services.ledger.addTx(Tx(id: 'oct', kind: TxKind.transfer, amountMinor: 12000000, accountId: 'ah', toAccountId: 'tc', date: DateTime(2026, 11, 3, 12)));
       });
       final Ledger l = env.services.ledger;
       final String outId = l.outsidePayments(tc, sep15).single.id;
@@ -99,10 +104,10 @@ void main() {
       await settle(tester);
       await tester.tap(find.text('Guardar'));
       await settle(tester);
-      // No pregunta (el extracto del 15 oct tiene su mínimo sin pagar)…
+      // No pregunta (fuera de la ventana)…
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.byType(TxEditor), findsNothing);
-      final Tx paid = l.txs.firstWhere((Tx t) => t.kind == TxKind.transfer && t.toAccountId == 'tc');
+      final Tx paid = l.txs.firstWhere((Tx t) => t.kind == TxKind.transfer && t.toAccountId == 'tc' && t.id != 'oct');
       expect(paid.outsidePending, isFalse);
       expect(l.pendingOutsideMatches(), isEmpty);
       // …pero avisa, sin bloquear.
@@ -110,7 +115,7 @@ void main() {
       await tester.tap(find.text('Elegir'));
       await settle(tester);
       expect(find.text('¿Cuál es el pago del extracto del 15 sep?'), findsOneWidget);
-      await tester.tap(find.descendant(of: find.byType(SimpleDialog), matching: find.textContaining('16 oct')));
+      await tester.tap(find.descendant(of: find.byType(SimpleDialog), matching: find.textContaining('10 nov')));
       await settle(tester);
       await syncLedger(tester, env);
       expect(l.txs.firstWhere((Tx t) => t.id == paid.id).statementOf, '2026-09-15');
