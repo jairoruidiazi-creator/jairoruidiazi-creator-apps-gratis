@@ -1,0 +1,166 @@
+sello: ícono correcto (1024 × 1024, opaco)
+4 gráficos en /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/build/store_listing
+Resolving dependencies...
+Downloading packages...
+  camera 0.11.4 (0.12.1 available)
+  camera_android_camerax 0.6.30 (0.7.6 available)
+  camera_avfoundation 0.9.23+2 (0.11.1 available)
+  cli_util 0.4.2 (0.6.0 available)
+  cross_file 0.3.5+5 (0.4.0 available)
+  dbus 0.7.15 (0.8.0 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  geocoding 4.0.0 (5.0.0 available)
+  geocoding_android 4.0.1 (5.1.0 available)
+  geocoding_platform_interface 3.2.0 (5.0.0 available)
+  gsettings 0.2.8 (0.2.9 available)
+  latlong2 0.9.1 (0.10.1 available)
+  lints 5.1.1 (6.1.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  posix 6.5.2 (6.5.3 available)
+  qr 3.0.2 (4.0.0 available)
+  sensors_plus 6.1.2 (7.1.1 available)
+  test_api 0.7.12 (0.7.15 available)
+  wakelock_plus 1.8.0 (1.8.2 available)
+Got dependencies!
+19 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/store_screenshots_test.dart: Capturas de Sello en android_phone (es) (variant: TargetPlatform.android)
+[captura] build/store_shots/android_phone/es/04-galeria.png (1585 KB)
+[captura] build/store_shots/android_phone/es/06-exportar.png (318 KB)
+[captura] build/store_shots/android_phone/es/01-foto.png (1711 KB)
+[captura] build/store_shots/android_phone/es/02-datos.png (242 KB)
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+No se pudo iniciar la ubicación: MissingPluginException(No implementation found for method isLocationServiceEnabled on channel flutter.baseflow.com/geolocator)
+[captura] build/store_shots/android_phone/es/05-mapa.png (1237 KB)
+[captura] build/store_shots/android_phone/es/03-plantilla.png (189 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/store_screenshots_test.dart: Capturas de Sello en android_phone (en) (variant: TargetPlatform.android)
+[captura] build/store_shots/android_phone/en/04-galeria.png (1587 KB)
+[captura] build/store_shots/android_phone/en/06-exportar.png (315 KB)
+[captura] build/store_shots/android_phone/en/01-foto.png (1703 KB)
+[captura] build/store_shots/android_phone/en/02-datos.png (242 KB)
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+No se pudo iniciar la ubicación: MissingPluginException(No implementation found for method isLocationServiceEnabled on channel flutter.baseflow.com/geolocator)
+[captura] build/store_shots/android_phone/en/05-mapa.png (1234 KB)
+[captura] build/store_shots/android_phone/en/03-plantilla.png (189 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/store_screenshots_test.dart: Capturas de Sello en android_tablet (es) (variant: TargetPlatform.android)
+[captura] build/store_shots/android_tablet/es/04-galeria.png (1047 KB)
+[captura] build/store_shots/android_tablet/es/06-exportar.png (933 KB)
+[captura] build/store_shots/android_tablet/es/01-foto.png (3350 KB)
+[captura] build/store_shots/android_tablet/es/02-datos.png (499 KB)
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+No se pudo iniciar la ubicación: MissingPluginException(No implementation found for method isLocationServiceEnabled on channel flutter.baseflow.com/geolocator)
+[captura] build/store_shots/android_tablet/es/05-mapa.png (2277 KB)
+[captura] build/store_shots/android_tablet/es/03-plantilla.png (224 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/store_screenshots_test.dart: Capturas de Sello en android_tablet (en) (variant: TargetPlatform.android)
+[captura] build/store_shots/android_tablet/en/04-galeria.png (1049 KB)
+[captura] build/store_shots/android_tablet/en/06-exportar.png (933 KB)
+[captura] build/store_shots/android_tablet/en/01-foto.png (3353 KB)
+[captura] build/store_shots/android_tablet/en/02-datos.png (501 KB)
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+No se pudo iniciar la ubicación: MissingPluginException(No implementation found for method isLocationServiceEnabled on channel flutter.baseflow.com/geolocator)
+[captura] build/store_shots/android_tablet/en/05-mapa.png (2280 KB)
+[captura] build/store_shots/android_tablet/en/03-plantilla.png (225 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/store_screenshots_test.dart: Capturas de Sello en iphone (es) (variant: TargetPlatform.iOS)
+[captura] build/store_shots/iphone/es/04-galeria.png (2103 KB)
+[captura] build/store_shots/iphone/es/06-exportar.png (329 KB)
+[captura] build/store_shots/iphone/es/01-foto.png (2399 KB)
+[captura] build/store_shots/iphone/es/02-datos.png (304 KB)
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+No se pudo iniciar la ubicación: MissingPluginException(No implementation found for method isLocationServiceEnabled on channel flutter.baseflow.com/geolocator)
+[captura] build/store_shots/iphone/es/05-mapa.png (1525 KB)
+[captura] build/store_shots/iphone/es/03-plantilla.png (234 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/store_screenshots_test.dart: Capturas de Sello en iphone (en) (variant: TargetPlatform.iOS)
+[captura] build/store_shots/iphone/en/04-galeria.png (2105 KB)
+[captura] build/store_shots/iphone/en/06-exportar.png (333 KB)
+[captura] build/store_shots/iphone/en/01-foto.png (2402 KB)
+[captura] build/store_shots/iphone/en/02-datos.png (311 KB)
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+No se pudo iniciar la ubicación: MissingPluginException(No implementation found for method isLocationServiceEnabled on channel flutter.baseflow.com/geolocator)
+[captura] build/store_shots/iphone/en/05-mapa.png (1523 KB)
+[captura] build/store_shots/iphone/en/03-plantilla.png (227 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/store_screenshots_test.dart: Capturas de Sello en ipad (es) (variant: TargetPlatform.iOS)
+[captura] build/store_shots/ipad/es/04-galeria.png (1027 KB)
+[captura] build/store_shots/ipad/es/06-exportar.png (941 KB)
+[captura] build/store_shots/ipad/es/01-foto.png (4611 KB)
+[captura] build/store_shots/ipad/es/02-datos.png (1153 KB)
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+No se pudo iniciar la ubicación: MissingPluginException(No implementation found for method isLocationServiceEnabled on channel flutter.baseflow.com/geolocator)
+[captura] build/store_shots/ipad/es/05-mapa.png (3301 KB)
+[captura] build/store_shots/ipad/es/03-plantilla.png (270 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/test/store_screenshots_test.dart: Capturas de Sello en ipad (en) (variant: TargetPlatform.iOS)
+[captura] build/store_shots/ipad/en/04-galeria.png (1026 KB)
+[captura] build/store_shots/ipad/en/06-exportar.png (936 KB)
+[captura] build/store_shots/ipad/en/01-foto.png (4612 KB)
+[captura] build/store_shots/ipad/en/02-datos.png (1156 KB)
+  [1m[flutter_map][0m
+    We want to help keep OpenStreetMap available for everyone. Our examples
+    and demo app use the public tile servers, but they are NOT free to use by
+    everyone! Please review whether the OpenStreetMap tile servers are suitable
+    for your project.
+    See:
+      * https://operations.osmfoundation.org/policies/tiles (OSM Tile Usage Policy)
+      * https://docs.fleaflet.dev/osm-warn for more information about this warning
+No se pudo iniciar la ubicación: MissingPluginException(No implementation found for method isLocationServiceEnabled on channel flutter.baseflow.com/geolocator)
+[captura] build/store_shots/ipad/en/05-mapa.png (3303 KB)
+[captura] build/store_shots/ipad/en/03-plantilla.png (270 KB)
+::endgroup::
+
+🎉 8 tests passed.
+52 imágenes compuestas en /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/sello/build/store_listing
