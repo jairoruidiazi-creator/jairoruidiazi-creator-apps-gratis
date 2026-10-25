@@ -1,0 +1,77 @@
+build-tools: /usr/local/lib/android/sdk/build-tools/37.0.0
+== build/app/outputs/flutter-apk/app-release.apk
+  Paquete co.appsgratis.clave, versionCode 1, versionName 1.0.0
+  minSdk 24
+  targetSdk 36
+  Permisos: android.permission.RECORD_AUDIO, android.permission.VIBRATE, co.appsgratis.clave.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+  lib/arm64-v8a/libFLAC.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 458752 (alineado a 16 KB)
+  lib/arm64-v8a/libapp.so: PT_LOAD min 2**16, sin comprimir, desplazamiento 753664 (alineado a 16 KB)
+  lib/arm64-v8a/libdartjni.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 8372224 (alineado a 16 KB)
+  lib/arm64-v8a/libdatastore_shared_counter.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 8519680 (alineado a 16 KB)
+  lib/arm64-v8a/libflutter.so: PT_LOAD min 2**16, sin comprimir, desplazamiento 8536064 (alineado a 16 KB)
+  lib/arm64-v8a/libflutter_soloud_plugin.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 20299776 (alineado a 16 KB)
+  lib/arm64-v8a/libogg.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 22429696 (alineado a 16 KB)
+  lib/arm64-v8a/libopus.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 22462464 (alineado a 16 KB)
+  lib/arm64-v8a/libvorbis.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 23019520 (alineado a 16 KB)
+  lib/arm64-v8a/libvorbisenc.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 23232512 (alineado a 16 KB)
+  lib/arm64-v8a/libvorbisfile.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 23887872 (alineado a 16 KB)
+  lib/armeabi-v7a/libFLAC.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 23937024 (alineado a 16 KB)
+  lib/armeabi-v7a/libapp.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 24133632 (alineado a 16 KB)
+  lib/armeabi-v7a/libdartjni.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 32669696 (alineado a 16 KB)
+  lib/armeabi-v7a/libdatastore_shared_counter.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 32751616 (alineado a 16 KB)
+  lib/armeabi-v7a/libflutter.so: PT_LOAD min 2**16, sin comprimir, desplazamiento 32768000 (alineado a 16 KB)
+  lib/armeabi-v7a/libflutter_soloud_plugin.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 41385984 (alineado a 16 KB)
+  lib/armeabi-v7a/libogg.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 43155456 (alineado a 16 KB)
+  lib/armeabi-v7a/libopus.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 43188224 (alineado a 16 KB)
+  lib/armeabi-v7a/libvorbis.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 43597824 (alineado a 16 KB)
+  lib/armeabi-v7a/libvorbisenc.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 43761664 (alineado a 16 KB)
+  lib/armeabi-v7a/libvorbisfile.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 44302336 (alineado a 16 KB)
+  lib/x86_64/libFLAC.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 44335104 (alineado a 16 KB)
+  lib/x86_64/libapp.so: PT_LOAD min 2**16, sin comprimir, desplazamiento 44695552 (alineado a 16 KB)
+  lib/x86_64/libdartjni.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 52576256 (alineado a 16 KB)
+  lib/x86_64/libdatastore_shared_counter.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 52707328 (alineado a 16 KB)
+  lib/x86_64/libflutter.so: PT_LOAD min 2**16, sin comprimir, desplazamiento 52723712 (alineado a 16 KB)
+  lib/x86_64/libflutter_soloud_plugin.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 65781760 (alineado a 16 KB)
+  lib/x86_64/libogg.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 68059136 (alineado a 16 KB)
+  lib/x86_64/libopus.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 68091904 (alineado a 16 KB)
+  lib/x86_64/libvorbis.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 68714496 (alineado a 16 KB)
+  lib/x86_64/libvorbisenc.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 68960256 (alineado a 16 KB)
+  lib/x86_64/libvorbisfile.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 69632000 (alineado a 16 KB)
+OK: cumple 16 KB y los requisitos del badging
+== build/app/outputs/bundle/release/app-release.aab
+  base/lib/arm64-v8a/libFLAC.so: PT_LOAD min 2**14
+  base/lib/arm64-v8a/libapp.so: PT_LOAD min 2**16
+  base/lib/arm64-v8a/libdartjni.so: PT_LOAD min 2**14
+  base/lib/arm64-v8a/libdatastore_shared_counter.so: PT_LOAD min 2**14
+  base/lib/arm64-v8a/libflutter.so: PT_LOAD min 2**16
+  base/lib/arm64-v8a/libflutter_soloud_plugin.so: PT_LOAD min 2**14
+  base/lib/arm64-v8a/libogg.so: PT_LOAD min 2**14
+  base/lib/arm64-v8a/libopus.so: PT_LOAD min 2**14
+  base/lib/arm64-v8a/libvorbis.so: PT_LOAD min 2**14
+  base/lib/arm64-v8a/libvorbisenc.so: PT_LOAD min 2**14
+  base/lib/arm64-v8a/libvorbisfile.so: PT_LOAD min 2**14
+  base/lib/armeabi-v7a/libFLAC.so: PT_LOAD min 2**14
+  base/lib/armeabi-v7a/libapp.so: PT_LOAD min 2**14
+  base/lib/armeabi-v7a/libdartjni.so: PT_LOAD min 2**14
+  base/lib/armeabi-v7a/libdatastore_shared_counter.so: PT_LOAD min 2**14
+  base/lib/armeabi-v7a/libflutter.so: PT_LOAD min 2**16
+  base/lib/armeabi-v7a/libflutter_soloud_plugin.so: PT_LOAD min 2**14
+  base/lib/armeabi-v7a/libogg.so: PT_LOAD min 2**14
+  base/lib/armeabi-v7a/libopus.so: PT_LOAD min 2**14
+  base/lib/armeabi-v7a/libvorbis.so: PT_LOAD min 2**14
+  base/lib/armeabi-v7a/libvorbisenc.so: PT_LOAD min 2**14
+  base/lib/armeabi-v7a/libvorbisfile.so: PT_LOAD min 2**14
+  base/lib/x86_64/libFLAC.so: PT_LOAD min 2**14
+  base/lib/x86_64/libapp.so: PT_LOAD min 2**16
+  base/lib/x86_64/libdartjni.so: PT_LOAD min 2**14
+  base/lib/x86_64/libdatastore_shared_counter.so: PT_LOAD min 2**14
+  base/lib/x86_64/libflutter.so: PT_LOAD min 2**16
+  base/lib/x86_64/libflutter_soloud_plugin.so: PT_LOAD min 2**14
+  base/lib/x86_64/libogg.so: PT_LOAD min 2**14
+  base/lib/x86_64/libopus.so: PT_LOAD min 2**14
+  base/lib/x86_64/libvorbis.so: PT_LOAD min 2**14
+  base/lib/x86_64/libvorbisenc.so: PT_LOAD min 2**14
+  base/lib/x86_64/libvorbisfile.so: PT_LOAD min 2**14
+OK: cumple 16 KB
+-rw-r--r-- 1 runner runner 64719817 Oct 25 22:18 build/app/outputs/bundle/release/app-release.aab
+-rw-r--r-- 1 runner runner 70180855 Oct 25 22:18 build/app/outputs/flutter-apk/app-release.apk
