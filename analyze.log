@@ -1,0 +1,18 @@
+Resolving dependencies...
+Downloading packages...
+  cli_util 0.4.2 (0.6.0 available)
+  cross_file 0.3.5+5 (0.4.0 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  lints 5.1.1 (6.1.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  test_api 0.7.12 (0.7.15 available)
+Got dependencies!
+6 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Analyzing clave...                                              
+
+   info • Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this._capture') to initialize the field • lib/audio/take_recorder.dart:137:68 • prefer_initializing_formals
+   info • Use an initializing formal to assign a parameter to a field. Try using an initialing formal ('this._mic') to initialize the field • lib/audio/tuner.dart:129:9 • prefer_initializing_formals
+   info • Use 'const' for final variables initialized to a constant value. Try replacing 'final' with 'const' • test/flash_test.dart:179:7 • prefer_const_declarations
+
+3 issues found. (ran in 12.5s)

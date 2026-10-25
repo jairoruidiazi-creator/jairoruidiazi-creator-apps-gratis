@@ -1,0 +1,193 @@
+Resolving dependencies...
+Downloading packages...
+  cli_util 0.4.2 (0.6.0 available)
+  cross_file 0.3.5+5 (0.4.0 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  lints 5.1.1 (6.1.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  test_api 0.7.12 (0.7.15 available)
+Got dependencies!
+6 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+No Visual Studio installation found with the requested Microsoft.VisualStudio.Component.VC.Tools.x86.x64 component.
+
+File modified during build. Build must be rerun.
+
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/sequencer_test.dart: A 120 BPM en 4/4 los pulsos caen cada 22.050 muestras
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/sequencer_test.dart: Las subdivisiones y el swing reparten el pulso
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/sequencer_test.dart: Cambios en marcha (G1) Cambiar la subdivisión no corre la rejilla de pulsos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/sequencer_test.dart: Cambios en marcha (G1) Cambiar el swing a mitad de pulso: el pulso en curso termina con su rejilla
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/sequencer_test.dart: Cambios en marcha (G1) Cambiar el tempo rige desde el pulso siguiente, donde le toca
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/sequencer_test.dart: Cambios en marcha (G1) Un compás más corto en marcha empieza un compás nuevo en el pulso siguiente
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/legal_document_test.dart: el Markdown reducido se convierte en bloques
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/sequencer_test.dart: Los pulsos silenciosos y los compases mudos no suenan pero existen
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/sequencer_test.dart: El entrenador sube el tempo por pasos hasta la meta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/legal_document_test.dart: la política (es) está completa y solo usa la sintaxis que la app dibuja
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/sequencer_test.dart: El renderizador produce audio audible y alineado
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/legal_document_test.dart: la política (en) está completa y solo usa la sintaxis que la app dibuja
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/legal_document_test.dart: las dos versiones tienen la misma fecha y la misma estructura
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/sequencer_test.dart: Todos los sonidos se sintetizan sin NaN y con duración razonable
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/sequencer_test.dart: RhythmConfig sobrevive al JSON
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/sequencer_test.dart: Un JSON hostil se acota y el planificador nunca se cuelga (G11)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/legal_document_test.dart: la pantalla muestra la política de principio a fin
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/storage_test.dart: JsonStore (M8) Escrituras seguidas de la misma ruta quedan en orden y sin temporales
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/storage_test.dart: JsonStore (M8) Un archivo dañado se aparta y se recupera la copia anterior, con aviso
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/storage_test.dart: JsonStore (M8) Sin copia anterior, el dañado se aparta y se avisa que no se recuperó
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/storage_test.dart: JsonStore (M8) Un JSON que no es un objeto cuenta como dañado
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/storage_test.dart: JsonStore (M8) Bytes, borrado, tamaño y listado
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/storage_test.dart: Lo que llega de un archivo se valida (G11) Preajuste y setlist con valores hostiles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/storage_test.dart: Lo que llega de un archivo se valida (G11) Una grabación que apunta fuera de su carpeta se descarta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/storage_test.dart: Lo que llega de un archivo se valida (G11) Un intervalo de práctica imposible se descarta o se acota
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/storage_test.dart: Lo que llega de un archivo se valida (G11) Importar preajustes valida, no duplica y rechaza lo que no es de Clave
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/storage_test.dart: Lo que llega de un archivo se valida (G11) Borrar un preajuste o una setlist se puede deshacer, con su lugar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/settings_test.dart: Sin nada guardado, idioma y notación del teléfono; luego manda lo guardado (G6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/settings_test.dart: Al cambiar el idioma la notación lo sigue, salvo que se haya elegido a mano (2.ª ronda, N-M7)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/settings_test.dart: Valores guardados fuera de rango o de otro tipo se corrigen (G11)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/settings_test.dart: Guardar escribe solo lo que cambió y solo el idioma o el tema avisan a toda la app (M10)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/settings_test.dart: El ritmo del metrónomo se recuerda entre aperturas (M11)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Micrófono (B2) Solo escucha con la pestaña activa, sin la grabadora y si la persona quiere
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Micrófono (B2) Sin permiso explica primero y pide el permiso solo al tocar el botón (M6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Micrófono (B2) Con el permiso negado queda en "denegado" (para ofrecer los ajustes)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Una interrupción o un corte de muestras no deja una nota vieja (M1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con una cuerda fijada se mide contra ella y la aguja se amortigua (M2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con capo, la cuerda que suena se reconoce y su meta sube (G9)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con un perfil elegido no se muestra lo que queda muy por debajo de su rango; en Cromático sí (3.ª ronda)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas El aviso de nota bajo el rango dura unos 5 s y se borra al cambiar de instrumento (4.ª ronda, M3; final, m2 y m3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con tonos de la app sonando (comprobación final, G1) Una nota de verdad una octava bajo el bordón se lee: Re2 con el bordón en Re3, con y sin quinta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con tonos de la app sonando (comprobación final, G1) La cuerda La2 de la guitarra se lee con el bordón en La3
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con tonos de la app sonando (comprobación final, G1) El espectro (FFT de 8192 puntos, N1) coincide con la DFT directa de la ventana de Hann
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con tonos de la app sonando (comprobación final, G1) Si0 se lee con el bordón en Si1 y un paso alto que casi quita la fundamental (bajo de 5 cuerdas)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con tonos de la app sonando (comprobación final, G1) Una cuerda bajada se lee con un tono de la app sonando: Re1 de Drop D con La3 o Re2, Do1 con Do2, con altavoz y con audífonos (G2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con tonos de la app sonando (comprobación final, G1) La1 con el perfil de guitarra y La2 o La3 sonando no se toma por la mezcla: unos cents bajo, el aviso de rango; unos cents alto, la nota (G2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con tonos de la app sonando (comprobación final, G1) El propio bordón grave no da el aviso de rango (O2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con tonos de la app sonando (comprobación final, G1) Mi1 con la fundamental débil y ruido rosa a 10 dB se lee con el bordón en Mi2 (con y sin quinta)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con tonos de la app sonando (comprobación final, G1) Con audífonos (el bordón suena pero no llega al micrófono) la nota se lee aunque su fundamental casi no se oiga
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con tonos de la app sonando (comprobación final, G1) Bajo 58 Hz: con Voz, la mezcla de la tercera mayor cantada sobre el bordón (unos 55 Hz, bajo la voz) se oculta y avisa
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con tonos de la app sonando (comprobación final, G1) Con el tono fuerte y un micrófono de teléfono, la mezcla de la voz bajo el bordón con quinta no se muestra como otra nota (N4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con tonos de la app sonando (comprobación final, G1) Bajo 30 Hz, la mezcla del bajo con un bordón grave da el aviso del bordón, no «usar Cromático» (N5)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con tonos de la app sonando (comprobación final, G1) La tercera mayor cantada con vibrato sobre el bordón La3 en seno a −3 dB no se muestra como La1 (N6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con tonos de la app sonando (comprobación final, G1) Cuadros de residuo sueltos, separados por silencio, no abren el aviso (N3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Con tonos de la app sonando (comprobación final, G1) La mezcla con residuo (fundamental ausente) no se muestra y avisa después de 300 ms seguidos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Un tono sostenido cuenta como práctica a partir de 0,4 s; los clics no (B3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/tuner_test.dart: Lecturas Los golpes se reconocen por su envolvente
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/formats_test.dart: Porcentajes, decimales y tiempos según el idioma (M15)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/formats_test.dart: Velocidades, nombres y tipos de archivo de las tomas (M7)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/formats_test.dart: El conteo usa una voz instalada del idioma de la app (M13)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/formats_test.dart: El idioma y la notación iniciales siguen al teléfono (G6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/formats_test.dart: El archivo de preajustes exportado se nombra en el idioma de la app (2.ª ronda, N-M8)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/formats_test.dart: Importar pide JSON con tipo uniforme y MIME (B4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/formats_test.dart: La sesión de audio deja sonar otras apps y no pide el foco (M9)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/formats_test.dart: La sesión de reproducción vuelve solo cuando afinador y grabadora soltaron el micrófono (2.ª ronda, N-M2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/formats_test.dart: Con el micrófono abierto: sin Bluetooth de llamada, sin cortar otras apps y con vibración (G3, G4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Notas La4 = 440 Hz y Do4 = 261,63 Hz en temperamento igual
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Notas Los nombres cambian con la notación y los bemoles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Notas En la notación india, Sa es la tónica elegida (M5)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Notas Los temperamentos históricos desvían como manda la teoría
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Notas La referencia La4 se mantiene exacta en cualquier temperamento
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Notas PitchSettings lee frecuencias y transpone; el capo no cambia el nombre de lo que suena (G9)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Notas Formato de hercios y de cents: nunca "−0" (M15)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Instrumentos Cuerdas de la guitarra y orden más cercano
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Instrumentos Tiple: tres cuerdas por orden y la central de los órdenes 2.º a 4.º a la octava (G8)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Instrumentos Requinto colombiano al unísono y requinto de seis cuerdas aparte (G8)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Instrumentos Con capo, las metas y las cuerdas suben (G9)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/music_test.dart: Instrumentos Indicaciones de tempo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Sin desbordes en 360 × 640 con letra × 1.0 (G5)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Sin desbordes en 360 × 640 con letra × 1.3 (G5)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: Las cinco pestañas y los ajustes abren sin errores y el idioma cambia toda la app (G6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Sin desbordes en 375 × 667 con letra × 1.0 (G5)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: El micrófono solo se abre con el afinador a la vista y la app al frente (B2)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: Sin permiso, el afinador explica y ofrece los ajustes del sistema (M6)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: En Android, al salir de la app se para lo que suena y se avisa al volver
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Sin desbordes en 375 × 667 con letra × 1.3 (G5)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Sin permiso de micrófono, la tarjeta del afinador cabe en 360 × 640 con letra × 1,3 (G5)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Teclado: en 360 dp cabe una octava entera de teclas de 48 dp y cada tecla tiene nombre (G7)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: En Android, salir con una toma en curso la cierra, la guarda y avisa al volver (M7)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Con clarinete en Si♭, el bordón y el teclado usan la nota escrita y suenan un tono abajo (M5)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Una nota bajo el rango del perfil se explica, también al lector, y se ofrece Cromático (4.ª ronda, M3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Con letra × 2 en 360 × 640, los avisos del afinador se ven enteros o se llega a ellos desplazando (final, m4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Con letra × 2 en 640 × 360, los avisos del afinador se ven enteros o se llega a ellos desplazando (final, m4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: El afinador anuncia la nota al lector sin saturarlo: como mucho un aviso cada 1,1 s (G7)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: El lector no repite el mismo aviso antes de 6 s aunque alterne con lecturas, y la etiqueta sigue a la pantalla (N2, O1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Guías de accesibilidad de Android e iOS en cada pantalla, 360 × 640, tema claro (G7, O4)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: La grabadora explica el micrófono, graba, guarda la toma y la comparte con su nombre (M6, M7, B4)
+Compartir toma: Exception: sin hoja de compartir
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Guías de accesibilidad de Android e iOS en cada pantalla, 360 × 640, tema oscuro (G7, O4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Guías de accesibilidad de Android e iOS en cada pantalla, 800 × 1280, tema claro (G7, O4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Guías de accesibilidad de Android e iOS en cada pantalla, 800 × 1280, tema oscuro (G7, O4)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: Preajustes: exportar comparte el JSON anclado al botón; importar valida y avisa (B4)
+Exportar: Exception: sin hoja de compartir
+Importar: FormatException: No es un objeto JSON
+Importar: Exception: sin selector
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Guías de accesibilidad de Android e iOS en cada pantalla, 1280 × 800, tema claro (G7, O4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: Los números en pantalla siguen el idioma: swing y La4 (M15)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/screens_test.dart: Guías de accesibilidad de Android e iOS en cada pantalla, 1280 × 800, tema oscuro (G7, O4)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: Guardar el ritmo actual como preajuste
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/recorder_test.dart: La toma mide lo grabado y deja un marcador mientras graba
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/recorder_test.dart: Una llamada corta la toma y la guarda con lo grabado hasta ahí
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/recorder_test.dart: "Toma N" no repite números aunque se borren tomas, y sobrevive al reinicio
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/recorder_test.dart: Al abrir se rescatan la toma a medias y los archivos sueltos; los vacíos se borran
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/recorder_test.dart: Mientras se graba, el afinador suelta el micrófono y la grabadora cuenta como práctica
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: El aviso con «Deshacer» se cierra solo a los 8 s sin lector (3e24e72)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/flash_test.dart: El destello viene apagado
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/flash_test.dart: Qué pulsos destellan según el tempo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/flash_test.dart: El cambio de luminancia del destello es menor que el de un destello general, en los dos temas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: El aviso con «Deshacer» se queda con el lector de pantalla (3e24e72)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/app_test.dart: Borrar un preajuste o una setlist se puede deshacer
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/metronome_test.dart: Metrónomo Arranca, sigue el tempo y para
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/metronome_test.dart: Metrónomo La animación y la vibración van con lo que se oye: el retraso las corre (G2, G3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/metronome_test.dart: Metrónomo Sin la vibración activada no vibra
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/metronome_test.dart: Metrónomo El péndulo alterna en compases impares y su fase es la del pulso, con swing (M3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/metronome_test.dart: Metrónomo El pulso de la animación no avisa a los oyentes del metrónomo (M10)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/metronome_test.dart: Metrónomo Golpear el tempo promedia los toques
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/metronome_test.dart: Calibración por toques (G2) La diferencia de cada toque se mide contra su clic
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/metronome_test.dart: Calibración por toques (G2) Mediana sin los toques sueltos; hacen falta ocho parejos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/metronome_test.dart: Calibración por toques (G2) Con el motor mudo, tocar 150 ms después de cada clic da 150 ms
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/flash_test.dart: A 240 BPM: como mucho 3 destellos por segundo, solo en el acento y con contraste suave
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/flash_test.dart: El tinte va detrás del contenido: en los píxeles reales nada cambia más de 0,06 de luminancia (tema claro)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Senos de Do0 (16,35 Hz) a Do8 (4186 Hz), cualquier nivel y fase: menos de 1 cent
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/flash_test.dart: El tinte va detrás del contenido: en los píxeles reales nada cambia más de 0,06 de luminancia (tema oscuro)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Violín (10 armónicos) de Sol3 a Do8, también en el registro agudo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Sierra (39 armónicos) de Do1 a Do8
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Fundamental débil: no salta a la octava de arriba
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Guitarra y bajo con el paso alto de un micrófono de teléfono
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/flash_test.dart: A 120 BPM destella en cada pulso: 2 por segundo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Flauta de Do4 a Do7
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/flash_test.dart: A 400 BPM con acentos en 1 y 3 no destella
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Voz cantada: cinco vocales con dos pendientes espectrales
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Vibrato de ±15 cents en el registro agudo: la nota central
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Guitarra con ruido (20 y 10 dB de relación señal/ruido)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/flash_test.dart: Con "quitar animaciones" no destella
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/theme_test.dart: Colores de afinación, acento y grabación con contraste suficiente en el tema claro (G7)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/theme_test.dart: Colores de afinación, acento y grabación con contraste suficiente en el tema oscuro (G7)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Con ruido fuerte (7 y 5 dB) no da la octava ni la duodécima de abajo (2.ª ronda, N-M1)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Voz y flauta (3.ª ronda, G1) Voz con ruido rosa a 10 y 7 dB: ninguna lectura lejos de la nota ni sin lectura
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/drone_test.dart: La quinta del bordón es pura (3:2), también con temperamento
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/drone_test.dart: La ganancia se reparte: bordón, quinta, teclas y acorde nunca suman más que el bordón solo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/drone_test.dart: Las ondas con armónicos pasan a seno donde se doblarían (sin aliasing)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/drone_test.dart: Teclas y acordes siguen la referencia La4 y se reafinan al cambiarla
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/drone_test.dart: Con "sostener" las teclas siguen sonando hasta soltar el pedal
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/drone_test.dart: Dos acordes seguidos no se mezclan y stopAll no deja el bordón sonando (2.ª ronda, N-M3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Voz y flauta (3.ª ronda, G1) Voz y flauta sobre el bordón una octava abajo a −12 dB: la nota o el bordón, nunca otra cosa
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Ruido blanco, ruido rosa y silencio no dan nota
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/practice_log_test.dart: El metrónomo cuenta mientras corre, aunque no se toque la pantalla (B3)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/practice_log_test.dart: Dos herramientas a la vez no cuentan doble; cada una suma su tiempo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/practice_log_test.dart: Las notas cortas del teclado se unen en un intervalo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/practice_log_test.dart: El afinador cuenta mientras oye tonos estables y se corta sin ellos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/practice_log_test.dart: Cambiar de instrumento con una herramienta en marcha parte el intervalo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/practice_log_test.dart: Un intervalo que cruza la medianoche se reparte entre los dos días (M12)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/practice_log_test.dart: Racha Cuenta días con al menos 5 minutos; hoy todavía no la rompe
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/practice_log_test.dart: Racha Se puede descansar un día de cada siete sin perder la racha
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/practice_log_test.dart: Lo abierto se guarda cada cierto tiempo y sobrevive a un cierre de golpe
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Cada cuerda de cada perfil se detecta y se asigna a su orden
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Piano de A0 con inarmonía: el error queda en lo que da la propia cuerda
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/clave/test/pitch_detector_test.dart: Bloques cortos y señal plana no dan nota; pcm16ToFloat convierte extremos
+::endgroup::
+
+🎉 164 tests passed.
