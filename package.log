@@ -1,0 +1,35 @@
+build-tools: /usr/local/lib/android/sdk/build-tools/37.0.0
+== build/app/outputs/flutter-apk/app-release.apk
+  Paquete co.appsgratis.pilas, versionCode 1, versionName 1.0.0
+  minSdk 24
+  targetSdk 36
+  Permisos: co.appsgratis.pilas.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+  lib/arm64-v8a/libapp.so: PT_LOAD min 2**16, sin comprimir, desplazamiento 425984 (alineado a 16 KB)
+  lib/arm64-v8a/libdartjni.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 10534912 (alineado a 16 KB)
+  lib/arm64-v8a/libdatastore_shared_counter.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 10682368 (alineado a 16 KB)
+  lib/arm64-v8a/libflutter.so: PT_LOAD min 2**16, sin comprimir, desplazamiento 10698752 (alineado a 16 KB)
+  lib/armeabi-v7a/libapp.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 22462464 (alineado a 16 KB)
+  lib/armeabi-v7a/libdartjni.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 33980416 (alineado a 16 KB)
+  lib/armeabi-v7a/libdatastore_shared_counter.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 34062336 (alineado a 16 KB)
+  lib/armeabi-v7a/libflutter.so: PT_LOAD min 2**16, sin comprimir, desplazamiento 34078720 (alineado a 16 KB)
+  lib/x86_64/libapp.so: PT_LOAD min 2**16, sin comprimir, desplazamiento 42696704 (alineado a 16 KB)
+  lib/x86_64/libdartjni.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 53067776 (alineado a 16 KB)
+  lib/x86_64/libdatastore_shared_counter.so: PT_LOAD min 2**14, sin comprimir, desplazamiento 53198848 (alineado a 16 KB)
+  lib/x86_64/libflutter.so: PT_LOAD min 2**16, sin comprimir, desplazamiento 53215232 (alineado a 16 KB)
+OK: cumple 16 KB y los requisitos del badging
+== build/app/outputs/bundle/release/app-release.aab
+  base/lib/arm64-v8a/libapp.so: PT_LOAD min 2**16
+  base/lib/arm64-v8a/libdartjni.so: PT_LOAD min 2**14
+  base/lib/arm64-v8a/libdatastore_shared_counter.so: PT_LOAD min 2**14
+  base/lib/arm64-v8a/libflutter.so: PT_LOAD min 2**16
+  base/lib/armeabi-v7a/libapp.so: PT_LOAD min 2**14
+  base/lib/armeabi-v7a/libdartjni.so: PT_LOAD min 2**14
+  base/lib/armeabi-v7a/libdatastore_shared_counter.so: PT_LOAD min 2**14
+  base/lib/armeabi-v7a/libflutter.so: PT_LOAD min 2**16
+  base/lib/x86_64/libapp.so: PT_LOAD min 2**16
+  base/lib/x86_64/libdartjni.so: PT_LOAD min 2**14
+  base/lib/x86_64/libdatastore_shared_counter.so: PT_LOAD min 2**14
+  base/lib/x86_64/libflutter.so: PT_LOAD min 2**16
+OK: cumple 16 KB
+-rw-r--r-- 1 runner runner 65520018 Oct 25 22:16 build/app/outputs/bundle/release/app-release.aab
+-rw-r--r-- 1 runner runner 68367326 Oct 25 22:15 build/app/outputs/flutter-apk/app-release.apk
