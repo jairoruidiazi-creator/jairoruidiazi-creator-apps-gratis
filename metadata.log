@@ -1,0 +1,12 @@
+== sello
+  ok  capturas: 6 en Android y 6 en iOS, idiomas es, en
+  ok  play/es-419: título «Sello: cámara GPS de campo»
+  ok  ios/es-MX: nombre «Sello: cámara GPS de campo»
+  ok  play/en-US: título «Sello: GPS Field Camera»
+  ok  ios/en-US: nombre «Sello: GPS Field Camera»
+  ok  versión 1.0.0 (build 1)
+  ok  lib/ui/legal/legal_document.dart idéntico al original
+  ok  test/store/store_shots.dart idéntico al original
+declarado: NSPrivacyAccessedAPICategoryUserDefaults ['CA92.1']
+declarado: NSPrivacyAccessedAPICategoryDiskSpace ['E174.1', '85F4.1']
+sello: el manifiesto de privacidad cubre las API del código nativo propio (4 archivos)
