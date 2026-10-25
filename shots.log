@@ -1,0 +1,56 @@
+pilas: ícono correcto (1024 × 1024, opaco)
+2 gráficos en /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/build/store_listing
+Resolving dependencies...
+Downloading packages...
+  cli_util 0.4.2 (0.6.0 available)
+  cross_file 0.3.5+5 (0.4.0 available)
+  file_selector_macos 0.9.5+1 (0.9.5+2 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  lints 5.1.1 (6.1.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  posix 6.5.2 (6.5.3 available)
+  qr 3.0.2 (4.0.0 available)
+  shared_preferences_android 2.5.0 (2.5.3 available)
+  test_api 0.7.12 (0.7.15 available)
+  vector_graphics 1.2.3 (1.2.4 available)
+  web 1.1.1 (1.1.2 available)
+  xml 7.0.1 (7.1.0 available)
+Got dependencies!
+13 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/store_screenshots_test.dart: Capturas de Pilas en android_phone (variant: TargetPlatform.android)
+[captura] build/store_shots/android_phone/es/01-inicio.png (258 KB)
+[captura] build/store_shots/android_phone/es/02-tienda.png (174 KB)
+[captura] build/store_shots/android_phone/es/03-letras.png (137 KB)
+[captura] build/store_shots/android_phone/es/04-colorear.png (175 KB)
+[captura] build/store_shots/android_phone/es/05-logica.png (97 KB)
+[captura] build/store_shots/android_phone/es/06-informe.png (310 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/store_screenshots_test.dart: Capturas de Pilas en android_tablet (variant: TargetPlatform.android)
+[captura] build/store_shots/android_tablet/es/01-inicio.png (294 KB)
+[captura] build/store_shots/android_tablet/es/02-tienda.png (118 KB)
+[captura] build/store_shots/android_tablet/es/03-letras.png (126 KB)
+[captura] build/store_shots/android_tablet/es/04-colorear.png (207 KB)
+[captura] build/store_shots/android_tablet/es/05-logica.png (92 KB)
+[captura] build/store_shots/android_tablet/es/06-informe.png (405 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/store_screenshots_test.dart: Capturas de Pilas en iphone (variant: TargetPlatform.iOS)
+[captura] build/store_shots/iphone/es/01-inicio.png (274 KB)
+[captura] build/store_shots/iphone/es/02-tienda.png (172 KB)
+[captura] build/store_shots/iphone/es/03-letras.png (165 KB)
+[captura] build/store_shots/iphone/es/04-colorear.png (210 KB)
+[captura] build/store_shots/iphone/es/05-logica.png (116 KB)
+[captura] build/store_shots/iphone/es/06-informe.png (358 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/store_screenshots_test.dart: Capturas de Pilas en ipad (variant: TargetPlatform.iOS)
+[captura] build/store_shots/ipad/es/01-inicio.png (387 KB)
+[captura] build/store_shots/ipad/es/02-tienda.png (128 KB)
+[captura] build/store_shots/ipad/es/03-letras.png (119 KB)
+[captura] build/store_shots/ipad/es/04-colorear.png (258 KB)
+[captura] build/store_shots/ipad/es/05-logica.png (101 KB)
+[captura] build/store_shots/ipad/es/06-informe.png (440 KB)
+::endgroup::
+
+🎉 4 tests passed.
+26 imágenes compuestas en /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/build/store_listing
