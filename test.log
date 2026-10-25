@@ -1,0 +1,313 @@
+Resolving dependencies...
+Downloading packages...
+  cli_util 0.4.2 (0.6.0 available)
+  cross_file 0.3.5+5 (0.4.0 available)
+  file_selector_macos 0.9.5+1 (0.9.5+2 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  lints 5.1.1 (6.1.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  posix 6.5.2 (6.5.3 available)
+  qr 3.0.2 (4.0.0 available)
+  shared_preferences_android 2.5.0 (2.5.3 available)
+  test_api 0.7.12 (0.7.15 available)
+  vector_graphics 1.2.3 (1.2.4 available)
+  web 1.1.1 (1.1.2 available)
+  xml 7.0.1 (7.1.0 available)
+Got dependencies!
+13 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/mastery_test.dart: Regla de elegir: 5 de 6 al primer intento cinco aciertos de seis suben de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/mastery_test.dart: Regla de elegir: 5 de 6 al primer intento cuatro de seis mantienen el nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content2_test.dart: Cada cuento tiene páginas, tres preguntas válidas y hay al menos tres por tramo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/mastery_test.dart: Regla de elegir: 5 de 6 al primer intento dos ventanas seguidas con menos de tres aciertos bajan un nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/mastery_test.dart: Regla de elegir: 5 de 6 al primer intento no baja del nivel 1 ni sube del máximo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/mastery_test.dart: Regla de ordenar y trazar: 4 de 5
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/mastery_test.dart: Regla de tableros: 2 de 3 resueltos con eficiencia
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/mastery_test.dart: se guarda y se lee igual
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/mastery_test.dart: La guía para familias explica las mismas reglas que usa la app
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content2_test.dart: Las plantillas de trazo tienen ids únicos, puntos dentro del cuadro y se muestrean
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content2_test.dart: La evaluación del trazo premia seguir la guía y castiga el garabato
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content2_test.dart: M8: el trazo evalúa la dirección y el orden de las líneas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content2_test.dart: G11 y G17: datos de las plantillas y modo zurdo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content2_test.dart: Encajar y rompecabezas de imagen generan rondas resolubles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content2_test.dart: Los patrones de pixel art son cuadrados, usan colores de la paleta y hay simétricos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: Las opciones se reparten sin huecos grandes ni casillas enormes
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: patrones genera rondas válidas en todos sus tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: intruso genera rondas válidas en todos sus tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: carrera genera rondas válidas en todos sus tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: reloj genera rondas válidas en todos sus tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: sonidos genera rondas válidas en todos sus tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: cocina genera rondas válidas en todos sus tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: figuras genera rondas válidas en todos sus tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: clasifica genera rondas válidas en todos sus tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: cuerpo genera rondas válidas en todos sus tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: laboratorio genera rondas válidas en todos sus tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: emociones genera rondas válidas en todos sus tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: decisiones genera rondas válidas en todos sus tramos y niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: Los bancos de preguntas están completos y generan rondas válidas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: Las fracciones se nombran en palabras
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: El reloj nombra las horas como se dicen en Colombia
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: La tienda genera rondas válidas de elegir y de pagar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: La tienda cobra precios razonables: nada de fresas de catorce mil pesos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: El tablero de memoria tiene cada pareja dos veces
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/generators_test.dart: M8: el cuadrado del perímetro se dibuja cuadrado y el rectángulo, rectángulo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/legal_document_test.dart: el Markdown reducido se convierte en bloques
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/legal_document_test.dart: la política (es) está completa y solo usa la sintaxis que la app dibuja
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/legal_document_test.dart: la política (en) está completa y solo usa la sintaxis que la app dibuja
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/legal_document_test.dart: las dos versiones tienen la misma fecha y la misma estructura
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/legal_document_test.dart: la pantalla muestra la política de principio a fin
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: La regla de elegir con tres opciones da menos del 2 % al azar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: patrones: tocar al azar no sube de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: intruso: tocar al azar no sube de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: carrera: tocar al azar no sube de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: reloj: tocar al azar no sube de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: sonidos: tocar al azar no sube de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: cocina: tocar al azar no sube de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: figuras: tocar al azar no sube de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: clasifica: tocar al azar no sube de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: cuerpo: tocar al azar no sube de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: laboratorio: tocar al azar no sube de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: emociones: tocar al azar no sube de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: decisiones: tocar al azar no sube de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: La tienda: tocar al azar no sube de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: Los juegos de ordenar: ordenar al azar no sube de nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: Tableros (M1): un jugador que toca al azar no sube de nivel Memoria: voltear cartas al azar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: Tableros (M1): un jugador que toca al azar no sube de nivel Laberintos: caminar al azar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: Tableros (M1): un jugador que toca al azar no sube de nivel Rompecabezas: soltar piezas o cambiar fichas al azar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: Tableros (M1): un jugador que toca al azar no sube de nivel Sudoku: poner símbolos al azar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: Tableros (M1): un jugador que toca al azar no sube de nivel Colorear por números: tocar zonas con colores al azar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/random_player_test.dart: Tableros (M1): un jugador que toca al azar no sube de nivel Pixel art: pintar casillas al azar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/storage_test.dart: Muchas escrituras seguidas del mismo archivo no se pisan ni dejan temporales
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/storage_test.dart: Si el archivo se daña, se recupera la copia y el dañado queda aparte
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/storage_test.dart: Si el archivo y su copia están dañados, se apartan y se avisa (nunca se pisan en silencio)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/storage_test.dart: Un avance dañado no borra a los demás niños y deja un aviso; la app arranca igual
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/storage_test.dart: Un JSON válido pero con otro formato se aparta tal cual y se avisa
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/palette_test.dart: Paleta normal
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/palette_test.dart: Paleta de alto contraste
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/palette_test.dart: El alto contraste llega al tema de toda la app
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: memoria cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: memoria cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: memoria cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: memoria cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: patrones cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: patrones cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: patrones cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: patrones cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: intruso cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: intruso cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: intruso cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laberintos cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laberintos cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laberintos cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laberintos cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: rompecabezas cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: rompecabezas cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: rompecabezas cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: rompecabezas cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: sudoku cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: sudoku cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: sudoku cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: tienda cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: tienda cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: tienda cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: tienda cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: carrera cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: carrera cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: carrera cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: reloj cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: reloj cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: reloj cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: sonidos cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: sonidos cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cocina cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cocina cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cocina cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: figuras cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: figuras cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: figuras cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: figuras cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: trazo cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: trazo cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuentos cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuentos cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuentos cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuentos cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: palabra cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: palabra cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: palabra cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: oracion cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: oracion cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: oracion cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: clasifica cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: clasifica cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: clasifica cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: clasifica cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuerpo cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuerpo cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuerpo cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: cuerpo cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laboratorio cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laboratorio cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laboratorio cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: laboratorio cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: colorear cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: colorear cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: colorear cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: colorear cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: colorear_numeros cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: colorear_numeros cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: colorear_numeros cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: dibujo cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: dibujo cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: dibujo cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: dibujo cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: pixel cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: pixel cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: emociones cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: emociones cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/carrera_test.dart: G1: el resumen de la carrera queda a la vista y «Otra carrera» se puede tocar (última errada)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: emociones cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: rutinas cabe y responde en 3-4, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: rutinas cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: decisiones cabe y responde en 5-6, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: decisiones cabe y responde en 7-8, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: decisiones cabe y responde en 9-11, en todos sus niveles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: G13: la pantalla de perfiles cabe en un teléfono con letra grande
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/games_smoke_test.dart: G13: en el inicio de los niños los pictogramas no se achican
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: G14: puerta para adultos Pide una multiplicación de dos números de 13 a 39 sin múltiplos de 5, en palabras
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: G14: puerta para adultos Ninguna multiplicación que entrenan la tienda o la carrera puede salir en la puerta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: G14: puerta para adultos M9: el contador de errores vuelve a cero tras 15 minutos sin errores
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: G14: puerta para adultos Dos errores sin espera; desde el tercero, 60 s, luego 120 s, 240 s…
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: G14: puerta para adultos Avisa por voz, no ofrece menú de texto y se bloquea tras varios errores
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: G14: puerta para adultos M1 (cuarta ronda): cerrar y abrir la puerta muestra la misma operación
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: G14: puerta para adultos M3: dos toques seguidos en «Entrar» cierran solo la puerta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: G15: el nombre del perfil no ofrece menú de texto
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: Pantalla de perfiles M1: el primer perfil también pasa por la puerta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: Pantalla de perfiles G1: cambiar de jugador mientras otro descansa pide la puerta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: Pantalla de perfiles G1: el jugador que está en su descanso ve el descanso
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: Pantalla de perfiles M5: un toque doble abre el inicio una sola vez
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: G2: el descanso no se cierra con atrás El botón atrás de Android no saca la pantalla de descanso
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: G2: el descanso no se cierra con atrás M5: el lector de pantalla oye los minutos, no cada segundo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: G2: el descanso no se cierra con atrás M4: durante el descanso la voz no lee el juego que quedó debajo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: M6: salir de un juego con atrás calla la voz
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: B3: compartir Pasa siempre el rectángulo del botón tocado como origen
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: B3: compartir Si la hoja de compartir falla, avisa en pantalla
+No se pudo compartir: Exception: sin hoja
+::endgroup::
+::group::✅ Passing tests
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/ui_flows_test.dart: B3: compartir Los nombres de archivo quedan seguros
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/boards_test.dart: Los laberintos siempre tienen salida y la llave es alcanzable
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/boards_test.dart: Los sudokus tienen solución válida, única y el número de pistas esperado
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/boards_test.dart: Arma la palabra: las fichas contienen todas las letras y los distractores no repiten
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/boards_test.dart: Ordena la oración y rutinas producen rondas coherentes
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/boards_test.dart: M7: se aceptan los órdenes que también son válidos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/boards_test.dart: Sudoku: un callejón sin salida se detecta y se marcan las casillas que no van
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/boards_test.dart: Pixel art: cada nivel agranda la cuadrícula y hay modelos de cada tamaño
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/skills_coverage_test.dart: Cada habilidad del mapa la evalúa al menos un juego de su tramo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/skills_coverage_test.dart: Cada juego apunta a habilidades existentes de su tramo y área
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/skills_coverage_test.dart: Ninguna habilidad la evalúan dos juegos del mismo tramo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/skills_coverage_test.dart: La ficha y el registro tienen 26 juegos y los nombres que se anuncian
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/app_test.dart: los perfiles y el progreso se guardan en disco
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/app_test.dart: exportar e importar conserva perfiles y grupos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/app_test.dart: la app arranca en la pantalla de perfiles
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/fonemas_cuentos_test.dart: G7: sonidos como suenan en Colombia El sonido inicial se compara por fonema, no por letra
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/fonemas_cuentos_test.dart: G7: sonidos como suenan en Colombia Las rondas de sonido aceptan solo palabras con ese sonido y nunca marcan mal una correcta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/fonemas_cuentos_test.dart: G7: sonidos como suenan en Colombia Las rondas de letra usan letras que suenan siempre igual al principio
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/fonemas_cuentos_test.dart: M2 (cuarta ronda): varias palabras modelo y varias respuestas Cada sonido y cada letra tienen al menos dos modelos válidos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/fonemas_cuentos_test.dart: M2 (cuarta ronda): varias palabras modelo y varias respuestas Con 200 semillas, cada sonido y cada letra salen con dos modelos y dos respuestas distintas
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/fonemas_cuentos_test.dart: M2 (cuarta ronda): varias palabras modelo y varias respuestas En cada tramo y nivel, ningún sonido tiene una sola respuesta posible
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/fonemas_cuentos_test.dart: G6: cuentos La pantalla baraja las opciones: la correcta cambia de lugar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/fonemas_cuentos_test.dart: Cada pictograma que usa la app existe en assets/emoji
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/fonemas_cuentos_test.dart: G11: datos corregidos de figuras, rutinas y luna
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/app_state_test.dart: B1: el avance nunca se pisa con uno vacío Abrir el panel (leer el avance de todos) y luego jugar conserva el nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/app_state_test.dart: B1: el avance nunca se pisa con uno vacío Pedir el avance de un perfil desconocido no crea nada que se guarde
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/app_state_test.dart: B1: el avance nunca se pisa con uno vacío Importar junta el avance sin borrarlo ni inflarlo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/app_state_test.dart: M6: importar la sesión que sigue abierta no la duplica y se queda con la más larga
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/app_state_test.dart: G1: tiempo por sesión, solo en primer plano, con descanso que persiste Solo cuenta el tiempo en primer plano y la sesión termina tras 10 minutos sin jugar
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/app_state_test.dart: G1: tiempo por sesión, solo en primer plano, con descanso que persiste Al cumplirse el límite empieza un descanso que no se salta cerrando la app
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/app_state_test.dart: G1: tiempo por sesión, solo en primer plano, con descanso que persiste Un adulto da 10 minutos más
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/app_state_test.dart: G1: tiempo por sesión, solo en primer plano, con descanso que persiste Si el reloj del teléfono se atrasa, el descanso no se alarga
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: formato de pesos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: pesos en palabras
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: el parser de paths cierra figuras y detecta puntos dentro
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: las láminas se leen desde JSON
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: el vocabulario es consistente
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: el catálogo de habilidades cubre todas las áreas y tramos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: la puerta parental acepta solo la respuesta correcta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: los números en palabras llevan sus tildes y su género
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: tramos por edad
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/content_test.dart: La voz dice en palabras los precios, porcentajes, medidas y signos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/colorear_test.dart: B2: el blanco es un color y la goma borra, en los dos modos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/colorear_test.dart: B2: las 12 láminas por números se terminan en pantalla y cada una registra su ronda
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/colorear_test.dart: G4: colorear libre no guarda una lámina en blanco ni da habilidades
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/informe_y_extras_test.dart: G5 y M14: el informe cuenta las habilidades del tramo actual y los aciertos sin juegos libres
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/informe_y_extras_test.dart: M15: la tabla del grupo se abre bien en Excel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/informe_y_extras_test.dart: M3: borrar un perfil borra también sus dibujos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/informe_y_extras_test.dart: M5, N1 y N2: al borrar un perfil se borran todas sus copias, los respaldos de avisos y solo sus avisos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/informe_y_extras_test.dart: N5: un aviso de Ana ya descartado, sin avisos vigentes ni copias dañadas, tampoco queda en el respaldo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/informe_y_extras_test.dart: N2: los avisos nuevos llevan el id del perfil y se reconocen por él
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/informe_y_extras_test.dart: M7 (tercera ronda): el perfil borrado no queda en el respaldo ni vuelve al recuperarlo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/informe_y_extras_test.dart: G18: la carrera guarda la marca propia y solo la cambia si se supera
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/informe_y_extras_test.dart: G17: texto grande multiplica la letra del sistema, con tope
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/informe_y_extras_test.dart: M12: los avatares tienen nombre para el lector de pantalla
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/informe_y_extras_test.dart: M19: sin voz en español, el inicio de los que no leen lo avisa
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/informe_y_extras_test.dart: G20: de 7 a 11 años, las zonas y la paleta llevan la misma letra
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/informe_y_extras_test.dart: G4: Dibujo y sellos no da nada por un lienzo vacío ni da habilidades
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/informe_y_extras_test.dart: M17: en pixel art, comparar marca lo que falta y no borra lo pintado
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/rompecabezas_test.dart: Cada imagen del rompecabezas tiene fichas distintas en los tamaños en que se usa
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/rompecabezas_test.dart: Cada tamaño de rompecabezas tiene varias imágenes y el tamaño sale del nivel
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/carrera_test.dart: G1: el resumen de la carrera queda a la vista y «Otra carrera» se puede tocar (última acertada)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: perfiles cabe con la letra al doble en 360 × 740
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: inicio del niño cabe con la letra al doble en 360 × 740
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/grammar_test.dart: Las reglas de la prueba detectan los errores que encontró la auditoría
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: pegatinas cabe con la letra al doble en 360 × 740
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: editar perfil cabe con la letra al doble en 360 × 740
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: panel de adultos cabe con la letra al doble en 360 × 740
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: ajustes cabe con la letra al doble en 360 × 740
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: modo docente cabe con la letra al doble en 360 × 740
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: guía para familias cabe con la letra al doble en 360 × 740
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: informe del niño cabe con la letra al doble en 360 × 740
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: descanso cabe con la letra al doble en 360 × 740
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: puerta para adultos cabe con la letra al doble en 360 × 740
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: resumen de la carrera cabe con la letra al doble en 360 × 740
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: perfiles cabe con la letra al doble en 740 × 360
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: inicio del niño cabe con la letra al doble en 740 × 360
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: pegatinas cabe con la letra al doble en 740 × 360
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: editar perfil cabe con la letra al doble en 740 × 360
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: panel de adultos cabe con la letra al doble en 740 × 360
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: ajustes cabe con la letra al doble en 740 × 360
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: modo docente cabe con la letra al doble en 740 × 360
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: guía para familias cabe con la letra al doble en 740 × 360
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: informe del niño cabe con la letra al doble en 740 × 360
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: descanso cabe con la letra al doble en 740 × 360
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: puerta para adultos cabe con la letra al doble en 740 × 360
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: resumen de la carrera cabe con la letra al doble en 740 × 360
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: M3 (cuarta ronda): con letra ×2 el número de pegatinas de una tarjeta no se corta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: M4 (cuarta ronda): con el teclado abierto y letra ×2, «Entrar» se alcanza (360 × 740)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/texto_grande_test.dart: M4 (cuarta ronda): con el teclado abierto y letra ×2, «Entrar» se alcanza (740 × 360)
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/semantica_test.dart: Clasifica: ¿dónde vive? tiene una sola respuesta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/semantica_test.dart: Clasifica: ¿cuál vive en…? ningún distractor vive ahí
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/semantica_test.dart: Clasifica: grupos de animales sin distractores del mismo grupo
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/semantica_test.dart: Clasifica: ¿cuál salta? los distractores claramente no se mueven así
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/semantica_test.dart: El intruso: el intruso no es del grupo, los demás sí, y no hay otro intruso posible
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/semantica_test.dart: ¿Qué siento?: concordancia de género y distractores que no también valdrían
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/semantica_test.dart: M9: el intruso numérico tiene una sola respuesta y ¿Qué sigue? no ofrece negativos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/semantica_test.dart: M10: la balanza compara cosas distintas y dice cuál pesa más de verdad
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/conteo_test.dart: La lista de pictogramas para contar es la misma del código y no trae ninguno múltiple
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/conteo_test.dart: «¿Cuántas hay?»: se dibujan exactamente las que dice la respuesta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/conteo_test.dart: «¿Dónde hay más?»: cada canasta trae las que dice su nombre
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/conteo_test.dart: Multiplicar y precio por unidad: un pictograma entero por cada unidad
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/conteo_test.dart: Cocina: los huevos que van al tazón son los de la respuesta
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/conteo_test.dart: Cuentos: si el texto dice cuántos hay, la escena muestra esos mismos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/grammar_test.dart: Barrido de gramática: miles de rondas de todos los juegos de elegir
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/grammar_test.dart: La tienda concuerda en número: «Las tijeras cuestan…»
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/grammar_test.dart: Juegos de ordenar, memoria y laberintos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/grammar_test.dart: Cuentos, emociones y textos fijos
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/grammar_test.dart: Es pone «el» y «un» ante la a tónica, y el demostrativo según el género
+✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/pilas/test/grammar_test.dart: Barrido de los textos escritos en el código: artículos, demostrativos y contracciones
+::endgroup::
+
+🎉 286 tests passed.
