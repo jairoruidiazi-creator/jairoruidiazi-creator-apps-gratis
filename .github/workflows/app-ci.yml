@@ -120,6 +120,18 @@ jobs:
           name: ${{ inputs.app }}-android-apk
           path: apps/${{ inputs.app }}/build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
+      # APK de prueba en una rama huérfana (ci-apk-<app>), para instalarlo en un
+      # teléfono sin entrar a Actions. Va firmado con la llave temporal de esta
+      # corrida: no sirve para las tiendas y, para instalar uno más nuevo, hay
+      # que desinstalar antes el anterior.
+      - name: Publicar APK de prueba
+        if: success() && github.ref == 'refs/heads/main'
+        working-directory: .
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          cp "apps/${{ inputs.app }}/build/app/outputs/flutter-apk/app-release.apk" "apps/${{ inputs.app }}/${{ inputs.app }}-prueba.apk"
+          bash tools/ci/publish_logs.sh ci-apk-${{ inputs.app }} "apps/${{ inputs.app }}/${{ inputs.app }}-prueba.apk"
       - name: Publicar registros
         if: always()
         working-directory: .
