@@ -1,0 +1,11 @@
+== plata
+  ok  capturas: 7 en Android y 6 en iOS, idiomas es, en
+  ok  play/es-419: título «Plata: finanzas personales»
+  ok  ios/es-MX: nombre «Plata: finanzas personales»
+  ok  play/en-US: título «Plata: Personal Finance»
+  ok  ios/en-US: nombre «Plata: Personal Finance»
+  ok  versión 1.0.0 (build 1)
+  ok  lib/ui/legal/legal_document.dart idéntico al original
+  ok  test/store/store_shots.dart idéntico al original
+declarado: NSPrivacyAccessedAPICategoryUserDefaults ['CA92.1']
+plata: el manifiesto de privacidad cubre las API del código nativo propio (4 archivos)
