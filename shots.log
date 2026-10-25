@@ -1,0 +1,85 @@
+plata: ícono correcto (1024 × 1024, opaco)
+4 gráficos en /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/build/store_listing
+Resolving dependencies...
+Downloading packages...
+  cli_util 0.4.2 (0.6.0 available)
+  cross_file 0.3.5+5 (0.4.0 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  lints 5.1.1 (6.1.0 available)
+  material_color_utilities 0.13.0 (0.13.1 available)
+  test_api 0.7.12 (0.7.15 available)
+Got dependencies!
+6 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/store_screenshots_test.dart: Capturas de Plata en android_phone (es) (variant: TargetPlatform.android)
+[captura] build/store_shots/android_phone/es/01-inicio.png (235 KB)
+[captura] build/store_shots/android_phone/es/02-anotar.png (162 KB)
+[captura] build/store_shots/android_phone/es/03-informes.png (196 KB)
+[captura] build/store_shots/android_phone/es/04-presupuestos.png (236 KB)
+[captura] build/store_shots/android_phone/es/05-calendario.png (153 KB)
+[captura] build/store_shots/android_phone/es/06-tarjeta.png (296 KB)
+[captura] build/store_shots/android_phone/es/07-avisos.png (325 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/store_screenshots_test.dart: Capturas de Plata en android_phone (en) (variant: TargetPlatform.android)
+[captura] build/store_shots/android_phone/en/01-inicio.png (226 KB)
+[captura] build/store_shots/android_phone/en/02-anotar.png (159 KB)
+[captura] build/store_shots/android_phone/en/03-informes.png (190 KB)
+[captura] build/store_shots/android_phone/en/04-presupuestos.png (219 KB)
+[captura] build/store_shots/android_phone/en/05-calendario.png (151 KB)
+[captura] build/store_shots/android_phone/en/06-tarjeta.png (297 KB)
+[captura] build/store_shots/android_phone/en/07-avisos.png (320 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/store_screenshots_test.dart: Capturas de Plata en android_tablet (es) (variant: TargetPlatform.android)
+[captura] build/store_shots/android_tablet/es/01-inicio.png (309 KB)
+[captura] build/store_shots/android_tablet/es/02-anotar.png (158 KB)
+[captura] build/store_shots/android_tablet/es/03-informes.png (165 KB)
+[captura] build/store_shots/android_tablet/es/04-presupuestos.png (192 KB)
+[captura] build/store_shots/android_tablet/es/05-calendario.png (126 KB)
+[captura] build/store_shots/android_tablet/es/06-tarjeta.png (229 KB)
+[captura] build/store_shots/android_tablet/es/07-avisos.png (368 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/store_screenshots_test.dart: Capturas de Plata en android_tablet (en) (variant: TargetPlatform.android)
+[captura] build/store_shots/android_tablet/en/01-inicio.png (297 KB)
+[captura] build/store_shots/android_tablet/en/02-anotar.png (151 KB)
+[captura] build/store_shots/android_tablet/en/03-informes.png (162 KB)
+[captura] build/store_shots/android_tablet/en/04-presupuestos.png (183 KB)
+[captura] build/store_shots/android_tablet/en/05-calendario.png (126 KB)
+[captura] build/store_shots/android_tablet/en/06-tarjeta.png (225 KB)
+[captura] build/store_shots/android_tablet/en/07-avisos.png (350 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/store_screenshots_test.dart: Capturas de Plata en iphone (es) (variant: TargetPlatform.iOS)
+[captura] build/store_shots/iphone/es/01-inicio.png (279 KB)
+[captura] build/store_shots/iphone/es/02-anotar.png (197 KB)
+[captura] build/store_shots/iphone/es/03-informes.png (229 KB)
+[captura] build/store_shots/iphone/es/04-presupuestos.png (286 KB)
+[captura] build/store_shots/iphone/es/05-calendario.png (185 KB)
+[captura] build/store_shots/iphone/es/06-tarjeta.png (363 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/store_screenshots_test.dart: Capturas de Plata en iphone (en) (variant: TargetPlatform.iOS)
+[captura] build/store_shots/iphone/en/01-inicio.png (266 KB)
+[captura] build/store_shots/iphone/en/02-anotar.png (190 KB)
+[captura] build/store_shots/iphone/en/03-informes.png (235 KB)
+[captura] build/store_shots/iphone/en/04-presupuestos.png (272 KB)
+[captura] build/store_shots/iphone/en/05-calendario.png (188 KB)
+[captura] build/store_shots/iphone/en/06-tarjeta.png (368 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/store_screenshots_test.dart: Capturas de Plata en ipad (es) (variant: TargetPlatform.iOS)
+[captura] build/store_shots/ipad/es/01-inicio.png (289 KB)
+[captura] build/store_shots/ipad/es/02-anotar.png (173 KB)
+[captura] build/store_shots/ipad/es/03-informes.png (185 KB)
+[captura] build/store_shots/ipad/es/04-presupuestos.png (210 KB)
+[captura] build/store_shots/ipad/es/05-calendario.png (141 KB)
+[captura] build/store_shots/ipad/es/06-tarjeta.png (258 KB)
+::endgroup::
+::group::✅ /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/test/store_screenshots_test.dart: Capturas de Plata en ipad (en) (variant: TargetPlatform.iOS)
+[captura] build/store_shots/ipad/en/01-inicio.png (278 KB)
+[captura] build/store_shots/ipad/en/02-anotar.png (166 KB)
+[captura] build/store_shots/ipad/en/03-informes.png (177 KB)
+[captura] build/store_shots/ipad/en/04-presupuestos.png (206 KB)
+[captura] build/store_shots/ipad/en/05-calendario.png (139 KB)
+[captura] build/store_shots/ipad/en/06-tarjeta.png (252 KB)
+::endgroup::
+
+🎉 8 tests passed.
+56 imágenes compuestas en /home/runner/work/jairoruidiazi-creator-apps-gratis/jairoruidiazi-creator-apps-gratis/apps/plata/build/store_listing
