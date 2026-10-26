@@ -1,0 +1,42 @@
+name: Muestras de voz (Pilas)
+
+# Genera muestras de voces neuronales en español con licencia abierta, para
+# elegir la voz de Pilas. Se lanza a mano y deja los audios en la rama
+# huérfana voice-samples. No forma parte de la compilación de ninguna app.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  samples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Dependencias
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q espeak-ng ffmpeg
+          python -m pip install --quiet piper-tts==1.8.0 "kokoro>=0.9.4" soundfile
+      - name: Modelos
+        run: |
+          mkdir -p models
+          base=https://huggingface.co/rhasspy/piper-voices/resolve/main/es
+          for v in es_MX/claude/high/es_MX-claude-high es_MX/ald/medium/es_MX-ald-medium es_AR/daniela/high/es_AR-daniela-high; do
+            n=$(basename "$v")
+            curl -sSfL "$base/$v.onnx" -o "models/$n.onnx"
+            curl -sSfL "$base/$v.onnx.json" -o "models/$n.onnx.json"
+          done
+          ls -la models
+      - name: Generar
+        run: python3 tools/voice/samples.py models out
+      - name: Publicar
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash tools/ci/publish_logs.sh voice-samples out
